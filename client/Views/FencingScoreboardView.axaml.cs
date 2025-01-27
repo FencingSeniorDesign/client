@@ -1,6 +1,8 @@
 using System;
 using System.Timers;
 using Avalonia.Controls;
+using Avalonia.Input;
+using Avalonia.Media;
 using Avalonia.Threading;
 
 namespace client.Views
@@ -11,6 +13,7 @@ namespace client.Views
         private int _fencer2Score = 0;
         private TimeSpan _timeLeft = TimeSpan.FromMinutes(3);
         private Timer _timer;
+        private bool _isTimerRunning = false;
 
         public FencingScoreboardView()
         {
@@ -35,6 +38,7 @@ namespace client.Views
             else
             {
                 _timer.Stop();
+                _isTimerRunning = false;
             }
         }
 
@@ -78,6 +82,46 @@ namespace client.Views
             _fencer1Score++;
             _fencer2Score++;
             UpdateScores();
+        }
+
+        private void OnYellowCardClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+        {
+            ShowFullScreenOverlay(Brushes.Yellow);
+        }
+
+        private void OnRedCardClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+        {
+            ShowFullScreenOverlay(Brushes.Red);
+        }
+
+        private void OnBlackCardClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+        {
+            ShowFullScreenOverlay(Brushes.Black);
+        }
+
+        private void ShowFullScreenOverlay(IBrush color)
+        {
+            OverlayPanel.Background = color;
+            OverlayPanel.IsVisible = true;
+
+            OverlayPanel.PointerPressed += (s, e) =>
+            {
+                OverlayPanel.IsVisible = false;
+                OverlayPanel.Background = Brushes.Transparent;
+            };
+        }
+
+        private void OnTimerClick(object? sender, PointerPressedEventArgs e)
+        {
+            if (_isTimerRunning)
+            {
+                _timer.Stop();
+            }
+            else
+            {
+                _timer.Start();
+            }
+            _isTimerRunning = !_isTimerRunning;
         }
     }
 }
