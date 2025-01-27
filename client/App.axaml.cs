@@ -20,11 +20,13 @@ public partial class App : Application
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
             // Line below is needed to remove Avalonia data validation.
-            // Without this line you will get duplicate validations from both Avalonia and CT
+            // Without this line, you will get duplicate validations from both Avalonia and CT
             BindingPlugins.DataValidators.RemoveAt(0);
-            desktop.MainWindow = new MainWindow
+
+            // Set FencingScoreboardWindow as the main window
+            desktop.MainWindow = new FencingScoreboardWindow
             {
-                DataContext = new MainViewModel()
+                DataContext = new FencingScoreboardViewModel()
             };
         }
         else if (ApplicationLifetime is ISingleViewApplicationLifetime singleViewPlatform)

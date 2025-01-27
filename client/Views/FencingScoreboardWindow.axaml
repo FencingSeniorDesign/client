@@ -1,0 +1,16 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="clr-namespace:client.ViewModels"
+        xmlns:d="https://github.com/avaloniaui/designer"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:views="clr-namespace:client.Views"
+        mc:Ignorable="d"
+        x:Class="client.Views.FencingScoreboardWindow"
+        x:DataType="vm:FencingScoreboardViewModel">
+
+    <Window.DataContext>
+        <vm:FencingScoreboardViewModel />
+    </Window.DataContext>
+
+    <views:FencingScoreboardView/>
+</Window>

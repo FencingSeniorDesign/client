@@ -1,0 +1,92 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="https://github.com/avaloniaui/designer"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d"
+             x:Class="client.Views.FencingScoreboardView">
+
+    <Grid Background="#2C2C2C" RowDefinitions="Auto,*,Auto" ColumnDefinitions="*,*">
+        <!-- Timer -->
+        <TextBlock Grid.Row="0" Grid.ColumnSpan="2"
+                   x:Name="TimerText"
+                   FontSize="72"
+                   Foreground="White"
+                   HorizontalAlignment="Center"
+                   VerticalAlignment="Center" />
+
+        <!-- Fencer 1 -->
+        <StackPanel Grid.Row="1" Grid.Column="0" Spacing="10" HorizontalAlignment="Center">
+            <TextBlock Text="Fencer 1"
+                       FontSize="20"
+                       Foreground="White"
+                       HorizontalAlignment="Center" />
+            <Border Background="#4CAF50" CornerRadius="15" Padding="20" Margin="0,10,0,0">
+                <TextBlock x:Name="Fencer1Score" 
+                           FontSize="36"
+                           Foreground="White"
+                           HorizontalAlignment="Center"
+                           VerticalAlignment="Center" />
+            </Border>
+            <StackPanel Orientation="Horizontal" Spacing="10">
+                <Button Content="+"
+                        Background="#4CAF50"
+                        Foreground="White"
+                        FontSize="20"
+                        CornerRadius="30"
+                        Padding="10"
+                        Click="OnFencer1AddScore" />
+                <Button Content="-"
+                        Background="#F44336"
+                        Foreground="White"
+                        FontSize="20"
+                        CornerRadius="30"
+                        Padding="10"
+                        Click="OnFencer1SubtractScore" />
+            </StackPanel>
+        </StackPanel>
+
+        <!-- Fencer 2 -->
+        <StackPanel Grid.Row="1" Grid.Column="1" Spacing="10" HorizontalAlignment="Center">
+            <TextBlock Text="Fencer 2"
+                       FontSize="20"
+                       Foreground="White"
+                       HorizontalAlignment="Center" />
+            <Border Background="#F44336" CornerRadius="15" Padding="20" Margin="0,10,0,0">
+                <TextBlock x:Name="Fencer2Score" 
+                           FontSize="36"
+                           Foreground="White"
+                           HorizontalAlignment="Center"
+                           VerticalAlignment="Center" />
+            </Border>
+            <StackPanel Orientation="Horizontal" Spacing="10">
+                <Button Content="+"
+                        Background="#4CAF50"
+                        Foreground="White"
+                        FontSize="20"
+                        CornerRadius="30"
+                        Padding="10"
+                        Click="OnFencer2AddScore" />
+                <Button Content="-"
+                        Background="#F44336"
+                        Foreground="White"
+                        FontSize="20"
+                        CornerRadius="30"
+                        Padding="10"
+                        Click="OnFencer2SubtractScore" />
+            </StackPanel>
+        </StackPanel>
+
+        <!-- Double Button -->
+        <Button Grid.Row="2" Grid.ColumnSpan="2"
+                Content="Double!"
+                Background="#3F51B5"
+                Foreground="White"
+                FontSize="24"
+                CornerRadius="30"
+                Padding="10"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                Margin="0,20,0,0"
+                Click="OnDouble" />
+    </Grid>
+</UserControl>
