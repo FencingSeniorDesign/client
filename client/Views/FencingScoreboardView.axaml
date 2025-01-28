@@ -85,7 +85,7 @@
                         VerticalContentAlignment="Center"
                         Width="100"
                         Height="100"
-                        Click="OnFencer1AddScore" />
+                        Click="OnFencer2AddScore" />
                 <Button Content="-"
                         Background="#F44336"
                         Foreground="White"
@@ -97,7 +97,7 @@
                         VerticalContentAlignment="Center"
                         Width="100"
                         Height="100"
-                        Click="OnFencer1SubtractScore" />
+                        Click="OnFencer2SubtractScore" />
             </StackPanel>
         </StackPanel>
 
