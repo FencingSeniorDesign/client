@@ -1,0 +1,21 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="client.Views.HomeWindow"
+        Title="Home Page"
+        Width="800"
+        Height="450">
+
+    <StackPanel HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                Spacing="10">
+
+        <TextBlock Text="Welcome to the Home Page!"
+                   FontSize="24"
+                   HorizontalAlignment="Center" />
+
+        <Button Content="Open Fencing Scoreboard"
+                Width="200"
+                Click="OnOpenScoreboard" />
+
+    </StackPanel>
+</Window>

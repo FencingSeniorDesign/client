@@ -6,37 +6,32 @@ using Avalonia.Markup.Xaml;
 using client.ViewModels;
 using client.Views;
 
-namespace client;
-
-public partial class App : Application
+namespace client
 {
-    public override void Initialize()
+    public partial class App : Application
     {
-        AvaloniaXamlLoader.Load(this);
-    }
-
-    public override void OnFrameworkInitializationCompleted()
-    {
-        if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+        public override void Initialize()
         {
-            // Line below is needed to remove Avalonia data validation.
-            // Without this line, you will get duplicate validations from both Avalonia and CT
-            BindingPlugins.DataValidators.RemoveAt(0);
-
-            // Set FencingScoreboardWindow as the main window
-            desktop.MainWindow = new FencingScoreboardWindow
-            {
-                DataContext = new FencingScoreboardViewModel()
-            };
-        }
-        else if (ApplicationLifetime is ISingleViewApplicationLifetime singleViewPlatform)
-        {
-            singleViewPlatform.MainView = new MainView
-            {
-                DataContext = new MainViewModel()
-            };
+            AvaloniaXamlLoader.Load(this);
         }
 
-        base.OnFrameworkInitializationCompleted();
+        public override void OnFrameworkInitializationCompleted()
+        {
+            if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+            {
+                // The line below might exist if you have validation plugins; if not, ignore
+                BindingPlugins.DataValidators.RemoveAt(0);
+
+                // INSTEAD of scoreboard as main window, let's set HomeWindow as the main window
+                desktop.MainWindow = new HomeWindow();
+            }
+            else if (ApplicationLifetime is ISingleViewApplicationLifetime singleViewPlatform)
+            {
+                // (If you do single-view approach, adapt accordingly)
+                // singleViewPlatform.MainView = ...
+            }
+
+            base.OnFrameworkInitializationCompleted();
+        }
     }
 }

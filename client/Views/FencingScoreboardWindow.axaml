@@ -6,11 +6,23 @@
         xmlns:views="clr-namespace:client.Views"
         mc:Ignorable="d"
         x:Class="client.Views.FencingScoreboardWindow"
-        x:DataType="vm:FencingScoreboardViewModel">
+        x:DataType="vm:FencingScoreboardViewModel"
+        Title="Fencing Scoreboard"
+        Width="1200" Height="800">
 
     <Window.DataContext>
         <vm:FencingScoreboardViewModel />
     </Window.DataContext>
 
-    <views:FencingScoreboardView/>
+    <Grid RowDefinitions="Auto, *">
+        <!-- Row 0: "Go Back" button -->
+        <Button Grid.Row="0"
+                Content="Go Back"
+                Margin="10"
+                HorizontalAlignment="Left"
+                Click="OnGoBackClicked" />
+
+        <!-- Row 1: the scoreboard user control -->
+        <views:FencingScoreboardView Grid.Row="1"/>
+    </Grid>
 </Window>
