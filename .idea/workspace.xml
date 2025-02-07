@@ -1,0 +1,183 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="SELECTIVE" />
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="72e0fc27-c04a-4cc1-abcd-6b82e90f4d4a" name="Changes" comment="- Ref module functional&#10;- Create Tournament and DB functional&#10;- Homepage (mostly) functional&#10;- State persistence">
+      <changelist_data name="Ben Neeman" email="bentechnyc@gmail.com" automatic="false" />
+      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Directory.Build.props" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/client.Android/Icon.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/client.Android/MainActivity.cs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/client.Android/Properties/AndroidManifest.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/client.Android/Resources/AboutResources.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/client.Android/Resources/drawable-night-v31/avalonia_anim.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/client.Android/Resources/drawable-v31/avalonia_anim.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/client.Android/Resources/drawable/splash_screen.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/client.Android/Resources/values-night/colors.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/client.Android/Resources/values-v31/styles.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/client.Android/Resources/values/colors.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/client.Android/Resources/values/styles.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/client.Android/client.Android.csproj" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/client.Browser/Program.cs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/client.Browser/Properties/AssemblyInfo.cs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/client.Browser/Properties/launchSettings.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/client.Browser/client.Browser.csproj" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/client.Browser/runtimeconfig.template.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/client.Browser/wwwroot/app.css" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/client.Browser/wwwroot/favicon.ico" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/client.Browser/wwwroot/index.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/client.Browser/wwwroot/main.js" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/client.Desktop/Program.cs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/client.Desktop/app.manifest" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/client.Desktop/client.Desktop.csproj" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/client.iOS/AppDelegate.cs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/client.iOS/Entitlements.plist" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/client.iOS/Info.plist" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/client.iOS/Main.cs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/client.iOS/Resources/LaunchScreen.xib" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/client.iOS/client.iOS.csproj" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/client.sln" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/App.axaml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/App.axaml.cs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/Assets/avalonia-logo.ico" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/Commands/RelayCommands.cs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/ViewLocator.cs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/ViewModels/FencingScoreboardViewModel.cs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/ViewModels/MainViewModel.cs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/ViewModels/ViewModelBase.cs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/Views/FencingScoreboardView.axaml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/Views/FencingScoreboardView.axaml.cs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/Views/FencingScoreboardWindow.axaml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/Views/FencingScoreboardWindow.axaml.cs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/Views/HomeWindow.axaml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/Views/HomeWindow.axaml.cs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/Views/MainView.axaml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/Views/MainView.axaml.cs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/Views/MainWindow.axaml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/Views/MainWindow.axaml.cs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/client.csproj" beforeDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="FileTemplateManagerImpl">
+    <option name="RECENT_TEMPLATES">
+      <list>
+        <option value="TypeScript File" />
+        <option value="TypeScript JSX File" />
+      </list>
+    </option>
+  </component>
+  <component name="FormatOnSaveOptions">
+    <option name="myRunOnSave" value="false" />
+    <option name="myAllFileTypesSelected" value="true" />
+    <option name="mySelectedFileTypes">
+      <set />
+    </option>
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="ProjectColorInfo">{
+  &quot;associatedIndex&quot;: 3
+}</component>
+  <component name="ProjectId" id="2sgMMuPFHUm5LRBySNfuokqRdpC" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;RefModule&quot;,
+    &quot;last_opened_file_path&quot;: &quot;H:/DevFolder/TournaFenceReactNative&quot;,
+    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
+    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
+    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
+    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
+    &quot;npm.android.executor&quot;: &quot;Run&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;reference.settingsdialog.project.gradle&quot;,
+    &quot;ts.external.directory.path&quot;: &quot;H:\\DevFolder\\TournaFenceReactNative\\node_modules\\typescript\\lib&quot;,
+    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
+  }
+}</component>
+  <component name="RecentsManager">
+    <key name="MoveFile.RECENT_KEYS">
+      <recent name="H:\DevFolder\TournaFenceReactNative\src\hooks" />
+      <recent name="H:\DevFolder\TournaFenceReactNative\src\navigation\screens\RefereeModule" />
+      <recent name="H:\DevFolder\TournaFenceReactNative\src\navigation\screens" />
+      <recent name="H:\DevFolder\TournaFenceReactNative\src\navigation\screens\Homepage" />
+      <recent name="H:\DevFolder\TournaFenceReactNative\src\db" />
+    </key>
+  </component>
+  <component name="RunManager">
+    <configuration name="android" type="js.build_tools.npm" nameIsGenerated="true">
+      <package-json value="$PROJECT_DIR$/package.json" />
+      <command value="run" />
+      <scripts>
+        <script value="android" />
+      </scripts>
+      <node-interpreter value="project" />
+      <envs />
+      <method v="2" />
+    </configuration>
+  </component>
+  <component name="SharedIndexes">
+    <attachedChunks>
+      <set>
+        <option value="bundled-js-predefined-d6986cc7102b-822845ee3bb5-JavaScript-WS-243.23654.157" />
+      </set>
+    </attachedChunks>
+  </component>
+  <component name="SpellCheckerSettings" RuntimeDictionaries="0" Folders="0" CustomDictionaries="0" DefaultDictionary="application-level" UseSingleDictionary="true" transferred="true" />
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="72e0fc27-c04a-4cc1-abcd-6b82e90f4d4a" name="Changes" comment="" />
+      <created>1738872719769</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1738872719769</updated>
+      <workItem from="1738872721206" duration="442000" />
+      <workItem from="1738873177987" duration="82000" />
+      <workItem from="1738873866460" duration="30588000" />
+    </task>
+    <task id="LOCAL-00001" summary="- Ref module functional&#10;- Create Tournament and DB functional&#10;- Homepage (mostly) functional&#10;- State persistence">
+      <option name="closed" value="true" />
+      <created>1738912772045</created>
+      <option name="number" value="00001" />
+      <option name="presentableId" value="LOCAL-00001" />
+      <option name="project" value="LOCAL" />
+      <updated>1738912772045</updated>
+    </task>
+    <option name="localTasksCounter" value="2" />
+    <servers />
+  </component>
+  <component name="TypeScriptGeneratedFilesManager">
+    <option name="version" value="3" />
+  </component>
+  <component name="UnknownFeatures">
+    <option featureType="com.intellij.fileTypeFactory" implementationName=".env" />
+  </component>
+  <component name="Vcs.Log.Tabs.Properties">
+    <option name="TAB_STATES">
+      <map>
+        <entry key="MAIN">
+          <value>
+            <State />
+          </value>
+        </entry>
+      </map>
+    </option>
+  </component>
+  <component name="VcsManagerConfiguration">
+    <MESSAGE value="- Ref module functional&#10;- Create Tournament and DB functional&#10;- Homepage (mostly) functional&#10;- State persistence" />
+    <MESSAGE value="added page swaps" />
+    <option name="LAST_COMMIT_MESSAGE" value="added page swaps" />
+  </component>
+</project>
