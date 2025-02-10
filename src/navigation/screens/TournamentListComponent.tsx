@@ -23,7 +23,7 @@ export const TournamentList: React.FC<TournamentListProps> = ({
 
     const handleTournamentPress = (tournamentName: string) => {
         // @ts-ignore
-        navigation.navigate('EditTournament', { tournamentName });
+        navigation.navigate('EventManagement', { tournamentName });
     };
 
     const handleDelete = async (tournamentName: string) => {

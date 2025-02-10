@@ -1,15 +1,15 @@
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { HeaderButton, Text } from '@react-navigation/elements';
-import {
-  createStaticNavigation,
-  StaticParamList,
-} from '@react-navigation/native';
+// index.tsx
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { Home } from './screens/Home';
+import { createStaticNavigation, StaticParamList } from '@react-navigation/native';
 
-import { EditTournament } from "./screens/EditTournament"
-import { RefereeModule } from "./screens/RefereeModule/RefereeModule";
+import {Home} from './screens/Home';
+import { EventManagement } from './screens/EventManagement';
+import { EventSettings } from './screens/EventSettings';
+import { RefereeModule } from './screens/RefereeModule/RefereeModule';
+import PoolsPage from './screens/PoolsPage';
 
+// NEW: Import the new BoutOrderPage
+import BoutOrderPage from './screens/BoutOrderPage';
 
 const RootStack = createNativeStackNavigator({
   screens: {
@@ -20,41 +20,17 @@ const RootStack = createNativeStackNavigator({
         headerShown: false,
       },
     },
-    // HomeTabs: {
-    //   screen: HomeTabs,
-    //   options: {
-    //     title: 'Home',
-    //     headerShown: false,
-    //   },
-    // },
-    // Profile: {
-    //   screen: Profile,
-    //   linking: {
-    //     path: ':user(@[a-zA-Z0-9-_]+)',
-    //     parse: {
-    //       user: (value) => value.replace(/^@/, ''),
-    //     },
-    //     stringify: {
-    //       user: (value) => `@${value}`,
-    //     },
-    //   },
-    // },
-    // Settings: {
-    //   screen: Settings,
-    //   options: ({ navigation }) => ({
-    //     presentation: 'modal',
-    //     headerRight: () => (
-    //       <HeaderButton onPress={navigation.goBack}>
-    //         <Text>Close</Text>
-    //       </HeaderButton>
-    //     ),
-    //   }),
-    // },
-    EditTournament: {
-      screen: EditTournament,
-      options: ({ navigation }) => ({
-        // presentation: 'modal',
-      }),
+    EventManagement: {
+      screen: EventManagement,
+      options: {
+        title: 'Event Management',
+      },
+    },
+    EventSettings: {
+      screen: EventSettings,
+      options: {
+        title: 'Event Settings',
+      },
     },
     RefereeModule: {
       screen: RefereeModule,
@@ -62,14 +38,27 @@ const RootStack = createNativeStackNavigator({
         title: 'Referee Module',
       },
     },
-
+    PoolsPage: {
+      screen: PoolsPage,
+      options: {
+        title: 'Pools',
+      },
+    },
+    // ADD THIS SCREEN
+    BoutOrderPage: {
+      screen: BoutOrderPage,
+      options: {
+        title: 'Bout Order',
+      },
+    },
   },
 });
 
 export const Navigation = createStaticNavigation(RootStack);
 
-type RootStackParamList = StaticParamList<typeof RootStack>;
+export type RootStackParamList = StaticParamList<typeof RootStack>;
 
+// Extend React Navigation types with our RootStackParamList
 declare global {
   namespace ReactNavigation {
     interface RootParamList extends RootStackParamList {}
