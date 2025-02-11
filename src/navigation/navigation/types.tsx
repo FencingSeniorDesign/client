@@ -7,36 +7,53 @@ export type Fencer = {
     rating: string;
 };
 
+export type RoundData = {
+    roundType: 'Pools' | 'DE';
+    promotion?: number;
+};
+
 export type Event = {
     id: number;
     gender: string;
     weapon: string;
-    round: string;
+    rounds: RoundData[];
     name: string;
     fencers: Fencer[];
     poolCount: number;
     fencersPerPool: number;
 };
 
+/**
+ * If you're using the DEBracketData from the RoundAlgorithms,
+ * import it so we can use it in the route param below:
+ */
+import { DEBracketData } from '../utils/RoundAlgorithms';
+
 export type RootStackParamList = {
     HomeTabs: undefined;
-    EventManagement: { tournamentName: string };
+    EditTournament: { tournamentName: string };
     EventSettings: {
         event: Event;
         onSave: (updatedEvent: Event) => void;
     };
     RefereeModule: undefined;
     PoolsPage: {
-        eventId: number;
+        event: Event;
+        currentRoundIndex: number;
         fencers: Fencer[];
         poolCount: number;
         fencersPerPool: number;
     };
-    /**
-     * ADD THIS:
-     * Route to display the bout order for a specific pool’s fencers.
-     */
     BoutOrderPage: {
         poolFencers: Fencer[];
+    };
+
+    /**
+     * NEW ROUTE for DE bracket display:
+     */
+    DEBracketPage: {
+        event: Event;
+        currentRoundIndex: number;
+        bracketData: DEBracketData;
     };
 };

@@ -1,15 +1,20 @@
 // index.tsx
+
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createStaticNavigation, StaticParamList } from '@react-navigation/native';
 
-import {Home} from './screens/Home';
+import { Home } from './screens/Home';
 import { EventManagement } from './screens/EventManagement';
 import { EventSettings } from './screens/EventSettings';
 import { RefereeModule } from './screens/RefereeModule/RefereeModule';
 import PoolsPage from './screens/PoolsPage';
-
-// NEW: Import the new BoutOrderPage
 import BoutOrderPage from './screens/BoutOrderPage';
+
+/**
+ * NEW: import your DEBracketPage
+ * (wherever you put it, e.g. ./screens/DEBracketPage)
+ */
+import DEBracketPage from './screens/DEBracketPage';
 
 const RootStack = createNativeStackNavigator({
   screens: {
@@ -23,7 +28,7 @@ const RootStack = createNativeStackNavigator({
     EventManagement: {
       screen: EventManagement,
       options: {
-        title: 'Event Management',
+        title: 'Edit Tournament',
       },
     },
     EventSettings: {
@@ -44,11 +49,19 @@ const RootStack = createNativeStackNavigator({
         title: 'Pools',
       },
     },
-    // ADD THIS SCREEN
     BoutOrderPage: {
       screen: BoutOrderPage,
       options: {
         title: 'Bout Order',
+      },
+    },
+    /**
+     * REGISTER THE NEW DE BRACKET SCREEN
+     */
+    DEBracketPage: {
+      screen: DEBracketPage,
+      options: {
+        title: 'DE Bracket',
       },
     },
   },
@@ -58,7 +71,10 @@ export const Navigation = createStaticNavigation(RootStack);
 
 export type RootStackParamList = StaticParamList<typeof RootStack>;
 
-// Extend React Navigation types with our RootStackParamList
+/**
+ * Extend ReactNavigation's global types so
+ * "useNavigation()" and "useRoute()" know about your routes
+ */
 declare global {
   namespace ReactNavigation {
     interface RootParamList extends RootStackParamList {}
