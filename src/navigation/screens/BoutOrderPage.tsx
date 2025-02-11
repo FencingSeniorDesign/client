@@ -1,4 +1,5 @@
 // screens/BoutOrderPage.tsx
+
 import React, { useEffect, useState } from 'react';
 import {
     View,
@@ -7,14 +8,17 @@ import {
     ScrollView,
     TouchableOpacity,
     TextInput,
-    StyleProp,
-    ViewStyle,
-    TextStyle,
+    Modal,
+    Alert,
 } from 'react-native';
-import { RouteProp, useRoute } from '@react-navigation/native';
+import { useRoute, RouteProp } from '@react-navigation/native';
 import { RootStackParamList, Fencer } from '../navigation/types';
 
+/**
+ * Navigation param for "BoutOrderPage"
+ */
 type BoutOrderPageRouteProps = RouteProp<RootStackParamList, 'BoutOrderPage'>;
+
 type BoutStatus = 'pending' | 'active' | 'completed';
 
 type Bout = {
@@ -27,31 +31,71 @@ type Bout = {
 
 const BoutOrderPage: React.FC = () => {
     const route = useRoute<BoutOrderPageRouteProps>();
-    const { poolFencers } = route.params;
+    const { poolFencers } = route.params; // fix for route.getState() problem
 
+    // local states
     const [bouts, setBouts] = useState<Bout[]>([]);
-    const [activeBoutIndex, setActiveBoutIndex] = useState<number>(0);
     const [expandedBoutIndex, setExpandedBoutIndex] = useState<number | null>(null);
 
+    // Toggles at the top
+    const [protectedScores, setProtectedScores] = useState<boolean>(false);
+    const [doubleStrip, setDoubleStrip] = useState<boolean>(false);
+
+    // "Alter Scores" modal
+    const [alterModalVisible, setAlterModalVisible] = useState<boolean>(false);
+    const [alterIndex, setAlterIndex] = useState<number | null>(null);
+    const [alterScoreA, setAlterScoreA] = useState<string>('0');
+    const [alterScoreB, setAlterScoreB] = useState<string>('0');
+
+    // "Save Completed Pool"
+    const [poolCompleted, setPoolCompleted] = useState<boolean>(false);
+
+    /**
+     * On mount, generate all bouts in a round-robin, shuffle, reorder to avoid consecutive
+     * same-fencer bouts, then set the first concurrency to 'active'.
+     */
     useEffect(() => {
-        // Generate pairs (round robin)
+        const newBouts: Bout[] = buildInitialBouts();
+        // Mark the first concurrency bouts active
+        const concurrency = doubleStrip ? 2 : 1;
+        const final = applyConcurrency(newBouts, concurrency);
+        setBouts(final);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    /**
+     * If user toggles doubleStrip, recalc concurrency for the existing bouts
+     */
+    useEffect(() => {
+        if (!bouts.length) return; // only if we have bouts
+        const concurrency = doubleStrip ? 2 : 1;
+        const updated = applyConcurrency(bouts, concurrency);
+        // If nothing changed, don't setBouts
+        if (!areBoutsSame(updated, bouts)) {
+            setBouts(updated);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [doubleStrip]);
+
+    /**
+     * Build initial round-robin + reorder. Used only once on mount.
+     */
+    function buildInitialBouts(): Bout[] {
+        // build all pairs
         const allPairs: Array<[Fencer, Fencer]> = [];
         for (let i = 0; i < poolFencers.length; i++) {
             for (let j = i + 1; j < poolFencers.length; j++) {
                 allPairs.push([poolFencers[i], poolFencers[j]]);
             }
         }
-        // Shuffle
+        // shuffle
         const shuffled = [...allPairs].sort(() => Math.random() - 0.5);
-
-        // Attempt reordering to avoid consecutive same-fencer bouts
+        // reorder to avoid consecutive same-fencer
         const arranged: Array<[Fencer, Fencer]> = [];
-        while (shuffled.length > 0) {
-            let pair = shuffled.shift() as [Fencer, Fencer];
-            if (
-                arranged.length > 0 &&
-                sharesFencer(arranged[arranged.length - 1], pair)
-            ) {
+        while (shuffled.length) {
+            let pair = shuffled.shift()!;
+            if (arranged.length && sharesFencer(arranged[arranged.length - 1], pair)) {
+                // find non-conflicting
                 let foundIndex = -1;
                 for (let k = 0; k < shuffled.length; k++) {
                     if (!sharesFencer(arranged[arranged.length - 1], shuffled[k])) {
@@ -67,215 +111,367 @@ const BoutOrderPage: React.FC = () => {
             }
             arranged.push(pair);
         }
-
-        // Initialize
-        const initialBouts: Bout[] = arranged.map((pair, index) => ({
+        // build Bouts, all 'pending' initially
+        return arranged.map((pair) => ({
             fencerA: pair[0],
             fencerB: pair[1],
             scoreA: 0,
             scoreB: 0,
-            status: index === 0 ? 'active' : 'pending',
+            status: 'pending' as BoutStatus,
         }));
-        setBouts(initialBouts);
-    }, [poolFencers]);
+    }
 
-    const sharesFencer = (p1: [Fencer, Fencer], p2: [Fencer, Fencer]) =>
-        p1[0].id === p2[0].id ||
-        p1[0].id === p2[1].id ||
-        p1[1].id === p2[0].id ||
-        p1[1].id === p2[1].id;
+    function sharesFencer(p1: [Fencer, Fencer], p2: [Fencer, Fencer]) {
+        return (
+            p1[0].id === p2[0].id ||
+            p1[0].id === p2[1].id ||
+            p1[1].id === p2[0].id ||
+            p1[1].id === p2[1].id
+        );
+    }
 
+    /**
+     * Re-apply concurrency: first N non-completed bouts => 'active', rest => 'pending'
+     */
+    function applyConcurrency(boutsArr: Bout[], concurrency: number): Bout[] {
+        const updated = boutsArr.map((b) =>
+            b.status === 'completed' ? b : { ...b, status: 'pending' }
+        );
+        let count = 0;
+        for (let i = 0; i < updated.length; i++) {
+            if (updated[i].status !== 'completed') {
+                if (count < concurrency) {
+                    updated[i].status = 'active';
+                    count++;
+                } else {
+                    updated[i].status = 'pending';
+                }
+            }
+        }
+        return updated;
+    }
+
+    /**
+     * Compare two bout arrays quickly (shallow).
+     */
+    function areBoutsSame(a: Bout[], b: Bout[]): boolean {
+        if (a.length !== b.length) return false;
+        for (let i = 0; i < a.length; i++) {
+            // check simple fields that might differ
+            if (a[i].status !== b[i].status) return false;
+            if (a[i].scoreA !== b[i].scoreA) return false;
+            if (a[i].scoreB !== b[i].scoreB) return false;
+            if (a[i].fencerA.id !== b[i].fencerA.id) return false;
+            if (a[i].fencerB.id !== b[i].fencerB.id) return false;
+        }
+        return true;
+    }
+
+    /**
+     * Press an active bout => toggle expand/collapse
+     */
     const handleBoutPress = (index: number) => {
-        if (index === activeBoutIndex && bouts[index].status === 'active') {
-            // Toggle dropdown
+        if (bouts[index].status === 'active') {
             setExpandedBoutIndex((prev) => (prev === index ? null : index));
         }
     };
 
-    const handleScoreChange = (index: number, which: 'A' | 'B', value: string) => {
-        const newScore = parseInt(value, 10) || 0;
+    /**
+     * Submit the scores for an active bout => completed => re-apply concurrency.
+     */
+    const handleSubmitScores = (index: number) => {
         setBouts((prev) => {
             const copy = [...prev];
-            if (which === 'A') {
-                copy[index].scoreA = newScore;
-            } else {
-                copy[index].scoreB = newScore;
+            copy[index].status = 'completed';
+            // also close dropdown
+            if (expandedBoutIndex === index) {
+                setExpandedBoutIndex(null);
             }
+            const concurrency = doubleStrip ? 2 : 1;
+            return applyConcurrency(copy, concurrency);
+        });
+    };
+
+    /**
+     * Score input changes
+     */
+    const handleScoreChange = (index: number, which: 'A' | 'B', val: string) => {
+        setBouts((prev) => {
+            const copy = [...prev];
+            const intVal = parseInt(val, 10) || 0;
+            if (which === 'A') copy[index].scoreA = intVal;
+            else copy[index].scoreB = intVal;
             return copy;
         });
     };
 
-    const handleSubmitScores = (index: number) => {
-        setBouts((prev) => {
-            const newBouts = [...prev];
-            newBouts[index].status = 'completed';
-            return newBouts;
-        });
-        setExpandedBoutIndex(null);
-        const nextIndex = index + 1;
-        if (nextIndex < bouts.length) {
-            setBouts((prev) => {
-                const newBouts = [...prev];
-                newBouts[nextIndex].status = 'active';
-                return newBouts;
-            });
-            setActiveBoutIndex(nextIndex);
+    /**
+     * Long-press a completed bout => Alter Scores (if not protected).
+     */
+    const handleBoutLongPress = (index: number) => {
+        if (protectedScores) return;
+        if (bouts[index].status === 'completed') {
+            setAlterIndex(index);
+            setAlterScoreA(String(bouts[index].scoreA));
+            setAlterScoreB(String(bouts[index].scoreB));
+            setAlterModalVisible(true);
         }
     };
 
-    // Map fencer ID => 1-based index
+    const handleAlterSave = () => {
+        if (alterIndex == null) return;
+        const i = alterIndex;
+        setBouts((prev) => {
+            const copy = [...prev];
+            copy[i].scoreA = parseInt(alterScoreA, 10) || 0;
+            copy[i].scoreB = parseInt(alterScoreB, 10) || 0;
+            // No need to re-apply concurrency if it's completed.
+            return copy;
+        });
+        setAlterModalVisible(false);
+        setAlterIndex(null);
+    };
+
+    /**
+     * "Save Completed Pool"
+     */
+    const handleSaveCompletedPool = () => {
+        // check if all done
+        const allDone = bouts.every((b) => b.status === 'completed');
+        if (!allDone) {
+            Alert.alert("Not all bouts completed", "Please finish all bouts first.");
+            return;
+        }
+        setPoolCompleted(true);
+        Alert.alert("Pool Saved", "This pool is now marked as completed.");
+        // In a real app, you'd navigate back or update global state so PoolsPage sees it's completed
+    };
+
+    // "On deck" = next concurrency pending bouts
+    function getOnDeckIndices(): number[] {
+        // gather active indices
+        const activeIndices: number[] = [];
+        for (let i = 0; i < bouts.length; i++) {
+            if (bouts[i].status === 'active') {
+                activeIndices.push(i);
+            }
+        }
+        if (!activeIndices.length) return [];
+        const lastActive = Math.max(...activeIndices);
+        const onDeck: number[] = [];
+        let count = 0;
+        const concurrency = doubleStrip ? 2 : 1;
+        for (let i = lastActive + 1; i < bouts.length; i++) {
+            if (bouts[i].status === 'pending') {
+                onDeck.push(i);
+                count++;
+                if (count >= concurrency) break;
+            }
+        }
+        return onDeck;
+    }
+
+    const onDeckIndices = getOnDeckIndices();
+
+    // For display
     const fencerIndexMap = poolFencers.reduce<Record<string, number>>((acc, f, i) => {
         acc[f.id] = i + 1;
         return acc;
     }, {});
 
     return (
-        <ScrollView contentContainerStyle={styles.container}>
-            <Text style={styles.title}>Bout Order</Text>
+        <View style={{ flex: 1 }}>
+            {/* Toggles row */}
+            <View style={styles.toggleRow}>
+                <TouchableOpacity
+                    style={[styles.toggleButton, protectedScores && styles.toggleButtonActive]}
+                    onPress={() => setProtectedScores(!protectedScores)}
+                >
+                    <Text style={styles.toggleButtonText}>Protected Scores</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                    style={[styles.toggleButton, doubleStrip && styles.toggleButtonActive]}
+                    onPress={() => setDoubleStrip(!doubleStrip)}
+                >
+                    <Text style={styles.toggleButtonText}>Double Strip</Text>
+                </TouchableOpacity>
+            </View>
 
-            {bouts.map((bout, index) => {
-                const isActive = bout.status === 'active';
-                const isCompleted = bout.status === 'completed';
-                const isOnDeck = index === activeBoutIndex + 1 && !isCompleted;
+            <ScrollView contentContainerStyle={styles.container}>
+                <Text style={styles.title}>Bout Order</Text>
 
-                // Container style
-                let containerStyle;
-                if (isCompleted) {
-                    containerStyle = styles.completedContainer;
-                } else if (isActive) {
-                    containerStyle = styles.activeContainer;
-                } else if (isOnDeck) {
-                    containerStyle = styles.onDeckContainer;
-                } else {
-                    containerStyle = styles.pendingContainer;
-                }
+                {bouts.map((bout, index) => {
+                    const isActive = bout.status === 'active';
+                    const isCompleted = bout.status === 'completed';
+                    const isOnDeck = onDeckIndices.includes(index);
 
-                // "VS" or final score
-                let middleText = 'VS';
-                if (isCompleted) {
-                    middleText = `${bout.scoreA}-${bout.scoreB}`;
-                }
+                    let middleText = 'VS';
+                    if (isCompleted) {
+                        middleText = `${bout.scoreA}-${bout.scoreB}`;
+                    }
 
-                // Decide winner/loser or tie
-                const aIsWinner = bout.scoreA > bout.scoreB;
-                const bIsWinner = bout.scoreB > bout.scoreA;
-                const isTie = bout.scoreA === bout.scoreB;
+                    // winner/loser logic
+                    const aIsWinner = bout.scoreA > bout.scoreB;
+                    const bIsWinner = bout.scoreB > bout.scoreA;
+                    const isTie = bout.scoreA === bout.scoreB;
 
-                return (
-                    <View key={index} style={{ marginBottom: 12 }}>
-                        {isOnDeck && <Text style={styles.onDeckLabel}>On Deck</Text>}
+                    // container style
+                    let containerStyle;
+                    if (isCompleted) {
+                        containerStyle = styles.completedContainer;
+                    } else if (isActive) {
+                        containerStyle = styles.activeContainer;
+                    } else if (isOnDeck) {
+                        containerStyle = styles.onDeckContainer;
+                    } else {
+                        containerStyle = styles.pendingContainer;
+                    }
 
-                        {/* BOUT CONTAINER */}
-                        <TouchableOpacity
-                            activeOpacity={0.9}
-                            onPress={() => handleBoutPress(index)}
-                            style={[styles.boutContainer, containerStyle]}
-                        >
-                            {/* LEFT FENCER */}
-                            <View
-                                style={[
-                                    styles.fencerBox,
-                                    // If completed, color winner/loser
-                                    isCompleted && aIsWinner && styles.winnerBox,
-                                    isCompleted && bIsWinner && styles.loserBox,
-                                    isCompleted && isTie && styles.tieBox,
+                    return (
+                        <View key={index} style={{ marginBottom: 12 }}>
+                            {isOnDeck && <Text style={styles.onDeckLabel}>On Deck</Text>}
 
-                                    // If active
-                                    !isCompleted && isActive && styles.activeFencerBox,
-
-                                    // If onDeck
-                                    !isCompleted && isOnDeck && styles.onDeckFencerBox,
-
-                                    // If pending
-                                    !isCompleted && !isActive && !isOnDeck && styles.pendingFencerBox,
-                                ]}
+                            <TouchableOpacity
+                                activeOpacity={0.9}
+                                onPress={() => handleBoutPress(index)}
+                                onLongPress={() => handleBoutLongPress(index)}
+                                style={[styles.boutContainer, containerStyle]}
                             >
-                                <Text
+                                {/* Fencer A */}
+                                <View
                                     style={[
-                                        styles.fencerText,
-                                        // If completed, text color black
-                                        isCompleted && { color: '#000' },
-                                        // If pending or active
-                                        !isCompleted && isActive && { color: '#fff' },
-                                        !isCompleted && isOnDeck && { color: '#fff' },
-                                        !isCompleted && !isActive && !isOnDeck && styles.pendingFencerText,
+                                        styles.fencerBox,
+                                        isCompleted && aIsWinner && styles.winnerBox,
+                                        isCompleted && bIsWinner && styles.loserBox,
+                                        isCompleted && isTie && styles.tieBox,
+                                        !isCompleted && isActive && styles.activeFencerBox,
+                                        !isCompleted && isOnDeck && styles.onDeckFencerBox,
+                                        !isCompleted && !isActive && !isOnDeck && styles.pendingFencerBox,
                                     ]}
                                 >
-                                    {fencerIndexMap[bout.fencerA.id]} {bout.fencerA.firstName}
-                                </Text>
-                            </View>
+                                    <Text
+                                        style={[
+                                            styles.fencerText,
+                                            isCompleted && { color: '#000' },
+                                            !isCompleted && isActive && { color: '#fff' },
+                                            !isCompleted && isOnDeck && { color: '#fff' },
+                                            !isCompleted && !isActive && !isOnDeck && styles.pendingFencerText,
+                                        ]}
+                                    >
+                                        {fencerIndexMap[bout.fencerA.id]} {bout.fencerA.firstName}
+                                    </Text>
+                                </View>
 
-                            <Text style={styles.middleText}>{middleText}</Text>
+                                <Text style={styles.middleText}>{middleText}</Text>
 
-                            {/* RIGHT FENCER */}
-                            <View
-                                style={[
-                                    styles.fencerBox,
-                                    // If completed
-                                    isCompleted && bIsWinner && styles.winnerBox,
-                                    isCompleted && aIsWinner && styles.loserBox,
-                                    isCompleted && isTie && styles.tieBox,
-
-                                    // If active
-                                    !isCompleted && isActive && styles.activeFencerBox,
-                                    // If onDeck
-                                    !isCompleted && isOnDeck && styles.onDeckFencerBox,
-                                    // If pending
-                                    !isCompleted && !isActive && !isOnDeck && styles.pendingFencerBox,
-                                ]}
-                            >
-                                <Text
+                                {/* Fencer B */}
+                                <View
                                     style={[
-                                        styles.fencerText,
-                                        isCompleted && { color: '#000' },
-                                        !isCompleted && isActive && { color: '#fff' },
-                                        !isCompleted && isOnDeck && { color: '#fff' },
-                                        !isCompleted && !isActive && !isOnDeck && styles.pendingFencerText,
+                                        styles.fencerBox,
+                                        isCompleted && bIsWinner && styles.winnerBox,
+                                        isCompleted && aIsWinner && styles.loserBox,
+                                        isCompleted && isTie && styles.tieBox,
+                                        !isCompleted && isActive && styles.activeFencerBox,
+                                        !isCompleted && isOnDeck && styles.onDeckFencerBox,
+                                        !isCompleted && !isActive && !isOnDeck && styles.pendingFencerBox,
                                     ]}
                                 >
-                                    {fencerIndexMap[bout.fencerB.id]} {bout.fencerB.firstName}
-                                </Text>
-                            </View>
-                        </TouchableOpacity>
+                                    <Text
+                                        style={[
+                                            styles.fencerText,
+                                            isCompleted && { color: '#000' },
+                                            !isCompleted && isActive && { color: '#fff' },
+                                            !isCompleted && isOnDeck && { color: '#fff' },
+                                            !isCompleted && !isActive && !isOnDeck && styles.pendingFencerText,
+                                        ]}
+                                    >
+                                        {fencerIndexMap[bout.fencerB.id]} {bout.fencerB.firstName}
+                                    </Text>
+                                </View>
+                            </TouchableOpacity>
 
-                        {/* SCORE ENTRY */}
-                        {expandedBoutIndex === index && isActive && (
-                            <View style={styles.scoreEntryContainer}>
-                                <Text style={styles.scoreEntryTitle}>Enter Scores</Text>
-                                <View style={styles.scoreRow}>
-                                    <Text style={styles.scoreFencerLabel}>
-                                        {fencerIndexMap[bout.fencerA.id]} {bout.fencerA.firstName}:
-                                    </Text>
-                                    <TextInput
-                                        style={styles.scoreInput}
-                                        keyboardType="numeric"
-                                        value={String(bout.scoreA)}
-                                        onChangeText={(val) => handleScoreChange(index, 'A', val)}
-                                    />
+                            {/* Score entry dropdown (if active & expanded) */}
+                            {expandedBoutIndex === index && isActive && (
+                                <View style={styles.scoreEntryContainer}>
+                                    <Text style={styles.scoreEntryTitle}>Enter Scores</Text>
+                                    <View style={styles.scoreRow}>
+                                        <Text style={styles.scoreFencerLabel}>
+                                            {fencerIndexMap[bout.fencerA.id]} {bout.fencerA.firstName}:
+                                        </Text>
+                                        <TextInput
+                                            style={styles.scoreInput}
+                                            keyboardType="numeric"
+                                            value={String(bout.scoreA)}
+                                            onChangeText={(val) => handleScoreChange(index, 'A', val)}
+                                        />
+                                    </View>
+                                    <View style={styles.scoreRow}>
+                                        <Text style={styles.scoreFencerLabel}>
+                                            {fencerIndexMap[bout.fencerB.id]} {bout.fencerB.firstName}:
+                                        </Text>
+                                        <TextInput
+                                            style={styles.scoreInput}
+                                            keyboardType="numeric"
+                                            value={String(bout.scoreB)}
+                                            onChangeText={(val) => handleScoreChange(index, 'B', val)}
+                                        />
+                                    </View>
+                                    <TouchableOpacity
+                                        style={styles.enterButton}
+                                        onPress={() => handleSubmitScores(index)}
+                                    >
+                                        <Text style={styles.enterButtonText}>Enter</Text>
+                                    </TouchableOpacity>
                                 </View>
-                                <View style={styles.scoreRow}>
-                                    <Text style={styles.scoreFencerLabel}>
-                                        {fencerIndexMap[bout.fencerB.id]} {bout.fencerB.firstName}:
-                                    </Text>
-                                    <TextInput
-                                        style={styles.scoreInput}
-                                        keyboardType="numeric"
-                                        value={String(bout.scoreB)}
-                                        onChangeText={(val) => handleScoreChange(index, 'B', val)}
-                                    />
-                                </View>
-                                <TouchableOpacity
-                                    style={styles.enterButton}
-                                    onPress={() => handleSubmitScores(index)}
-                                >
-                                    <Text style={styles.enterButtonText}>Enter</Text>
-                                </TouchableOpacity>
-                            </View>
-                        )}
+                            )}
+                        </View>
+                    );
+                })}
+
+                {/* Save Completed Pool */}
+                <TouchableOpacity style={styles.savePoolButton} onPress={handleSaveCompletedPool}>
+                    <Text style={styles.savePoolButtonText}>Save Completed Pool</Text>
+                </TouchableOpacity>
+            </ScrollView>
+
+            {/* Alter Scores Modal */}
+            <Modal visible={alterModalVisible} transparent animationType="fade">
+                <View style={styles.modalOverlay}>
+                    <View style={styles.alterModalContent}>
+                        <Text style={styles.alterModalTitle}>Alter Scores</Text>
+                        <View style={styles.scoreRow}>
+                            <Text style={styles.scoreFencerLabel}>Score A:</Text>
+                            <TextInput
+                                style={styles.scoreInput}
+                                keyboardType="numeric"
+                                value={alterScoreA}
+                                onChangeText={setAlterScoreA}
+                            />
+                        </View>
+                        <View style={styles.scoreRow}>
+                            <Text style={styles.scoreFencerLabel}>Score B:</Text>
+                            <TextInput
+                                style={styles.scoreInput}
+                                keyboardType="numeric"
+                                value={alterScoreB}
+                                onChangeText={setAlterScoreB}
+                            />
+                        </View>
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 12 }}>
+                            <TouchableOpacity style={styles.enterButton} onPress={handleAlterSave}>
+                                <Text style={styles.enterButtonText}>Save</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={[styles.enterButton, { backgroundColor: '#666' }]}
+                                onPress={() => setAlterModalVisible(false)}
+                            >
+                                <Text style={styles.enterButtonText}>Cancel</Text>
+                            </TouchableOpacity>
+                        </View>
                     </View>
-                );
-            })}
-        </ScrollView>
+                </View>
+            </Modal>
+        </View>
     );
 };
 
@@ -284,7 +480,7 @@ export default BoutOrderPage;
 /** ------------ Styles ------------ */
 const navyBlue = '#000080';
 const darkGrey = '#4f4f4f';
-const mediumGrey = '#888888'; // for completed container (dark, but not as dark as darkGrey)
+const mediumGrey = '#888888';
 const green = '#008000';
 const red = '#FF0000';
 const lightOpacityNavy = 'rgba(0, 0, 128, 0.5)';
@@ -294,22 +490,37 @@ const styles = StyleSheet.create({
     container: {
         padding: 16,
     },
+    toggleRow: {
+        flexDirection: 'row',
+        justifyContent: 'flex-end',
+        padding: 8,
+    },
+    toggleButton: {
+        borderWidth: 1,
+        borderColor: navyBlue,
+        borderRadius: 4,
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        marginLeft: 8,
+    },
+    toggleButtonActive: {
+        backgroundColor: navyBlue,
+    },
+    toggleButtonText: {
+        color: '#000',
+    },
     title: {
         fontSize: 24,
         textAlign: 'center',
         padding: 16,
         fontWeight: 'bold',
     },
-
-    /* BOUT CONTAINER BASE */
     boutContainer: {
         flexDirection: 'row',
         alignItems: 'center',
         borderRadius: 6,
         padding: 8,
     },
-
-    /* STATUS-BASED CONTAINERS */
     activeContainer: {
         backgroundColor: darkGrey,
     },
@@ -321,12 +532,9 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: navyBlue,
     },
-    /* Updated completed container to a darker grey than before, but lighter than darkGrey */
     completedContainer: {
         backgroundColor: mediumGrey,
     },
-
-    /* FENCER BOX (BASE) */
     fencerBox: {
         flex: 1,
         padding: 12,
@@ -334,8 +542,6 @@ const styles = StyleSheet.create({
         marginHorizontal: 4,
         justifyContent: 'center',
     },
-
-    /* ACTIVE / ON DECK / PENDING STYLES FOR THE FENCER BOX */
     activeFencerBox: {
         backgroundColor: navyBlue,
     },
@@ -348,8 +554,6 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: navyBlue,
     },
-
-    /* COMPLETED BOUT: WIN/LOSE/TIE BOXES */
     winnerBox: {
         backgroundColor: green,
     },
@@ -359,8 +563,6 @@ const styles = StyleSheet.create({
     tieBox: {
         backgroundColor: tieColor,
     },
-
-    /* TEXT STYLES */
     fencerText: {
         fontSize: 16,
         textAlign: 'center',
@@ -374,8 +576,6 @@ const styles = StyleSheet.create({
         fontSize: 18,
         fontWeight: 'bold',
     },
-
-    /* ON DECK LABEL */
     onDeckLabel: {
         textAlign: 'left',
         marginLeft: 4,
@@ -384,8 +584,6 @@ const styles = StyleSheet.create({
         color: navyBlue,
         fontWeight: '600',
     },
-
-    /* SCORE ENTRY */
     scoreEntryContainer: {
         backgroundColor: '#fff',
         padding: 12,
@@ -418,7 +616,8 @@ const styles = StyleSheet.create({
     enterButton: {
         backgroundColor: navyBlue,
         marginTop: 8,
-        paddingVertical: 10,
+        paddingVertical: 8,
+        paddingHorizontal: 16,
         borderRadius: 6,
         alignItems: 'center',
     },
@@ -426,5 +625,34 @@ const styles = StyleSheet.create({
         color: '#fff',
         fontWeight: '600',
         fontSize: 16,
+    },
+    savePoolButton: {
+        backgroundColor: '#228B22',
+        paddingVertical: 12,
+        borderRadius: 6,
+        alignItems: 'center',
+        marginTop: 16,
+    },
+    savePoolButtonText: {
+        color: '#fff',
+        fontSize: 16,
+        fontWeight: '600',
+    },
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.4)',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    alterModalContent: {
+        backgroundColor: '#fff',
+        padding: 16,
+        borderRadius: 8,
+        width: '80%',
+    },
+    alterModalTitle: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        marginBottom: 12,
     },
 });
