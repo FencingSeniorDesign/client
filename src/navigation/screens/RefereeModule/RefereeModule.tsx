@@ -1,25 +1,44 @@
-// screens/RefereeModule/RefereeModule.tsx
 import React, { useState, useRef } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { CustomTimeModal } from './CustomTimeModal';
 import { usePersistentState } from '../../../hooks/usePersistentStateHook';
+import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
+import { RootStackParamList } from '../../navigation/types';
 
 type CardColor = 'yellow' | 'red' | 'black' | null;
 type FencerCard = { color: CardColor };
 
+type RefereeModuleRouteProp = RouteProp<RootStackParamList, 'RefereeModule'>;
+
 export function RefereeModule() {
+    const route = useRoute<RefereeModuleRouteProp>();
+    const navigation = useNavigation();
+    const {
+        fencer1Name,
+        fencer2Name,
+        boutIndex,
+        currentScore1,
+        currentScore2,
+        onSaveScores,
+    } = route.params;
+
+    // Timer state (still using persistent state for the timer)
     const [time, setTime] = usePersistentState<number>('RefereeModule:time', 180);
-    const [isRunning, setIsRunning] = useState(false); //TODO - we could hypothetically let it run in the background? Not sure why we would tho
+    const [isRunning, setIsRunning] = useState(false);
     const [modalVisible, setModalVisible] = useState(false);
     const [customMinutes, setCustomMinutes] = useState('');
     const [customSeconds, setCustomSeconds] = useState('');
-    const [fencer1Score, setFencer1Score] = usePersistentState<number>('RefereeModule:fencer1Score', 0);
-    const [fencer2Score, setFencer2Score] = usePersistentState<number>('RefereeModule:fencer2Score', 0);
+
+    // Reset scores to 0–0 on entry (ignoring any passed currentScore values)
+    const [fencer1Score, setFencer1Score] = useState(0);
+    const [fencer2Score, setFencer2Score] = useState(0);
+
     const timerRef = useRef<NodeJS.Timer | null>(null);
+
     const [showCardAssignment, setShowCardAssignment] = useState(false);
     const [selectedCard, setSelectedCard] = useState<CardColor>(null);
-    const [fencer1Cards, setFencer1Cards] = usePersistentState<FencerCard[]>('RefereeModule:fencer1Cards', []);
-    const [fencer2Cards, setFencer2Cards] = usePersistentState<FencerCard[]>('RefereeModule:fencer2Cards', []);
+    const [fencer1Cards, setFencer1Cards] = useState<FencerCard[]>([]);
+    const [fencer2Cards, setFencer2Cards] = useState<FencerCard[]>([]);
 
     const handleCardPress = (color: CardColor) => {
         setSelectedCard(color);
@@ -27,21 +46,16 @@ export function RefereeModule() {
     };
 
     const assignCard = (fencer: 1 | 2) => {
-        console.log('assignCard', fencer, selectedCard);
-
         if (selectedCard) {
             if (fencer === 1) {
-                console.log('assignCard', fencer, selectedCard);
                 setFencer1Cards([...fencer1Cards, { color: selectedCard }]);
             } else {
-                console.log('assignCard', fencer, selectedCard);
                 setFencer2Cards([...fencer2Cards, { color: selectedCard }]);
             }
             setSelectedCard(null);
             setShowCardAssignment(false);
         }
     };
-
 
     const updateScore = (fencer: 1 | 2, increment: boolean) => {
         if (fencer === 1) {
@@ -61,7 +75,7 @@ export function RefereeModule() {
         if (!isRunning && time > 0) {
             setIsRunning(true);
             timerRef.current = setInterval(() => {
-                setTime((prevTime) => {
+                setTime(prevTime => {
                     if (prevTime <= 1) {
                         stopTimer();
                         return 0;
@@ -95,7 +109,7 @@ export function RefereeModule() {
     };
 
     const handleCustomTime = (minutes: number, seconds: number) => {
-        const totalSeconds = (minutes * 60) + seconds;
+        const totalSeconds = minutes * 60 + seconds;
         if (totalSeconds > 0) {
             stopTimer();
             setTime(totalSeconds);
@@ -104,7 +118,6 @@ export function RefereeModule() {
             setCustomSeconds('');
         }
     };
-
 
     return (
         <View style={styles.container}>
@@ -116,26 +129,28 @@ export function RefereeModule() {
                 onPress={toggleTimer}
                 onLongPress={() => setModalVisible(true)}
             >
-                <Text style={[
-                    styles.timerText,
-                    isRunning ? styles.timerTextRunning : styles.timerTextStopped
-                ]}>
+                <Text
+                    style={[
+                        styles.timerText,
+                        isRunning ? styles.timerTextRunning : styles.timerTextStopped
+                    ]}
+                >
                     {formatTime(time)}
                 </Text>
-                <Text style={[
-                    styles.timerStatus,
-                    isRunning ? styles.timerStatusRunning : styles.timerStatusStopped
-                ]}>
+                <Text
+                    style={[
+                        styles.timerStatus,
+                        isRunning ? styles.timerStatusRunning : styles.timerStatusStopped
+                    ]}
+                >
                     {isRunning ? 'Tap to pause' : 'Tap to start'}
                 </Text>
             </TouchableOpacity>
 
-
-
+            {/* Score Section */}
             <View style={styles.scoreContainer}>
                 <View style={styles.fencerContainer}>
-                    <Text style={styles.fencerLabel}>Fencer 1</Text>
-
+                    <Text style={styles.fencerLabel}>{fencer1Name || 'Fencer 1'}</Text>
                     <View style={styles.cardsContainer}>
                         {fencer1Cards.map((card, index) => (
                             <View
@@ -144,7 +159,6 @@ export function RefereeModule() {
                             />
                         ))}
                     </View>
-
                     <Text style={styles.scoreText}>{fencer1Score}</Text>
                     <View style={styles.buttonContainer}>
                         <TouchableOpacity
@@ -163,8 +177,7 @@ export function RefereeModule() {
                 </View>
 
                 <View style={styles.fencerContainer}>
-                    <Text style={styles.fencerLabel}>Fencer 2</Text>
-
+                    <Text style={styles.fencerLabel}>{fencer2Name || 'Fencer 2'}</Text>
                     <View style={styles.cardsContainer}>
                         {fencer2Cards.map((card, index) => (
                             <View
@@ -173,8 +186,6 @@ export function RefereeModule() {
                             />
                         ))}
                     </View>
-
-
                     <Text style={styles.scoreText}>{fencer2Score}</Text>
                     <View style={styles.buttonContainer}>
                         <TouchableOpacity
@@ -193,9 +204,36 @@ export function RefereeModule() {
                 </View>
             </View>
 
+            {/* Double Touch Button */}
+            <TouchableOpacity
+                style={styles.doubleTouchButton}
+                onPress={() => {
+                    // Implement your double touch functionality here
+                    console.log('Double Touch pressed');
+                }}
+            >
+                <Text style={styles.doubleTouchButtonText}>Double Touch</Text>
+            </TouchableOpacity>
+
+            {/* Save Scores Button */}
+            {onSaveScores && (
+                <TouchableOpacity
+                    style={styles.saveScoresButton}
+                    onPress={() => {
+                        onSaveScores(fencer1Score, fencer2Score);
+                        navigation.goBack();
+                    }}
+                >
+                    <Text style={styles.saveScoresButtonText}>Save Scores</Text>
+                </TouchableOpacity>
+            )}
+
+            {/* Card Assignment Modal */}
             {showCardAssignment && (
                 <View style={styles.assignmentContainer}>
-                    <Text style={styles.assignmentText}>Assign {selectedCard} card to:</Text>
+                    <Text style={styles.assignmentText}>
+                        Assign {selectedCard} card to:
+                    </Text>
                     <View style={styles.assignmentButtons}>
                         <TouchableOpacity
                             style={styles.assignButton}
@@ -213,6 +251,7 @@ export function RefereeModule() {
                 </View>
             )}
 
+            {/* Card Color Buttons */}
             <View style={styles.cardButtonsContainer}>
                 <TouchableOpacity
                     style={[styles.cardButton, { backgroundColor: 'yellow' }]}
@@ -248,7 +287,6 @@ export function RefereeModule() {
     );
 }
 
-
 const styles = StyleSheet.create({
     container: {
         flex: 1,
@@ -268,7 +306,7 @@ const styles = StyleSheet.create({
         backgroundColor: '#f0f0f0',
     },
     timerText: {
-        fontSize: 48,
+        fontSize: 80,
         fontWeight: 'bold',
     },
     timerTextRunning: {
@@ -298,42 +336,43 @@ const styles = StyleSheet.create({
         minWidth: 120,
     },
     fencerLabel: {
-        fontSize: 18,
-        fontWeight: '500',
+        fontSize: 20,
+        fontWeight: '600',
         marginBottom: 10,
     },
     scoreText: {
-        fontSize: 48,
+        fontSize: 100,
         fontWeight: 'bold',
         marginBottom: 10,
     },
     buttonContainer: {
         flexDirection: 'row',
-        gap: 10,
+        marginHorizontal: 10,
     },
     scoreButton: {
         backgroundColor: '#007AFF',
-        width: 44,
-        height: 44,
-        borderRadius: 22,
+        width: 80,
+        height: 80,
+        borderRadius: 10,
         justifyContent: 'center',
         alignItems: 'center',
+        marginHorizontal: 5,
     },
     minusButton: {
         backgroundColor: '#FF3B30',
     },
     buttonText: {
         color: '#fff',
-        fontSize: 24,
+        fontSize: 32,
         fontWeight: 'bold',
     },
     cardButtonsContainer: {
         flexDirection: 'row',
         position: 'absolute',
-        bottom: 0,
+        bottom: 80,
         left: 0,
         right: 0,
-        height: 60,
+        height: 80,
     },
     cardButton: {
         flex: 1,
@@ -342,12 +381,12 @@ const styles = StyleSheet.create({
     },
     cardButtonText: {
         color: '#000',
-        fontSize: 16,
+        fontSize: 18,
         fontWeight: 'bold',
     },
     assignmentContainer: {
         position: 'absolute',
-        bottom: 60,
+        bottom: 160,
         left: 0,
         right: 0,
         backgroundColor: '#fff',
@@ -356,7 +395,7 @@ const styles = StyleSheet.create({
         borderTopColor: '#ccc',
     },
     assignmentText: {
-        fontSize: 16,
+        fontSize: 18,
         textAlign: 'center',
         marginBottom: 10,
     },
@@ -368,21 +407,16 @@ const styles = StyleSheet.create({
         backgroundColor: '#007AFF',
         padding: 10,
         borderRadius: 5,
-        width: 120,
+        width: 140,
     },
     assignButtonText: {
         color: '#fff',
         textAlign: 'center',
-        fontSize: 16,
-    },
-    fencerHeader: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 10,
+        fontSize: 18,
     },
     cardsContainer: {
         flexDirection: 'row',
-        gap: 5,
+        marginTop: 8,
     },
     cardIndicator: {
         width: 15,
@@ -390,6 +424,35 @@ const styles = StyleSheet.create({
         borderRadius: 3,
         borderWidth: 1,
         borderColor: '#000',
+        marginRight: 4,
     },
-
+    doubleTouchButton: {
+        backgroundColor: '#007AFF',
+        paddingVertical: 15,
+        marginHorizontal: 20,
+        borderRadius: 10,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginTop: 20,
+    },
+    doubleTouchButtonText: {
+        color: '#fff',
+        fontSize: 20,
+        fontWeight: 'bold',
+    },
+    saveScoresButton: {
+        backgroundColor: '#228B22',
+        paddingVertical: 15,
+        marginHorizontal: 20,
+        borderRadius: 10,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginTop: 10,
+    },
+    saveScoresButtonText: {
+        color: '#fff',
+        fontSize: 20,
+        fontWeight: 'bold',
+    },
 });
+export default RefereeModule;
