@@ -1,5 +1,3 @@
-// screens/BoutOrderPage.tsx
-
 import React, { useEffect, useState } from 'react';
 import {
     View,
@@ -11,12 +9,10 @@ import {
     Modal,
     Alert,
 } from 'react-native';
-import { useRoute, RouteProp } from '@react-navigation/native';
+import { useRoute, RouteProp, useNavigation } from '@react-navigation/native';
+import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList, Fencer } from '../navigation/types';
 
-/**
- * Navigation param for "BoutOrderPage"
- */
 type BoutOrderPageRouteProps = RouteProp<RootStackParamList, 'BoutOrderPage'>;
 
 type BoutStatus = 'pending' | 'active' | 'completed';
@@ -31,7 +27,8 @@ type Bout = {
 
 const BoutOrderPage: React.FC = () => {
     const route = useRoute<BoutOrderPageRouteProps>();
-    const { poolFencers } = route.params; // fix for route.getState() problem
+    const navigation = useNavigation<StackNavigationProp<RootStackParamList, 'BoutOrderPage'>>();
+    const { poolFencers } = route.params;
 
     // local states
     const [bouts, setBouts] = useState<Bout[]>([]);
@@ -67,10 +64,9 @@ const BoutOrderPage: React.FC = () => {
      * If user toggles doubleStrip, recalc concurrency for the existing bouts
      */
     useEffect(() => {
-        if (!bouts.length) return; // only if we have bouts
+        if (!bouts.length) return;
         const concurrency = doubleStrip ? 2 : 1;
         const updated = applyConcurrency(bouts, concurrency);
-        // If nothing changed, don't setBouts
         if (!areBoutsSame(updated, bouts)) {
             setBouts(updated);
         }
@@ -81,21 +77,17 @@ const BoutOrderPage: React.FC = () => {
      * Build initial round-robin + reorder. Used only once on mount.
      */
     function buildInitialBouts(): Bout[] {
-        // build all pairs
         const allPairs: Array<[Fencer, Fencer]> = [];
         for (let i = 0; i < poolFencers.length; i++) {
             for (let j = i + 1; j < poolFencers.length; j++) {
                 allPairs.push([poolFencers[i], poolFencers[j]]);
             }
         }
-        // shuffle
         const shuffled = [...allPairs].sort(() => Math.random() - 0.5);
-        // reorder to avoid consecutive same-fencer
         const arranged: Array<[Fencer, Fencer]> = [];
         while (shuffled.length) {
             let pair = shuffled.shift()!;
             if (arranged.length && sharesFencer(arranged[arranged.length - 1], pair)) {
-                // find non-conflicting
                 let foundIndex = -1;
                 for (let k = 0; k < shuffled.length; k++) {
                     if (!sharesFencer(arranged[arranged.length - 1], shuffled[k])) {
@@ -111,7 +103,6 @@ const BoutOrderPage: React.FC = () => {
             }
             arranged.push(pair);
         }
-        // build Bouts, all 'pending' initially
         return arranged.map((pair) => ({
             fencerA: pair[0],
             fencerB: pair[1],
@@ -157,7 +148,6 @@ const BoutOrderPage: React.FC = () => {
     function areBoutsSame(a: Bout[], b: Bout[]): boolean {
         if (a.length !== b.length) return false;
         for (let i = 0; i < a.length; i++) {
-            // check simple fields that might differ
             if (a[i].status !== b[i].status) return false;
             if (a[i].scoreA !== b[i].scoreA) return false;
             if (a[i].scoreB !== b[i].scoreB) return false;
@@ -183,7 +173,6 @@ const BoutOrderPage: React.FC = () => {
         setBouts((prev) => {
             const copy = [...prev];
             copy[index].status = 'completed';
-            // also close dropdown
             if (expandedBoutIndex === index) {
                 setExpandedBoutIndex(null);
             }
@@ -225,7 +214,6 @@ const BoutOrderPage: React.FC = () => {
             const copy = [...prev];
             copy[i].scoreA = parseInt(alterScoreA, 10) || 0;
             copy[i].scoreB = parseInt(alterScoreB, 10) || 0;
-            // No need to re-apply concurrency if it's completed.
             return copy;
         });
         setAlterModalVisible(false);
@@ -236,20 +224,20 @@ const BoutOrderPage: React.FC = () => {
      * "Save Completed Pool"
      */
     const handleSaveCompletedPool = () => {
-        // check if all done
         const allDone = bouts.every((b) => b.status === 'completed');
         if (!allDone) {
-            Alert.alert("Not all bouts completed", "Please finish all bouts first.");
+            Alert.alert(
+                'Not all bouts completed',
+                'Please finish all bouts first.'
+            );
             return;
         }
         setPoolCompleted(true);
-        Alert.alert("Pool Saved", "This pool is now marked as completed.");
-        // In a real app, you'd navigate back or update global state so PoolsPage sees it's completed
+        Alert.alert('Pool Saved', 'This pool is now marked as completed.');
     };
 
     // "On deck" = next concurrency pending bouts
     function getOnDeckIndices(): number[] {
-        // gather active indices
         const activeIndices: number[] = [];
         for (let i = 0; i < bouts.length; i++) {
             if (bouts[i].status === 'active') {
@@ -273,24 +261,55 @@ const BoutOrderPage: React.FC = () => {
 
     const onDeckIndices = getOnDeckIndices();
 
-    // For display
-    const fencerIndexMap = poolFencers.reduce<Record<string, number>>((acc, f, i) => {
-        acc[f.id] = i + 1;
-        return acc;
-    }, {});
+    // For display: map each fencer’s id to a pool index
+    const fencerIndexMap = poolFencers.reduce<Record<string, number>>(
+        (acc, f, i) => {
+            acc[f.id] = i + 1;
+            return acc;
+        },
+        {}
+    );
+
+    // When a Ref Module button is tapped, navigate to the full Referee Module screen.
+    const openRefModuleForBout = (index: number) => {
+        const bout = bouts[index];
+        navigation.navigate('RefereeModule', {
+            boutIndex: index,
+            fencer1Name: bout.fencerA.lastName || bout.fencerA.firstName,
+            fencer2Name: bout.fencerB.lastName || bout.fencerB.firstName,
+            currentScore1: bout.scoreA,
+            currentScore2: bout.scoreB,
+            onSaveScores: (score1: number, score2: number) => {
+                setBouts((prev) => {
+                    const newBouts = [...prev];
+                    newBouts[index].scoreA = score1;
+                    newBouts[index].scoreB = score2;
+                    newBouts[index].status = 'completed';
+                    const concurrency = doubleStrip ? 2 : 1;
+                    return applyConcurrency(newBouts, concurrency);
+                });
+            },
+        });
+    };
 
     return (
         <View style={{ flex: 1 }}>
             {/* Toggles row */}
             <View style={styles.toggleRow}>
                 <TouchableOpacity
-                    style={[styles.toggleButton, protectedScores && styles.toggleButtonActive]}
+                    style={[
+                        styles.toggleButton,
+                        protectedScores && styles.toggleButtonActive,
+                    ]}
                     onPress={() => setProtectedScores(!protectedScores)}
                 >
                     <Text style={styles.toggleButtonText}>Protected Scores</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                    style={[styles.toggleButton, doubleStrip && styles.toggleButtonActive]}
+                    style={[
+                        styles.toggleButton,
+                        doubleStrip && styles.toggleButtonActive,
+                    ]}
                     onPress={() => setDoubleStrip(!doubleStrip)}
                 >
                     <Text style={styles.toggleButtonText}>Double Strip</Text>
@@ -310,12 +329,11 @@ const BoutOrderPage: React.FC = () => {
                         middleText = `${bout.scoreA}-${bout.scoreB}`;
                     }
 
-                    // winner/loser logic
+                    // Winner/loser logic
                     const aIsWinner = bout.scoreA > bout.scoreB;
                     const bIsWinner = bout.scoreB > bout.scoreA;
                     const isTie = bout.scoreA === bout.scoreB;
 
-                    // container style
                     let containerStyle;
                     if (isCompleted) {
                         containerStyle = styles.completedContainer;
@@ -329,7 +347,9 @@ const BoutOrderPage: React.FC = () => {
 
                     return (
                         <View key={index} style={{ marginBottom: 12 }}>
-                            {isOnDeck && <Text style={styles.onDeckLabel}>On Deck</Text>}
+                            {isOnDeck && (
+                                <Text style={styles.onDeckLabel}>On Deck</Text>
+                            )}
 
                             <TouchableOpacity
                                 activeOpacity={0.9}
@@ -346,7 +366,10 @@ const BoutOrderPage: React.FC = () => {
                                         isCompleted && isTie && styles.tieBox,
                                         !isCompleted && isActive && styles.activeFencerBox,
                                         !isCompleted && isOnDeck && styles.onDeckFencerBox,
-                                        !isCompleted && !isActive && !isOnDeck && styles.pendingFencerBox,
+                                        !isCompleted &&
+                                        !isActive &&
+                                        !isOnDeck &&
+                                        styles.pendingFencerBox,
                                     ]}
                                 >
                                     <Text
@@ -355,7 +378,10 @@ const BoutOrderPage: React.FC = () => {
                                             isCompleted && { color: '#000' },
                                             !isCompleted && isActive && { color: '#fff' },
                                             !isCompleted && isOnDeck && { color: '#fff' },
-                                            !isCompleted && !isActive && !isOnDeck && styles.pendingFencerText,
+                                            !isCompleted &&
+                                            !isActive &&
+                                            !isOnDeck &&
+                                            styles.pendingFencerText,
                                         ]}
                                     >
                                         {fencerIndexMap[bout.fencerA.id]} {bout.fencerA.firstName}
@@ -373,7 +399,10 @@ const BoutOrderPage: React.FC = () => {
                                         isCompleted && isTie && styles.tieBox,
                                         !isCompleted && isActive && styles.activeFencerBox,
                                         !isCompleted && isOnDeck && styles.onDeckFencerBox,
-                                        !isCompleted && !isActive && !isOnDeck && styles.pendingFencerBox,
+                                        !isCompleted &&
+                                        !isActive &&
+                                        !isOnDeck &&
+                                        styles.pendingFencerBox,
                                     ]}
                                 >
                                     <Text
@@ -382,7 +411,10 @@ const BoutOrderPage: React.FC = () => {
                                             isCompleted && { color: '#000' },
                                             !isCompleted && isActive && { color: '#fff' },
                                             !isCompleted && isOnDeck && { color: '#fff' },
-                                            !isCompleted && !isActive && !isOnDeck && styles.pendingFencerText,
+                                            !isCompleted &&
+                                            !isActive &&
+                                            !isOnDeck &&
+                                            styles.pendingFencerText,
                                         ]}
                                     >
                                         {fencerIndexMap[bout.fencerB.id]} {bout.fencerB.firstName}
@@ -393,35 +425,55 @@ const BoutOrderPage: React.FC = () => {
                             {/* Score entry dropdown (if active & expanded) */}
                             {expandedBoutIndex === index && isActive && (
                                 <View style={styles.scoreEntryContainer}>
-                                    <Text style={styles.scoreEntryTitle}>Enter Scores</Text>
+                                    <Text style={styles.scoreEntryTitle}>
+                                        Enter Scores
+                                    </Text>
                                     <View style={styles.scoreRow}>
                                         <Text style={styles.scoreFencerLabel}>
-                                            {fencerIndexMap[bout.fencerA.id]} {bout.fencerA.firstName}:
+                                            {fencerIndexMap[bout.fencerA.id]}{' '}
+                                            {bout.fencerA.firstName}:
                                         </Text>
                                         <TextInput
                                             style={styles.scoreInput}
                                             keyboardType="numeric"
                                             value={String(bout.scoreA)}
-                                            onChangeText={(val) => handleScoreChange(index, 'A', val)}
+                                            onChangeText={(val) =>
+                                                handleScoreChange(index, 'A', val)
+                                            }
                                         />
                                     </View>
                                     <View style={styles.scoreRow}>
                                         <Text style={styles.scoreFencerLabel}>
-                                            {fencerIndexMap[bout.fencerB.id]} {bout.fencerB.firstName}:
+                                            {fencerIndexMap[bout.fencerB.id]}{' '}
+                                            {bout.fencerB.firstName}:
                                         </Text>
                                         <TextInput
                                             style={styles.scoreInput}
                                             keyboardType="numeric"
                                             value={String(bout.scoreB)}
-                                            onChangeText={(val) => handleScoreChange(index, 'B', val)}
+                                            onChangeText={(val) =>
+                                                handleScoreChange(index, 'B', val)
+                                            }
                                         />
                                     </View>
-                                    <TouchableOpacity
-                                        style={styles.enterButton}
-                                        onPress={() => handleSubmitScores(index)}
-                                    >
-                                        <Text style={styles.enterButtonText}>Enter</Text>
-                                    </TouchableOpacity>
+                                    <View style={styles.scoreButtonsRow}>
+                                        <TouchableOpacity
+                                            style={styles.enterButton}
+                                            onPress={() => handleSubmitScores(index)}
+                                        >
+                                            <Text style={styles.enterButtonText}>
+                                                Enter
+                                            </Text>
+                                        </TouchableOpacity>
+                                        <TouchableOpacity
+                                            style={styles.refModuleButton}
+                                            onPress={() => openRefModuleForBout(index)}
+                                        >
+                                            <Text style={styles.refModuleButtonText}>
+                                                Ref Module
+                                            </Text>
+                                        </TouchableOpacity>
+                                    </View>
                                 </View>
                             )}
                         </View>
@@ -429,8 +481,13 @@ const BoutOrderPage: React.FC = () => {
                 })}
 
                 {/* Save Completed Pool */}
-                <TouchableOpacity style={styles.savePoolButton} onPress={handleSaveCompletedPool}>
-                    <Text style={styles.savePoolButtonText}>Save Completed Pool</Text>
+                <TouchableOpacity
+                    style={styles.savePoolButton}
+                    onPress={handleSaveCompletedPool}
+                >
+                    <Text style={styles.savePoolButtonText}>
+                        Save Completed Pool
+                    </Text>
                 </TouchableOpacity>
             </ScrollView>
 
@@ -457,8 +514,17 @@ const BoutOrderPage: React.FC = () => {
                                 onChangeText={setAlterScoreB}
                             />
                         </View>
-                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 12 }}>
-                            <TouchableOpacity style={styles.enterButton} onPress={handleAlterSave}>
+                        <View
+                            style={{
+                                flexDirection: 'row',
+                                justifyContent: 'space-between',
+                                marginTop: 12,
+                            }}
+                        >
+                            <TouchableOpacity
+                                style={styles.enterButton}
+                                onPress={handleAlterSave}
+                            >
                                 <Text style={styles.enterButtonText}>Save</Text>
                             </TouchableOpacity>
                             <TouchableOpacity
@@ -613,15 +679,35 @@ const styles = StyleSheet.create({
         textAlign: 'center',
         fontSize: 16,
     },
+    scoreButtonsRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        marginTop: 8,
+    },
     enterButton: {
         backgroundColor: navyBlue,
-        marginTop: 8,
         paddingVertical: 8,
         paddingHorizontal: 16,
         borderRadius: 6,
         alignItems: 'center',
+        flex: 1,
+        marginRight: 4,
     },
     enterButtonText: {
+        color: '#fff',
+        fontWeight: '600',
+        fontSize: 16,
+    },
+    refModuleButton: {
+        backgroundColor: navyBlue,
+        paddingVertical: 8,
+        paddingHorizontal: 16,
+        borderRadius: 6,
+        alignItems: 'center',
+        flex: 1,
+        marginLeft: 4,
+    },
+    refModuleButtonText: {
         color: '#fff',
         fontWeight: '600',
         fontSize: 16,

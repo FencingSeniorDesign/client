@@ -1,5 +1,3 @@
-// types.ts
-
 export type Fencer = {
     id: any;
     firstName: string;
@@ -23,20 +21,22 @@ export type Event = {
     fencersPerPool: number;
 };
 
-/**
- * If you're using the DEBracketData from the RoundAlgorithms,
- * import it so we can use it in the route param below:
- */
+// Import DEBracketData from your RoundAlgorithms (if needed)
 import { DEBracketData } from '../utils/RoundAlgorithms';
 
 export type RootStackParamList = {
     HomeTabs: undefined;
-    EditTournament: { tournamentName: string };
-    EventSettings: {
-        event: Event;
-        onSave: (updatedEvent: Event) => void;
+    EventManagment: { tournamentName: string };
+    EventSettings: { event: Event; onSave: (updatedEvent: Event) => void };
+    // RefereeModule now receives additional parameters (including the callback)
+    RefereeModule: {
+        boutIndex: number;
+        fencer1Name: string;
+        fencer2Name: string;
+        currentScore1: number;
+        currentScore2: number;
+        onSaveScores?: (score1: number, score2: number) => void;
     };
-    RefereeModule: undefined;
     PoolsPage: {
         event: Event;
         currentRoundIndex: number;
@@ -44,16 +44,12 @@ export type RootStackParamList = {
         poolCount: number;
         fencersPerPool: number;
     };
+    // BoutOrderPage now can receive an optional updatedBout parameter
     BoutOrderPage: {
         poolFencers: Fencer[];
+        updatedBout?: { boutIndex: number; score1: number; score2: number };
     };
-
-    /**
-     * NEW ROUTE for DE bracket display:
-     */
-    DEBracketPage: {
-        event: Event;
-        currentRoundIndex: number;
-        bracketData: DEBracketData;
-    };
+    DEBracketPage: { event: Event; currentRoundIndex: number; bracketData: DEBracketData };
+    HostTournament: undefined;
+    JoinTournament: undefined;
 };
