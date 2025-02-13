@@ -1,4 +1,3 @@
-// screens/RefereeModule/CustomTimeModal.tsx
 import React from 'react';
 import {
     Modal,
@@ -18,6 +17,7 @@ interface CustomTimeModalProps {
     customSeconds: string;
     setCustomMinutes: (value: string) => void;
     setCustomSeconds: (value: string) => void;
+    onKawaiiMode?: () => void;
 }
 
 export function CustomTimeModal({
@@ -29,6 +29,7 @@ export function CustomTimeModal({
                                     customSeconds,
                                     setCustomMinutes,
                                     setCustomSeconds,
+                                    onKawaiiMode,
                                 }: CustomTimeModalProps) {
     const handleCustomTime = () => {
         const minutes = parseInt(customMinutes) || 0;
@@ -47,24 +48,15 @@ export function CustomTimeModal({
                 <View style={styles.modalContent}>
                     <Text style={styles.modalTitle}>Set Timer Duration</Text>
 
-                    <Pressable
-                        style={styles.modalButton}
-                        onPress={() => onSetTime(1)}
-                    >
+                    <Pressable style={styles.modalButton} onPress={() => onSetTime(1)}>
                         <Text style={styles.modalButtonText}>1 Minute</Text>
                     </Pressable>
 
-                    <Pressable
-                        style={styles.modalButton}
-                        onPress={() => onSetTime(3)}
-                    >
+                    <Pressable style={styles.modalButton} onPress={() => onSetTime(3)}>
                         <Text style={styles.modalButtonText}>3 Minutes</Text>
                     </Pressable>
 
-                    <Pressable
-                        style={styles.modalButton}
-                        onPress={() => onSetTime(5)}
-                    >
+                    <Pressable style={styles.modalButton} onPress={() => onSetTime(5)}>
                         <Text style={styles.modalButtonText}>5 Minutes</Text>
                     </Pressable>
 
@@ -89,13 +81,16 @@ export function CustomTimeModal({
                                 maxLength={2}
                             />
                         </View>
-                        <Pressable
-                            style={styles.modalButton}
-                            onPress={handleCustomTime}
-                        >
+                        <Pressable style={styles.modalButton} onPress={handleCustomTime}>
                             <Text style={styles.modalButtonText}>Set Custom Time</Text>
                         </Pressable>
                     </View>
+
+                    {onKawaiiMode && (
+                        <Pressable style={styles.modalButton} onPress={onKawaiiMode}>
+                            <Text style={styles.modalButtonText}>Kawaii Mode</Text>
+                        </Pressable>
+                    )}
 
                     <Pressable
                         style={[styles.modalButton, styles.cancelButton]}

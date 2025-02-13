@@ -13,14 +13,19 @@ type RefereeModuleRouteProp = RouteProp<RootStackParamList, 'RefereeModule'>;
 export function RefereeModule() {
     const route = useRoute<RefereeModuleRouteProp>();
     const navigation = useNavigation();
+
+    // Safely destructure params (use default values if route.params is undefined)
     const {
-        fencer1Name,
-        fencer2Name,
+        fencer1Name = 'Fencer 1',
+        fencer2Name = 'Fencer 2',
         boutIndex,
-        currentScore1,
-        currentScore2,
+        currentScore1 = 0,
+        currentScore2 = 0,
         onSaveScores,
-    } = route.params;
+    } = route.params ?? {};
+
+    // State to toggle Kawaii mode
+    const [kawaiiMode, setKawaiiMode] = useState(false);
 
     // Timer state (still using persistent state for the timer)
     const [time, setTime] = usePersistentState<number>('RefereeModule:time', 180);
@@ -39,6 +44,17 @@ export function RefereeModule() {
     const [selectedCard, setSelectedCard] = useState<CardColor>(null);
     const [fencer1Cards, setFencer1Cards] = useState<FencerCard[]>([]);
     const [fencer2Cards, setFencer2Cards] = useState<FencerCard[]>([]);
+
+    // Define a set of kawaii style overrides
+    const kawaiiModeStyles = {
+        container: { backgroundColor: '#ffe4e1' }, // Misty Rose
+        timerRunning: { backgroundColor: '#d87093' }, // Pale Violet Red
+        timerStopped: { backgroundColor: '#ffb6c1' }, // Light Pink
+        scoreButton: { backgroundColor: '#ff69b4' },  // Hot Pink
+        minusButton: { backgroundColor: '#dda0dd' },  // Plum
+        doubleTouchButton: { backgroundColor: '#ff69b4' },
+        saveScoresButton: { backgroundColor: '#ba55d3' }, // Medium Orchid
+    };
 
     const handleCardPress = (color: CardColor) => {
         setSelectedCard(color);
@@ -120,11 +136,17 @@ export function RefereeModule() {
     };
 
     return (
-        <View style={styles.container}>
+        <View style={[styles.container, kawaiiMode && kawaiiModeStyles.container]}>
             <TouchableOpacity
                 style={[
                     styles.timerContainer,
-                    isRunning ? styles.timerRunning : styles.timerStopped
+                    isRunning
+                        ? kawaiiMode
+                            ? kawaiiModeStyles.timerRunning
+                            : styles.timerRunning
+                        : kawaiiMode
+                            ? kawaiiModeStyles.timerStopped
+                            : styles.timerStopped,
                 ]}
                 onPress={toggleTimer}
                 onLongPress={() => setModalVisible(true)}
@@ -132,7 +154,7 @@ export function RefereeModule() {
                 <Text
                     style={[
                         styles.timerText,
-                        isRunning ? styles.timerTextRunning : styles.timerTextStopped
+                        isRunning ? styles.timerTextRunning : styles.timerTextStopped,
                     ]}
                 >
                     {formatTime(time)}
@@ -140,7 +162,7 @@ export function RefereeModule() {
                 <Text
                     style={[
                         styles.timerStatus,
-                        isRunning ? styles.timerStatusRunning : styles.timerStatusStopped
+                        isRunning ? styles.timerStatusRunning : styles.timerStatusStopped,
                     ]}
                 >
                     {isRunning ? 'Tap to pause' : 'Tap to start'}
@@ -150,7 +172,9 @@ export function RefereeModule() {
             {/* Score Section */}
             <View style={styles.scoreContainer}>
                 <View style={styles.fencerContainer}>
-                    <Text style={styles.fencerLabel}>{fencer1Name || 'Fencer 1'}</Text>
+                    <Text style={styles.fencerLabel}>
+                        {kawaiiMode ? 'Kitten 1' : fencer1Name}
+                    </Text>
                     <View style={styles.cardsContainer}>
                         {fencer1Cards.map((card, index) => (
                             <View
@@ -162,13 +186,17 @@ export function RefereeModule() {
                     <Text style={styles.scoreText}>{fencer1Score}</Text>
                     <View style={styles.buttonContainer}>
                         <TouchableOpacity
-                            style={styles.scoreButton}
+                            style={[styles.scoreButton, kawaiiMode && kawaiiModeStyles.scoreButton]}
                             onPress={() => updateScore(1, true)}
                         >
                             <Text style={styles.buttonText}>+</Text>
                         </TouchableOpacity>
                         <TouchableOpacity
-                            style={[styles.scoreButton, styles.minusButton]}
+                            style={[
+                                styles.scoreButton,
+                                styles.minusButton,
+                                kawaiiMode && kawaiiModeStyles.minusButton,
+                            ]}
                             onPress={() => updateScore(1, false)}
                         >
                             <Text style={styles.buttonText}>−</Text>
@@ -177,7 +205,9 @@ export function RefereeModule() {
                 </View>
 
                 <View style={styles.fencerContainer}>
-                    <Text style={styles.fencerLabel}>{fencer2Name || 'Fencer 2'}</Text>
+                    <Text style={styles.fencerLabel}>
+                        {kawaiiMode ? 'Kitten 2' : fencer2Name}
+                    </Text>
                     <View style={styles.cardsContainer}>
                         {fencer2Cards.map((card, index) => (
                             <View
@@ -189,13 +219,17 @@ export function RefereeModule() {
                     <Text style={styles.scoreText}>{fencer2Score}</Text>
                     <View style={styles.buttonContainer}>
                         <TouchableOpacity
-                            style={styles.scoreButton}
+                            style={[styles.scoreButton, kawaiiMode && kawaiiModeStyles.scoreButton]}
                             onPress={() => updateScore(2, true)}
                         >
                             <Text style={styles.buttonText}>+</Text>
                         </TouchableOpacity>
                         <TouchableOpacity
-                            style={[styles.scoreButton, styles.minusButton]}
+                            style={[
+                                styles.scoreButton,
+                                styles.minusButton,
+                                kawaiiMode && kawaiiModeStyles.minusButton,
+                            ]}
                             onPress={() => updateScore(2, false)}
                         >
                             <Text style={styles.buttonText}>−</Text>
@@ -206,7 +240,7 @@ export function RefereeModule() {
 
             {/* Double Touch Button */}
             <TouchableOpacity
-                style={styles.doubleTouchButton}
+                style={[styles.doubleTouchButton, kawaiiMode && kawaiiModeStyles.doubleTouchButton]}
                 onPress={() => {
                     // Implement your double touch functionality here
                     console.log('Double Touch pressed');
@@ -218,7 +252,7 @@ export function RefereeModule() {
             {/* Save Scores Button */}
             {onSaveScores && (
                 <TouchableOpacity
-                    style={styles.saveScoresButton}
+                    style={[styles.saveScoresButton, kawaiiMode && kawaiiModeStyles.saveScoresButton]}
                     onPress={() => {
                         onSaveScores(fencer1Score, fencer2Score);
                         navigation.goBack();
@@ -235,16 +269,10 @@ export function RefereeModule() {
                         Assign {selectedCard} card to:
                     </Text>
                     <View style={styles.assignmentButtons}>
-                        <TouchableOpacity
-                            style={styles.assignButton}
-                            onPress={() => assignCard(1)}
-                        >
+                        <TouchableOpacity style={styles.assignButton} onPress={() => assignCard(1)}>
                             <Text style={styles.assignButtonText}>Fencer 1</Text>
                         </TouchableOpacity>
-                        <TouchableOpacity
-                            style={styles.assignButton}
-                            onPress={() => assignCard(2)}
-                        >
+                        <TouchableOpacity style={styles.assignButton} onPress={() => assignCard(2)}>
                             <Text style={styles.assignButtonText}>Fencer 2</Text>
                         </TouchableOpacity>
                     </View>
@@ -254,19 +282,19 @@ export function RefereeModule() {
             {/* Card Color Buttons */}
             <View style={styles.cardButtonsContainer}>
                 <TouchableOpacity
-                    style={[styles.cardButton, { backgroundColor: 'yellow' }]}
+                    style={styles.cardButton}
                     onPress={() => handleCardPress('yellow')}
                 >
                     <Text style={styles.cardButtonText}>Yellow</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                    style={[styles.cardButton, { backgroundColor: 'red' }]}
+                    style={styles.cardButton}
                     onPress={() => handleCardPress('red')}
                 >
                     <Text style={styles.cardButtonText}>Red</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                    style={[styles.cardButton, { backgroundColor: 'black' }]}
+                    style={styles.cardButton}
                     onPress={() => handleCardPress('black')}
                 >
                     <Text style={styles.cardButtonText}>Black</Text>
@@ -282,6 +310,10 @@ export function RefereeModule() {
                 customSeconds={customSeconds}
                 setCustomMinutes={setCustomMinutes}
                 setCustomSeconds={setCustomSeconds}
+                onKawaiiMode={() => {
+                    setKawaiiMode(true);
+                    setModalVisible(false);
+                }}
             />
         </View>
     );
@@ -336,14 +368,17 @@ const styles = StyleSheet.create({
         minWidth: 120,
     },
     fencerLabel: {
-        fontSize: 20,
+        fontSize: 30,
         fontWeight: '600',
-        marginBottom: 10,
+        marginBottom: 0,
+        paddingBottom: 0,
+        marginRight: 15,
     },
     scoreText: {
         fontSize: 100,
         fontWeight: 'bold',
         marginBottom: 10,
+        marginRight: 10,
     },
     buttonContainer: {
         flexDirection: 'row',
@@ -356,7 +391,7 @@ const styles = StyleSheet.create({
         borderRadius: 10,
         justifyContent: 'center',
         alignItems: 'center',
-        marginHorizontal: 5,
+        marginHorizontal: 2,
     },
     minusButton: {
         backgroundColor: '#FF3B30',
