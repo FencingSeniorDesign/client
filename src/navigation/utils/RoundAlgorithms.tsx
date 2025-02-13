@@ -3,14 +3,126 @@
 import { Fencer, RoundData } from '../navigation/types';
 
 /**
- * Example data structure for storing each fencer's results in pools:
- * - fencer
- * - wins
- * - totalBouts
- * - touchesScored
- * - touchesReceived
- * etc.
+ * A direct-elimination match between two competitors.
  */
+export type DEBracketMatch = {
+    fencerA: Fencer | null;
+    fencerB: Fencer | null;
+    round: number;      // Round number (1 = first round, etc.)
+    matchIndex: number; // The index within that round
+    winner?: Fencer;
+    scoreA?: number;
+    scoreB?: number;
+};
+
+/**
+ * A single round of the bracket.
+ */
+export type DEBracketRound = {
+    round: number;
+    label: string;         // For example, "Table of 128"
+    matches: DEBracketMatch[];
+};
+
+/**
+ * The full bracket data, consisting of a series of rounds.
+ */
+export type DEBracketData = {
+    rounds: DEBracketRound[];
+};
+
+/**
+ * Builds a full direct-elimination bracket.
+ * Participants are padded with BYEs (null values) to reach the next power of 2.
+ * Each round is built from the winners of the previous round.
+ */
+export function buildDEBracket(fencers: Fencer[]): DEBracketData {
+    // Determine the next power of 2 (m) for the number of participants.
+    let m = 1;
+    while (m < fencers.length) {
+        m *= 2;
+    }
+    // Create a padded array: if there aren’t enough fencers, add undefined (BYEs).
+    const padded: (Fencer | undefined)[] = [...fencers];
+    while (padded.length < m) {
+        padded.push(undefined);
+    }
+
+    const rounds: DEBracketRound[] = [];
+
+    // --- Round 1 ---
+    const round1Matches: DEBracketMatch[] = [];
+    for (let i = 0; i < m; i += 2) {
+        const fA = padded[i];
+        const fB = padded[i + 1];
+        let winner: Fencer | undefined = undefined;
+        // If one competitor is missing, the other automatically wins.
+        if (fA && !fB) {
+            winner = fA;
+        } else if (fB && !fA) {
+            winner = fB;
+        }
+        round1Matches.push({
+            fencerA: fA,
+            fencerB: fB,
+            round: 1,
+            matchIndex: i / 2,
+            winner,
+            scoreA: 0,
+            scoreB: 0,
+        });
+    }
+    rounds.push({
+        round: 1,
+        label: `Table of ${m}`,
+        matches: round1Matches,
+    });
+
+    // --- Subsequent Rounds ---
+    let previousMatches = round1Matches;
+    const totalRounds = Math.log2(m);
+    for (let r = 2; r <= totalRounds; r++) {
+        const numMatches = previousMatches.length / 2;
+        const currentMatches: DEBracketMatch[] = [];
+        for (let i = 0; i < numMatches; i++) {
+            const matchA = previousMatches[2 * i];
+            const matchB = previousMatches[2 * i + 1];
+            // If winners from previous matches exist, use them; otherwise, set to undefined.
+            const fA = matchA.winner ? matchA.winner : undefined;
+            const fB = matchB.winner ? matchB.winner : undefined;
+            let winner: Fencer | undefined = undefined;
+            if (fA && !fB) {
+                winner = fA;
+            } else if (fB && !fA) {
+                winner = fB;
+            }
+            currentMatches.push({
+                fencerA: fA,
+                fencerB: fB,
+                round: r,
+                matchIndex: i,
+                winner,
+                scoreA: 0,
+                scoreB: 0,
+            });
+        }
+        rounds.push({
+            round: r,
+            label: `Table of ${m / Math.pow(2, r - 1)}`,
+            matches: currentMatches,
+        });
+        previousMatches = currentMatches;
+    }
+
+    return { rounds };
+}
+
+/* The functions rankFencersFromPools, getPromotedFencers, and buildPools remain unchanged.
+   (They are used for pool rounds and need not be modified for the direct-elimination bracket.)
+*/
+
+// ... (existing pool functions) ...
+
 export type PoolResult = {
     fencer: Fencer;
     wins: number;
@@ -19,50 +131,32 @@ export type PoolResult = {
     touchesReceived: number;
 };
 
-/**
- * Merges all pool results, then sorts them by your desired ranking method:
- * e.g., by win ratio, then touches scored, etc.
- */
 export function rankFencersFromPools(allPoolResults: PoolResult[][]): Fencer[] {
-    // Flatten all results into a single array
     const merged: PoolResult[] = allPoolResults.reduce(
         (acc, pool) => acc.concat(pool),
         []
     );
-
-    // Sort them. For example: first by win %, then by net touches
     merged.sort((a, b) => {
         const winRatioA = a.wins / (a.totalBouts || 1);
         const winRatioB = b.wins / (b.totalBouts || 1);
         if (winRatioB !== winRatioA) {
-            return winRatioB - winRatioA; // descending
+            return winRatioB - winRatioA;
         }
         const netA = a.touchesScored - a.touchesReceived;
         const netB = b.touchesScored - b.touchesReceived;
-        return netB - netA; // descending
+        return netB - netA;
     });
-
-    // Return a simple array of fencers in sorted order
     return merged.map((r) => r.fencer);
 }
 
-/**
- * Takes the sorted list of fencers (best to worst)
- * and returns only the top X% if provided a promotion value.
- */
 export function getPromotedFencers(sortedFencers: Fencer[], promotionPercent: number): Fencer[] {
     if (promotionPercent >= 100) {
-        return sortedFencers; // no cut
+        return sortedFencers;
     }
     const cutoff = Math.ceil((promotionPercent / 100) * sortedFencers.length);
     return sortedFencers.slice(0, cutoff);
 }
 
-/**
- * Given an array of fencers, plus a desired poolCount/fencersPerPool,
- * we create the new Pools for the next round.
- * This is basically the same logic you have in PoolsPage, but modular.
- */
 export function buildPools(fencers: Fencer[], poolCount: number, fencersPerPool: number): Fencer[][] {
     const shuffled = [...fencers].sort(() => Math.random() - 0.5);
     const result: Fencer[][] = [];
@@ -73,56 +167,4 @@ export function buildPools(fencers: Fencer[], poolCount: number, fencersPerPool:
         startIndex += fencersPerPool;
     }
     return result;
-}
-
-/**
- * Example bracket data structure for single elimination:
- */
-export type DEBracketMatch = {
-    fencerA: Fencer | null;
-    fencerB: Fencer | null;
-    round: number;   // e.g. Round 1, Round 2, ...
-    matchIndex: number; // index in that round
-    winner?: Fencer;
-    scoreA?: number;
-    scoreB?: number;
-};
-
-export type DEBracketData = {
-    roundCount: number;
-    matches: DEBracketMatch[]; // all matches
-};
-
-/**
- * Build a single-elimination bracket from a list of fencers.
- * We'll assume the list size is some power-of-2 for simplicity,
- * or you can add byes if not.
- */
-export function buildDEBracket(fencers: Fencer[]): DEBracketData {
-    // e.g. if we have 8 fencers => Round 1 has 4 matches, Round 2 has 2, Round 3 has 1
-    // roundCount = log2(8) = 3
-    const size = fencers.length;
-    const roundCount = Math.ceil(Math.log2(size));
-
-    // We'll fill in matches for Round 1 by pairing up the fencers in order
-    const matches: DEBracketMatch[] = [];
-    let matchIndex = 0;
-    for (let i = 0; i < size; i += 2) {
-        const fA = fencers[i] || null;
-        const fB = fencers[i + 1] || null;
-        matches.push({
-            fencerA: fA,
-            fencerB: fB,
-            round: 1,
-            matchIndex: matchIndex,
-        });
-        matchIndex++;
-    }
-
-    // Future rounds will be appended as winners appear, so for now we just store Round 1.
-    // We can dynamically create them in the DE screen as each round finishes.
-    return {
-        roundCount,
-        matches,
-    };
 }

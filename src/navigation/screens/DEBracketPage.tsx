@@ -1,152 +1,216 @@
 // DEBracketPage.tsx
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert } from 'react-native';
+import {
+    View,
+    Text,
+    StyleSheet,
+    TouchableOpacity,
+    ScrollView,
+    Alert,
+    TextInput,
+} from 'react-native';
 import { useRoute, useNavigation, RouteProp } from '@react-navigation/native';
-import { RootStackParamList } from '../navigation/types';
-import { DEBracketData, DEBracketMatch, buildDEBracket } from '../utils/RoundAlgorithms';
+import { RootStackParamList, DEBracketData, DEBracketMatch } from '../navigation/types';
 
 type DEBracketRouteProp = RouteProp<RootStackParamList, 'DEBracketPage'>;
 
 const DEBracketPage: React.FC = () => {
     const route = useRoute<DEBracketRouteProp>();
     const navigation = useNavigation();
-    const { event, currentRoundIndex, bracketData } = route.params as {
-        event: any;
-        currentRoundIndex: number;
-        bracketData: DEBracketData;
-    };
+    const { event, currentRoundIndex, bracketData } = route.params;
+    const [currentRound, setCurrentRound] = useState(currentRoundIndex);
+    const [bracket, setBracket] = useState(bracketData);
+    const [expandedMatchKey, setExpandedMatchKey] = useState<string | null>(null);
+    const [tempScoreA, setTempScoreA] = useState('0');
+    const [tempScoreB, setTempScoreB] = useState('0');
 
-    const [bracket, setBracket] = useState<DEBracketData>(bracketData);
-
-    // Example: once all matches in a round are completed,
-    // generate the next round by pairing winners.
-    const handleGoToNextRound = () => {
-        // 1) check if the current round's matches have winners
-        const currentRound = bracket.matches.filter((m: { round: number; }) => m.round === getCurrentRoundNumber());
-        const allComplete = currentRound.every(m => m.winner);
-        if (!allComplete) {
-            Alert.alert("Round not complete", "Please complete all matches first.");
+    const updateMatchScores = (match: DEBracketMatch, scoreA: number, scoreB: number) => {
+        if (scoreA === scoreB) {
+            Alert.alert("Invalid Scores", "Scores cannot be tied in a DE bracket.");
             return;
         }
-
-        // 2) gather winners
-        const winners = currentRound.map(m => m.winner!);
-
-        // If there's only one winner, that's the champion
-        if (winners.length <= 1) {
-            Alert.alert("Tournament Over", "We have a champion!");
-            return;
-        }
-
-        // 3) Build next round matches
-        const nextRoundNum = getCurrentRoundNumber() + 1;
-        const nextMatches: DEBracketMatch[] = [];
-        for (let i = 0; i < winners.length; i += 2) {
-            const fA = winners[i] || null;
-            const fB = winners[i + 1] || null;
-            nextMatches.push({
-                fencerA: fA,
-                fencerB: fB,
-                round: nextRoundNum,
-                matchIndex: i / 2,
-            });
-        }
-
-        // 4) append them to the bracket
-        setBracket((prev) => ({
-            ...prev,
-            matches: [...prev.matches, ...nextMatches],
+        setBracket(prev => ({
+            rounds: prev.rounds.map(round => ({
+                ...round,
+                matches: round.matches.map(m => {
+                    if (m.round === match.round && m.matchIndex === match.matchIndex) {
+                        return {
+                            ...m,
+                            scoreA,
+                            scoreB,
+                            winner: scoreA > scoreB ? m.fencerA : m.fencerB,
+                        };
+                    }
+                    return m;
+                }),
+            })),
         }));
+        setExpandedMatchKey(null);
     };
 
-    // figure out the highest round # we have so far
-    function getCurrentRoundNumber(): number {
-        let max = 1;
-        bracket.matches.forEach(m => {
-            if (m.round > max) max = m.round;
-        });
-        return max;
-    }
-
-    // user taps a match => set winner, etc.
-    const handleMatchPress = (match: DEBracketMatch, winner: 'A' | 'B') => {
-        setBracket((prev) => {
-            const copy = { ...prev, matches: [...prev.matches] };
-            const idx = copy.matches.findIndex(
-                m => m.round === match.round && m.matchIndex === match.matchIndex
-            );
-            if (idx !== -1) {
-                const updated = { ...copy.matches[idx] };
-                updated.winner = winner === 'A' ? updated.fencerA! : updated.fencerB!;
-                updated.scoreA = winner === 'A' ? 15 : 10; // example
-                updated.scoreB = winner === 'B' ? 15 : 10;
-                copy.matches[idx] = updated;
-            }
-            return copy;
-        });
-    };
-
-    // Group matches by round
-    const rounds = [];
-    for (let r = 1; r <= bracket.roundCount; r++) {
-        const roundMatches = bracket.matches.filter(m => m.round === r);
-        if (roundMatches.length) {
-            rounds.push({ round: r, matches: roundMatches });
+    const toggleExpand = (match: DEBracketMatch) => {
+        if (!match.fencerA || !match.fencerB) return;
+        const key = `${match.round}-${match.matchIndex}`;
+        if (expandedMatchKey === key) {
+            setExpandedMatchKey(null);
+        } else {
+            setExpandedMatchKey(key);
+            setTempScoreA(match.scoreA !== undefined ? String(match.scoreA) : '0');
+            setTempScoreB(match.scoreB !== undefined ? String(match.scoreB) : '0');
         }
-    }
+    };
+
+    const handleEnterScores = (match: DEBracketMatch) => {
+        const scoreA = parseInt(tempScoreA, 10) || 0;
+        const scoreB = parseInt(tempScoreB, 10) || 0;
+        updateMatchScores(match, scoreA, scoreB);
+    };
+
+    const handleRefModule = (match: DEBracketMatch) => {
+        navigation.navigate('RefereeModule', {
+            round: match.round,
+            matchIndex: match.matchIndex,
+            fencer1Name: match.fencerA?.firstName || 'Fencer 1',
+            fencer2Name: match.fencerB?.firstName || 'Fencer 2',
+            currentScore1: match.scoreA || 0,
+            currentScore2: match.scoreB || 0,
+            onSaveScores: (score1: number, score2: number) => {
+                setBracket(prev => ({
+                    rounds: prev.rounds.map(round => ({
+                        ...round,
+                        matches: round.matches.map(m => {
+                            if (m.round === match.round && m.matchIndex === match.matchIndex) {
+                                return {
+                                    ...m,
+                                    scoreA: score1,
+                                    scoreB: score2,
+                                    winner: score1 > score2 ? m.fencerA : m.fencerB,
+                                };
+                            }
+                            return m;
+                        }),
+                    })),
+                }));
+            },
+        });
+        setExpandedMatchKey(null);
+    };
+
+    const isCurrentRoundComplete = (): boolean => {
+        const currentRoundMatches = bracket.rounds.find(r => r.round === currentRound)?.matches;
+        return currentRoundMatches?.every(m => m.winner || (!m.fencerA && !m.fencerB)) || false;
+    };
+
+    const goToNextRound = () => {
+        if (isCurrentRoundComplete()) {
+            setCurrentRound(prev => prev + 1);
+        } else {
+            Alert.alert("Incomplete Round", "Please complete all matches in the current round first.");
+        }
+    };
+
+    const currentRoundMatches = bracket.rounds.find(r => r.round === currentRound)?.matches || [];
 
     return (
         <ScrollView style={styles.container}>
             <Text style={styles.title}>DE Bracket</Text>
+            <TouchableOpacity
+                style={styles.viewBracketButton}
+                onPress={() => navigation.navigate('BracketViewPage', { bracketData: bracket, event })}
+            >
+                <Text style={styles.viewBracketButtonText}>View Full Bracket</Text>
+            </TouchableOpacity>
 
-            {rounds.map((rnd) => (
-                <View key={rnd.round} style={styles.roundBlock}>
-                    <Text style={styles.roundTitle}>Round {rnd.round}</Text>
-                    {rnd.matches.map((match) => (
-                        <View key={match.matchIndex} style={styles.matchContainer}>
-                            <View style={styles.fencerBox}>
-                                <Text style={styles.fencerText}>
-                                    {match.fencerA?.firstName || 'BYE'}
-                                </Text>
-                                {match.winner === match.fencerA && <Text>Winner</Text>}
-                            </View>
-                            <Text style={{ marginHorizontal: 8 }}>vs</Text>
-                            <View style={styles.fencerBox}>
-                                <Text style={styles.fencerText}>
-                                    {match.fencerB?.firstName || 'BYE'}
-                                </Text>
-                                {match.winner === match.fencerB && <Text>Winner</Text>}
-                            </View>
-                            {/* Quick Winner Buttons */}
-                            {(!match.winner && match.fencerA && match.fencerB) && (
-                                <View style={{ flexDirection: 'row', marginLeft: 8 }}>
+            {/* Display matches for the current round */}
+            <Text style={styles.roundTitle}>Round {currentRound}</Text>
+            {currentRoundMatches.map(match => {
+                const key = `${match.round}-${match.matchIndex}`;
+                const isMatchExpanded = expandedMatchKey === key;
+                const winner = match.winner;
+                return (
+                    <TouchableOpacity
+                        key={key}
+                        style={styles.matchContainer}
+                        onPress={() => toggleExpand(match)}
+                    >
+                        <View style={styles.fencerBox}>
+                            <Text
+                                style={[
+                                    styles.fencerText,
+                                    winner && winner.id === match.fencerA?.id && styles.winnerText,
+                                    winner && winner.id !== match.fencerA?.id && styles.loserText,
+                                ]}
+                            >
+                                {match.fencerA ? match.fencerA.firstName : 'BYE'}
+                            </Text>
+                        </View>
+                        <Text style={styles.vsText}>vs</Text>
+                        <View style={styles.fencerBox}>
+                            <Text
+                                style={[
+                                    styles.fencerText,
+                                    winner && winner.id === match.fencerB?.id && styles.winnerText,
+                                    winner && winner.id !== match.fencerB?.id && styles.loserText,
+                                ]}
+                            >
+                                {match.fencerB ? match.fencerB.firstName : 'BYE'}
+                            </Text>
+                        </View>
+                        {isMatchExpanded && (
+                            <View style={styles.scoreEntryContainer}>
+                                <Text style={styles.scoreEntryTitle}>Enter Scores</Text>
+                                <View style={styles.scoreRow}>
+                                    <Text style={styles.scoreFencerLabel}>{match.fencerA ? match.fencerA.firstName : 'BYE'}:</Text>
+                                    <TextInput
+                                        style={styles.scoreInput}
+                                        value={tempScoreA}
+                                        onChangeText={setTempScoreA}
+                                        keyboardType="numeric"
+                                    />
+                                </View>
+                                <View style={styles.scoreRow}>
+                                    <Text style={styles.scoreFencerLabel}>{match.fencerB ? match.fencerB.firstName : 'BYE'}:</Text>
+                                    <TextInput
+                                        style={styles.scoreInput}
+                                        value={tempScoreB}
+                                        onChangeText={setTempScoreB}
+                                        keyboardType="numeric"
+                                    />
+                                </View>
+                                <View style={styles.scoreButtonsRow}>
                                     <TouchableOpacity
-                                        style={styles.winButton}
-                                        onPress={() => handleMatchPress(match, 'A')}
+                                        style={styles.enterButton}
+                                        onPress={() => handleEnterScores(match)}
                                     >
-                                        <Text style={styles.winButtonText}>A Wins</Text>
+                                        <Text style={styles.enterButtonText}>Enter</Text>
                                     </TouchableOpacity>
                                     <TouchableOpacity
-                                        style={styles.winButton}
-                                        onPress={() => handleMatchPress(match, 'B')}
+                                        style={styles.refModuleButton}
+                                        onPress={() => handleRefModule(match)}
                                     >
-                                        <Text style={styles.winButtonText}>B Wins</Text>
+                                        <Text style={styles.refModuleButtonText}>Ref Module</Text>
                                     </TouchableOpacity>
                                 </View>
-                            )}
-                        </View>
-                    ))}
-                </View>
-            ))}
+                            </View>
+                        )}
+                    </TouchableOpacity>
+                );
+            })}
 
-            <TouchableOpacity style={styles.nextButton} onPress={handleGoToNextRound}>
-                <Text style={styles.nextButtonText}>Go to Next Round</Text>
-            </TouchableOpacity>
+            {/* Show "Go to Next Round" button if the current round is complete */}
+            {isCurrentRoundComplete() && currentRound < bracket.rounds.length && (
+                <TouchableOpacity style={styles.nextButton} onPress={goToNextRound}>
+                    <Text style={styles.nextButtonText}>Go to Next Round</Text>
+                </TouchableOpacity>
+            )}
+
+            {/* Show "Tournament Over" message if all rounds are complete */}
+            {isCurrentRoundComplete() && currentRound >= bracket.rounds.length && (
+                <Text style={styles.tournamentOverText}>Tournament Over! We have a champion!</Text>
+            )}
         </ScrollView>
     );
 };
-
-export default DEBracketPage;
 
 const styles = StyleSheet.create({
     container: { flex: 1, padding: 16 },
@@ -156,12 +220,18 @@ const styles = StyleSheet.create({
         textAlign: 'center',
         marginBottom: 16,
     },
-    roundBlock: {
-        marginBottom: 24,
-        borderWidth: 1,
-        borderColor: '#ccc',
+    viewBracketButton: {
+        backgroundColor: '#000080',
+        paddingVertical: 10,
+        paddingHorizontal: 16,
         borderRadius: 6,
-        padding: 8,
+        alignSelf: 'center',
+        marginBottom: 16,
+    },
+    viewBracketButtonText: {
+        color: '#fff',
+        fontSize: 16,
+        fontWeight: '600',
     },
     roundTitle: {
         fontSize: 18,
@@ -171,29 +241,91 @@ const styles = StyleSheet.create({
     matchContainer: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginVertical: 8,
+        padding: 8,
+        backgroundColor: '#d3d3d3',
+        borderRadius: 8,
+        marginBottom: 12,
     },
     fencerBox: {
+        flex: 1,
+        padding: 8,
+        alignItems: 'center',
+        backgroundColor: '#fff',
+        borderRadius: 4,
         borderWidth: 1,
         borderColor: '#888',
-        borderRadius: 4,
-        padding: 8,
-        flex: 1,
-        alignItems: 'center',
     },
     fencerText: {
         fontSize: 16,
     },
-    winButton: {
-        backgroundColor: '#006400',
-        marginHorizontal: 4,
-        paddingHorizontal: 10,
-        paddingVertical: 6,
-        borderRadius: 4,
+    vsText: {
+        marginHorizontal: 8,
+        fontSize: 16,
+        fontWeight: 'bold',
     },
-    winButtonText: {
+    scoreEntryContainer: {
+        backgroundColor: '#fff',
+        padding: 12,
+        borderRadius: 6,
+        marginTop: 4,
+        borderWidth: 1,
+        borderColor: '#ccc',
+    },
+    scoreEntryTitle: {
+        fontSize: 16,
+        fontWeight: '600',
+        marginBottom: 8,
+    },
+    scoreRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 6,
+    },
+    scoreFencerLabel: {
+        fontSize: 16,
+        marginRight: 8,
+    },
+    scoreInput: {
+        borderWidth: 1,
+        borderColor: '#ccc',
+        borderRadius: 6,
+        width: 60,
+        padding: 6,
+        textAlign: 'center',
+        fontSize: 16,
+    },
+    scoreButtonsRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        marginTop: 8,
+    },
+    enterButton: {
+        backgroundColor: '#000080',
+        paddingVertical: 8,
+        paddingHorizontal: 16,
+        borderRadius: 6,
+        alignItems: 'center',
+        flex: 1,
+        marginRight: 4,
+    },
+    enterButtonText: {
         color: '#fff',
         fontWeight: '600',
+        fontSize: 16,
+    },
+    refModuleButton: {
+        backgroundColor: 'green', // Changed to green
+        paddingVertical: 8,
+        paddingHorizontal: 16,
+        borderRadius: 6,
+        alignItems: 'center',
+        flex: 1,
+        marginLeft: 4,
+    },
+    refModuleButtonText: {
+        color: '#fff',
+        fontWeight: '600',
+        fontSize: 16,
     },
     nextButton: {
         backgroundColor: 'orange',
@@ -207,4 +339,19 @@ const styles = StyleSheet.create({
         fontSize: 16,
         fontWeight: '600',
     },
+    tournamentOverText: {
+        fontSize: 20,
+        fontWeight: 'bold',
+        textAlign: 'center',
+        marginTop: 20,
+        color: 'green',
+    },
+    winnerText: {
+        color: 'green',
+    },
+    loserText: {
+        color: 'red',
+    },
 });
+
+export default DEBracketPage;
