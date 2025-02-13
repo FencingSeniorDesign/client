@@ -23,44 +23,55 @@ type Props = {
 };
 
 export const EventSettings = ({ route }: Props) => {
-    const { event: initialEvent, onSave } = route.params;
+    // Extract the event and onSave callback from route parameters.
+    // Adding a fallback in case event is missing.
+    const { event: initialEvent, onSave } = route.params || {};
+
+    if (!initialEvent) {
+        return (
+            <View style={styles.errorContainer}>
+                <Text style={styles.errorText}>Error: No event data provided.</Text>
+            </View>
+        );
+    }
+
     const navigation = useNavigation();
 
-    // Local states
+    // Use default values if properties are missing.
     const [event, setEvent] = useState<Event>({ ...initialEvent });
-    const [fencers, setFencers] = useState<Fencer[]>([...initialEvent.fencers]);
+    const [fencers, setFencers] = useState<Fencer[]>(
+        initialEvent.fencers ? [...initialEvent.fencers] : []
+    );
+    const [rounds, setRounds] = useState<RoundData[]>(
+        initialEvent.rounds ? [...initialEvent.rounds] : []
+    );
+    const [poolCount, setPoolCount] = useState<string>(
+        initialEvent.poolCount !== undefined ? String(initialEvent.poolCount) : "4"
+    );
+    const [fencersPerPool, setFencersPerPool] = useState<string>(
+        initialEvent.fencersPerPool !== undefined ? String(initialEvent.fencersPerPool) : "5"
+    );
 
     const [fencerFirstName, setFencerFirstName] = useState<string>("");
     const [fencerLastName, setFencerLastName] = useState<string>("");
     const [fencerRating, setFencerRating] = useState<string>("");
 
-    // We store round array
-    const [rounds, setRounds] = useState<RoundData[]>([...event.rounds]);
-
-    // Re-add poolCount/fencersPerPool
-    const [poolCount, setPoolCount] = useState<string>(
-        String(initialEvent.poolCount ?? 4)
-    );
-    const [fencersPerPool, setFencersPerPool] = useState<string>(
-        String(initialEvent.fencersPerPool ?? 5)
-    );
-
-    // Add a fencer
+    // Function to add a new fencer.
     const handleAddFencer = () => {
         const firstNames = [
             "John", "Paul", "George", "Ringo", "Mick",
             "Keith", "David", "Freddie", "Elvis", "Prince",
-            "Otis", "Ronnie", "Stevie", "Bruce", "Kurt"
+            "Otis", "Ronnie", "Stevie", "Bruce", "Kurt",
         ];
         const lastNames = [
             "Smith", "Johnson", "Williams", "Brown", "Jones",
             "Miller", "Davis", "Garcia", "Rodriguez", "Wilson",
-            "Martinez", "Anderson", "Taylor", "Thomas", "Hernandez"
+            "Martinez", "Anderson", "Taylor", "Thomas", "Hernandez",
         ];
         const ratings = ["A", "B", "C", "D", "E", "U"];
 
         if (!fencerFirstName.trim() && !fencerLastName.trim() && !fencerRating.trim()) {
-            // random
+            // Generate random fencer details if none are provided.
             const randomFirstName = firstNames[Math.floor(Math.random() * firstNames.length)];
             const randomLastName = lastNames[Math.floor(Math.random() * lastNames.length)];
             const randomRating = ratings[Math.floor(Math.random() * ratings.length)];
@@ -73,7 +84,6 @@ export const EventSettings = ({ route }: Props) => {
             };
             setFencers([newFencer, ...fencers]);
         } else if (fencerFirstName.trim() && fencerLastName.trim() && fencerRating.trim()) {
-            // use typed
             const newFencer: Fencer = {
                 id: Date.now(),
                 firstName: fencerFirstName.trim(),
@@ -87,22 +97,24 @@ export const EventSettings = ({ route }: Props) => {
         setFencerRating("");
     };
 
+    // Remove a fencer by id.
     const handleRemoveFencer = (id: number) => {
         setFencers((prev) => prev.filter((f) => f.id !== id));
     };
 
-    // Edit promotions for Pools
+    // Update promotion value for a Pools round.
     const handlePromotionChange = (value: string, index: number) => {
         const numVal = parseInt(value, 10) || 0;
         setRounds((prev) => {
             const updated = [...prev];
-            if (updated[index].roundType === 'Pools') {
+            if (updated[index].roundType === "Pools") {
                 updated[index].promotion = numVal;
             }
             return updated;
         });
     };
 
+    // Save the event settings and navigate back.
     const handleSaveSettings = () => {
         const updatedEvent: Event = {
             ...event,
@@ -119,7 +131,7 @@ export const EventSettings = ({ route }: Props) => {
         <ScrollView style={styles.container} contentContainerStyle={styles.content}>
             <Text style={styles.title}>Edit Event Settings</Text>
 
-            {/* Rounds */}
+            {/* Rounds Section */}
             {rounds.length > 0 && (
                 <View style={styles.roundsSection}>
                     <Text style={styles.roundsTitle}>Rounds</Text>
@@ -128,7 +140,7 @@ export const EventSettings = ({ route }: Props) => {
                             <Text style={styles.roundLabel}>
                                 Round {idx + 1}: {rnd.roundType}
                             </Text>
-                            {rnd.roundType === 'Pools' && (
+                            {rnd.roundType === "Pools" && (
                                 <View style={styles.promotionInputRow}>
                                     <Text style={styles.promLabel}>Promotion %:</Text>
                                     <TextInput
@@ -144,7 +156,7 @@ export const EventSettings = ({ route }: Props) => {
                 </View>
             )}
 
-            {/* Pools Config */}
+            {/* Pool Configuration */}
             <View style={styles.section}>
                 <Text style={styles.sectionTitle}>Pool Configuration</Text>
                 <TextInput
@@ -163,7 +175,7 @@ export const EventSettings = ({ route }: Props) => {
                 />
             </View>
 
-            {/* Fencers */}
+            {/* Fencers Section */}
             <View style={styles.section}>
                 <Text style={styles.sectionTitle}>Fencers ({fencers.length})</Text>
                 <TextInput
@@ -207,7 +219,7 @@ export const EventSettings = ({ route }: Props) => {
                 )}
             </View>
 
-            {/* Save */}
+            {/* Save Button */}
             <View style={styles.section}>
                 <TouchableOpacity onPress={handleSaveSettings}>
                     <Text style={styles.saveButtonText}>Save Event Settings</Text>
@@ -219,7 +231,7 @@ export const EventSettings = ({ route }: Props) => {
 
 export default EventSettings;
 
-const navyBlue = '#000080';
+const navyBlue = "#000080";
 
 const styles = StyleSheet.create({
     container: {
@@ -251,7 +263,7 @@ const styles = StyleSheet.create({
     },
     roundLabel: {
         fontSize: 16,
-        fontWeight: '500',
+        fontWeight: "500",
         marginBottom: 4,
     },
     promotionInputRow: {
@@ -317,5 +329,14 @@ const styles = StyleSheet.create({
         fontSize: 18,
         fontWeight: "bold",
         textAlign: "center",
+    },
+    errorContainer: {
+        flex: 1,
+        justifyContent: "center",
+        alignItems: "center",
+    },
+    errorText: {
+        color: "red",
+        fontSize: 18,
     },
 });

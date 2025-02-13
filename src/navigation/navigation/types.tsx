@@ -1,5 +1,3 @@
-// types.ts
-
 export type Fencer = {
     id: any;
     firstName: string;
@@ -10,20 +8,22 @@ export type Fencer = {
 export type RoundData = {
     roundType: 'Pools' | 'DE';
     promotion?: number;
+    poolsOption?: 'promotion' | 'target';
+    targetBracketSize?: number;
+    eliminationFormat?: 'single' | 'double' | 'compass';
 };
 
 export type Event = {
     id: number;
+    name: string;
     gender: string;
     weapon: string;
     age: string;
     rounds: RoundData[];
-    name: string;
-    fencers: Fencer[]; //todo - delete when not needed
-    poolCount: number; //same
-    fencersPerPool: number; //same
+    fencers: Fencer[];
+    poolCount: number;
+    fencersPerPool: number;
 };
-
 
 export type DEBracketMatch = {
     fencerA: Fencer | undefined;
@@ -35,7 +35,6 @@ export type DEBracketMatch = {
     scoreB?: number;
 };
 
-// Import DEBracketData from your RoundAlgorithms (if needed)
 // Import DEBracketData from your RoundAlgorithms (if needed)
 import { DEBracketData } from '../utils/RoundAlgorithms';
 
@@ -52,7 +51,6 @@ export type RootStackParamList = {
         onSaveScores: (score1: number, score2: number) => void;
         EventManagment: { tournamentName: string };
         EventSettings: { event: Event; onSave: (updatedEvent: Event) => void };
-        // RefereeModule now receives additional parameters (including the callback)
         RefereeModule: {
             boutIndex: number;
             fencer1Name: string;
@@ -68,7 +66,6 @@ export type RootStackParamList = {
             poolCount: number;
             fencersPerPool: number;
         };
-        // BoutOrderPage now can receive an optional updatedBout parameter
         BoutOrderPage: {
             poolFencers: Fencer[];
             updatedBout?: { boutIndex: number; score1: number; score2: number };
@@ -76,8 +73,6 @@ export type RootStackParamList = {
         DEBracketPage: { event: Event; currentRoundIndex: number; bracketData: DEBracketData };
         HostTournament: undefined;
         JoinTournament: undefined;
-        // New screen for viewing the full bracket
         BracketViewPage: { bracketData: DEBracketData; event: Event };
     };
-
-}
+};
