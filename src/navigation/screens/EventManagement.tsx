@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -8,10 +8,26 @@ import {
   TouchableOpacity,
   Alert,
   ScrollView,
+  TextInput,
 } from 'react-native';
 import { useNavigation, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList, Event, RoundData } from '../navigation/types';
+import {
+  dbListEvents,
+  dbCreateEvent,
+  dbUpdateEvent,
+  dbDeleteEvent,
+} from '../../db/TournamentDatabaseUtils';
+
+// Extend RoundData with additional configuration properties
+type ExtendedRoundData = RoundData & {
+  // For Pools rounds:
+  poolsOption?: 'promotion' | 'target';
+  targetBracketSize?: number;
+  // For DE rounds:
+  eliminationFormat?: 'single' | 'double' | 'compass';
+};
 
 type Props = {
   route: RouteProp<{ params: { tournamentName: string } }, 'params'>;
@@ -20,83 +36,170 @@ type Props = {
 export const EventManagement = ({ route }: Props) => {
   const { tournamentName } = route.params;
   const [events, setEvents] = useState<Event[]>([]);
-
   const [modalVisible, setModalVisible] = useState<boolean>(false);
   const [editingEventId, setEditingEventId] = useState<number | null>(null);
 
-  // Local states for gender/weapon
-  const [selectedGender, setSelectedGender] = useState<string>('Male');
-  const [selectedWeapon, setSelectedWeapon] = useState<string>('Foil');
-  const [rounds, setRounds] = useState<RoundData[]>([]);
+  // Fields for event creation/editing
+  const [selectedGender, setSelectedGender] = useState<string>('');
+  const [selectedWeapon, setSelectedWeapon] = useState<string>('');
+  const [selectedAge, setSelectedAge] = useState<string>('');
+
+  // Use our extended rounds type
+  const [rounds, setRounds] = useState<ExtendedRoundData[]>([]);
   const [showRoundTypeOptions, setShowRoundTypeOptions] = useState<boolean>(false);
+
+  // Track which round’s config is expanded (if any)
+  const [expandedConfigIndex, setExpandedConfigIndex] = useState<number | null>(null);
 
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
-  const generateEventTitle = (gender: string, weapon: string): string => {
-    const genderText =
-        gender === 'Male' ? "Men's" : gender === 'Female' ? "Women's" : 'Mixed';
-    return `${genderText} ${weapon}`;
+  // Load events from DB filtered by tournament name
+  const loadEvents = async () => {
+    try {
+      const eventsList = await dbListEvents(tournamentName);
+      setEvents(eventsList);
+    } catch (error) {
+      console.error('Error loading events from DB:', error);
+    }
   };
+
+  useEffect(() => {
+    loadEvents();
+  }, []);
 
   const openCreateModal = () => {
     setEditingEventId(null);
-    setSelectedGender('Male');
+    setSelectedGender('Mixed');
     setSelectedWeapon('Foil');
+    setSelectedAge('Senior');
     setRounds([]);
     setModalVisible(true);
   };
 
-  const handleUpdateEvent = (updatedEvent: Event) => {
-    setEvents((prevEvents) =>
-        prevEvents.map((evt) => (evt.id === updatedEvent.id ? updatedEvent : evt))
-    );
-  };
+  // Helper functions for round reordering and configuration
 
-  const openEventSettings = (event: Event) => {
-    navigation.navigate('EventSettings', {
-      event,
-      onSave: (updated: Event) => {
-        handleUpdateEvent(updated);
-      },
+  const moveRoundUp = (index: number) => {
+    if (index <= 0) return;
+    setRounds(prev => {
+      const newRounds = [...prev];
+      [newRounds[index - 1], newRounds[index]] = [newRounds[index], newRounds[index - 1]];
+      return newRounds;
     });
   };
 
-  const handleSubmitEvent = () => {
-    const eventTitle = generateEventTitle(selectedGender, selectedWeapon);
-
-    if (editingEventId === null) {
-      const newEvent: Event = {
-        id: Date.now(),
-        gender: selectedGender,
-        weapon: selectedWeapon,
-        rounds: rounds,
-        name: eventTitle,
-        fencers: [],
-        poolCount: 4,
-        fencersPerPool: 5,
-      };
-      setEvents([...events, newEvent]);
-    } else {
-      const updatedEvents = events.map((evt) => {
-        if (evt.id === editingEventId) {
-          return {
-            ...evt,
-            gender: selectedGender,
-            weapon: selectedWeapon,
-            rounds: rounds,
-            name: eventTitle,
-          };
-        }
-        return evt;
-      });
-      setEvents(updatedEvents);
-    }
-    setModalVisible(false);
+  const moveRoundDown = (index: number) => {
+    setRounds(prev => {
+      if (index >= prev.length - 1) return prev;
+      const newRounds = [...prev];
+      [newRounds[index], newRounds[index + 1]] = [newRounds[index + 1], newRounds[index]];
+      return newRounds;
+    });
   };
 
-  const handleRemoveEvent = (id: number) => {
-    const updated = events.filter((e) => e.id !== id);
-    setEvents(updated);
+  const removeRound = (index: number) => {
+    setRounds(prev => prev.filter((_, i) => i !== index));
+    if (expandedConfigIndex === index) {
+      setExpandedConfigIndex(null);
+    }
+  };
+
+  const toggleRoundConfig = (index: number) => {
+    if (expandedConfigIndex === index) {
+      setExpandedConfigIndex(null);
+    } else {
+      setExpandedConfigIndex(index);
+    }
+  };
+
+  const setPoolsOption = (index: number, option: 'promotion' | 'target') => {
+    setRounds(prev => {
+      const newRounds = [...prev];
+      newRounds[index] = { ...newRounds[index], poolsOption: option };
+      return newRounds;
+    });
+  };
+
+  const updateRoundPromotion = (index: number, val: string) => {
+    const promotion = parseInt(val, 10) || 0;
+    setRounds(prev => {
+      const newRounds = [...prev];
+      newRounds[index] = { ...newRounds[index], promotion };
+      return newRounds;
+    });
+  };
+
+  const updateRoundTarget = (index: number, size: number) => {
+    setRounds(prev => {
+      const newRounds = [...prev];
+      newRounds[index] = { ...newRounds[index], targetBracketSize: size };
+      return newRounds;
+    });
+  };
+
+  const updateRoundElimination = (index: number, format: 'single' | 'double' | 'compass') => {
+    setRounds(prev => {
+      const newRounds = [...prev];
+      newRounds[index] = { ...newRounds[index], eliminationFormat: format };
+      return newRounds;
+    });
+  };
+
+  const addRound = (roundType: 'Pools' | 'DE') => {
+    if (roundType === 'Pools') {
+      const newRound: ExtendedRoundData = {
+        roundType: 'Pools',
+        promotion: 100,
+        poolsOption: 'promotion',
+        targetBracketSize: 8,
+      };
+      setRounds([...rounds, newRound]);
+    } else {
+      const newRound: ExtendedRoundData = {
+        roundType: 'DE',
+        eliminationFormat: 'single',
+      };
+      setRounds([...rounds, newRound]);
+    }
+    setShowRoundTypeOptions(false);
+  };
+
+  // When submitting the event, update the DB (include rounds if needed)
+  const handleSubmitEvent = async () => {
+    try {
+      if (editingEventId === null) {
+        await dbCreateEvent(tournamentName, {
+          id: Date.now(), // Assuming you generate an ID here
+          age: selectedAge,
+          gender: selectedGender,
+          weapon: selectedWeapon,
+          class: "",
+          seeding: "",
+          rounds,
+        });
+      } else {
+        await dbUpdateEvent(editingEventId, {
+          age: selectedAge,
+          gender: selectedGender,
+          weapon: selectedWeapon,
+          class: "",
+          seeding: "",
+        });
+      }
+      setModalVisible(false);
+      loadEvents();
+    } catch (error) {
+      Alert.alert('Error', 'Failed to save event.');
+      console.error(error);
+    }
+  };
+
+  const handleRemoveEvent = async (id: number) => {
+    try {
+      await dbDeleteEvent(id);
+      loadEvents();
+    } catch (error) {
+      console.error('Error deleting event:', error);
+    }
   };
 
   const confirmRemoveEvent = (id: number) => {
@@ -126,24 +229,13 @@ export const EventManagement = ({ route }: Props) => {
   const handleStartEvent = (eventId: number) => {
     const eventToStart = events.find((evt) => evt.id === eventId);
     if (!eventToStart) return;
-
-    // Instead of passing "eventId", we pass the entire event object (and required fields).
     navigation.navigate('PoolsPage', {
       event: eventToStart,
       currentRoundIndex: 0,
-      fencers: eventToStart.fencers,
+      fencers: eventToStart.fencers ?? [],
       poolCount: eventToStart.poolCount ?? 4,
       fencersPerPool: eventToStart.fencersPerPool ?? 5,
     });
-  };
-
-  const addRound = (roundType: 'Pools' | 'DE') => {
-    const newRound: RoundData = {
-      roundType,
-      promotion: roundType === 'Pools' ? 100 : undefined,
-    };
-    setRounds([...rounds, newRound]);
-    setShowRoundTypeOptions(false);
   };
 
   return (
@@ -155,11 +247,17 @@ export const EventManagement = ({ route }: Props) => {
         <View style={styles.eventList}>
           {events.map((event) => (
               <View key={event.id} style={styles.eventItem}>
-                <Text style={styles.eventText}>{event.name}</Text>
+                <Text style={styles.eventText}>{event.age} {event.gender} {event.weapon}</Text>
                 <View style={styles.eventActions}>
                   <TouchableOpacity
                       style={[styles.actionButton, styles.flexAction]}
-                      onPress={() => openEventSettings(event)}
+                      onPress={() => {
+                        setEditingEventId(event.id);
+                        setSelectedGender(event.gender);
+                        setSelectedWeapon(event.weapon);
+                        setSelectedAge(event.age || 'Senior');
+                        setModalVisible(true);
+                      }}
                   >
                     <Text style={styles.buttonText}>Edit</Text>
                   </TouchableOpacity>
@@ -169,11 +267,12 @@ export const EventManagement = ({ route }: Props) => {
                   >
                     <Text style={styles.buttonText}>Start</Text>
                   </TouchableOpacity>
+                  {/* Red X icon for removal */}
                   <TouchableOpacity
-                      style={[styles.actionButton, styles.flexAction, styles.removeButton]}
                       onPress={() => confirmRemoveEvent(event.id)}
+                      style={styles.removeIconContainer}
                   >
-                    <Text style={styles.buttonText}>Remove</Text>
+                    <Text style={styles.removeIcon}>✖</Text>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -190,9 +289,32 @@ export const EventManagement = ({ route }: Props) => {
             <View style={styles.modalContent}>
               <Text style={styles.modalTitle}>Create / Edit Event</Text>
 
+              {/* AGE SELECTOR */}
+              <View style={styles.rowGroup}>
+                {['Cadet', 'Senior', 'Veteran'].map((ageOption) => (
+                    <TouchableOpacity
+                        key={ageOption}
+                        style={[
+                          styles.optionButton,
+                          selectedAge === ageOption && styles.selectedButton,
+                        ]}
+                        onPress={() => setSelectedAge(ageOption)}
+                    >
+                      <Text
+                          style={[
+                            styles.optionText,
+                            { color: selectedAge === ageOption ? '#fff' : '#000' },
+                          ]}
+                      >
+                        {ageOption}
+                      </Text>
+                    </TouchableOpacity>
+                ))}
+              </View>
+
               {/* GENDER BUTTONS */}
               <View style={styles.rowGroup}>
-                {['Male', 'Mixed', 'Female'].map((gender) => (
+                {['Men\'s', 'Mixed', 'Women\'s'].map((gender) => (
                     <TouchableOpacity
                         key={gender}
                         style={[
@@ -236,26 +358,119 @@ export const EventManagement = ({ route }: Props) => {
                 ))}
               </View>
 
-              {/* SHOW chosen rounds */}
+              {/* Rounds List */}
               {rounds.length > 0 && (
-                  <View style={styles.roundsContainer}>
-                    {rounds.map((r, idx) => (
-                        <View style={styles.roundChip} key={idx}>
-                          <Text style={styles.roundChipText}>{r.roundType}</Text>
+                  <View style={styles.roundsList}>
+                    {rounds.map((round, idx) => (
+                        <View key={idx} style={styles.roundItem}>
+                          <View style={styles.roundItemRow}>
+                            {/* Left: Drag handle and move buttons */}
+                            <View style={styles.dragHandle}>
+                              <Text style={styles.dragIcon}>☰</Text>
+                              <TouchableOpacity onPress={() => moveRoundUp(idx)} style={styles.moveButton}>
+                                <Text style={styles.moveButtonText}>↑</Text>
+                              </TouchableOpacity>
+                              <TouchableOpacity onPress={() => moveRoundDown(idx)} style={styles.moveButton}>
+                                <Text style={styles.moveButtonText}>↓</Text>
+                              </TouchableOpacity>
+                            </View>
+                            {/* Center: Round label */}
+                            <Text style={styles.roundLabelText}>
+                              {round.roundType === 'Pools' ? 'Pools Round' : 'DE Round'}
+                            </Text>
+                            {/* Right: Remove and gear icons */}
+                            <View style={styles.roundItemActions}>
+                              <TouchableOpacity onPress={() => removeRound(idx)} style={styles.removeRoundButton}>
+                                <Text style={styles.removeRoundButtonText}>✖</Text>
+                              </TouchableOpacity>
+                              <TouchableOpacity onPress={() => toggleRoundConfig(idx)} style={styles.configButton}>
+                                <Text style={styles.configButtonText}>⚙</Text>
+                              </TouchableOpacity>
+                            </View>
+                          </View>
+                          {/* Expanded configuration */}
+                          {expandedConfigIndex === idx && (
+                              <View style={styles.roundConfig}>
+                                {round.roundType === 'Pools' ? (
+                                    <View>
+                                      <View style={styles.configToggle}>
+                                        <TouchableOpacity
+                                            onPress={() => setPoolsOption(idx, 'promotion')}
+                                            style={[
+                                              styles.configOptionButton,
+                                              round.poolsOption === 'promotion' && styles.configOptionSelected,
+                                            ]}
+                                        >
+                                          <Text style={styles.configOptionText}>Promotion %</Text>
+                                        </TouchableOpacity>
+                                        <TouchableOpacity
+                                            onPress={() => setPoolsOption(idx, 'target')}
+                                            style={[
+                                              styles.configOptionButton,
+                                              round.poolsOption === 'target' && styles.configOptionSelected,
+                                            ]}
+                                        >
+                                          <Text style={styles.configOptionText}>Target Bracket</Text>
+                                        </TouchableOpacity>
+                                      </View>
+                                      {round.poolsOption === 'promotion' ? (
+                                          <TextInput
+                                              style={styles.configInput}
+                                              keyboardType="numeric"
+                                              value={round.promotion?.toString() || ''}
+                                              onChangeText={(val) => updateRoundPromotion(idx, val)}
+                                              placeholder="Enter Promotion %"
+                                          />
+                                      ) : (
+                                          <View style={styles.targetSelector}>
+                                            {[8, 16, 32, 64, 128, 256].map(size => (
+                                                <TouchableOpacity
+                                                    key={size}
+                                                    onPress={() => updateRoundTarget(idx, size)}
+                                                    style={[
+                                                      styles.targetButton,
+                                                      round.targetBracketSize === size && styles.targetButtonSelected,
+                                                    ]}
+                                                >
+                                                  <Text style={styles.targetButtonText}>{size}</Text>
+                                                </TouchableOpacity>
+                                            ))}
+                                          </View>
+                                      )}
+                                    </View>
+                                ) : (
+                                    // DE round configuration
+                                    <View style={styles.deConfig}>
+                                      {['single', 'double', 'compass'].map(format => (
+                                          <TouchableOpacity
+                                              key={format}
+                                              onPress={() => updateRoundElimination(idx, format as 'single' | 'double' | 'compass')}
+                                              style={[
+                                                styles.configOptionButton,
+                                                round.eliminationFormat === format && styles.configOptionSelected,
+                                              ]}
+                                          >
+                                            <Text style={styles.configOptionText}>
+                                              {format === 'single' ? 'Single' : format === 'double' ? 'Double' : 'Compass'}
+                                            </Text>
+                                          </TouchableOpacity>
+                                      ))}
+                                    </View>
+                                )}
+                              </View>
+                          )}
                         </View>
                     ))}
                   </View>
               )}
 
-              {/* "Add Round" button */}
+              {/* "Add Round" Button and round type options */}
               <TouchableOpacity
                   style={styles.addRoundButton}
                   onPress={() => setShowRoundTypeOptions(!showRoundTypeOptions)}
               >
                 <Text style={styles.addRoundButtonText}>Add Round</Text>
               </TouchableOpacity>
-
-              {/* Round type options sub-menu */}
               {showRoundTypeOptions && (
                   <View style={styles.roundTypeMenu}>
                     <TouchableOpacity
@@ -273,7 +488,7 @@ export const EventManagement = ({ route }: Props) => {
                   </View>
               )}
 
-              {/* ACTION BUTTONS */}
+              {/* Modal Action Buttons */}
               <View style={styles.modalActions}>
                 <TouchableOpacity style={styles.modalActionButton} onPress={handleSubmitEvent}>
                   <Text style={styles.modalActionText}>Submit</Text>
@@ -332,6 +547,7 @@ const styles = StyleSheet.create({
   eventActions: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'center',
   },
   actionButton: {
     paddingVertical: 10,
@@ -347,8 +563,14 @@ const styles = StyleSheet.create({
     color: white,
     fontSize: 14,
   },
-  removeButton: {
-    backgroundColor: lightRed,
+  removeIconContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 10,
+  },
+  removeIcon: {
+    fontSize: 20,
+    color: 'red',
   },
   modalOverlay: {
     flex: 1,
@@ -358,15 +580,15 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     backgroundColor: white,
-    width: '90%',
     padding: 20,
-    borderRadius: 10,
+    borderRadius: 12,
+    width: '80%',
   },
   modalTitle: {
     fontSize: 20,
+    fontWeight: 'bold',
     marginBottom: 15,
     textAlign: 'center',
-    color: navyBlue,
   },
   rowGroup: {
     flexDirection: 'row',
@@ -387,38 +609,124 @@ const styles = StyleSheet.create({
   optionText: {
     fontSize: 16,
   },
-  roundsContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+  input: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    padding: 10,
+    borderRadius: 6,
+    marginBottom: 20,
+    backgroundColor: white,
+  },
+  roundsList: {
     marginBottom: 10,
   },
-  roundChip: {
-    backgroundColor: navyBlue,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 6,
-    marginRight: 8,
-    marginTop: 4,
-  },
-  roundChipText: {
-    color: white,
-    fontSize: 14,
-    fontWeight: 'bold',
-  },
-  addRoundButton: {
-    width: '100%',
-    borderWidth: 2,
-    borderColor: navyBlue,
-    paddingVertical: 14,
+  roundItem: {
+    borderWidth: 1,
+    borderColor: greyAccent,
     borderRadius: 5,
-    alignItems: 'center',
-    marginBottom: 15,
-    marginTop: 5,
+    padding: 8,
+    marginBottom: 8,
+    backgroundColor: white,
   },
-  addRoundButtonText: {
-    color: navyBlue,
+  roundItemRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  dragHandle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  dragIcon: {
+    fontSize: 20,
+    marginRight: 4,
+  },
+  moveButton: {
+    paddingHorizontal: 4,
+  },
+  moveButtonText: {
+    fontSize: 16,
+  },
+  roundLabelText: {
+    flex: 1,
     fontSize: 16,
     fontWeight: '600',
+  },
+  roundItemActions: {
+    flexDirection: 'row',
+  },
+  removeRoundButton: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  removeRoundButtonText: {
+    fontSize: 18,
+    color: 'red',
+  },
+  configButton: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  configButtonText: {
+    fontSize: 18,
+    color: navyBlue,
+  },
+  roundConfig: {
+    marginTop: 8,
+    padding: 8,
+    borderTopWidth: 1,
+    borderColor: greyAccent,
+  },
+  deConfig: {
+    marginTop: 8,
+    padding: 8,
+    borderTopWidth: 1,
+    borderColor: greyAccent,
+  },
+  configToggle: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginBottom: 8,
+  },
+  configOptionButton: {
+    flex: 1,
+    backgroundColor: greyAccent,
+    paddingVertical: 8,
+    marginHorizontal: 4,
+    borderRadius: 4,
+    alignItems: 'center',
+  },
+  configOptionSelected: {
+    backgroundColor: navyBlue,
+  },
+  configOptionText: {
+    fontSize: 14,
+    color: '#000',
+  },
+  configInput: {
+    borderWidth: 1,
+    borderColor: '#ccc',
+    borderRadius: 4,
+    padding: 8,
+    fontSize: 14,
+  },
+  targetSelector: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+  },
+  targetButton: {
+    padding: 8,
+    borderWidth: 1,
+    borderColor: greyAccent,
+    borderRadius: 4,
+    marginHorizontal: 4,
+  },
+  targetButtonSelected: {
+    backgroundColor: navyBlue,
+  },
+  targetButtonText: {
+    fontSize: 14,
+    color: '#000',
   },
   roundTypeMenu: {
     flexDirection: 'row',
@@ -435,6 +743,21 @@ const styles = StyleSheet.create({
   roundTypeChoiceText: {
     fontSize: 16,
     color: navyBlue,
+  },
+  addRoundButton: {
+    width: '100%',
+    borderWidth: 2,
+    borderColor: navyBlue,
+    paddingVertical: 14,
+    borderRadius: 5,
+    alignItems: 'center',
+    marginBottom: 15,
+    marginTop: 5,
+  },
+  addRoundButtonText: {
+    color: navyBlue,
+    fontSize: 16,
+    fontWeight: '600',
   },
   modalActions: {
     flexDirection: 'row',

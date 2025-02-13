@@ -76,3 +76,71 @@ export async function dbListTournaments(): Promise<Array<{ id: number, name: str
     throw error;
   }
 }
+
+
+export async function dbListEvents(tournamentName: string): Promise<any[]> {
+  try {
+    const db = await initDB();
+    const [results] = await db.executeSql(
+        'SELECT * FROM Events WHERE tname = ?;',
+        [tournamentName]
+    );
+    const events = [];
+    for (let i = 0; i < results.rows.length; i++) {
+      events.push(results.rows.item(i));
+    }
+    return events;
+  } catch (error) {
+    console.error('Error listing events:', error);
+    throw error;
+  }
+}
+
+export async function dbCreateEvent(tournamentName: string, event: any): Promise<void> {
+  try {
+    const db = await initDB();
+    const age = event.age || 'senior';
+    const eventClass = event.class || 'N/A';
+    const seeding = event.seeding || 'N/A';
+    await db.executeSql(
+        `INSERT INTO Events (id, tname, weapon, gender, age, class, seeding)
+       VALUES (?, ?, ?, ?, ?, ?, ?);`,
+        [event.id, tournamentName, event.weapon, event.gender, age, eventClass, seeding]
+    );
+    console.log('Event created successfully');
+  } catch (error) {
+    console.error('Error creating event:', error);
+    throw error;
+  }
+}
+
+export async function dbDeleteEvent(eventId: number): Promise<void> {
+  try {
+    const db = await initDB();
+    await db.executeSql('DELETE FROM Events WHERE id = ?;', [eventId]);
+    console.log('Event deleted successfully');
+  } catch (error) {
+    console.error('Error deleting event:', error);
+    throw error;
+  }
+}
+
+// Update an existing event
+export async function dbUpdateEvent(
+    eventId: number,
+    eventData: { age: string; gender: string; weapon: string; class?: string; seeding?: string }
+): Promise<void> {
+  const db = await initDB();
+  await db.executeSql(
+      `UPDATE Events SET weapon = ?, gender = ?, age = ?, class = ?, seeding = ? WHERE id = ?;`,
+      [
+        eventData.weapon,
+        eventData.gender,
+        eventData.age,
+        eventData.class || '',
+        eventData.seeding || '',
+        eventId,
+      ]
+  );
+  console.log("Event updated in DB.");
+}

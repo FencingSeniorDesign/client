@@ -3,6 +3,7 @@ import { Asset } from 'expo-asset';
 import * as SplashScreen from 'expo-splash-screen';
 import * as React from 'react';
 import { Navigation } from './navigation';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 Asset.loadAsync([
     ...NavigationAssets,
@@ -14,6 +15,7 @@ SplashScreen.preventAutoHideAsync();
 
 export function App() {
     return (
+        <GestureHandlerRootView style={{ flex: 1 }}>
         <Navigation
             linking={{
                 enabled: 'auto',
@@ -26,5 +28,6 @@ export function App() {
                 SplashScreen.hideAsync();
             }}
         />
+        </GestureHandlerRootView>
     );
 }

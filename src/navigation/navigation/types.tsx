@@ -14,11 +14,12 @@ export type Event = {
     id: number;
     gender: string;
     weapon: string;
+    age: string;
     rounds: RoundData[];
     name: string;
-    fencers: Fencer[];
-    poolCount: number;
-    fencersPerPool: number;
+    fencers: Fencer[]; //todo - delete when not needed
+    poolCount: number; //same
+    fencersPerPool: number; //same
 };
 
 // Import DEBracketData from your RoundAlgorithms (if needed)
