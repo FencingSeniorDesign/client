@@ -26,6 +26,23 @@ export async function initDB(): Promise<SQLiteDatabase> {
       name TEXT PRIMARY KEY
     );`
   );
+
+  await db.executeSql(
+      `create table if not exists Events
+       (
+         id      integer PRIMARY KEY,
+         tname   text NOT NULL,
+         weapon  text NOT NULL, -- epee, foil, saber
+         gender  text NOT NULL, -- mixed, male, female
+
+         -- these should prob be turned into ints forign keyed to seperat etables
+         age     text NOT NULL, -- massive list I aint putting here rn
+         class   text NOT NULL, -- massive list I aint putting here rn
+         seeding text,           -- medium list I aint putting here rn
+         FOREIGN KEY (tname) references Tournaments (name)
+       );`
+  );
+
   return db;
 }
 
