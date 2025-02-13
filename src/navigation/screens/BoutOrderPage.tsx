@@ -125,9 +125,7 @@ const BoutOrderPage: React.FC = () => {
      * Re-apply concurrency: first N non-completed bouts => 'active', rest => 'pending'
      */
     function applyConcurrency(boutsArr: Bout[], concurrency: number): Bout[] {
-        const updated = boutsArr.map((b) =>
-            b.status === 'completed' ? b : { ...b, status: 'pending' }
-        );
+        const updated = boutsArr.map((b): Bout => b.status === 'completed' ? b : { ...b, status: 'pending' } );
         let count = 0;
         for (let i = 0; i < updated.length; i++) {
             if (updated[i].status !== 'completed') {
