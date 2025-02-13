@@ -39,16 +39,14 @@ export const EventManagement = ({ route }: Props) => {
   const [modalVisible, setModalVisible] = useState<boolean>(false);
   const [editingEventId, setEditingEventId] = useState<number | null>(null);
 
-  // Fields for event creation/editing
-  const [selectedGender, setSelectedGender] = useState<string>('');
-  const [selectedWeapon, setSelectedWeapon] = useState<string>('');
-  const [selectedAge, setSelectedAge] = useState<string>('');
+  // Fields for event creation (creation still uses the modal)
+  const [selectedGender, setSelectedGender] = useState<string>('Mixed');
+  const [selectedWeapon, setSelectedWeapon] = useState<string>('Foil');
+  const [selectedAge, setSelectedAge] = useState<string>('Senior');
 
   // Use our extended rounds type
   const [rounds, setRounds] = useState<ExtendedRoundData[]>([]);
   const [showRoundTypeOptions, setShowRoundTypeOptions] = useState<boolean>(false);
-
-  // Track which round’s config is expanded (if any)
   const [expandedConfigIndex, setExpandedConfigIndex] = useState<number | null>(null);
 
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
@@ -67,6 +65,7 @@ export const EventManagement = ({ route }: Props) => {
     loadEvents();
   }, []);
 
+  // Opens the modal for creating a new event
   const openCreateModal = () => {
     setEditingEventId(null);
     setSelectedGender('Mixed');
@@ -163,26 +162,31 @@ export const EventManagement = ({ route }: Props) => {
     setShowRoundTypeOptions(false);
   };
 
-  // When submitting the event, update the DB (include rounds if needed)
+  // For new event creation, handle submission from the modal
   const handleSubmitEvent = async () => {
     try {
       if (editingEventId === null) {
         await dbCreateEvent(tournamentName, {
-          id: Date.now(), // Assuming you generate an ID here
+          id: Date.now(), // Generate an ID
           age: selectedAge,
           gender: selectedGender,
           weapon: selectedWeapon,
-          class: "",
-          seeding: "",
+          name: '', // Adjust if you have a name field
           rounds,
+          fencers: [],
+          poolCount: 4,
+          fencersPerPool: 5,
         });
       } else {
         await dbUpdateEvent(editingEventId, {
           age: selectedAge,
           gender: selectedGender,
           weapon: selectedWeapon,
-          class: "",
-          seeding: "",
+          name: '',
+          rounds,
+          fencers: [],
+          poolCount: 4,
+          fencersPerPool: 5,
         });
       }
       setModalVisible(false);
@@ -238,6 +242,16 @@ export const EventManagement = ({ route }: Props) => {
     });
   };
 
+  // Callback passed to EventSettings to update the event in the database
+  const handleSaveEventSettings = async (updatedEvent: Event) => {
+    try {
+      await dbUpdateEvent(updatedEvent.id, updatedEvent);
+      loadEvents();
+    } catch (error) {
+      console.error('Error updating event settings:', error);
+    }
+  };
+
   return (
       <ScrollView contentContainerStyle={styles.container}>
         <Text style={styles.title}>Edit Tournament</Text>
@@ -247,17 +261,19 @@ export const EventManagement = ({ route }: Props) => {
         <View style={styles.eventList}>
           {events.map((event) => (
               <View key={event.id} style={styles.eventItem}>
-                <Text style={styles.eventText}>{event.age} {event.gender} {event.weapon}</Text>
+                <Text style={styles.eventText}>
+                  {event.age} {event.gender} {event.weapon}
+                </Text>
                 <View style={styles.eventActions}>
+                  {/* Navigate to EventSettings on edit */}
                   <TouchableOpacity
                       style={[styles.actionButton, styles.flexAction]}
-                      onPress={() => {
-                        setEditingEventId(event.id);
-                        setSelectedGender(event.gender);
-                        setSelectedWeapon(event.weapon);
-                        setSelectedAge(event.age || 'Senior');
-                        setModalVisible(true);
-                      }}
+                      onPress={() =>
+                          navigation.navigate('EventSettings', {
+                            event: event,
+                            onSave: handleSaveEventSettings,
+                          })
+                      }
                   >
                     <Text style={styles.buttonText}>Edit</Text>
                   </TouchableOpacity>
@@ -267,7 +283,6 @@ export const EventManagement = ({ route }: Props) => {
                   >
                     <Text style={styles.buttonText}>Start</Text>
                   </TouchableOpacity>
-                  {/* Red X icon for removal */}
                   <TouchableOpacity
                       onPress={() => confirmRemoveEvent(event.id)}
                       style={styles.removeIconContainer}
@@ -279,6 +294,7 @@ export const EventManagement = ({ route }: Props) => {
           ))}
         </View>
 
+        {/* Modal for creating a new event */}
         <Modal
             visible={modalVisible}
             animationType="slide"
@@ -287,7 +303,7 @@ export const EventManagement = ({ route }: Props) => {
         >
           <View style={styles.modalOverlay}>
             <View style={styles.modalContent}>
-              <Text style={styles.modalTitle}>Create / Edit Event</Text>
+              <Text style={styles.modalTitle}>Create Event</Text>
 
               {/* AGE SELECTOR */}
               <View style={styles.rowGroup}>
@@ -314,7 +330,7 @@ export const EventManagement = ({ route }: Props) => {
 
               {/* GENDER BUTTONS */}
               <View style={styles.rowGroup}>
-                {['Men\'s', 'Mixed', 'Women\'s'].map((gender) => (
+                {["Men's", 'Mixed', "Women's"].map((gender) => (
                     <TouchableOpacity
                         key={gender}
                         style={[
@@ -364,7 +380,6 @@ export const EventManagement = ({ route }: Props) => {
                     {rounds.map((round, idx) => (
                         <View key={idx} style={styles.roundItem}>
                           <View style={styles.roundItemRow}>
-                            {/* Left: Drag handle and move buttons */}
                             <View style={styles.dragHandle}>
                               <Text style={styles.dragIcon}>☰</Text>
                               <TouchableOpacity onPress={() => moveRoundUp(idx)} style={styles.moveButton}>
@@ -374,11 +389,9 @@ export const EventManagement = ({ route }: Props) => {
                                 <Text style={styles.moveButtonText}>↓</Text>
                               </TouchableOpacity>
                             </View>
-                            {/* Center: Round label */}
                             <Text style={styles.roundLabelText}>
                               {round.roundType === 'Pools' ? 'Pools Round' : 'DE Round'}
                             </Text>
-                            {/* Right: Remove and gear icons */}
                             <View style={styles.roundItemActions}>
                               <TouchableOpacity onPress={() => removeRound(idx)} style={styles.removeRoundButton}>
                                 <Text style={styles.removeRoundButtonText}>✖</Text>
@@ -388,7 +401,6 @@ export const EventManagement = ({ route }: Props) => {
                               </TouchableOpacity>
                             </View>
                           </View>
-                          {/* Expanded configuration */}
                           {expandedConfigIndex === idx && (
                               <View style={styles.roundConfig}>
                                 {round.roundType === 'Pools' ? (
@@ -423,7 +435,7 @@ export const EventManagement = ({ route }: Props) => {
                                           />
                                       ) : (
                                           <View style={styles.targetSelector}>
-                                            {[8, 16, 32, 64, 128, 256].map(size => (
+                                            {[8, 16, 32, 64, 128, 256].map((size) => (
                                                 <TouchableOpacity
                                                     key={size}
                                                     onPress={() => updateRoundTarget(idx, size)}
@@ -439,12 +451,13 @@ export const EventManagement = ({ route }: Props) => {
                                       )}
                                     </View>
                                 ) : (
-                                    // DE round configuration
                                     <View style={styles.deConfig}>
-                                      {['single', 'double', 'compass'].map(format => (
+                                      {['single', 'double', 'compass'].map((format) => (
                                           <TouchableOpacity
                                               key={format}
-                                              onPress={() => updateRoundElimination(idx, format as 'single' | 'double' | 'compass')}
+                                              onPress={() =>
+                                                  updateRoundElimination(idx, format as 'single' | 'double' | 'compass')
+                                              }
                                               style={[
                                                 styles.configOptionButton,
                                                 round.eliminationFormat === format && styles.configOptionSelected,
@@ -463,8 +476,6 @@ export const EventManagement = ({ route }: Props) => {
                     ))}
                   </View>
               )}
-
-              {/* "Add Round" Button and round type options */}
               <TouchableOpacity
                   style={styles.addRoundButton}
                   onPress={() => setShowRoundTypeOptions(!showRoundTypeOptions)}
@@ -487,8 +498,6 @@ export const EventManagement = ({ route }: Props) => {
                     </TouchableOpacity>
                   </View>
               )}
-
-              {/* Modal Action Buttons */}
               <View style={styles.modalActions}>
                 <TouchableOpacity style={styles.modalActionButton} onPress={handleSubmitEvent}>
                   <Text style={styles.modalActionText}>Submit</Text>
