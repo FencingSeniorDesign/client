@@ -4,6 +4,10 @@ __generated__
 web-build
 bare-apps
 
+# Generated at runtime
+/android
+/ios
+
 # macOS
 .DS_Store
 
