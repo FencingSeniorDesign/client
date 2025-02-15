@@ -89,9 +89,12 @@ export const CreateTournamentButton: React.FC<CreateTournamentButtonProps> = ({ 
 
 const styles = StyleSheet.create({
   button: {
-    backgroundColor: '#007AFF',
-    padding: 15,
-    borderRadius: 8,
+      backgroundColor: '#001f3f', // Navy blue
+      borderRadius: 25,
+      paddingVertical: 12,
+      paddingHorizontal: 20,
+      alignItems: 'center',
+      marginVertical: 10,
   },
   buttonText: {
     color: '#fff',
