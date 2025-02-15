@@ -78,6 +78,7 @@ export const TournamentList: React.FC<TournamentListProps> = ({
                     data={tournaments}
                     renderItem={renderTournament}
                     keyExtractor={(item) => item.name.toString()}
+                    contentContainerStyle={{ flexGrow: 1 }}
                 />
             )}
         </View>
@@ -86,30 +87,30 @@ export const TournamentList: React.FC<TournamentListProps> = ({
 
 const styles = StyleSheet.create({
     listContainer: {
-        flex: 1,
         width: '100%',
-        marginTop: 16,
     },
     tournamentContainer: {
         flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: '#f8f8f8',
+        backgroundColor: '#f2f4fb', // Lighter navy blue interior
         borderRadius: 8,
         borderWidth: 1,
         borderColor: '#ddd',
-        marginVertical: 8,
+        marginVertical: 4, // Increased vertical spacing between items
+
     },
     tournamentItem: {
         flex: 1,
+        marginLeft: 16,
         padding: 16,
     },
     tournamentName: {
         fontSize: 16,
         fontWeight: '500',
+        textAlign: 'center', // Center the tournament name
     },
     deleteButton: {
         padding: 16,
-        backgroundColor: '#ff3b30',
+        backgroundColor: '#5a0b0b',
         borderTopRightRadius: 8,
         borderBottomRightRadius: 8,
     },
@@ -124,3 +125,5 @@ const styles = StyleSheet.create({
         fontSize: 16,
     },
 });
+
+export default TournamentList;
