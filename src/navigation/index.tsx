@@ -11,6 +11,7 @@ import BoutOrderPage from './screens/BoutOrderPage';
 
 import DEBracketPage from './screens/DEBracketPage';
 import BracketViewPage from './screens/BracketViewPage';
+import { CreateServerPage } from "./screens/CreateServerPage";
 
 const RootStack = createNativeStackNavigator({
   screens: {
@@ -63,6 +64,10 @@ const RootStack = createNativeStackNavigator({
     BracketViewPage: {
       screen: BracketViewPage,
       options: { title: 'Bracket View' },
+    },
+    CreateServerPage: {
+      screen: CreateServerPage, // Register the new page
+      options: { title: 'Create Server' }, // Customize title
     },
   },
 });

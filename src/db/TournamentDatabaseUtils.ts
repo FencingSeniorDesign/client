@@ -3,6 +3,8 @@ import * as SQLite from 'expo-sqlite';
 
 const DATABASE_NAME = 'tf.db';
 
+initDB()
+
 async function openDB(): Promise<SQLite.SQLiteDatabase> {
   return SQLite.openDatabaseAsync(DATABASE_NAME);
 }
@@ -105,3 +107,20 @@ export async function dbDeleteEvent(eventId: number): Promise<void> {
   }
 }
 
+export async function dbCreateFencer(eventId: number): Promise<void> {
+  try {
+
+  } catch (error) {
+    console.error('Error deleting event:', error);
+    throw error;
+  }
+}
+
+export async function dbAddFencerToEvent(eventId: number): Promise<void> {
+  try {
+
+  } catch (error) {
+    console.error('Error deleting event:', error);
+    throw error;
+  }
+}

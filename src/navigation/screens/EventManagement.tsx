@@ -16,7 +16,7 @@ import { RootStackParamList, Event, RoundData } from '../navigation/types';
 import {
   dbListEvents,
   dbCreateEvent,
-  dbUpdateEvent,
+  // dbUpdateEvent,
   dbDeleteEvent,
 } from '../../db/TournamentDatabaseUtils';
 
@@ -178,16 +178,16 @@ export const EventManagement = ({ route }: Props) => {
           fencersPerPool: 5,
         });
       } else {
-        await dbUpdateEvent(editingEventId, {
-          age: selectedAge,
-          gender: selectedGender,
-          weapon: selectedWeapon,
-          name: '',
-          rounds,
-          fencers: [],
-          poolCount: 4,
-          fencersPerPool: 5,
-        });
+        // await dbUpdateEvent(editingEventId, {
+        //   age: selectedAge,
+        //   gender: selectedGender,
+        //   weapon: selectedWeapon,
+        //   name: '',
+        //   rounds,
+        //   fencers: [],
+        //   poolCount: 4,
+        //   fencersPerPool: 5,
+        // });
       }
       setModalVisible(false);
       loadEvents();
@@ -256,7 +256,11 @@ export const EventManagement = ({ route }: Props) => {
       <ScrollView contentContainerStyle={styles.container}>
         <Text style={styles.title}>Edit Tournament</Text>
         <Text style={styles.tournamentName}>{tournamentName}</Text>
-        <Button title="Create Event" onPress={openCreateModal} />
+        <Button title="Create Event" onPress={() => setModalVisible(true)} />
+        <Button
+            title="Create Server"
+            onPress={() => navigation.navigate('CreateServerPage')}
+        />
 
         <View style={styles.eventList}>
           {events.map((event) => (
@@ -293,6 +297,7 @@ export const EventManagement = ({ route }: Props) => {
               </View>
           ))}
         </View>
+
 
         {/* Modal for creating a new event */}
         <Modal
