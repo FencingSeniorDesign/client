@@ -1,5 +1,12 @@
 import React, { useState, useRef } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import {
+    View,
+    Text,
+    TouchableOpacity,
+    Pressable,
+    StyleSheet,
+    Modal,
+} from 'react-native';
 import { CustomTimeModal } from './CustomTimeModal';
 import { usePersistentState } from '../../../hooks/usePersistentStateHook';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
@@ -40,8 +47,10 @@ export function RefereeModule() {
 
     const timerRef = useRef<NodeJS.Timer | null>(null);
 
-    const [showCardAssignment, setShowCardAssignment] = useState(false);
+    // Card assignment/removal state
+    const [showCardActionModal, setShowCardActionModal] = useState(false);
     const [selectedCard, setSelectedCard] = useState<CardColor>(null);
+    const [removalMode, setRemovalMode] = useState(false);
     const [fencer1Cards, setFencer1Cards] = useState<FencerCard[]>([]);
     const [fencer2Cards, setFencer2Cards] = useState<FencerCard[]>([]);
 
@@ -56,11 +65,16 @@ export function RefereeModule() {
         saveScoresButton: { backgroundColor: '#ba55d3' }, // Medium Orchid
     };
 
-    const handleCardPress = (color: CardColor) => {
+    // Called when a bottom card button is pressed.
+    // If remove is false (short press) the assignment modal is shown.
+    // If remove is true (long press) the removal modal is shown.
+    const handleCardPress = (color: CardColor, remove: boolean = false) => {
         setSelectedCard(color);
-        setShowCardAssignment(true);
+        setRemovalMode(remove);
+        setShowCardActionModal(true);
     };
 
+    // When adding a card, append it to the appropriate fencer's card array.
     const assignCard = (fencer: 1 | 2) => {
         if (selectedCard) {
             if (fencer === 1) {
@@ -69,7 +83,32 @@ export function RefereeModule() {
                 setFencer2Cards([...fencer2Cards, { color: selectedCard }]);
             }
             setSelectedCard(null);
-            setShowCardAssignment(false);
+            setShowCardActionModal(false);
+            setRemovalMode(false);
+        }
+    };
+
+    // When removing a card, remove one instance (if present) from the fencer's card array.
+    const removeCard = (fencer: 1 | 2) => {
+        if (selectedCard) {
+            if (fencer === 1) {
+                const index = fencer1Cards.findIndex(card => card.color === selectedCard);
+                if (index !== -1) {
+                    const newCards = [...fencer1Cards];
+                    newCards.splice(index, 1);
+                    setFencer1Cards(newCards);
+                }
+            } else {
+                const index = fencer2Cards.findIndex(card => card.color === selectedCard);
+                if (index !== -1) {
+                    const newCards = [...fencer2Cards];
+                    newCards.splice(index, 1);
+                    setFencer2Cards(newCards);
+                }
+            }
+            setSelectedCard(null);
+            setShowCardActionModal(false);
+            setRemovalMode(false);
         }
     };
 
@@ -135,6 +174,42 @@ export function RefereeModule() {
         }
     };
 
+    // Aggregates cards for each fencer.
+    // If a fencer has more than 3 of a given card type, display one aggregated indicator showing the count.
+    const renderAggregatedCards = (cards: FencerCard[]) => {
+        const cardTypes: CardColor[] = ['yellow', 'red', 'black'];
+        let elements: JSX.Element[] = [];
+        cardTypes.forEach(type => {
+            const count = cards.filter(card => card.color === type).length;
+            if (count === 0) return;
+            if (count > 3) {
+                // Render one aggregated card indicator
+                elements.push(
+                    <View
+                        key={type}
+                        style={[
+                            styles.cardIndicator,
+                            styles.aggregatedIndicator,
+                            { backgroundColor: type },
+                        ]}
+                    >
+                        <Text style={[styles.cardCountText, { color: type === 'yellow' ? '#000' : '#fff' }]}>
+                            {count}x
+                        </Text>
+                    </View>
+                );
+            } else {
+                // Render individual card indicators
+                for (let i = 0; i < count; i++) {
+                    elements.push(
+                        <View key={`${type}-${i}`} style={[styles.cardIndicator, { backgroundColor: type }]} />
+                    );
+                }
+            }
+        });
+        return elements;
+    };
+
     return (
         <View style={[styles.container, kawaiiMode && kawaiiModeStyles.container]}>
             <TouchableOpacity
@@ -165,24 +240,20 @@ export function RefereeModule() {
                         isRunning ? styles.timerStatusRunning : styles.timerStatusStopped,
                     ]}
                 >
-                    {isRunning ? 'Tap to pause' : 'Tap to start'}
+                    {isRunning ? 'Tap to pause, hold for options' : 'Tap to start, hold for options'}
                 </Text>
             </TouchableOpacity>
 
             {/* Score Section */}
             <View style={styles.scoreContainer}>
                 <View style={styles.fencerContainer}>
+                    {/* Fixed space for cards */}
+                    <View style={styles.cardsContainer}>
+                        {renderAggregatedCards(fencer1Cards)}
+                    </View>
                     <Text style={styles.fencerLabel}>
                         {kawaiiMode ? 'Kitten 1' : fencer1Name}
                     </Text>
-                    <View style={styles.cardsContainer}>
-                        {fencer1Cards.map((card, index) => (
-                            <View
-                                key={index}
-                                style={[styles.cardIndicator, { backgroundColor: card.color }]}
-                            />
-                        ))}
-                    </View>
                     <Text style={styles.scoreText}>{fencer1Score}</Text>
                     <View style={styles.buttonContainer}>
                         <TouchableOpacity
@@ -205,17 +276,13 @@ export function RefereeModule() {
                 </View>
 
                 <View style={styles.fencerContainer}>
+                    {/* Fixed space for cards */}
+                    <View style={styles.cardsContainer}>
+                        {renderAggregatedCards(fencer2Cards)}
+                    </View>
                     <Text style={styles.fencerLabel}>
                         {kawaiiMode ? 'Kitten 2' : fencer2Name}
                     </Text>
-                    <View style={styles.cardsContainer}>
-                        {fencer2Cards.map((card, index) => (
-                            <View
-                                key={index}
-                                style={[styles.cardIndicator, { backgroundColor: card.color }]}
-                            />
-                        ))}
-                    </View>
                     <Text style={styles.scoreText}>{fencer2Score}</Text>
                     <View style={styles.buttonContainer}>
                         <TouchableOpacity
@@ -262,43 +329,109 @@ export function RefereeModule() {
                 </TouchableOpacity>
             )}
 
-            {/* Card Assignment Modal */}
-            {showCardAssignment && (
-                <View style={styles.assignmentContainer}>
-                    <Text style={styles.assignmentText}>
-                        Assign {selectedCard} card to:
-                    </Text>
-                    <View style={styles.assignmentButtons}>
-                        <TouchableOpacity style={styles.assignButton} onPress={() => assignCard(1)}>
-                            <Text style={styles.assignButtonText}>Fencer 1</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity style={styles.assignButton} onPress={() => assignCard(2)}>
-                            <Text style={styles.assignButtonText}>Fencer 2</Text>
-                        </TouchableOpacity>
+            {/* Card Action Modal */}
+            {showCardActionModal && (
+                <Modal
+                    visible={showCardActionModal}
+                    transparent
+                    animationType="slide"
+                    onRequestClose={() => setShowCardActionModal(false)}
+                >
+                    <View style={styles.modalOverlay}>
+                        <View style={styles.modalContainer}>
+                            {removalMode ? (
+                                <>
+                                    <Text style={styles.modalText}>
+                                        Remove {selectedCard} card from:
+                                    </Text>
+                                    <View style={styles.modalButtonContainer}>
+                                        <TouchableOpacity
+                                            style={styles.modalButton}
+                                            onPress={() => removeCard(1)}
+                                        >
+                                            <Text style={styles.modalButtonText}>Fencer 1</Text>
+                                        </TouchableOpacity>
+                                        <TouchableOpacity
+                                            style={styles.modalButton}
+                                            onPress={() => removeCard(2)}
+                                        >
+                                            <Text style={styles.modalButtonText}>Fencer 2</Text>
+                                        </TouchableOpacity>
+                                    </View>
+                                </>
+                            ) : (
+                                <>
+                                    <View
+                                        style={[
+                                            styles.colorPreview,
+                                            { backgroundColor: selectedCard || '#fff' },
+                                        ]}
+                                    />
+                                    <Text style={styles.modalText}>
+                                        Assign card to:
+                                    </Text>
+                                    <View style={styles.modalButtonContainer}>
+                                        <TouchableOpacity
+                                            style={styles.modalButton}
+                                            onPress={() => assignCard(1)}
+                                        >
+                                            <Text style={styles.modalButtonText}>Fencer 1</Text>
+                                        </TouchableOpacity>
+                                        <TouchableOpacity
+                                            style={styles.modalButton}
+                                            onPress={() => assignCard(2)}
+                                        >
+                                            <Text style={styles.modalButtonText}>Fencer 2</Text>
+                                        </TouchableOpacity>
+                                    </View>
+                                </>
+                            )}
+                            <TouchableOpacity
+                                style={styles.modalCloseButton}
+                                onPress={() => setShowCardActionModal(false)}
+                            >
+                                <Text style={styles.modalCloseButtonText}>Cancel</Text>
+                            </TouchableOpacity>
+                        </View>
                     </View>
-                </View>
+                </Modal>
             )}
 
             {/* Card Color Buttons */}
             <View style={styles.cardButtonsContainer}>
-                <TouchableOpacity
-                    style={styles.cardButton}
-                    onPress={() => handleCardPress('yellow')}
+                <Pressable
+                    style={({ pressed }) => [
+                        styles.cardButton,
+                        { backgroundColor: 'yellow' },
+                        pressed && styles.pressedButton,
+                    ]}
+                    onPress={() => handleCardPress('yellow', false)}
+                    onLongPress={() => handleCardPress('yellow', true)}
                 >
                     <Text style={styles.cardButtonText}>Yellow</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                    style={styles.cardButton}
-                    onPress={() => handleCardPress('red')}
+                </Pressable>
+                <Pressable
+                    style={({ pressed }) => [
+                        styles.cardButton,
+                        { backgroundColor: 'red' },
+                        pressed && styles.pressedButton,
+                    ]}
+                    onPress={() => handleCardPress('red', false)}
+                    onLongPress={() => handleCardPress('red', true)}
                 >
                     <Text style={styles.cardButtonText}>Red</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                    style={styles.cardButton}
-                    onPress={() => handleCardPress('black')}
+                </Pressable>
+                <Pressable
+                    style={({ pressed }) => [
+                        styles.cardButton,
+                        { backgroundColor: 'black' },
+                        pressed && styles.pressedButton,
+                    ]}
+                    onPress={() => handleCardPress('black', false)}
+                    onLongPress={() => handleCardPress('black', true)}
                 >
-                    <Text style={styles.cardButtonText}>Black</Text>
-                </TouchableOpacity>
+                    <Text style={[styles.cardButtonText, { color: 'white' }]}>Black</Text>
+                </Pressable>
             </View>
 
             <CustomTimeModal
@@ -367,25 +500,30 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         minWidth: 120,
     },
+    // Fixed height for the cards area ensures adding cards won’t shift other elements
+    cardsContainer: {
+        flexDirection: 'row',
+        height: 30,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginBottom: 8,
+    },
     fencerLabel: {
         fontSize: 30,
         fontWeight: '600',
         marginBottom: 0,
-        paddingBottom: 0,
-        marginRight: 15,
     },
     scoreText: {
         fontSize: 100,
         fontWeight: 'bold',
         marginBottom: 10,
-        marginRight: 10,
     },
     buttonContainer: {
         flexDirection: 'row',
         marginHorizontal: 10,
     },
     scoreButton: {
-        backgroundColor: '#007AFF',
+        backgroundColor: '#001f3f',
         width: 80,
         height: 80,
         borderRadius: 10,
@@ -394,7 +532,7 @@ const styles = StyleSheet.create({
         marginHorizontal: 2,
     },
     minusButton: {
-        backgroundColor: '#FF3B30',
+        backgroundColor: '#5a0b0b',
     },
     buttonText: {
         color: '#fff',
@@ -404,7 +542,7 @@ const styles = StyleSheet.create({
     cardButtonsContainer: {
         flexDirection: 'row',
         position: 'absolute',
-        bottom: 80,
+        bottom: 5, // Now touches the bottom of the screen
         left: 0,
         right: 0,
         height: 80,
@@ -412,16 +550,74 @@ const styles = StyleSheet.create({
     cardButton: {
         flex: 1,
         justifyContent: 'center',
+        borderRadius: 8,
+        borderColor : '#5a0b0b',
         alignItems: 'center',
+    },
+    pressedButton: {
+        opacity: 0.6,
     },
     cardButtonText: {
         color: '#000',
         fontSize: 18,
         fontWeight: 'bold',
     },
+    // Modal Styles
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    modalContainer: {
+        backgroundColor: '#fff',
+        width: '80%',
+        borderRadius: 10,
+        padding: 20,
+        alignItems: 'center',
+        minHeight: 700,
+    },
+    colorPreview: {
+        width: '100%',
+        height: 500,
+        borderRadius: 10,
+        marginBottom: 20,
+    },
+    modalText: {
+        fontSize: 18,
+        marginBottom: 20,
+        textAlign: 'center',
+    },
+    modalButtonContainer: {
+        flexDirection: 'row',
+        justifyContent: 'space-around',
+        width: '100%',
+        marginBottom: 20,
+    },
+    modalButton: {
+        backgroundColor: '#001f3f',
+        paddingVertical: 10,
+        paddingHorizontal: 15,
+        borderRadius: 5,
+        marginHorizontal: 5,
+    },
+    modalButtonText: {
+        color: '#fff',
+        fontSize: 16,
+    },
+    modalCloseButton: {
+        backgroundColor: '#ccc',
+        paddingVertical: 10,
+        paddingHorizontal: 15,
+        borderRadius: 5,
+    },
+    modalCloseButtonText: {
+        color: '#000',
+        fontSize: 16,
+    },
     assignmentContainer: {
         position: 'absolute',
-        bottom: 160,
+        bottom: 200,
         left: 0,
         right: 0,
         backgroundColor: '#fff',
@@ -439,7 +635,7 @@ const styles = StyleSheet.create({
         justifyContent: 'space-around',
     },
     assignButton: {
-        backgroundColor: '#007AFF',
+        backgroundColor: '#001f3f',
         padding: 10,
         borderRadius: 5,
         width: 140,
@@ -449,10 +645,6 @@ const styles = StyleSheet.create({
         textAlign: 'center',
         fontSize: 18,
     },
-    cardsContainer: {
-        flexDirection: 'row',
-        marginTop: 8,
-    },
     cardIndicator: {
         width: 15,
         height: 15,
@@ -461,8 +653,18 @@ const styles = StyleSheet.create({
         borderColor: '#000',
         marginRight: 4,
     },
+    aggregatedIndicator: {
+        width: 25,
+        height: 25,
+        borderRadius: 5,
+    },
+    cardCountText: {
+        fontWeight: 'bold',
+        textAlign: 'center',
+        fontSize: 16,
+    },
     doubleTouchButton: {
-        backgroundColor: '#007AFF',
+        backgroundColor: '#001f3f',
         paddingVertical: 15,
         marginHorizontal: 20,
         borderRadius: 10,
@@ -490,4 +692,5 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
     },
 });
+
 export default RefereeModule;
