@@ -38,7 +38,7 @@ export function RefereeModule() {
     const [fencer1Score, setFencer1Score] = useState(0);
     const [fencer2Score, setFencer2Score] = useState(0);
 
-    const timerRef = useRef<NodeJS.Timer | null>(null);
+    const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
     const [showCardAssignment, setShowCardAssignment] = useState(false);
     const [selectedCard, setSelectedCard] = useState<CardColor>(null);
@@ -179,7 +179,10 @@ export function RefereeModule() {
                         {fencer1Cards.map((card, index) => (
                             <View
                                 key={index}
-                                style={[styles.cardIndicator, { backgroundColor: card.color }]}
+                                style={[
+                                    styles.cardIndicator,
+                                    card.color && { backgroundColor: card.color }
+                                ]}
                             />
                         ))}
                     </View>
@@ -212,7 +215,10 @@ export function RefereeModule() {
                         {fencer2Cards.map((card, index) => (
                             <View
                                 key={index}
-                                style={[styles.cardIndicator, { backgroundColor: card.color }]}
+                                style={[
+                                    styles.cardIndicator,
+                                    card.color && { backgroundColor: card.color }
+                                ]}
                             />
                         ))}
                     </View>
