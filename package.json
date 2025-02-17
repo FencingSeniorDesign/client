@@ -19,6 +19,7 @@
     "expo": "~52.0.33",
     "expo-asset": "~11.0.1",
     "expo-dev-client": "~5.0.12",
+    "expo-document-picker": "^13.0.3",
     "expo-splash-screen": "~0.29.13",
     "expo-system-ui": "~4.0.8",
     "react": "18.3.1",

@@ -13,6 +13,10 @@ import {
 import { RouteProp, useNavigation } from "@react-navigation/native";
 import { Event, Fencer, RoundData } from "../navigation/types";
 
+// Import Expo modules for document picking and file system reading
+import * as DocumentPicker from "expo-document-picker";
+import * as FileSystem from "expo-file-system";
+
 type EventSettingsRouteProp = RouteProp<
     { params: { event: Event; onSave: (updatedEvent: Event) => void } },
     "params"
@@ -49,7 +53,9 @@ export const EventSettings = ({ route }: Props) => {
         initialEvent.poolCount !== undefined ? String(initialEvent.poolCount) : "4"
     );
     const [fencersPerPool, setFencersPerPool] = useState<string>(
-        initialEvent.fencersPerPool !== undefined ? String(initialEvent.fencersPerPool) : "5"
+        initialEvent.fencersPerPool !== undefined
+            ? String(initialEvent.fencersPerPool)
+            : "5"
     );
 
     const [fencerFirstName, setFencerFirstName] = useState<string>("");
@@ -59,21 +65,51 @@ export const EventSettings = ({ route }: Props) => {
     // Function to add a new fencer.
     const handleAddFencer = () => {
         const firstNames = [
-            "John", "Paul", "George", "Ringo", "Mick",
-            "Keith", "David", "Freddie", "Elvis", "Prince",
-            "Otis", "Ronnie", "Stevie", "Bruce", "Kurt",
+            "John",
+            "Paul",
+            "George",
+            "Ringo",
+            "Mick",
+            "Keith",
+            "David",
+            "Freddie",
+            "Elvis",
+            "Prince",
+            "Otis",
+            "Ronnie",
+            "Stevie",
+            "Bruce",
+            "Kurt",
         ];
         const lastNames = [
-            "Smith", "Johnson", "Williams", "Brown", "Jones",
-            "Miller", "Davis", "Garcia", "Rodriguez", "Wilson",
-            "Martinez", "Anderson", "Taylor", "Thomas", "Hernandez",
+            "Smith",
+            "Johnson",
+            "Williams",
+            "Brown",
+            "Jones",
+            "Miller",
+            "Davis",
+            "Garcia",
+            "Rodriguez",
+            "Wilson",
+            "Martinez",
+            "Anderson",
+            "Taylor",
+            "Thomas",
+            "Hernandez",
         ];
         const ratings = ["A", "B", "C", "D", "E", "U"];
 
-        if (!fencerFirstName.trim() && !fencerLastName.trim() && !fencerRating.trim()) {
+        if (
+            !fencerFirstName.trim() &&
+            !fencerLastName.trim() &&
+            !fencerRating.trim()
+        ) {
             // Generate random fencer details if none are provided.
-            const randomFirstName = firstNames[Math.floor(Math.random() * firstNames.length)];
-            const randomLastName = lastNames[Math.floor(Math.random() * lastNames.length)];
+            const randomFirstName =
+                firstNames[Math.floor(Math.random() * firstNames.length)];
+            const randomLastName =
+                lastNames[Math.floor(Math.random() * lastNames.length)];
             const randomRating = ratings[Math.floor(Math.random() * ratings.length)];
 
             const newFencer: Fencer = {
@@ -83,7 +119,11 @@ export const EventSettings = ({ route }: Props) => {
                 rating: randomRating,
             };
             setFencers([newFencer, ...fencers]);
-        } else if (fencerFirstName.trim() && fencerLastName.trim() && fencerRating.trim()) {
+        } else if (
+            fencerFirstName.trim() &&
+            fencerLastName.trim() &&
+            fencerRating.trim()
+        ) {
             const newFencer: Fencer = {
                 id: Date.now(),
                 firstName: fencerFirstName.trim(),
@@ -96,6 +136,44 @@ export const EventSettings = ({ route }: Props) => {
         setFencerLastName("");
         setFencerRating("");
     };
+
+    // Function to upload and parse CSV
+    const handleUploadCSV = async () => {
+        try {
+            // Launch the document picker for CSV files
+            const result = await DocumentPicker.getDocumentAsync({
+                type: "text/csv",
+            });
+
+            // Instead of checking result.type, check if 'uri' exists.
+            if ("uri" in result && result.uri) {
+                // Read the CSV file content
+                const csvString = await FileSystem.readAsStringAsync(result.uri);
+                const lines = csvString.split("\n");
+
+                const newFencers: Fencer[] = [];
+                lines.forEach((line, index) => {
+                    const trimmedLine = line.trim();
+                    if (!trimmedLine) return;
+
+                    const parts = trimmedLine.split(",").map((p) => p.trim());
+                    if (parts.length >= 3 && parts[0] && parts[1] && parts[2]) {
+                        newFencers.push({
+                            id: Date.now() + index,
+                            firstName: parts[0],
+                            lastName: parts[1],
+                            rating: parts[2],
+                        });
+                    }
+                });
+                // Add the parsed fencers to the existing list
+                setFencers([...newFencers, ...fencers]);
+            }
+        } catch (error) {
+            console.error("Error reading CSV file:", error);
+        }
+    };
+
 
     // Remove a fencer by id.
     const handleRemoveFencer = (id: number) => {
@@ -197,6 +275,10 @@ export const EventSettings = ({ route }: Props) => {
                     onChangeText={setFencerRating}
                 />
                 <Button title="Add Fencer" onPress={handleAddFencer} />
+                {/* New button to upload CSV */}
+                <View style={{ marginTop: 10 }}>
+                    <Button title="Upload CSV" onPress={handleUploadCSV} />
+                </View>
             </View>
 
             <View style={styles.section}>
