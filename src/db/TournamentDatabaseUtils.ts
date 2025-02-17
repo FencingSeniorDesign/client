@@ -1,59 +1,39 @@
 // dbBackend.ts
-import SQLite, { SQLiteDatabase } from 'react-native-sqlite-storage';
+import * as SQLite from 'expo-sqlite';
 
-SQLite.DEBUG(true);
-SQLite.enablePromise(true);
-
-// Database configuration
 const DATABASE_NAME = 'tf.db';
-const DATABASE_VERSION = '1.0';
-const DATABASE_DISPLAYNAME = 'Tournaments Database';
-const DATABASE_SIZE = 200000;
 
-// Open the database connection
-async function openDB(): Promise<SQLiteDatabase> {
-  return SQLite.openDatabase({
-    name: DATABASE_NAME,
-    location: 'default',
-  });
+async function openDB(): Promise<SQLite.SQLiteDatabase> {
+  return SQLite.openDatabaseAsync(DATABASE_NAME);
 }
 
-// Initialize the database by creating the Tournaments table if it doesn't exist
-export async function initDB(): Promise<SQLiteDatabase> {
+export async function initDB(): Promise<SQLite.SQLiteDatabase> {
   const db = await openDB();
-  await db.executeSql(
-    `CREATE TABLE IF NOT EXISTS Tournaments (
+  // Create Tournaments table
+  await db.execAsync(`
+    CREATE TABLE IF NOT EXISTS Tournaments (
       name TEXT PRIMARY KEY
-    );`
-  );
-
-  await db.executeSql(
-      `create table if not exists Events
-       (
-         id      integer PRIMARY KEY,
-         tname   text NOT NULL,
-         weapon  text NOT NULL, -- epee, foil, saber
-         gender  text NOT NULL, -- mixed, male, female
-
-         -- these should prob be turned into ints forign keyed to seperat etables
-         age     text NOT NULL, -- massive list I aint putting here rn
-         class   text NOT NULL, -- massive list I aint putting here rn
-         seeding text,           -- medium list I aint putting here rn
-         FOREIGN KEY (tname) references Tournaments (name)
-       );`
-  );
-
+    );
+  `);
+  // Create Events table if it doesn't exist
+  await db.execAsync(`
+    CREATE TABLE IF NOT EXISTS Events (
+      id INTEGER PRIMARY KEY NOT NULL,
+      tname TEXT,
+      weapon TEXT,
+      gender TEXT,
+      age TEXT,
+      class TEXT,
+      seeding TEXT
+    );
+  `);
   return db;
 }
 
-// Create a new tournament using its name
 export async function dbCreateTournament(tournamentName: string): Promise<void> {
   try {
-    const db = await initDB();
-    await db.executeSql(
-      'INSERT INTO Tournaments (name) VALUES (?);',
-      [tournamentName]
-    );
+    const db = await openDB();
+    await db.runAsync('INSERT INTO Tournaments (name) VALUES (?)', [tournamentName]);
     console.log(`Tournament "${tournamentName}" created successfully.`);
   } catch (error) {
     console.error('Error creating tournament:', error);
@@ -61,14 +41,10 @@ export async function dbCreateTournament(tournamentName: string): Promise<void> 
   }
 }
 
-// Delete an existing tournament by its name
 export async function dbDeleteTournament(tournamentName: string): Promise<void> {
   try {
-    const db = await initDB();
-    await db.executeSql(
-      'DELETE FROM Tournaments WHERE name = ?;',
-      [tournamentName]
-    );
+    const db = await openDB();
+    await db.runAsync('DELETE FROM Tournaments WHERE name = ?', [tournamentName]);
     console.log(`Tournament "${tournamentName}" deleted successfully.`);
   } catch (error) {
     console.error('Error deleting tournament:', error);
@@ -76,17 +52,11 @@ export async function dbDeleteTournament(tournamentName: string): Promise<void> 
   }
 }
 
-// Create a new tournament using its name
-// In TournamentDatabaseUtils.ts
-export async function dbListTournaments(): Promise<Array<{ id: number, name: string }>> {
+export async function dbListTournaments(): Promise<Array<{ name: string }>> {
   try {
-    const db = await initDB();
-    const [results] = await db.executeSql('SELECT * FROM Tournaments;');
-    const tournaments = [];
-    for (let i = 0; i < results.rows.length; i++) {
-      tournaments.push(results.rows.item(i));
-    }
-    console.log(`[${results.rows.length}] tournaments listed successfully.`);
+    const db = await openDB();
+    const tournaments = await db.getAllAsync<{ name: string }>('SELECT * FROM Tournaments');
+    console.log(`[${tournaments.length}] tournaments listed successfully.`);
     return tournaments;
   } catch (error) {
     console.error('Error listing tournaments:', error);
@@ -97,15 +67,8 @@ export async function dbListTournaments(): Promise<Array<{ id: number, name: str
 
 export async function dbListEvents(tournamentName: string): Promise<any[]> {
   try {
-    const db = await initDB();
-    const [results] = await db.executeSql(
-        'SELECT * FROM Events WHERE tname = ?;',
-        [tournamentName]
-    );
-    const events = [];
-    for (let i = 0; i < results.rows.length; i++) {
-      events.push(results.rows.item(i));
-    }
+    const db = await openDB();
+    const events = await db.getAllAsync('SELECT * FROM Events WHERE tname = ?', [tournamentName]);
     return events;
   } catch (error) {
     console.error('Error listing events:', error);
@@ -115,16 +78,16 @@ export async function dbListEvents(tournamentName: string): Promise<any[]> {
 
 export async function dbCreateEvent(tournamentName: string, event: any): Promise<void> {
   try {
-    const db = await initDB();
+    const db = await openDB();
     const age = event.age || 'senior';
     const eventClass = event.class || 'N/A';
     const seeding = event.seeding || 'N/A';
-    await db.executeSql(
+    await db.runAsync(
         `INSERT INTO Events (id, tname, weapon, gender, age, class, seeding)
-       VALUES (?, ?, ?, ?, ?, ?, ?);`,
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
         [event.id, tournamentName, event.weapon, event.gender, age, eventClass, seeding]
     );
-    console.log('Event created successfully');
+    console.log('Event created successfully.');
   } catch (error) {
     console.error('Error creating event:', error);
     throw error;
@@ -134,30 +97,11 @@ export async function dbCreateEvent(tournamentName: string, event: any): Promise
 export async function dbDeleteEvent(eventId: number): Promise<void> {
   try {
     const db = await initDB();
-    await db.executeSql('DELETE FROM Events WHERE id = ?;', [eventId]);
-    console.log('Event deleted successfully');
+    await db.runAsync('DELETE FROM Events WHERE id = ?', [eventId]);
+    console.log('Event deleted successfully.');
   } catch (error) {
     console.error('Error deleting event:', error);
     throw error;
   }
 }
 
-// Update an existing event
-export async function dbUpdateEvent(
-    eventId: number,
-    eventData: { age: string; gender: string; weapon: string; class?: string; seeding?: string }
-): Promise<void> {
-  const db = await initDB();
-  await db.executeSql(
-      `UPDATE Events SET weapon = ?, gender = ?, age = ?, class = ?, seeding = ? WHERE id = ?;`,
-      [
-        eventData.weapon,
-        eventData.gender,
-        eventData.age,
-        eventData.class || '',
-        eventData.seeding || '',
-        eventId,
-      ]
-  );
-  console.log("Event updated in DB.");
-}
