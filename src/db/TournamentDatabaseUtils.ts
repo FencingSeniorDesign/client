@@ -30,6 +30,11 @@ export async function initDB(): Promise<SQLite.SQLiteDatabase> {
   return db;
 }
 
+// Call initDB to ensure the database is initialized
+initDB().catch(error => {
+  console.error('Error initializing database:', error);
+});
+
 export async function dbCreateTournament(tournamentName: string): Promise<void> {
   try {
     const db = await openDB();
