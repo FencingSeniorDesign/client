@@ -1,5 +1,3 @@
-// EventSettings.tsx
-
 import React, { useState } from "react";
 import {
     View,
@@ -16,6 +14,8 @@ import { Event, Fencer, RoundData } from "../navigation/types";
 // Import Expo modules for document picking and file system reading
 import * as DocumentPicker from "expo-document-picker";
 import * as FileSystem from "expo-file-system";
+import {dbAddFencerToEventById, dbCreateFencerByName} from "../../db/TournamentDatabaseUtils";
+import {Picker} from "@react-native-picker/picker";
 
 type EventSettingsRouteProp = RouteProp<
     { params: { event: Event; onSave: (updatedEvent: Event) => void } },
@@ -60,81 +60,44 @@ export const EventSettings = ({ route }: Props) => {
 
     const [fencerFirstName, setFencerFirstName] = useState<string>("");
     const [fencerLastName, setFencerLastName] = useState<string>("");
-    const [fencerRating, setFencerRating] = useState<string>("");
+    const [fencerRating, setFencerRating] = useState<string>("U");
+    const [fencerYear, setFencerYear] = useState<number>(new Date().getFullYear());
 
     // Function to add a new fencer.
     const handleAddFencer = () => {
-        const firstNames = [
-            "John",
-            "Paul",
-            "George",
-            "Ringo",
-            "Mick",
-            "Keith",
-            "David",
-            "Freddie",
-            "Elvis",
-            "Prince",
-            "Otis",
-            "Ronnie",
-            "Stevie",
-            "Bruce",
-            "Kurt",
-        ];
-        const lastNames = [
-            "Smith",
-            "Johnson",
-            "Williams",
-            "Brown",
-            "Jones",
-            "Miller",
-            "Davis",
-            "Garcia",
-            "Rodriguez",
-            "Wilson",
-            "Martinez",
-            "Anderson",
-            "Taylor",
-            "Thomas",
-            "Hernandez",
-        ];
-        const ratings = ["A", "B", "C", "D", "E", "U"];
 
-        if (
-            !fencerFirstName.trim() &&
-            !fencerLastName.trim() &&
-            !fencerRating.trim()
-        ) {
-            // Generate random fencer details if none are provided.
-            const randomFirstName =
-                firstNames[Math.floor(Math.random() * firstNames.length)];
-            const randomLastName =
-                lastNames[Math.floor(Math.random() * lastNames.length)];
-            const randomRating = ratings[Math.floor(Math.random() * ratings.length)];
+        let newFencer: Fencer = {
+            firstName: fencerFirstName.trim(),
+            lastName: fencerLastName.trim(),
+        };
 
-            const newFencer: Fencer = {
-                id: Date.now(),
-                firstName: randomFirstName,
-                lastName: randomLastName,
-                rating: randomRating,
-            };
-            setFencers([newFencer, ...fencers]);
-        } else if (
-            fencerFirstName.trim() &&
-            fencerLastName.trim() &&
-            fencerRating.trim()
-        ) {
-            const newFencer: Fencer = {
-                id: Date.now(),
-                firstName: fencerFirstName.trim(),
-                lastName: fencerLastName.trim(),
-                rating: fencerRating.trim(),
-            };
-            setFencers([newFencer, ...fencers]);
+        switch (event.weapon) {
+            case "epee": {
+                newFencer.epeeRating = fencerRating
+                newFencer.epeeYear = fencerYear
+                break
+            }
+            case "foil": {
+                newFencer.foilRating = fencerRating
+                newFencer.foilYear = fencerYear
+                break
+            }
+            case "saber": {
+                newFencer.saberRating = fencerRating
+                newFencer.saberYear = fencerYear
+                break
+            }
         }
+
+        dbCreateFencerByName(newFencer)
+        dbAddFencerToEventById(newFencer, event)
+
+        setFencers([newFencer, ...fencers]);
+
         setFencerFirstName("");
         setFencerLastName("");
-        setFencerRating("");
+        setFencerRating("U");
+        setFencerYear(2024);
     };
 
     // Function to upload and parse CSV
@@ -162,7 +125,7 @@ export const EventSettings = ({ route }: Props) => {
                             id: Date.now() + index,
                             firstName: parts[0],
                             lastName: parts[1],
-                            rating: parts[2],
+                            // rating: parts[2],
                         });
                     }
                 });
@@ -177,7 +140,7 @@ export const EventSettings = ({ route }: Props) => {
 
     // Remove a fencer by id.
     const handleRemoveFencer = (id: number) => {
-        setFencers((prev) => prev.filter((f) => f.id !== id));
+        // setFencers((prev) => prev.filter((f) => f.id !== id)); // TODO - make this a db call
     };
 
     // Update promotion value for a Pools round.
@@ -191,6 +154,23 @@ export const EventSettings = ({ route }: Props) => {
             return updated;
         });
     };
+
+    const renderFencers = () => {
+        return fencers.map((fencer, index) => (
+            <View key={fencer.id} style={styles.fencerRow}>
+                <Text style={styles.fencerItem}>
+                    {fencer.lastName}, {fencer.firstName}
+                </Text>
+                <TouchableOpacity
+                    onPress={() => handleRemoveFencer(fencer.id)}
+                    style={styles.removeFencerButton}
+                >
+                    <Text style={styles.removeFencerText}>x</Text>
+                </TouchableOpacity>
+            </View>
+        ));
+    };
+
 
     // Save the event settings and navigate back.
     const handleSaveSettings = () => {
@@ -268,12 +248,37 @@ export const EventSettings = ({ route }: Props) => {
                     value={fencerLastName}
                     onChangeText={setFencerLastName}
                 />
-                <TextInput
-                    style={styles.input}
-                    placeholder="Rating"
-                    value={fencerRating}
-                    onChangeText={setFencerRating}
-                />
+
+                {/* Rating Picker */}
+                <View style={styles.input}>
+                    <Text>{event.weapon} Rating</Text>
+                    <Picker
+                        selectedValue={fencerRating}
+                        onValueChange={(itemValue) => setFencerRating(itemValue)}
+                    >
+                        <Picker.Item label="A" value="A" />
+                        <Picker.Item label="B" value="B" />
+                        <Picker.Item label="C" value="C" />
+                        <Picker.Item label="D" value="D" />
+                        <Picker.Item label="E" value="E" />
+                        <Picker.Item label="U" value="U" />
+                    </Picker>
+                </View>
+
+                {/* Year Picker */}
+                <View style={styles.input}>
+                    <Text>Year</Text>
+                    <Picker
+                        selectedValue={fencerYear}
+                        onValueChange={(itemValue) => setFencerYear(itemValue)}
+                    >
+                        {Array.from({ length: 10 }, (_, i) => {
+                            const year = new Date().getFullYear() - i;
+                            return <Picker.Item key={year} label={year.toString()} value={year.toString()} />;
+                        })}
+                    </Picker>
+                </View>
+
                 <Button title="Add Fencer" onPress={handleAddFencer} />
                 {/* New button to upload CSV */}
                 <View style={{ marginTop: 10 }}>
@@ -285,19 +290,7 @@ export const EventSettings = ({ route }: Props) => {
                 {fencers.length === 0 ? (
                     <Text style={styles.note}>No fencers added yet.</Text>
                 ) : (
-                    fencers.map((fencer) => (
-                        <View key={fencer.id} style={styles.fencerRow}>
-                            <Text style={styles.fencerItem}>
-                                {fencer.lastName}, {fencer.firstName}, {fencer.rating}
-                            </Text>
-                            <TouchableOpacity
-                                onPress={() => handleRemoveFencer(fencer.id)}
-                                style={styles.removeFencerButton}
-                            >
-                                <Text style={styles.removeFencerText}>x</Text>
-                            </TouchableOpacity>
-                        </View>
-                    ))
+                    renderFencers()
                 )}
             </View>
 

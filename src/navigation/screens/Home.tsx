@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { StyleSheet, View, Text, Image, TouchableOpacity } from 'react-native';
 import { CreateTournamentButton } from './CreateTournamentModal';
 import { TournamentList } from './TournamentListComponent';
-import { dbListTournaments } from '../../db/TournamentDatabaseUtils';
+import {dbListCompletedTournaments, dbListOngoingTournaments} from '../../db/TournamentDatabaseUtils';
 import { useNavigation } from '@react-navigation/native';
+import { Tournament } from "../navigation/types";
 
 // Import the logo image.
 // (Do not change the background color or sizing of the logo)
@@ -11,27 +12,32 @@ import logo from '../../assets/logo.png';
 
 export function Home() {
   const navigation = useNavigation();
-  const [tournaments, setTournaments] = useState<Array<{ id: number, name: string }>>([]);
-
-  // Fake tournament history data for demo purposes
-  const fakeTournamentHistory = [
-    { id: 1, name: 'Tournament Alpha' },
-    { id: 2, name: 'Tournament Beta' },
-  ];
+  const [ongoingTournaments, setOngoingTournaments] = useState<Tournament[]>([]);
+  const [completedTournaments, setCompletedTournaments] = useState<Tournament[]>([]);
 
   // Function to load tournaments into the state
-  const loadTournaments = async () => {
+  const loadOngoingTournaments = async () => {
     try {
-      const tournamentsList = await dbListTournaments();
-      setTournaments(tournamentsList);
+      const tournamentsList = await dbListOngoingTournaments();
+      setOngoingTournaments(tournamentsList);
     } catch (error) {
       console.error('Failed to load tournaments:', error);
     }
   };
 
+  const loadCompletedTournaments = async () => {
+    try {
+      const tournamentsList = await dbListCompletedTournaments();
+      setCompletedTournaments(tournamentsList);
+    } catch (error) {
+      console.error('Failed to load tournaments:', error);
+    }
+  }
+
   // Load tournaments initially
   useEffect(() => {
-    loadTournaments();
+    loadOngoingTournaments();
+    loadCompletedTournaments();
   }, []);
 
   return (
@@ -39,29 +45,24 @@ export function Home() {
         <Image source={logo} style={styles.logo} resizeMode="contain" />
 
         {/* Create Tournament Button (functionality preserved) */}
-        <CreateTournamentButton onTournamentCreated={loadTournaments} />
+        <CreateTournamentButton onTournamentCreated={loadOngoingTournaments} />
 
         {/* Ongoing Tournaments */}
+        <Text style={styles.tournamentHistoryTitle}>Ongoing Tournaments</Text>
         <View style={styles.ongoingTournamentsContainer}>
-          <TournamentList tournaments={tournaments} onTournamentDeleted={loadTournaments} />
+          <TournamentList tournaments={ongoingTournaments} onTournamentDeleted={loadOngoingTournaments} isComplete={false} />
         </View>
+
+        {/* Tournament History Section */}
+        <Text style={styles.tournamentHistoryTitle}>Tournament History</Text>
+
+        <TournamentList tournaments={completedTournaments} onTournamentDeleted={loadCompletedTournaments} isComplete={true} />
 
         {/* Referee Module Button */}
         <TouchableOpacity style={styles.customButton} onPress={() => navigation.navigate('RefereeModule')}>
           <Text style={styles.customButtonText}>Referee Module</Text>
         </TouchableOpacity>
 
-        {/* Tournament History Section */}
-        <Text style={styles.tournamentHistoryTitle}>Tournament History</Text>
-        {fakeTournamentHistory.map(tournament => (
-            <TouchableOpacity
-                key={tournament.id}
-                style={styles.tournamentHistoryButton}
-                onPress={() => {}}
-            >
-              <Text style={styles.tournamentHistoryButtonText}>{tournament.name}</Text>
-            </TouchableOpacity>
-        ))}
       </View>
   );
 }

@@ -9,15 +9,18 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { dbDeleteTournament } from '../../db/TournamentDatabaseUtils';
+import {Tournament} from "../navigation/types";
 
 interface TournamentListProps {
-    tournaments: Array<{ name: string }>;
+    tournaments: Tournament[];
     onTournamentDeleted: () => void;
+    isComplete: boolean; // Add isComplete as a prop
 }
 
 export const TournamentList: React.FC<TournamentListProps> = ({
                                                                   tournaments,
                                                                   onTournamentDeleted,
+                                                                  isComplete,
                                                               }) => {
     const navigation = useNavigation();
 
@@ -52,10 +55,13 @@ export const TournamentList: React.FC<TournamentListProps> = ({
         );
     };
 
-    const renderTournament = ({ item }: { item: { name: string } }) => (
+    const renderTournament = ({ item }: { item: Tournament }) => (
         <View style={styles.tournamentContainer}>
             <TouchableOpacity
-                style={styles.tournamentItem}
+                style={[
+                    styles.tournamentItem,
+                    isComplete && styles.tournamentHistoryButton,
+                ]}
                 onPress={() => handleTournamentPress(item.name)}
             >
                 <Text style={styles.tournamentName}>{item.name}</Text>
@@ -96,7 +102,6 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: '#ddd',
         marginVertical: 4, // Increased vertical spacing between items
-
     },
     tournamentItem: {
         flex: 1,
@@ -122,6 +127,21 @@ const styles = StyleSheet.create({
     emptyText: {
         textAlign: 'center',
         color: '#666',
+        fontSize: 16,
+    },
+    tournamentHistoryButton: {
+        backgroundColor: '#4F4F4F', // Dark grey inside
+        borderColor: '#001f3f', // Navy blue border
+        borderWidth: 2,
+        borderRadius: 8,
+        paddingVertical: 10,
+        paddingHorizontal: 20,
+        width: '80%',
+        alignItems: 'center',
+        marginVertical: 5,
+    },
+    tournamentHistoryButtonText: {
+        color: '#fff', // White text
         fontSize: 16,
     },
 });

@@ -16,7 +16,6 @@ import { RootStackParamList, Event, RoundData } from '../navigation/types';
 import {
   dbListEvents,
   dbCreateEvent,
-  dbUpdateEvent,
   dbDeleteEvent,
 } from '../../db/TournamentDatabaseUtils';
 
@@ -167,22 +166,10 @@ export const EventManagement = ({ route }: Props) => {
     try {
       if (editingEventId === null) {
         await dbCreateEvent(tournamentName, {
-          id: Date.now(), // Generate an ID
           age: selectedAge,
           gender: selectedGender,
           weapon: selectedWeapon,
           name: '', // Adjust if you have a name field
-          rounds,
-          fencers: [],
-          poolCount: 4,
-          fencersPerPool: 5,
-        });
-      } else {
-        await dbUpdateEvent(editingEventId, {
-          age: selectedAge,
-          gender: selectedGender,
-          weapon: selectedWeapon,
-          name: '',
           rounds,
           fencers: [],
           poolCount: 4,
@@ -245,7 +232,7 @@ export const EventManagement = ({ route }: Props) => {
   // Callback passed to EventSettings to update the event in the database
   const handleSaveEventSettings = async (updatedEvent: Event) => {
     try {
-      await dbUpdateEvent(updatedEvent.id, updatedEvent);
+      // await dbUpdateEvent(updatedEvent.id, updatedEvent); // TODO save settings in EventSettings.tsx
       loadEvents();
     } catch (error) {
       console.error('Error updating event settings:', error);
