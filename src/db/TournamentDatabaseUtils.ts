@@ -215,23 +215,23 @@ export async function dbInsertExampleData(): Promise<void> {
   dbCreateTournament("Completed Tournament 2", 1)
 
   const Guy1 = <Fencer> {
-    firstName: "Gary",
-    lastName: "Goober",
+    fname: "Gary",
+    lname: "Goober",
   }
 
   const Guy2 = <Fencer> {
-    firstName: "Felix",
-    lastName: "Fringer",
+    fname: "Felix",
+    lname: "Fringer",
   }
 
   const Guy3 = <Fencer> {
-    firstName: "Thomas",
-    lastName: "Thompson",
+    fname: "Thomas",
+    lname: "Thompson",
   }
 
   const Guy4 = <Fencer> {
-    firstName: "Captain",
-    lastName: "Haddock",
+    fname: "Captain",
+    lname: "Haddock",
   }
 
   dbCreateFencerByName(Guy1)
@@ -248,7 +248,7 @@ export async function dbCreateTournament(tournamentName: string, iscomplete?: nu
     await db.runAsync('INSERT INTO Tournaments (name, iscomplete) VALUES (?, ?)', [tournamentName, iscomplete ?? 0]);
     console.log(`Tournament "${tournamentName}" created successfully.`);
   } catch (error) {
-    console.error(`Error creating tournament [${tournamentName}]:`, error);
+    // console.error(`Error creating tournament [${tournamentName}]:`, error); TODO - this is just while we're using dbInsertExampleData. Creates errors due to duplicates
     throw error;
   }
 }
@@ -299,7 +299,7 @@ export async function dbListEvents(tournamentName: string): Promise<Event[]> {
   }
 }
 
-export async function dbCreateEvent(tournamentName: string, event: any): Promise<void> {
+export async function dbCreateEvent(tournamentName: string, event: Event): Promise<void> {
   try {
     const db = await openDB();
     const age = event.age || 'senior';
@@ -330,11 +330,23 @@ export async function dbDeleteEvent(eventId: number): Promise<void> {
 
 // Fencer Functions
 // TODO support weapon-specific ratings / years
-export async function dbCreateFencerByName(Fencer: Fencer): Promise<void> {
+export async function dbCreateFencerByName(fencer: Fencer, event?: Event, insertOnCreate?: boolean | false): Promise<void> {
   try {
     const db = await openDB();
-    await db.runAsync('INSERT INTO Fencers (fname, lname) VALUES (?, ?)', [Fencer.firstName, Fencer.lastName]);
-    console.log(`Fencer "${Fencer.firstName} ${Fencer.lastName}" created successfully.`);
+    // Execute the insert query and extract the new fencer id
+    const result: SQLite.SQLiteRunResult = await db.runAsync(
+        'INSERT INTO Fencers (fname, lname) VALUES (?, ?)',
+        [fencer.fname, fencer.lname]
+    );
+    const newFencerId = result.lastInsertRowId;
+
+    fencer.id = newFencerId;
+    console.log(`Fencer "${fencer.fname} ${fencer.lname}" created with id ${fencer.id}.`);
+
+    // If we create a fencer inside an event, we should add them to the FencerEvent table
+    if (event && insertOnCreate) {
+      await dbAddFencerToEventById(fencer, event);
+    }
   } catch (error) {
     console.error('Error creating fencer:', error);
   }
@@ -360,18 +372,30 @@ export async function dbSearchFencers(query: string): Promise<Fencer[]> {
 }
 
 
-export async function dbGetFencersInEventById(Fencer: Fencer, Event: Event): Promise<void> {
+export async function dbGetFencersInEventById(event: Event): Promise<Fencer[]> {
   const db = await openDB();
-  await db.runAsync('SELECT (fname, lname) FROM FencerEvents WHERE fencerid = ? and eventid = ?', [Fencer.id, Event.id]);
+  const result: Fencer[] = await db.getAllAsync(`
+    SELECT Fencers.id, Fencers.fname, Fencers.lname, Fencers.erating, Fencers.eyear, Fencers.frating, Fencers.fyear, Fencers.srating, Fencers.syear
+    FROM FencerEvents
+    JOIN Fencers ON FencerEvents.fencerid = Fencers.id
+    WHERE FencerEvents.eventid = ?`, [event.id]);
+
+  console.log(`Fencers associated with Event ID [${event.id}]: ${result.length}`);
+  return result;
 }
 
-export async function dbAddFencerToEventById(Fencer: Fencer, Event: Event): Promise<void> {
+
+export async function dbAddFencerToEventById(fencer: Fencer, event: Event): Promise<void> {
   const db = await openDB();
-  await db.runAsync('INSERT INTO FencerEvents WHERE fencerid = ? AND eventid = ?', [Fencer.id, Event.id]);
-  console.log(`"${Fencer.firstName} ${Fencer.lastName}" added to "${Event.gender} ${Event.age} ${Event.weapon}"`);
+  try {
+    await db.runAsync('INSERT INTO FencerEvents (fencerid, eventid) VALUES (?, ?)', [fencer.id || null, event.id]); // || TODO null should never be needed, but just to shut it up
+    console.log(`"${fencer.fname} ${fencer.lname}" added to "${event.gender} ${event.age} ${event.weapon}"`);
+  } catch (error) {
+    console.error(`Error adding fencer ${fencer.id} to event ${event.id} `, error);
+  }
 }
 
-export async function dbDeleteFencerFromEventById(Fencer: Fencer, Event: Event): Promise<void> {
+export async function dbDeleteFencerFromEventById(fencer: Fencer, event: Event): Promise<void> {
   const db = await openDB();
-  await db.runAsync('DELETE FROM FencerEvents WHERE fencerid = ? AND eventid = ?', [Fencer.id, Event.id]);
+  await db.runAsync('DELETE FROM FencerEvents WHERE fencerid = ? AND eventid = ?', [fencer.id || null, event.id]); // || TODO null should never be needed, but just to shut it up
 }

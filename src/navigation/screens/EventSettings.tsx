@@ -14,7 +14,12 @@ import { Event, Fencer, RoundData } from "../navigation/types";
 // Import Expo modules for document picking and file system reading
 import * as DocumentPicker from "expo-document-picker";
 import * as FileSystem from "expo-file-system";
-import { dbAddFencerToEventById, dbCreateFencerByName, dbSearchFencers } from "../../db/TournamentDatabaseUtils";
+import {
+    dbAddFencerToEventById,
+    dbCreateFencerByName,
+    dbGetFencersInEventById,
+    dbSearchFencers
+} from "../../db/TournamentDatabaseUtils";
 import { Picker } from "@react-native-picker/picker";
 
 type EventSettingsRouteProp = RouteProp<
@@ -40,20 +45,18 @@ export const EventSettings = ({ route }: Props) => {
     const navigation = useNavigation();
 
     const [event, setEvent] = useState<Event>({ ...initialEvent });
-    const [fencers, setFencers] = useState<Fencer[]>(
-        initialEvent.fencers ? [...initialEvent.fencers] : []
-    );
-    const [rounds, setRounds] = useState<RoundData[]>(
-        initialEvent.rounds ? [...initialEvent.rounds] : []
-    );
-    const [poolCount, setPoolCount] = useState<string>(
-        initialEvent.poolCount !== undefined ? String(initialEvent.poolCount) : "4"
-    );
-    const [fencersPerPool, setFencersPerPool] = useState<string>(
-        initialEvent.fencersPerPool !== undefined
-            ? String(initialEvent.fencersPerPool)
-            : "5"
-    );
+    const [fencers, setFencers] = useState<Fencer[]>([]);
+    // const [rounds, setRounds] = useState<RoundData[]>( TODO - swap this to a db call instead of pulling initialEvent
+    //     initialEvent.rounds ? [...initialEvent.rounds] : []
+    // );
+    // const [poolCount, setPoolCount] = useState<string>(
+    //     initialEvent.poolCount !== undefined ? String(initialEvent.poolCount) : "4"
+    // );
+    // const [fencersPerPool, setFencersPerPool] = useState<string>(
+    //     initialEvent.fencersPerPool !== undefined
+    //         ? String(initialEvent.fencersPerPool)
+    //         : "5"
+    // );
 
     const [fencerFirstName, setFencerFirstName] = useState<string>("");
     const [fencerLastName, setFencerLastName] = useState<string>("");
@@ -67,37 +70,35 @@ export const EventSettings = ({ route }: Props) => {
     // Function to add a new fencer.
     const handleAddFencer = () => {
         let newFencer: Fencer = {
-            firstName: fencerFirstName.trim(),
-            lastName: fencerLastName.trim(),
+            fname: fencerFirstName.trim(),
+            lname: fencerLastName.trim(),
         };
 
         switch (event.weapon) {
             case "epee": {
-                newFencer.epeeRating = fencerRating;
-                newFencer.epeeYear = fencerYear;
+                newFencer.erating = fencerRating;
+                newFencer.eyear = fencerYear;
                 break;
             }
             case "foil": {
-                newFencer.foilRating = fencerRating;
-                newFencer.foilYear = fencerYear;
+                newFencer.frating = fencerRating;
+                newFencer.fyear = fencerYear;
                 break;
             }
             case "saber": {
-                newFencer.saberRating = fencerRating;
-                newFencer.saberYear = fencerYear;
+                newFencer.srating = fencerRating;
+                newFencer.syear = fencerYear;
                 break;
             }
         }
 
-        dbCreateFencerByName(newFencer);
-        dbAddFencerToEventById(newFencer, event);
-
-        setFencers([newFencer, ...fencers]);
+        dbCreateFencerByName(newFencer, event, true );
+        fetchFencers();
 
         setFencerFirstName("");
         setFencerLastName("");
         setFencerRating("U");
-        setFencerYear(2024);
+        setFencerYear(new Date().getFullYear());
     };
 
     // Function to upload and parse CSV
@@ -109,6 +110,7 @@ export const EventSettings = ({ route }: Props) => {
             });
 
             if ("uri" in result && result.uri) {
+                //@ts-ignore
                 const csvString = await FileSystem.readAsStringAsync(result.uri); // TODO - fix TS2345: Argument of type {} is not assignable to parameter of type string
                 const lines = csvString.split("\n");
 
@@ -121,8 +123,8 @@ export const EventSettings = ({ route }: Props) => {
                     if (parts.length >= 3 && parts[0] && parts[1] && parts[2]) {
                         newFencers.push({
                             // id: Date.now() + index,
-                            firstName: parts[0],
-                            lastName: parts[1],
+                            fname: parts[0],
+                            lname: parts[1],
                         });
                     }
                 });
@@ -133,12 +135,21 @@ export const EventSettings = ({ route }: Props) => {
         }
     };
 
+    const fetchFencers = async () => {
+        const fetchedFencers: Fencer[] = await dbGetFencersInEventById(event);
+        setFencers(fetchedFencers);
+        console.log("Updated fencer list:");
+        console.log(JSON.stringify(fetchedFencers, null, '\t'));
+    };
+
     // Function to fetch fencers based on search query
     useEffect(() => {
         const searchFencers = async () => {
             if (searchQuery.trim()) {
                 const fencers = await dbSearchFencers(searchQuery);
                 setFencerSuggestions(fencers);
+                console.log("searchFencers useEffect:")
+                console.log(JSON.stringify(fencers, null, '\t'));
             } else {
                 setFencerSuggestions([]);
             }
@@ -146,6 +157,10 @@ export const EventSettings = ({ route }: Props) => {
 
         searchFencers();
     }, [searchQuery]);
+
+    useEffect(() => {
+        fetchFencers();
+    }, []);
 
     function handleRemoveFencer(fencer: Fencer) {
         console.log("Need to implement fencer deletes :(")
@@ -155,7 +170,7 @@ export const EventSettings = ({ route }: Props) => {
         return fencers.map((fencer, index) => (
             <View key={fencer.id} style={styles.fencerRow}>
                 <Text style={styles.fencerItem}>
-                    {fencer.lastName}, {fencer.firstName}
+                    {fencer.lname}, {fencer.fname}
                 </Text>
                 <TouchableOpacity
                     onPress={() => handleRemoveFencer(fencer)}
@@ -168,6 +183,8 @@ export const EventSettings = ({ route }: Props) => {
     };
 
     const renderFencerSuggestions = () => {
+        console.log("renderFencerSuggestions:")
+        console.log(JSON.stringify(fencers, null, '\t'));
         return fencerSuggestions.map((fencer, index) => (
             <TouchableOpacity
                 key={fencer.id}
@@ -175,7 +192,7 @@ export const EventSettings = ({ route }: Props) => {
                 style={styles.fencerRow}
             >
                 <Text style={styles.fencerItem}>
-                    {fencer.lastName}, {fencer.firstName}
+                    {fencer.lname}, {fencer.fname}
                 </Text>
             </TouchableOpacity>
         ));
@@ -184,7 +201,7 @@ export const EventSettings = ({ route }: Props) => {
     // Function to handle adding fencer from search suggestions
     const handleAddFencerFromSearch = (fencer: Fencer) => {
         dbAddFencerToEventById(fencer, event);
-        setFencers([...fencers, fencer]);
+        fetchFencers();
         setSearchQuery("");
         setFencerSuggestions([]);
     };
@@ -193,10 +210,10 @@ export const EventSettings = ({ route }: Props) => {
     const handleSaveSettings = () => {
         const updatedEvent: Event = {
             ...event,
-            fencers: fencers,
-            rounds: rounds,
-            poolCount: parseInt(poolCount, 10) || 4,
-            fencersPerPool: parseInt(fencersPerPool, 10) || 5,
+            // fencers: fencers,
+            // rounds: rounds,
+            // poolCount: parseInt(poolCount, 10) || 4,
+            // fencersPerPool: parseInt(fencersPerPool, 10) || 5,
         };
         onSave(updatedEvent);
         navigation.goBack();
