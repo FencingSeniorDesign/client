@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
     View,
     Text,
@@ -14,8 +14,8 @@ import { Event, Fencer, RoundData } from "../navigation/types";
 // Import Expo modules for document picking and file system reading
 import * as DocumentPicker from "expo-document-picker";
 import * as FileSystem from "expo-file-system";
-import {dbAddFencerToEventById, dbCreateFencerByName} from "../../db/TournamentDatabaseUtils";
-import {Picker} from "@react-native-picker/picker";
+import { dbAddFencerToEventById, dbCreateFencerByName, dbSearchFencers } from "../../db/TournamentDatabaseUtils";
+import { Picker } from "@react-native-picker/picker";
 
 type EventSettingsRouteProp = RouteProp<
     { params: { event: Event; onSave: (updatedEvent: Event) => void } },
@@ -27,8 +27,6 @@ type Props = {
 };
 
 export const EventSettings = ({ route }: Props) => {
-    // Extract the event and onSave callback from route parameters.
-    // Adding a fallback in case event is missing.
     const { event: initialEvent, onSave } = route.params || {};
 
     if (!initialEvent) {
@@ -41,7 +39,6 @@ export const EventSettings = ({ route }: Props) => {
 
     const navigation = useNavigation();
 
-    // Use default values if properties are missing.
     const [event, setEvent] = useState<Event>({ ...initialEvent });
     const [fencers, setFencers] = useState<Fencer[]>(
         initialEvent.fencers ? [...initialEvent.fencers] : []
@@ -63,9 +60,12 @@ export const EventSettings = ({ route }: Props) => {
     const [fencerRating, setFencerRating] = useState<string>("U");
     const [fencerYear, setFencerYear] = useState<number>(new Date().getFullYear());
 
+    // New state for search query and results
+    const [searchQuery, setSearchQuery] = useState<string>("");
+    const [fencerSuggestions, setFencerSuggestions] = useState<Fencer[]>([]);
+
     // Function to add a new fencer.
     const handleAddFencer = () => {
-
         let newFencer: Fencer = {
             firstName: fencerFirstName.trim(),
             lastName: fencerLastName.trim(),
@@ -73,24 +73,24 @@ export const EventSettings = ({ route }: Props) => {
 
         switch (event.weapon) {
             case "epee": {
-                newFencer.epeeRating = fencerRating
-                newFencer.epeeYear = fencerYear
-                break
+                newFencer.epeeRating = fencerRating;
+                newFencer.epeeYear = fencerYear;
+                break;
             }
             case "foil": {
-                newFencer.foilRating = fencerRating
-                newFencer.foilYear = fencerYear
-                break
+                newFencer.foilRating = fencerRating;
+                newFencer.foilYear = fencerYear;
+                break;
             }
             case "saber": {
-                newFencer.saberRating = fencerRating
-                newFencer.saberYear = fencerYear
-                break
+                newFencer.saberRating = fencerRating;
+                newFencer.saberYear = fencerYear;
+                break;
             }
         }
 
-        dbCreateFencerByName(newFencer)
-        dbAddFencerToEventById(newFencer, event)
+        dbCreateFencerByName(newFencer);
+        dbAddFencerToEventById(newFencer, event);
 
         setFencers([newFencer, ...fencers]);
 
@@ -108,10 +108,8 @@ export const EventSettings = ({ route }: Props) => {
                 type: "text/csv",
             });
 
-            // Instead of checking result.type, check if 'uri' exists.
             if ("uri" in result && result.uri) {
-                // Read the CSV file content
-                const csvString = await FileSystem.readAsStringAsync(result.uri);
+                const csvString = await FileSystem.readAsStringAsync(result.uri); // TODO - fix TS2345: Argument of type {} is not assignable to parameter of type string
                 const lines = csvString.split("\n");
 
                 const newFencers: Fencer[] = [];
@@ -122,14 +120,12 @@ export const EventSettings = ({ route }: Props) => {
                     const parts = trimmedLine.split(",").map((p) => p.trim());
                     if (parts.length >= 3 && parts[0] && parts[1] && parts[2]) {
                         newFencers.push({
-                            id: Date.now() + index,
+                            // id: Date.now() + index,
                             firstName: parts[0],
                             lastName: parts[1],
-                            // rating: parts[2],
                         });
                     }
                 });
-                // Add the parsed fencers to the existing list
                 setFencers([...newFencers, ...fencers]);
             }
         } catch (error) {
@@ -137,23 +133,23 @@ export const EventSettings = ({ route }: Props) => {
         }
     };
 
-
-    // Remove a fencer by id.
-    const handleRemoveFencer = (id: number) => {
-        // setFencers((prev) => prev.filter((f) => f.id !== id)); // TODO - make this a db call
-    };
-
-    // Update promotion value for a Pools round.
-    const handlePromotionChange = (value: string, index: number) => {
-        const numVal = parseInt(value, 10) || 0;
-        setRounds((prev) => {
-            const updated = [...prev];
-            if (updated[index].roundType === "Pools") {
-                updated[index].promotion = numVal;
+    // Function to fetch fencers based on search query
+    useEffect(() => {
+        const searchFencers = async () => {
+            if (searchQuery.trim()) {
+                const fencers = await dbSearchFencers(searchQuery);
+                setFencerSuggestions(fencers);
+            } else {
+                setFencerSuggestions([]);
             }
-            return updated;
-        });
-    };
+        };
+
+        searchFencers();
+    }, [searchQuery]);
+
+    function handleRemoveFencer(fencer: Fencer) {
+        console.log("Need to implement fencer deletes :(")
+    }
 
     const renderFencers = () => {
         return fencers.map((fencer, index) => (
@@ -162,7 +158,7 @@ export const EventSettings = ({ route }: Props) => {
                     {fencer.lastName}, {fencer.firstName}
                 </Text>
                 <TouchableOpacity
-                    onPress={() => handleRemoveFencer(fencer.id)}
+                    onPress={() => handleRemoveFencer(fencer)}
                     style={styles.removeFencerButton}
                 >
                     <Text style={styles.removeFencerText}>x</Text>
@@ -171,6 +167,27 @@ export const EventSettings = ({ route }: Props) => {
         ));
     };
 
+    const renderFencerSuggestions = () => {
+        return fencerSuggestions.map((fencer, index) => (
+            <TouchableOpacity
+                key={fencer.id}
+                onPress={() => handleAddFencerFromSearch(fencer)}
+                style={styles.fencerRow}
+            >
+                <Text style={styles.fencerItem}>
+                    {fencer.lastName}, {fencer.firstName}
+                </Text>
+            </TouchableOpacity>
+        ));
+    };
+
+    // Function to handle adding fencer from search suggestions
+    const handleAddFencerFromSearch = (fencer: Fencer) => {
+        dbAddFencerToEventById(fencer, event);
+        setFencers([...fencers, fencer]);
+        setSearchQuery("");
+        setFencerSuggestions([]);
+    };
 
     // Save the event settings and navigate back.
     const handleSaveSettings = () => {
@@ -189,48 +206,16 @@ export const EventSettings = ({ route }: Props) => {
         <ScrollView style={styles.container} contentContainerStyle={styles.content}>
             <Text style={styles.title}>Edit Event Settings</Text>
 
-            {/* Rounds Section */}
-            {rounds.length > 0 && (
-                <View style={styles.roundsSection}>
-                    <Text style={styles.roundsTitle}>Rounds</Text>
-                    {rounds.map((rnd, idx) => (
-                        <View key={idx} style={styles.roundRow}>
-                            <Text style={styles.roundLabel}>
-                                Round {idx + 1}: {rnd.roundType}
-                            </Text>
-                            {rnd.roundType === "Pools" && (
-                                <View style={styles.promotionInputRow}>
-                                    <Text style={styles.promLabel}>Promotion %:</Text>
-                                    <TextInput
-                                        style={styles.promInput}
-                                        keyboardType="numeric"
-                                        value={String(rnd.promotion ?? 100)}
-                                        onChangeText={(val) => handlePromotionChange(val, idx)}
-                                    />
-                                </View>
-                            )}
-                        </View>
-                    ))}
-                </View>
-            )}
-
-            {/* Pool Configuration */}
+            {/* Search Fencers Section  TODO - this is broken, and is only returning blank strings, although it is returning results */}
             <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Pool Configuration</Text>
+                <Text style={styles.sectionTitle}>Search Fencers</Text>
                 <TextInput
                     style={styles.input}
-                    placeholder="Number of Pools"
-                    keyboardType="numeric"
-                    value={poolCount}
-                    onChangeText={setPoolCount}
+                    placeholder="Search by Name"
+                    value={searchQuery}
+                    onChangeText={setSearchQuery}
                 />
-                <TextInput
-                    style={styles.input}
-                    placeholder="Fencers per Pool"
-                    keyboardType="numeric"
-                    value={fencersPerPool}
-                    onChangeText={setFencersPerPool}
-                />
+                {fencerSuggestions.length > 0 && renderFencerSuggestions()}
             </View>
 
             {/* Fencers Section */}
@@ -248,8 +233,6 @@ export const EventSettings = ({ route }: Props) => {
                     value={fencerLastName}
                     onChangeText={setFencerLastName}
                 />
-
-                {/* Rating Picker */}
                 <View style={styles.input}>
                     <Text>{event.weapon} Rating</Text>
                     <Picker
@@ -265,7 +248,6 @@ export const EventSettings = ({ route }: Props) => {
                     </Picker>
                 </View>
 
-                {/* Year Picker */}
                 <View style={styles.input}>
                     <Text>Year</Text>
                     <Picker
@@ -274,13 +256,14 @@ export const EventSettings = ({ route }: Props) => {
                     >
                         {Array.from({ length: 10 }, (_, i) => {
                             const year = new Date().getFullYear() - i;
-                            return <Picker.Item key={year} label={year.toString()} value={year.toString()} />;
+                            return (
+                                <Picker.Item key={year} label={year.toString()} value={year.toString()} />
+                            );
                         })}
                     </Picker>
                 </View>
 
                 <Button title="Add Fencer" onPress={handleAddFencer} />
-                {/* New button to upload CSV */}
                 <View style={{ marginTop: 10 }}>
                     <Button title="Upload CSV" onPress={handleUploadCSV} />
                 </View>
@@ -306,7 +289,6 @@ export const EventSettings = ({ route }: Props) => {
 
 export default EventSettings;
 
-const navyBlue = "#000080";
 
 const styles = StyleSheet.create({
     container: {

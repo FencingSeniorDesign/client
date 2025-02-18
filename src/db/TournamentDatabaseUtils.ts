@@ -331,9 +331,13 @@ export async function dbDeleteEvent(eventId: number): Promise<void> {
 // Fencer Functions
 // TODO support weapon-specific ratings / years
 export async function dbCreateFencerByName(Fencer: Fencer): Promise<void> {
-  const db = await openDB();
-  await db.runAsync('INSERT INTO Fencers (fname, lname) VALUES (?)', [Fencer.firstName, Fencer.lastName]);
-  console.log(`Fencer "${Fencer.firstName} ${Fencer.lastName}" created successfully.`);
+  try {
+    const db = await openDB();
+    await db.runAsync('INSERT INTO Fencers (fname, lname) VALUES (?, ?)', [Fencer.firstName, Fencer.lastName]);
+    console.log(`Fencer "${Fencer.firstName} ${Fencer.lastName}" created successfully.`);
+  } catch (error) {
+    console.error('Error creating fencer:', error);
+  }
 }
 
 export async function dbListFencers(): Promise<void> {
@@ -344,6 +348,17 @@ export async function dbListFencers(): Promise<void> {
 export async function dbDeleteFencerById(Fencer: Fencer): Promise<void> {
   // TODO
 }
+
+export async function dbSearchFencers(query: string): Promise<Fencer[]> {
+  const db = await openDB();
+  const result: Fencer[] = await db.getAllAsync(
+      'SELECT * FROM Fencers WHERE fname LIKE ? OR lname LIKE ?',
+      [`%${query}%`, `%${query}%`]
+  );
+  console.log(`Search returned ${result.length} results`);
+  return result;
+}
+
 
 export async function dbGetFencersInEventById(Fencer: Fencer, Event: Event): Promise<void> {
   const db = await openDB();
