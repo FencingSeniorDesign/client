@@ -34,15 +34,17 @@ export function Home() {
 
   useEffect(() => {
     zeroconf.on('resolved', (service) => {
+      console.log("servers resolved")
       setServers((prev) => [...prev, service]);  // Add resolved services to state
     });
 
+    console.log('scanning')
     zeroconf.scan('_fencing-tournament._tcp');  // Search for '_fencing-tournament' services
 
     return () => {
       zeroconf.stop();  // Clean up when the component unmounts
     };
-  }, []);
+  }, [isModalVisible]);
 
   const handleJoinServer = (server: any) => {
     // Handle connection logic here
