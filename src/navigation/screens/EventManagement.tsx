@@ -19,6 +19,7 @@ import {
   // dbUpdateEvent,
   dbDeleteEvent,
 } from '../../db/TournamentDatabaseUtils';
+import * as Network from 'expo-network';
 
 // Extend RoundData with additional configuration properties
 type ExtendedRoundData = RoundData & {
@@ -162,6 +163,19 @@ export const EventManagement = ({ route }: Props) => {
     setShowRoundTypeOptions(false);
   };
 
+
+  const ipAddress = getDeviceIp();
+  // Function to get the device's IP address using expo-network
+  async function getDeviceIp() {
+    try {
+      const ipAddress = await Network.getIpAddressAsync();
+      console.log('Device IP Address:', ipAddress);
+      return ipAddress;
+    } catch (error) {
+      console.error('Error getting IP address:', error);
+    }
+  }
+
   // For new event creation, handle submission from the modal
   const handleSubmitEvent = async () => {
     try {
@@ -245,7 +259,6 @@ export const EventManagement = ({ route }: Props) => {
   // Callback passed to EventSettings to update the event in the database
   const handleSaveEventSettings = async (updatedEvent: Event) => {
     try {
-      await dbUpdateEvent(updatedEvent.id, updatedEvent);
       loadEvents();
     } catch (error) {
       console.error('Error updating event settings:', error);
@@ -261,7 +274,7 @@ export const EventManagement = ({ route }: Props) => {
             title="Create Server"
             onPress={() => navigation.navigate('CreateServerPage')}
         />
-
+        <Text>{ipAddress}</Text>
         <View style={styles.eventList}>
           {events.map((event) => (
               <View key={event.id} style={styles.eventItem}>
