@@ -11,14 +11,13 @@ import {
 import { RouteProp, useNavigation } from "@react-navigation/native";
 import { Event, Fencer, RoundData } from "../navigation/types";
 
-// Import Expo modules for document picking and file system reading
 import * as DocumentPicker from "expo-document-picker";
 import * as FileSystem from "expo-file-system";
 import {
     dbAddFencerToEventById,
     dbCreateFencerByName,
     dbGetFencersInEventById,
-    dbSearchFencers
+    dbSearchFencers,
 } from "../../db/TournamentDatabaseUtils";
 import { Picker } from "@react-native-picker/picker";
 
@@ -44,87 +43,96 @@ export const EventSettings = ({ route }: Props) => {
 
     const navigation = useNavigation();
 
+    // Make a copy of the event passed in
     const [event, setEvent] = useState<Event>({ ...initialEvent });
     const [fencers, setFencers] = useState<Fencer[]>([]);
-    // const [rounds, setRounds] = useState<RoundData[]>( TODO - swap this to a db call instead of pulling initialEvent
-    //     initialEvent.rounds ? [...initialEvent.rounds] : []
-    // );
-    // const [poolCount, setPoolCount] = useState<string>(
-    //     initialEvent.poolCount !== undefined ? String(initialEvent.poolCount) : "4"
-    // );
-    // const [fencersPerPool, setFencersPerPool] = useState<string>(
-    //     initialEvent.fencersPerPool !== undefined
-    //         ? String(initialEvent.fencersPerPool)
-    //         : "5"
-    // );
 
+    // Normalize the weapon value to lowercase so it matches our Picker options.
+    const initialWeapon = initialEvent.weapon.toLowerCase();
+    const [selectedWeapon, setSelectedWeapon] = useState<string>(initialWeapon);
+
+    // Fencer input states
     const [fencerFirstName, setFencerFirstName] = useState<string>("");
     const [fencerLastName, setFencerLastName] = useState<string>("");
-    const [fencerRating, setFencerRating] = useState<string>("U");
-    const [fencerYear, setFencerYear] = useState<number>(new Date().getFullYear());
 
-    // New state for search query and results
+    // Separate states for rating and year for each weapon
+    const [epeeRating, setEpeeRating] = useState<string>("U");
+    const [epeeYear, setEpeeYear] = useState<number>(new Date().getFullYear());
+    const [foilRating, setFoilRating] = useState<string>("U");
+    const [foilYear, setFoilYear] = useState<number>(new Date().getFullYear());
+    const [saberRating, setSaberRating] = useState<string>("U");
+    const [saberYear, setSaberYear] = useState<number>(new Date().getFullYear());
+
+    // Search states
     const [searchQuery, setSearchQuery] = useState<string>("");
     const [fencerSuggestions, setFencerSuggestions] = useState<Fencer[]>([]);
+
+    // Get the current rating and year based on the selected weapon
+    const currentRating =
+        selectedWeapon === "epee"
+            ? epeeRating
+            : selectedWeapon === "foil"
+                ? foilRating
+                : saberRating;
+    const currentYear =
+        selectedWeapon === "epee"
+            ? epeeYear
+            : selectedWeapon === "foil"
+                ? foilYear
+                : saberYear;
 
     // Function to add a new fencer.
     const handleAddFencer = () => {
         let newFencer: Fencer = {
             fname: fencerFirstName.trim(),
             lname: fencerLastName.trim(),
+
+            erating: epeeRating,
+            eyear: epeeYear,
+
+            frating: foilRating,
+            fyear: foilYear,
+
+            srating: saberRating,
+            syear: saberYear,
         };
 
-        switch (event.weapon) {
-            case "epee": {
-                newFencer.erating = fencerRating;
-                newFencer.eyear = fencerYear;
-                break;
-            }
-            case "foil": {
-                newFencer.frating = fencerRating;
-                newFencer.fyear = fencerYear;
-                break;
-            }
-            case "saber": {
-                newFencer.srating = fencerRating;
-                newFencer.syear = fencerYear;
-                break;
-            }
-        }
+        console.log(JSON.stringify(newFencer, null, "\t"));
 
-        dbCreateFencerByName(newFencer, event, true );
-        fetchFencers();
+        dbCreateFencerByName(newFencer, event, true).then(
+            fetchFencers
+        )
 
         setFencerFirstName("");
         setFencerLastName("");
-        setFencerRating("U");
-        setFencerYear(new Date().getFullYear());
     };
 
     // Function to upload and parse CSV
     const handleUploadCSV = async () => {
         try {
-            // Launch the document picker for CSV files
             const result = await DocumentPicker.getDocumentAsync({
                 type: "text/csv",
             });
-
             if ("uri" in result && result.uri) {
                 //@ts-ignore
-                const csvString = await FileSystem.readAsStringAsync(result.uri); // TODO - fix TS2345: Argument of type {} is not assignable to parameter of type string
+                const csvString = await FileSystem.readAsStringAsync(result.uri);
                 const lines = csvString.split("\n");
 
                 const newFencers: Fencer[] = [];
-                lines.forEach((line, index) => {
+                lines.forEach((line) => {
                     const trimmedLine = line.trim();
                     if (!trimmedLine) return;
-
                     const parts = trimmedLine.split(",").map((p) => p.trim());
                     if (parts.length >= 3 && parts[0] && parts[1] && parts[2]) {
                         newFencers.push({
-                            // id: Date.now() + index,
                             fname: parts[0],
                             lname: parts[1],
+                            erating: 'U', // TODO - make these actually read to a file and default to U/0 if not included
+                            eyear: 0,
+                            frating: 'U',
+                            fyear: 0,
+                            srating: 'U',
+                            syear: 0,
                         });
                     }
                 });
@@ -139,17 +147,14 @@ export const EventSettings = ({ route }: Props) => {
         const fetchedFencers: Fencer[] = await dbGetFencersInEventById(event);
         setFencers(fetchedFencers);
         console.log("Updated fencer list:");
-        console.log(JSON.stringify(fetchedFencers, null, '\t'));
+        console.log(JSON.stringify(fetchedFencers, null, "\t"));
     };
 
-    // Function to fetch fencers based on search query
     useEffect(() => {
         const searchFencers = async () => {
             if (searchQuery.trim()) {
-                const fencers = await dbSearchFencers(searchQuery);
-                setFencerSuggestions(fencers);
-                console.log("searchFencers useEffect:")
-                console.log(JSON.stringify(fencers, null, '\t'));
+                const results = await dbSearchFencers(searchQuery);
+                setFencerSuggestions(results);
             } else {
                 setFencerSuggestions([]);
             }
@@ -163,58 +168,84 @@ export const EventSettings = ({ route }: Props) => {
     }, []);
 
     function handleRemoveFencer(fencer: Fencer) {
-        console.log("Need to implement fencer deletes :(")
+        console.log("Need to implement fencer deletes :(");
+    }
+
+    function formatRatingString(fencer: Fencer): string {
+        let rating = "";
+        let year = 0
+
+        // Determine the rating to display based on the event's weapon.
+        switch (event.weapon.toLowerCase()) {
+            case "epee":
+                rating = fencer.erating || "";
+                year = fencer.eyear || 0;
+                break;
+            case "foil":
+                rating = fencer.frating || "";
+                year = fencer.fyear || 0;
+                break;
+            case "saber":
+                rating = fencer.srating || "";
+                year = fencer.syear || 0;
+                break;
+            default:
+                break;
+        }
+
+        let yearstr = ""
+        if (rating != 'U') {
+            yearstr = year.toString().slice(2)
+        }
+
+        return `${rating}${yearstr}`
     }
 
     const renderFencers = () => {
-        return fencers.map((fencer, index) => (
-            <View key={fencer.id} style={styles.fencerRow}>
-                <Text style={styles.fencerItem}>
-                    {fencer.lname}, {fencer.fname}
-                </Text>
-                <TouchableOpacity
-                    onPress={() => handleRemoveFencer(fencer)}
-                    style={styles.removeFencerButton}
-                >
-                    <Text style={styles.removeFencerText}>x</Text>
-                </TouchableOpacity>
-            </View>
-        ));
+        return fencers.map((fencer) => {
+
+
+            return (
+                <View key={fencer.id} style={styles.fencerRow}>
+                    <Text style={styles.fencerItem}>
+                        {fencer.lname}, {fencer.fname} ({formatRatingString(fencer)})
+                    </Text>
+                    <TouchableOpacity
+                        onPress={() => handleRemoveFencer(fencer)}
+                        style={styles.removeFencerButton}
+                    >
+                        <Text style={styles.removeFencerText}>x</Text>
+                    </TouchableOpacity>
+                </View>
+            );
+        });
     };
 
     const renderFencerSuggestions = () => {
-        console.log("renderFencerSuggestions:")
-        console.log(JSON.stringify(fencers, null, '\t'));
-        return fencerSuggestions.map((fencer, index) => (
+        return fencerSuggestions.map((fencer) => (
             <TouchableOpacity
                 key={fencer.id}
                 onPress={() => handleAddFencerFromSearch(fencer)}
                 style={styles.fencerRow}
             >
                 <Text style={styles.fencerItem}>
-                    {fencer.lname}, {fencer.fname}
+                    {fencer.lname}, {fencer.fname} ({formatRatingString(fencer)})
                 </Text>
             </TouchableOpacity>
         ));
     };
 
-    // Function to handle adding fencer from search suggestions
+    // Function to add fencer from search suggestions.
     const handleAddFencerFromSearch = (fencer: Fencer) => {
         dbAddFencerToEventById(fencer, event);
-        fetchFencers();
+        fetchFencers()
         setSearchQuery("");
         setFencerSuggestions([]);
     };
 
-    // Save the event settings and navigate back.
+    // Save settings and navigate back.
     const handleSaveSettings = () => {
-        const updatedEvent: Event = {
-            ...event,
-            // fencers: fencers,
-            // rounds: rounds,
-            // poolCount: parseInt(poolCount, 10) || 4,
-            // fencersPerPool: parseInt(fencersPerPool, 10) || 5,
-        };
+        const updatedEvent: Event = { ...event };
         onSave(updatedEvent);
         navigation.goBack();
     };
@@ -223,7 +254,7 @@ export const EventSettings = ({ route }: Props) => {
         <ScrollView style={styles.container} contentContainerStyle={styles.content}>
             <Text style={styles.title}>Edit Event Settings</Text>
 
-            {/* Search Fencers Section  TODO - this is broken, and is only returning blank strings, although it is returning results */}
+            {/* Search Fencers Section */}
             <View style={styles.section}>
                 <Text style={styles.sectionTitle}>Search Fencers</Text>
                 <TextInput
@@ -250,34 +281,83 @@ export const EventSettings = ({ route }: Props) => {
                     value={fencerLastName}
                     onChangeText={setFencerLastName}
                 />
+                {/* Weapon Selector */}
                 <View style={styles.input}>
-                    <Text>{event.weapon} Rating</Text>
+                    <Text>Weapon</Text>
                     <Picker
-                        selectedValue={fencerRating}
-                        onValueChange={(itemValue) => setFencerRating(itemValue)}
+                        selectedValue={selectedWeapon}
+                        onValueChange={(itemValue) => setSelectedWeapon(itemValue)}
                     >
-                        <Picker.Item label="A" value="A" />
-                        <Picker.Item label="B" value="B" />
-                        <Picker.Item label="C" value="C" />
-                        <Picker.Item label="D" value="D" />
-                        <Picker.Item label="E" value="E" />
-                        <Picker.Item label="U" value="U" />
+                        <Picker.Item label="Epee" value="epee" />
+                        <Picker.Item label="Foil" value="foil" />
+                        <Picker.Item label="Saber" value="saber" />
                     </Picker>
                 </View>
-
-                <View style={styles.input}>
-                    <Text>Year</Text>
-                    <Picker
-                        selectedValue={fencerYear}
-                        onValueChange={(itemValue) => setFencerYear(itemValue)}
-                    >
-                        {Array.from({ length: 10 }, (_, i) => {
-                            const year = new Date().getFullYear() - i;
-                            return (
-                                <Picker.Item key={year} label={year.toString()} value={year.toString()} />
-                            );
-                        })}
-                    </Picker>
+                <View style={styles.row}>
+                    <View style={[styles.input, styles.pickerLeft]}>
+                        <Text>
+                            {selectedWeapon.charAt(0).toUpperCase() +
+                                selectedWeapon.slice(1)}{" "}
+                            Rating
+                        </Text>
+                        <Picker
+                            selectedValue={currentRating}
+                            onValueChange={(itemValue) => {
+                                if (selectedWeapon === "epee") {
+                                    setEpeeRating(itemValue);
+                                    setEpeeYear((prevYear) =>
+                                        itemValue === "U" ? 0 : (prevYear === 0 ? new Date().getFullYear() : prevYear)
+                                    );
+                                } else if (selectedWeapon === "foil") {
+                                    setFoilRating(itemValue);
+                                    setFoilYear((prevYear) =>
+                                        itemValue === "U" ? 0 : (prevYear === 0 ? new Date().getFullYear() : prevYear)
+                                    );
+                                } else if (selectedWeapon === "saber") {
+                                    setSaberRating(itemValue);
+                                    setSaberYear((prevYear) =>
+                                        itemValue === "U" ? 0 : (prevYear === 0 ? new Date().getFullYear() : prevYear)
+                                    );
+                                }
+                            }}
+                        >
+                            <Picker.Item label="A" value="A" />
+                            <Picker.Item label="B" value="B" />
+                            <Picker.Item label="C" value="C" />
+                            <Picker.Item label="D" value="D" />
+                            <Picker.Item label="E" value="E" />
+                            <Picker.Item label="U" value="U" />
+                        </Picker>
+                    </View>
+                    {/* Only show the Year picker if the rating is not "U" */}
+                    {currentRating !== "U" && (
+                        <View style={[styles.input, styles.pickerRight]}>
+                            <Text>Year</Text>
+                            <Picker
+                                selectedValue={currentYear}
+                                onValueChange={(itemValue) => {
+                                    if (selectedWeapon === "epee") {
+                                        setEpeeYear(itemValue);
+                                    } else if (selectedWeapon === "foil") {
+                                        setFoilYear(itemValue);
+                                    } else if (selectedWeapon === "saber") {
+                                        setSaberYear(itemValue);
+                                    }
+                                }}
+                            >
+                                {Array.from({ length: 10 }, (_, i) => {
+                                    const year = new Date().getFullYear() - i;
+                                    return (
+                                        <Picker.Item
+                                            key={year}
+                                            label={year.toString()}
+                                            value={year}
+                                        />
+                                    );
+                                })}
+                            </Picker>
+                        </View>
+                    )}
                 </View>
 
                 <Button title="Add Fencer" onPress={handleAddFencer} />
@@ -294,7 +374,6 @@ export const EventSettings = ({ route }: Props) => {
                 )}
             </View>
 
-            {/* Save Button */}
             <View style={styles.section}>
                 <TouchableOpacity onPress={handleSaveSettings}>
                     <Text style={styles.saveButtonText}>Save Event Settings</Text>
@@ -305,7 +384,6 @@ export const EventSettings = ({ route }: Props) => {
 };
 
 export default EventSettings;
-
 
 const styles = StyleSheet.create({
     container: {
@@ -412,5 +490,17 @@ const styles = StyleSheet.create({
     errorText: {
         color: "red",
         fontSize: 18,
+    },
+    row: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+    },
+    pickerLeft: {
+        flex: 1,
+        marginRight: 5,
+    },
+    pickerRight: {
+        flex: 1,
+        marginLeft: 5,
     },
 });

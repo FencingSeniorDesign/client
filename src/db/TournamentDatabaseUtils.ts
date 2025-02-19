@@ -335,13 +335,13 @@ export async function dbCreateFencerByName(fencer: Fencer, event?: Event, insert
     const db = await openDB();
     // Execute the insert query and extract the new fencer id
     const result: SQLite.SQLiteRunResult = await db.runAsync(
-        'INSERT INTO Fencers (fname, lname) VALUES (?, ?)',
-        [fencer.fname, fencer.lname]
+        'INSERT INTO Fencers (fname, lname, erating, eyear, frating, fyear, srating, syear) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+        [fencer.fname, fencer.lname, fencer.erating ?? 'U', fencer.eyear ?? 0, fencer.frating ?? 'U', fencer.fyear ?? 0, fencer.srating ?? 'U', fencer.fyear ?? 0]
     );
     const newFencerId = result.lastInsertRowId;
 
     fencer.id = newFencerId;
-    console.log(`Fencer "${fencer.fname} ${fencer.lname}" created with id ${fencer.id}.`);
+    console.log(`Fencer "${fencer.fname} ${fencer.lname}" created with id ${fencer.id}.`, JSON.stringify(fencer, null, "\t"));
 
     // If we create a fencer inside an event, we should add them to the FencerEvent table
     if (event && insertOnCreate) {
@@ -371,7 +371,6 @@ export async function dbSearchFencers(query: string): Promise<Fencer[]> {
   return result;
 }
 
-
 export async function dbGetFencersInEventById(event: Event): Promise<Fencer[]> {
   const db = await openDB();
   const result: Fencer[] = await db.getAllAsync(`
@@ -383,7 +382,6 @@ export async function dbGetFencersInEventById(event: Event): Promise<Fencer[]> {
   console.log(`Fencers associated with Event ID [${event.id}]: ${result.length}`);
   return result;
 }
-
 
 export async function dbAddFencerToEventById(fencer: Fencer, event: Event): Promise<void> {
   const db = await openDB();

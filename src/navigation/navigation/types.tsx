@@ -9,12 +9,12 @@ export type Fencer = {
     lname: string;
     nickname?: string;
 
-    erating?: string | 'U' | 'E' | 'D' | 'C' | 'B' | 'A'; // TODO Ratings should prob be their own type
-    eyear?: number;
-    frating?: string | 'U' | 'E' | 'D' | 'C' | 'B' | 'A';
-    fyear?: number;
-    srating?: string | 'U' | 'E' | 'D' | 'C' | 'B' | 'A';
-    syear?: number;
+    erating: string | 'U' | 'E' | 'D' | 'C' | 'B' | 'A'; // TODO Ratings should prob be their own type
+    eyear: number;
+    frating: string | 'U' | 'E' | 'D' | 'C' | 'B' | 'A';
+    fyear: number;
+    srating: string | 'U' | 'E' | 'D' | 'C' | 'B' | 'A';
+    syear: number;
 };
 
 export type Referee = {
