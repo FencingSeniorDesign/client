@@ -9,14 +9,24 @@
     "newArchEnabled": true,
     "scheme": "tournafence",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSBonjourServices": ["tournafence"],
+        "NSLocalNetworkUsageDescription": "Allow TournaFence to discover devices on the local network."
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.anonymous.TournaFence"
+      "package": "com.anonymous.TournaFence",
+      "permissions": [
+        "android.permission.ACCESS_WIFI_STATE",
+        "android.permission.ACCESS_NETWORK_STATE",
+        "android.permission.CHANGE_WIFI_MULTICAST_STATE",
+        "android.permission.INTERNET"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
