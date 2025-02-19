@@ -215,23 +215,33 @@ export async function dbInsertExampleData(): Promise<void> {
   dbCreateTournament("Completed Tournament 2", 1)
 
   const Guy1 = <Fencer> {
-    fname: "Gary",
-    lname: "Goober",
+    fname: "Rasta",
+    lname: "popoulos",
+    srating: "A",
+    syear: 2025,
+    frating: "B",
+    fyear: 2024,
   }
 
   const Guy2 = <Fencer> {
-    fname: "Felix",
-    lname: "Fringer",
+    fname: "Prof.",
+    lname: "Calculus",
+    frating: "C",
+    fyear: 2025,
+    erating: "C",
+    eyear: 2023,
   }
 
   const Guy3 = <Fencer> {
-    fname: "Thomas",
+    fname: "Thomson",
     lname: "Thompson",
   }
 
   const Guy4 = <Fencer> {
     fname: "Captain",
     lname: "Haddock",
+    srating: "A",
+    syear: 2025,
   }
 
   dbCreateFencerByName(Guy1)
