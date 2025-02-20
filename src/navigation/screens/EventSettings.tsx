@@ -15,7 +15,7 @@ import * as DocumentPicker from "expo-document-picker";
 import * as FileSystem from "expo-file-system";
 import {
     dbAddFencerToEventById,
-    dbCreateFencerByName,
+    dbCreateFencerByName, dbDeleteFencerFromEventById,
     dbGetFencersInEventById,
     dbSearchFencers,
 } from "../../db/TournamentDatabaseUtils";
@@ -167,7 +167,9 @@ export const EventSettings = ({ route }: Props) => {
         fetchFencers();
     }, []);
 
-    function handleRemoveFencer(fencer: Fencer) {
+    function handleRemoveFencer(fencer: Fencer, event: Event) {
+        dbDeleteFencerFromEventById(fencer, event);
+        fetchFencers();
         console.log("Need to implement fencer deletes :(");
     }
 
@@ -211,7 +213,7 @@ export const EventSettings = ({ route }: Props) => {
                         {fencer.lname}, {fencer.fname} ({formatRatingString(fencer)})
                     </Text>
                     <TouchableOpacity
-                        onPress={() => handleRemoveFencer(fencer)}
+                        onPress={() => handleRemoveFencer(fencer, event)}
                         style={styles.removeFencerButton}
                     >
                         <Text style={styles.removeFencerText}>x</Text>
