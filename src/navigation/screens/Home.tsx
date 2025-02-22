@@ -5,10 +5,21 @@ import { TournamentList } from './TournamentListComponent';
 import {dbListCompletedTournaments, dbListOngoingTournaments} from '../../db/TournamentDatabaseUtils';
 import { useNavigation } from '@react-navigation/native';
 import { Tournament } from "../navigation/types";
+import { openDatabase } from '../../db/DatabaseInit'; // Ensure correct import
 
 // Import the logo image.
 // (Do not change the background color or sizing of the logo)
 import logo from '../../assets/logo.png';
+
+const testDBConnection = async () => {
+  try {
+    const db = openDatabase(); // Ensure database is opened
+    const result = await db.getAllAsync("SELECT name FROM sqlite_master WHERE type='table'");
+    console.log("Tables in DB:", result);
+  } catch (error) {
+    console.error("DB Connection Error:", error);
+  }
+};
 
 export function Home() {
   const navigation = useNavigation();
@@ -36,6 +47,7 @@ export function Home() {
 
   // Load tournaments initially
   useEffect(() => {
+    testDBConnection(); 
     loadOngoingTournaments();
     loadCompletedTournaments();
   }, []);

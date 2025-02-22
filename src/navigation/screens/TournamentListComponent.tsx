@@ -10,6 +10,7 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import { dbDeleteTournament } from '../../db/TournamentDatabaseUtils';
 import {Tournament} from "../navigation/types";
+import { openDatabase } from '../../db/DatabaseInit'; // Ensure correct import
 
 interface TournamentListProps {
     tournaments: Tournament[];
@@ -43,6 +44,7 @@ export const TournamentList: React.FC<TournamentListProps> = ({
                     style: 'destructive',
                     onPress: async () => {
                         try {
+                            const db = openDatabase(); // Ensure database is opened
                             await dbDeleteTournament(tournamentName);
                             onTournamentDeleted(); // Refresh the tournament list
                         } catch (error) {

@@ -21,7 +21,7 @@ export async function copyDatabaseIfNotExists() {
 
   // Load the asset from the bundle
   // Adjust the path if your .sqlite file is in a different folder
-  const asset = Asset.fromModule(require('../assets/identifier.db'));
+  const asset = Asset.fromModule(require('./assets/identifier.sqlite'));
   // Download it to the local cache if it’s not already
   await asset.downloadAsync();
 
@@ -36,5 +36,5 @@ export async function copyDatabaseIfNotExists() {
 
 // Optionally, return a handle to the opened DB:
 export function openDatabase() {
-  return SQLite.openDatabase(DB_NAME);
+  return SQLite.openDatabaseSync(DB_NAME);
 }

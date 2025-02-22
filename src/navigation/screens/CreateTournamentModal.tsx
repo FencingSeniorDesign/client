@@ -9,6 +9,7 @@ import {
   Alert,
 } from 'react-native';
 import { dbCreateTournament } from '../../db/TournamentDatabaseUtils';
+import { openDatabase } from '../../db/DatabaseInit'; // Ensure correct import
 
 interface CreateTournamentButtonProps {
   onTournamentCreated: () => void;
@@ -25,6 +26,7 @@ export const CreateTournamentButton: React.FC<CreateTournamentButtonProps> = ({ 
     }
 
     try {
+      const db = openDatabase(); // Ensure database is opened
       await dbCreateTournament(tournamentName.trim());
       setModalVisible(false);
       setTournamentName('');

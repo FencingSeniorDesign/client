@@ -1,14 +1,33 @@
 // dbBackend.ts
 import * as SQLite from 'expo-sqlite';
 import { Fencer, Event, Tournament } from "../navigation/navigation/types";
+import * as FileSystem from 'expo-file-system';
+import { openDatabase } from './DatabaseInit'; // Ensure correct import
 
-const DATABASE_NAME = 'tf.db';
+initDB(); // Ensure the database is initialized
 
-initDB()
+const DATABASE_NAME = 'identifier.sqlite';
+const DATABASE_PATH = FileSystem.documentDirectory + DATABASE_NAME;
+const ASSET_PATH = FileSystem.bundleDirectory + DATABASE_NAME;  
 
-async function openDB(): Promise<SQLite.SQLiteDatabase> {
-  return SQLite.openDatabaseAsync(DATABASE_NAME);
+export async function openDB(): Promise<SQLite.SQLiteDatabase> {
+    const dbFileExists = await FileSystem.getInfoAsync(DATABASE_PATH);
+
+    if (!dbFileExists.exists) {
+        console.log(`Database file not found at ${DATABASE_PATH}. Copying from assets...`);
+        try {
+            await FileSystem.copyAsync({
+                from: ASSET_PATH,  // ✅ Use bundleDirectory instead of db/
+                to: DATABASE_PATH,
+            });
+        } catch (error) {
+            console.error("Error copying database file:", error);
+        }
+    }
+
+    return SQLite.openDatabaseSync(DATABASE_NAME);
 }
+
 
 export async function initDB(): Promise<void> {
   const db = await openDB();
@@ -254,18 +273,18 @@ export async function dbInsertExampleData(): Promise<void> {
 // Tournament Functions. iscomplete shenanigans is just so we can use this to make example data
 export async function dbCreateTournament(tournamentName: string, iscomplete?: number | 0): Promise<void> {
   try {
-    const db = await openDB();
+    const db = openDatabase(); // Ensure database is opened
     await db.runAsync('INSERT INTO Tournaments (name, iscomplete) VALUES (?, ?)', [tournamentName, iscomplete ?? 0]);
     console.log(`Tournament "${tournamentName}" created successfully.`);
   } catch (error) {
-    // console.error(`Error creating tournament [${tournamentName}]:`, error); TODO - this is just while we're using dbInsertExampleData. Creates errors due to duplicates
+    console.error(`Error creating tournament [${tournamentName}]:`, error);
     throw error;
   }
 }
 
 export async function dbDeleteTournament(tournamentName: string): Promise<void> {
   try {
-    const db = await openDB();
+    const db = openDatabase(); // Ensure database is opened
     await db.runAsync('DELETE FROM Tournaments WHERE name = ?', [tournamentName]);
     console.log(`Tournament "${tournamentName}" deleted successfully.`);
   } catch (error) {
@@ -276,7 +295,7 @@ export async function dbDeleteTournament(tournamentName: string): Promise<void> 
 
 export async function dbListOngoingTournaments(): Promise<Tournament[]> {
   try {
-    const db = await openDB();
+    const db = openDatabase(); // Ensure database is opened
     const tournaments: Tournament[]  = await db.getAllAsync('SELECT * FROM Tournaments WHERE iscomplete = 0');
     console.log(`[${tournaments.length}] ongoing tournaments listed successfully.`);
     return tournaments;
@@ -288,7 +307,7 @@ export async function dbListOngoingTournaments(): Promise<Tournament[]> {
 
 export async function dbListCompletedTournaments(): Promise<Tournament[]> {
   try {
-    const db = await openDB();
+    const db = openDatabase(); // Ensure database is opened
     const tournaments: Tournament[]  = await db.getAllAsync('SELECT * FROM Tournaments WHERE iscomplete = 1');
     console.log(`[${tournaments.length}] completed tournaments listed successfully.`);
     return tournaments;
@@ -318,6 +337,7 @@ export async function dbCreateEvent(tournamentName: string, event: Event): Promi
     await db.runAsync(
         `INSERT INTO Events (id, tname, weapon, gender, age, class, seeding)
        VALUES (?, ?, ?, ?, ?, ?, ?)`,
+
         [event.id, tournamentName, event.weapon, event.gender, age, eventClass, seeding]
     );
     console.log('Event created successfully.');

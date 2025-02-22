@@ -12,6 +12,7 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.anonymous.TournaFence"
     },
+    "assetBundlePatterns": ["assets/*"],
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
