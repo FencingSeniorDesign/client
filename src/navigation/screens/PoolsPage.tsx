@@ -10,8 +10,7 @@ import {
     Alert,
 } from 'react-native';
 import { useRoute, RouteProp, useNavigation } from '@react-navigation/native';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-
+import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList, Event, Fencer } from '../navigation/types';
 import {
     PoolResult,
@@ -21,21 +20,11 @@ import {
     buildDEBracket,
 } from '../utils/RoundAlgorithms';
 
-/**
- * Route param shape for PoolsPage. Must match your RootStackParamList.
- */
-type PoolsPageRouteParams = {
-    event: Event;
-    currentRoundIndex: number;
-    fencers: Fencer[];
-    poolCount: number;
-    fencersPerPool: number;
-};
-
-type PoolsPageNavProp = NativeStackNavigationProp<RootStackParamList, 'PoolsPage'>;
+type PoolsPageRouteProps = RouteProp<RootStackParamList, 'PoolsPage'>;
+type PoolsPageNavProp = StackNavigationProp<RootStackParamList, 'PoolsPage'>;
 
 const PoolsPage: React.FC = () => {
-    const route = useRoute<RouteProp<{ params: PoolsPageRouteParams }, 'params'>>();
+    const route = useRoute<PoolsPageRouteProps>();
     const navigation = useNavigation<PoolsPageNavProp>();
 
     const {
@@ -47,26 +36,17 @@ const PoolsPage: React.FC = () => {
     } = route.params;
 
     const [pools, setPools] = useState<Fencer[][]>([]);
-    // Which pools are expanded
     const [expandedPools, setExpandedPools] = useState<boolean[]>([]);
-    // Track pool completions
     const [completedPools, setCompletedPools] = useState<boolean[]>([]);
-
-    /**
-     * If you're tracking actual pool results (wins, touches, etc.),
-     * you might keep an array of PoolResult[] for each pool:
-     */
     const [poolResults, setPoolResults] = useState<PoolResult[][]>([]);
 
     useEffect(() => {
-        // Build the pools from the "fencers" param
         const built = buildPools(fencers, poolCount, fencersPerPool);
         setPools(built);
 
         setExpandedPools(new Array(poolCount).fill(false));
         setCompletedPools(new Array(poolCount).fill(false));
 
-        // Initialize empty results array. (One entry per pool.)
         const blank: PoolResult[][] = [];
         for (let i = 0; i < poolCount; i++) {
             blank.push([]);
@@ -74,9 +54,6 @@ const PoolsPage: React.FC = () => {
         setPoolResults(blank);
     }, [fencers, poolCount, fencersPerPool]);
 
-    /**
-     * Expand/Collapse pool
-     */
     const togglePool = (index: number) => {
         setExpandedPools((prev) => {
             const updated = [...prev];
@@ -85,53 +62,29 @@ const PoolsPage: React.FC = () => {
         });
     };
 
-    /**
-     * Navigate to BoutOrderPage for that pool
-     */
     const handleRefereePress = (poolIndex: number) => {
         const poolFencers = pools[poolIndex];
         navigation.navigate('BoutOrderPage', {
             poolFencers,
         });
-        // In a real app, you'd handle returning with partial results, etc.
     };
 
-    /**
-     * "Mark Completed" for demonstration
-     * In a real app, you'd store actual results from BoutOrderPage or the local state
-     */
     const handleMarkPoolCompleted = (poolIndex: number) => {
         const copy = [...completedPools];
         copy[poolIndex] = true;
         setCompletedPools(copy);
-
-        // If you had real pool results, you'd store them in poolResults[poolIndex] here
-        // for demonstration, we do nothing special
     };
 
-    // Are all pools done?
     const allCompleted = completedPools.every((c) => c);
 
-    /**
-     * "Go to Next Round" logic:
-     * 1) Merge/Rank fencers from poolResults
-     * 2) Check nextRound in event.rounds
-     * 3) If nextRound = Pools => build new PoolsPage
-     * 4) If nextRound = DE => build bracket => DEBracketPage
-     */
     const handleGoToNextRound = () => {
         if (!allCompleted) {
             Alert.alert("Pools not finished", "Complete all pools first.");
             return;
         }
 
-        // rank fencers from poolResults
-        // If you have actual stats, pass them. For now let's skip real data:
         const sortedFencers = rankFencersFromPools(poolResults);
-        // If you don't have real data, you could fallback to the original array, e.g.:
         if (!sortedFencers.length) {
-            // fallback if no real results
-            // a real approach might do: sortedFencers = [...fencers]
             sortedFencers.push(...fencers);
         }
 
@@ -149,11 +102,10 @@ const PoolsPage: React.FC = () => {
                 event,
                 currentRoundIndex: nextIndex,
                 fencers: promoted,
-                poolCount: event.poolCount,      // or nextRound-specific values if stored
+                poolCount: event.poolCount,
                 fencersPerPool: event.fencersPerPool,
             });
         } else {
-            // DE
             const promo = nextRound.promotion ?? 100;
             const finalFencers = getPromotedFencers(sortedFencers, promo);
             const bracketData = buildDEBracket(finalFencers);
@@ -197,11 +149,10 @@ const PoolsPage: React.FC = () => {
                             <View style={styles.fencerList}>
                                 {pool.map((fencer, i) => (
                                     <Text key={i} style={styles.fencerText}>
-                                        {fencer.lastName}, {fencer.firstName}, {fencer.rating}
+                                        {fencer.lname}, {fencer.fname}, {fencer.erating}
                                     </Text>
                                 ))}
 
-                                {/* If not completed, show "Referee" button */}
                                 {!isCompleted && (
                                     <TouchableOpacity
                                         style={styles.refButton}
@@ -211,7 +162,6 @@ const PoolsPage: React.FC = () => {
                                     </TouchableOpacity>
                                 )}
 
-                                {/* Demo "Mark Completed" button */}
                                 {!isCompleted && (
                                     <TouchableOpacity
                                         style={[styles.refButton, { backgroundColor: 'green', marginTop: 8 }]}
@@ -226,7 +176,6 @@ const PoolsPage: React.FC = () => {
                 );
             })}
 
-            {/* If all pools done => show "Go to Next Round" */}
             {allCompleted && (
                 <TouchableOpacity style={styles.nextRoundButton} onPress={handleGoToNextRound}>
                     <Text style={styles.nextRoundButtonText}>Go to Next Round</Text>

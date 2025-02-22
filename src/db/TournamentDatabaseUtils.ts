@@ -13,8 +13,7 @@ async function openDB(): Promise<SQLite.SQLiteDatabase> {
   try {
     const db = await SQLite.openDatabase({
         name: DATABASE_NAME,
-        location: 'default', // Use 'default' for both Android and iOS
-        //createFromLocation: 1 // Load from assets if available
+        location: 'default',
     });
     console.log('Database opened successfully');
     return db;

@@ -169,11 +169,14 @@ export const EventManagement = ({ route }: Props) => {
           age: selectedAge,
           gender: selectedGender,
           weapon: selectedWeapon,
-          name: '', // Adjust if you have a name field
+          tname: tournamentName, // Ensure tname is set correctly
           rounds,
-          fencers: [],
+          fencers: [], // Ensure fencers is set correctly
           poolCount: 4,
           fencersPerPool: 5,
+          id: 0,
+          class: '',
+          seeding: ''
         });
       }
       setModalVisible(false);
