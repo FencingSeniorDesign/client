@@ -1,13 +1,27 @@
 // dbBackend.ts
-import * as SQLite from 'expo-sqlite';
+//import * as SQLite from 'expo-sqlite';
 import { Fencer, Event, Tournament } from "../navigation/navigation/types";
+import SQLite from 'react-native-sqlite-storage';
 
-const DATABASE_NAME = 'tf.db';
+SQLite.DEBUG(true);
+SQLite.enablePromise(true);
+const DATABASE_NAME = 'identifier.sqlite';
 
 initDB()
 
 async function openDB(): Promise<SQLite.SQLiteDatabase> {
-  return SQLite.openDatabaseAsync(DATABASE_NAME);
+  try {
+    const db = await SQLite.openDatabase({
+        name: DATABASE_NAME,
+        location: 'default', // Use 'default' for both Android and iOS
+        //createFromLocation: 1 // Load from assets if available
+    });
+    console.log('Database opened successfully');
+    return db;
+  } catch (error) {
+      console.error('Error opening database:', error);
+      throw error;
+  }
 }
 
 export async function initDB(): Promise<void> {
@@ -15,7 +29,7 @@ export async function initDB(): Promise<void> {
   console.log("Database initializing");
   // Tournaments
   try {
-    await db.execAsync(`
+    await db.executeSql(`
     CREATE TABLE IF NOT EXISTS Tournaments (
       name TEXT PRIMARY KEY,
       iscomplete integer default 0
@@ -28,7 +42,7 @@ export async function initDB(): Promise<void> {
 
   // Fencers
   try {
-    await db.execAsync(`
+    await db.executeSql(`
     create table if not exists Fencers (
       id       integer primary key,
       fname    text,
@@ -54,7 +68,7 @@ export async function initDB(): Promise<void> {
 
   // Referees
   try {
-    await db.execAsync(`
+    await db.executeSql(`
     create table if not exists Referees (
       id    integer PRIMARY KEY,
       fname text,
@@ -69,7 +83,7 @@ export async function initDB(): Promise<void> {
 
   // RoundTypes
   try {
-    await db.execAsync(`
+    await db.executeSql(`
     create table IF NOT EXISTS RoundTypes (
       id         integer PRIMARY KEY,
       name       text
@@ -81,7 +95,7 @@ export async function initDB(): Promise<void> {
 
   // Events
   try {
-    await db.execAsync(`
+    await db.executeSql(`
     CREATE TABLE IF NOT EXISTS Events (
       id INTEGER PRIMARY KEY NOT NULL,
       tname TEXT,
@@ -100,7 +114,7 @@ export async function initDB(): Promise<void> {
 
   // Rounds
   try {
-    await db.execAsync(`
+    await db.executeSql(`
     create table IF NOT EXISTS Rounds (
       id      integer PRIMARY KEY,
       eventid integer,
@@ -117,7 +131,7 @@ export async function initDB(): Promise<void> {
 
   // Bouts
   try {
-    await db.execAsync(`
+    await db.executeSql(`
     create table if not exists Bouts (   -- Bouts are essentially just the connection of a bunch of existing data. Only new thing here should be the id
         id           integer PRIMARY KEY,
         lfencer      integer,
@@ -139,7 +153,7 @@ export async function initDB(): Promise<void> {
 
   // FencerPoolId
   try {
-    await db.execAsync(`
+    await db.executeSql(`
     create table if not exists FencerPoolID (   -- We need this because many fencers can be in many pools while having different pool ids.
         fencerid integer,
         roundid integer,
@@ -156,7 +170,7 @@ export async function initDB(): Promise<void> {
 
   // FencerBouts
   try {
-    await db.execAsync(`
+    await db.executeSql(`
     create table if not exists FencerBouts (
       boutid   integer,
       fencerid integer,
@@ -172,7 +186,7 @@ export async function initDB(): Promise<void> {
   }
   // FencerEvents
   try {
-    await db.execAsync(`
+    await db.executeSql(`
     create table if not exists FencerEvents (
       fencerid integer,
       eventid  integer,
@@ -188,7 +202,7 @@ export async function initDB(): Promise<void> {
 
   // EventRounds
   try {
-    await db.execAsync(`
+    await db.executeSql(`
     create table if not exists EventRounds (
       eventid integer,
       roundid integer,
@@ -255,7 +269,7 @@ export async function dbInsertExampleData(): Promise<void> {
 export async function dbCreateTournament(tournamentName: string, iscomplete?: number | 0): Promise<void> {
   try {
     const db = await openDB();
-    await db.runAsync('INSERT INTO Tournaments (name, iscomplete) VALUES (?, ?)', [tournamentName, iscomplete ?? 0]);
+    await db.executeSql('INSERT INTO Tournaments (name, iscomplete) VALUES (?, ?)', [tournamentName, iscomplete ?? 0]);
     console.log(`Tournament "${tournamentName}" created successfully.`);
   } catch (error) {
     // console.error(`Error creating tournament [${tournamentName}]:`, error); TODO - this is just while we're using dbInsertExampleData. Creates errors due to duplicates
@@ -266,7 +280,7 @@ export async function dbCreateTournament(tournamentName: string, iscomplete?: nu
 export async function dbDeleteTournament(tournamentName: string): Promise<void> {
   try {
     const db = await openDB();
-    await db.runAsync('DELETE FROM Tournaments WHERE name = ?', [tournamentName]);
+    await db.executeSql('DELETE FROM Tournaments WHERE name = ?', [tournamentName]);
     console.log(`Tournament "${tournamentName}" deleted successfully.`);
   } catch (error) {
     console.error('Error deleting tournament:', error);
@@ -277,7 +291,11 @@ export async function dbDeleteTournament(tournamentName: string): Promise<void> 
 export async function dbListOngoingTournaments(): Promise<Tournament[]> {
   try {
     const db = await openDB();
-    const tournaments: Tournament[]  = await db.getAllAsync('SELECT * FROM Tournaments WHERE iscomplete = 0');
+    const [results] = await db.executeSql('SELECT * FROM Tournaments WHERE iscomplete = 0');
+    const tournaments: Tournament[] = [];
+    for (let i = 0; i < results.rows.length; i++) {
+        tournaments.push(results.rows.item(i));
+    }
     console.log(`[${tournaments.length}] ongoing tournaments listed successfully.`);
     return tournaments;
   } catch (error) {
@@ -289,7 +307,11 @@ export async function dbListOngoingTournaments(): Promise<Tournament[]> {
 export async function dbListCompletedTournaments(): Promise<Tournament[]> {
   try {
     const db = await openDB();
-    const tournaments: Tournament[]  = await db.getAllAsync('SELECT * FROM Tournaments WHERE iscomplete = 1');
+    const [results] = await db.executeSql('SELECT * FROM Tournaments WHERE iscomplete = 1');
+    const tournaments: Tournament[] = [];
+    for (let i = 0; i < results.rows.length; i++) {
+        tournaments.push(results.rows.item(i));
+    }
     console.log(`[${tournaments.length}] completed tournaments listed successfully.`);
     return tournaments;
   } catch (error) {
@@ -302,7 +324,12 @@ export async function dbListCompletedTournaments(): Promise<Tournament[]> {
 export async function dbListEvents(tournamentName: string): Promise<Event[]> {
   try {
     const db = await openDB();
-    return await db.getAllAsync('SELECT * FROM Events WHERE tname = ?', [tournamentName]);
+    const [results] = await db.executeSql('SELECT * FROM Events WHERE tname = ?', [tournamentName]);
+    const events: Event[] = [];
+    for (let i = 0; i < results.rows.length; i++) {
+        events.push(results.rows.item(i));
+    }
+    return events;
   } catch (error) {
     console.error('Error listing events:', error);
     throw error;
@@ -315,7 +342,7 @@ export async function dbCreateEvent(tournamentName: string, event: Event): Promi
     const age = event.age || 'senior';
     const eventClass = event.class || 'N/A'; // TODO - this is only optional until the seeding logic is implemented
     const seeding = event.seeding || 'N/A'; // TODO - same as above
-    await db.runAsync(
+    await db.executeSql(
         `INSERT INTO Events (id, tname, weapon, gender, age, class, seeding)
        VALUES (?, ?, ?, ?, ?, ?, ?)`,
         [event.id, tournamentName, event.weapon, event.gender, age, eventClass, seeding]
@@ -330,7 +357,7 @@ export async function dbCreateEvent(tournamentName: string, event: Event): Promi
 export async function dbDeleteEvent(eventId: number): Promise<void> {
   try {
     const db = await openDB();
-    await db.runAsync('DELETE FROM Events WHERE id = ?', [eventId]);
+    await db.executeSql('DELETE FROM Events WHERE id = ?', [eventId]);
     console.log('Event deleted successfully.');
   } catch (error) {
     console.error('Error deleting event:', error);
@@ -344,11 +371,11 @@ export async function dbCreateFencerByName(fencer: Fencer, event?: Event, insert
   try {
     const db = await openDB();
     // Execute the insert query and extract the new fencer id
-    const result: SQLite.SQLiteRunResult = await db.runAsync(
+    const [result]: [SQLite.ResultSet] = await db.executeSql(
         'INSERT INTO Fencers (fname, lname, erating, eyear, frating, fyear, srating, syear) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
         [fencer.fname, fencer.lname, fencer.erating ?? 'U', fencer.eyear ?? 0, fencer.frating ?? 'U', fencer.fyear ?? 0, fencer.srating ?? 'U', fencer.fyear ?? 0]
     );
-    const newFencerId = result.lastInsertRowId;
+    const newFencerId = result.insertId;
 
     fencer.id = newFencerId;
     console.log(`Fencer "${fencer.fname} ${fencer.lname}" created with id ${fencer.id}.`, JSON.stringify(fencer, null, "\t"));
@@ -364,7 +391,7 @@ export async function dbCreateFencerByName(fencer: Fencer, event?: Event, insert
 
 export async function dbListFencers(): Promise<void> {
   const db = await openDB();
-  await db.runAsync('SELECT * FROM Fencers')
+  await db.executeSql('SELECT * FROM Fencers')
 }
 
 export async function dbDeleteFencerById(Fencer: Fencer): Promise<void> {
@@ -373,30 +400,38 @@ export async function dbDeleteFencerById(Fencer: Fencer): Promise<void> {
 
 export async function dbSearchFencers(query: string): Promise<Fencer[]> {
   const db = await openDB();
-  const result: Fencer[] = await db.getAllAsync(
+  const [result] = await db.executeSql(
       'SELECT * FROM Fencers WHERE fname LIKE ? OR lname LIKE ?',
       [`%${query}%`, `%${query}%`]
   );
-  console.log(`Search returned ${result.length} results`);
-  return result;
+  const fencers: Fencer[] = [];
+  for (let i = 0; i < result.rows.length; i++) {
+    fencers.push(result.rows.item(i));
+  }
+  console.log(`Search returned ${fencers.length} results`);
+  return fencers;
 }
 
 export async function dbGetFencersInEventById(event: Event): Promise<Fencer[]> {
   const db = await openDB();
-  const result: Fencer[] = await db.getAllAsync(`
+  const [result]: [SQLite.ResultSet] = await db.executeSql(`
     SELECT Fencers.id, Fencers.fname, Fencers.lname, Fencers.erating, Fencers.eyear, Fencers.frating, Fencers.fyear, Fencers.srating, Fencers.syear
     FROM FencerEvents
     JOIN Fencers ON FencerEvents.fencerid = Fencers.id
     WHERE FencerEvents.eventid = ?`, [event.id]);
 
-  console.log(`Fencers associated with Event ID [${event.id}]: ${result.length}`);
-  return result;
+  console.log(`Fencers associated with Event ID [${event.id}]: ${result.rows.length}`);
+  const fencers: Fencer[] = [];
+  for (let i = 0; i < result.rows.length; i++) {
+    fencers.push(result.rows.item(i));
+  }
+  return fencers;
 }
 
 export async function dbAddFencerToEventById(fencer: Fencer, event: Event): Promise<void> {
   const db = await openDB();
   try {
-    await db.runAsync('INSERT INTO FencerEvents (fencerid, eventid) VALUES (?, ?)', [fencer.id || null, event.id]); // || TODO null should never be needed, but just to shut it up
+    await db.executeSql('INSERT INTO FencerEvents (fencerid, eventid) VALUES (?, ?)', [fencer.id || null, event.id]); // || TODO null should never be needed, but just to shut it up
     console.log(`"${fencer.fname} ${fencer.lname}" added to "${event.gender} ${event.age} ${event.weapon}"`);
   } catch (error) {
     console.error(`Error adding fencer ${fencer.id} to event ${event.id} `, error);
@@ -405,5 +440,5 @@ export async function dbAddFencerToEventById(fencer: Fencer, event: Event): Prom
 
 export async function dbDeleteFencerFromEventById(fencer: Fencer, event: Event): Promise<void> {
   const db = await openDB();
-  await db.runAsync('DELETE FROM FencerEvents WHERE fencerid = ? AND eventid = ?', [fencer.id || null, event.id]); // || TODO null should never be needed, but just to shut it up
+  await db.executeSql('DELETE FROM FencerEvents WHERE fencerid = ? AND eventid = ?', [fencer.id || null, event.id]); // || TODO null should never be needed, but just to shut it up
 }

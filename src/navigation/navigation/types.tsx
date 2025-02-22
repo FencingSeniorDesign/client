@@ -56,6 +56,8 @@ export type DEBracketMatch = {
 import { DEBracketData } from '../utils/RoundAlgorithms';
 
 export type RootStackParamList = {
+    BoutOrderPage: { poolFencers: Fencer[] };
+    BracketViewPage: { bracketData: DEBracketData; event: any };
     HomeTabs: undefined;
     EventManagment: { tournamentName: string };
     EventSettings: { event: Event; onSave: (updatedEvent: Event) => void };

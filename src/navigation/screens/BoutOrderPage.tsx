@@ -273,8 +273,8 @@ const BoutOrderPage: React.FC = () => {
         const bout = bouts[index];
         navigation.navigate('RefereeModule', {
             boutIndex: index,
-            fencer1Name: bout.fencerA.lastName || bout.fencerA.firstName,
-            fencer2Name: bout.fencerB.lastName || bout.fencerB.firstName,
+            fencer1Name: bout.fencerA.lname || bout.fencerA.fname,
+            fencer2Name: bout.fencerB.lname || bout.fencerB.fname,
             currentScore1: bout.scoreA,
             currentScore2: bout.scoreB,
             onSaveScores: (score1: number, score2: number) => {
