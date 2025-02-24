@@ -24,6 +24,18 @@ export type Referee = {
     nickname?: string;
 };
 
+export type Round = {
+    id: number
+    eventid: number
+    rorder: number
+    type: string | "pool" | "de"
+    promotionpercent: number
+    targetbracket: number
+    deformat: string | 'single' | 'double' | 'compass'
+    detablesize: number
+    iscomplete: number
+}
+
 export type RoundData = {
     roundType: 'Pools' | 'DE';
     promotion?: number;

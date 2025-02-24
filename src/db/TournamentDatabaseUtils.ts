@@ -407,3 +407,14 @@ export async function dbDeleteFencerFromEventById(fencer: Fencer, event: Event):
   const db = await openDB();
   await db.runAsync('DELETE FROM FencerEvents WHERE fencerid = ? AND eventid = ?', [fencer.id || null, event.id]); // || TODO null should never be needed, but just to shut it up
 }
+
+export async function dbMarkRoundAsComplete(roundId: number): Promise<void> {
+try {
+  const db = await openDB();
+  await db.runAsync('UPDATE Rounds SET iscomplete = 1 WHERE id = ?', [roundId]);
+  console.log(`Round ${roundId} marked as complete`);
+} catch (error) {
+  console.error('Error marking round complete', error);
+}
+
+}

@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { useRoute, RouteProp, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import * as SQLite from 'expo-sqlite';
+import { dbMarkRoundAsComplete } from "../../db/TournamentDatabaseUtils";
 
 
 import { RootStackParamList, Event, Fencer } from '../navigation/types';
@@ -33,10 +33,6 @@ type PoolsPageRouteParams = {
     poolCount: number;
     fencersPerPool: number;
 };
-
-function openDB(): Promise<SQLite.SQLiteDatabase> {
-    return SQLite.openDatabaseAsync('tf.db');
-}
 
 
 type PoolsPageNavProp = NativeStackNavigationProp<RootStackParamList, 'PoolsPage'>;
@@ -184,13 +180,7 @@ const PoolsPage: React.FC = () => {
     };
 
     async function markRoundComplete(roundId: number) {
-        const db = await SQLite.openDatabaseAsync('tf.db');
-        try {
-            await db.runAsync('UPDATE Rounds SET iscomplete = 1 WHERE id = ?', [roundId]);
-            console.log(`Round ${roundId} marked as complete`);
-        } catch (error) {
-            console.error('Error marking round complete', error);
-        }
+        dbMarkRoundAsComplete(roundId)
     }
 
 

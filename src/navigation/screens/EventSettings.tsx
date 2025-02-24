@@ -258,7 +258,7 @@ export const EventSettings = ({ route }: Props) => {
                 style={styles.dropdownHeader}
                 onPress={() => setFencingDropdownOpen(!fencingDropdownOpen)}
             >
-                <Text style={styles.dropdownHeaderText}>Fencing Management</Text>
+                <Text style={styles.dropdownHeaderText}>Fencer Management</Text>
             </TouchableOpacity>
             {fencingDropdownOpen && (
                 <View style={styles.dropdownContent}>
