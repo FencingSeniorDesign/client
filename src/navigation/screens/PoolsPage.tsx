@@ -11,6 +11,8 @@ import {
 } from 'react-native';
 import { useRoute, RouteProp, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import * as SQLite from 'expo-sqlite';
+
 
 import { RootStackParamList, Event, Fencer } from '../navigation/types';
 import {
@@ -31,6 +33,11 @@ type PoolsPageRouteParams = {
     poolCount: number;
     fencersPerPool: number;
 };
+
+function openDB(): Promise<SQLite.SQLiteDatabase> {
+    return SQLite.openDatabaseAsync('tf.db');
+}
+
 
 type PoolsPageNavProp = NativeStackNavigationProp<RootStackParamList, 'PoolsPage'>;
 
@@ -74,6 +81,8 @@ const PoolsPage: React.FC = () => {
         setPoolResults(blank);
     }, [fencers, poolCount, fencersPerPool]);
 
+
+
     /**
      * Expand/Collapse pool
      */
@@ -84,6 +93,8 @@ const PoolsPage: React.FC = () => {
             return updated;
         });
     };
+
+
 
     /**
      * Navigate to BoutOrderPage for that pool
@@ -105,9 +116,15 @@ const PoolsPage: React.FC = () => {
         copy[poolIndex] = true;
         setCompletedPools(copy);
 
-        // If you had real pool results, you'd store them in poolResults[poolIndex] here
-        // for demonstration, we do nothing special
+        // If all pools are complete, mark the current round complete in the DB.
+        if (copy.every((c) => c)) {
+            // Assuming the event object has a rounds array with a valid round id.
+            if (event.rounds && event.rounds[currentRoundIndex]) {
+                markRoundComplete(event.rounds[currentRoundIndex].id);
+            }
+        }
     };
+
 
     // Are all pools done?
     const allCompleted = completedPools.every((c) => c);
@@ -166,6 +183,17 @@ const PoolsPage: React.FC = () => {
         }
     };
 
+    async function markRoundComplete(roundId: number) {
+        const db = await SQLite.openDatabaseAsync('tf.db');
+        try {
+            await db.runAsync('UPDATE Rounds SET iscomplete = 1 WHERE id = ?', [roundId]);
+            console.log(`Round ${roundId} marked as complete`);
+        } catch (error) {
+            console.error('Error marking round complete', error);
+        }
+    }
+
+
     return (
         <ScrollView contentContainerStyle={styles.container}>
             {pools.map((pool, index) => {
@@ -197,7 +225,7 @@ const PoolsPage: React.FC = () => {
                             <View style={styles.fencerList}>
                                 {pool.map((fencer, i) => (
                                     <Text key={i} style={styles.fencerText}>
-                                        {fencer.lastName}, {fencer.firstName}, {fencer.rating}
+                                        {fencer.lname}, {fencer.fname}
                                     </Text>
                                 ))}
 

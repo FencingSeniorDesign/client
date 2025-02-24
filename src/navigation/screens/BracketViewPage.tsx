@@ -27,8 +27,8 @@ const BracketViewPage: React.FC = () => {
                     {round.matches.map((match: DEBracketMatch, index) => {
                         const isByeA = !match.fencerA;
                         const isByeB = !match.fencerB;
-                        const fencerAName = match.fencerA ? match.fencerA.firstName : 'BYE';
-                        const fencerBName = match.fencerB ? match.fencerB.firstName : 'BYE';
+                        const fencerAName = match.fencerA ? match.fencerA.fname : 'BYE';
+                        const fencerBName = match.fencerB ? match.fencerB.fname : 'BYE';
                         const isWinnerA = match.winner && match.fencerA && match.winner.id === match.fencerA.id;
                         const isWinnerB = match.winner && match.fencerB && match.winner.id === match.fencerB.id;
                         return (

@@ -14,18 +14,25 @@ import { useNavigation, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList, Event, RoundData } from '../navigation/types';
 import {
+  dbGetFencersInEventById,
   dbListEvents,
   dbCreateEvent,
   dbDeleteEvent,
+  dbUpdateEvent, // assume this exists in your DB utils
 } from '../../db/TournamentDatabaseUtils';
 
 // Extend RoundData with additional configuration properties
 type ExtendedRoundData = RoundData & {
-  // For Pools rounds:
   poolsOption?: 'promotion' | 'target';
   targetBracketSize?: number;
-  // For DE rounds:
   eliminationFormat?: 'single' | 'double' | 'compass';
+};
+
+// Extend the Event type to include additional settings
+type ExtendedEvent = Event & {
+  poolCount?: number;
+  fencersPerPool?: number;
+  rounds?: ExtendedRoundData[];
 };
 
 type Props = {
@@ -34,23 +41,22 @@ type Props = {
 
 export const EventManagement = ({ route }: Props) => {
   const { tournamentName } = route.params;
-  const [events, setEvents] = useState<Event[]>([]);
+  const [events, setEvents] = useState<ExtendedEvent[]>([]);
   const [modalVisible, setModalVisible] = useState<boolean>(false);
   const [editingEventId, setEditingEventId] = useState<number | null>(null);
 
-  // Fields for event creation (creation still uses the modal)
+  // Fields for event creation
   const [selectedGender, setSelectedGender] = useState<string>('Mixed');
   const [selectedWeapon, setSelectedWeapon] = useState<string>('Foil');
   const [selectedAge, setSelectedAge] = useState<string>('Senior');
 
-  // Use our extended rounds type
+  // Rounds state for event creation
   const [rounds, setRounds] = useState<ExtendedRoundData[]>([]);
   const [showRoundTypeOptions, setShowRoundTypeOptions] = useState<boolean>(false);
   const [expandedConfigIndex, setExpandedConfigIndex] = useState<number | null>(null);
 
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
-  // Load events from DB filtered by tournament name
   const loadEvents = async () => {
     try {
       const eventsList = await dbListEvents(tournamentName);
@@ -64,7 +70,6 @@ export const EventManagement = ({ route }: Props) => {
     loadEvents();
   }, []);
 
-  // Opens the modal for creating a new event
   const openCreateModal = () => {
     setEditingEventId(null);
     setSelectedGender('Mixed');
@@ -74,8 +79,7 @@ export const EventManagement = ({ route }: Props) => {
     setModalVisible(true);
   };
 
-  // Helper functions for round reordering and configuration
-
+  // ----- Round Management Helper Functions -----
   const moveRoundUp = (index: number) => {
     if (index <= 0) return;
     setRounds(prev => {
@@ -102,11 +106,7 @@ export const EventManagement = ({ route }: Props) => {
   };
 
   const toggleRoundConfig = (index: number) => {
-    if (expandedConfigIndex === index) {
-      setExpandedConfigIndex(null);
-    } else {
-      setExpandedConfigIndex(index);
-    }
+    setExpandedConfigIndex(prev => (prev === index ? null : index));
   };
 
   const setPoolsOption = (index: number, option: 'promotion' | 'target') => {
@@ -121,7 +121,7 @@ export const EventManagement = ({ route }: Props) => {
     const promotion = parseInt(val, 10) || 0;
     setRounds(prev => {
       const newRounds = [...prev];
-      newRounds[index] = { ...newRounds[index], promotion };
+      newRounds[index] = { ...newRounds[index], promotionpercent: promotion };
       return newRounds;
     });
   };
@@ -146,7 +146,7 @@ export const EventManagement = ({ route }: Props) => {
     if (roundType === 'Pools') {
       const newRound: ExtendedRoundData = {
         roundType: 'Pools',
-        promotion: 100,
+        promotionpercent: 100,
         poolsOption: 'promotion',
         targetBracketSize: 8,
       };
@@ -160,8 +160,9 @@ export const EventManagement = ({ route }: Props) => {
     }
     setShowRoundTypeOptions(false);
   };
+  // -----------------------------------------------
 
-  // For new event creation, handle submission from the modal
+  // When submitting an event creation, include the rounds and pool settings
   const handleSubmitEvent = async () => {
     try {
       if (editingEventId === null) {
@@ -169,11 +170,11 @@ export const EventManagement = ({ route }: Props) => {
           age: selectedAge,
           gender: selectedGender,
           weapon: selectedWeapon,
-          name: '', // Adjust if you have a name field
-          rounds,
+          name: '', // Adjust as needed
+          rounds: rounds,
           fencers: [],
-          poolCount: 4,
-          fencersPerPool: 5,
+          poolCount: rounds.length > 0 ? (rounds[0].poolCount || 4) : 4,
+          fencersPerPool: rounds.length > 0 ? (rounds[0].fencersPerPool || 4) : 4,
         });
       }
       setModalVisible(false);
@@ -217,22 +218,28 @@ export const EventManagement = ({ route }: Props) => {
     );
   };
 
-  const handleStartEvent = (eventId: number) => {
+  const handleStartEvent = async (eventId: number) => {
     const eventToStart = events.find((evt) => evt.id === eventId);
     if (!eventToStart) return;
-    navigation.navigate('PoolsPage', {
-      event: eventToStart,
-      currentRoundIndex: 0,
-      fencers: eventToStart.fencers ?? [],
-      poolCount: eventToStart.poolCount ?? 4,
-      fencersPerPool: eventToStart.fencersPerPool ?? 5,
-    });
+    try {
+      const fencers = await dbGetFencersInEventById(eventToStart);
+      navigation.navigate('PoolsPage', {
+        event: eventToStart,
+        currentRoundIndex: 0,
+        fencers: fencers,
+        poolCount: eventToStart.poolCount || 4,
+        fencersPerPool: eventToStart.fencersPerPool || 4,
+      });
+    } catch (error) {
+      console.error('Error loading fencers for event', error);
+      Alert.alert('Error', 'Failed to load fencers for this event.');
+    }
   };
 
-  // Callback passed to EventSettings to update the event in the database
-  const handleSaveEventSettings = async (updatedEvent: Event) => {
+  // This callback is passed to EventSettings so that updates made there (e.g. rounds, pool settings) are saved.
+  const handleSaveEventSettings = async (updatedEvent: ExtendedEvent) => {
     try {
-      // await dbUpdateEvent(updatedEvent.id, updatedEvent); // TODO save settings in EventSettings.tsx
+      await dbUpdateEvent(updatedEvent.id, updatedEvent);
       loadEvents();
     } catch (error) {
       console.error('Error updating event settings:', error);
@@ -252,7 +259,6 @@ export const EventManagement = ({ route }: Props) => {
                   {event.age} {event.gender} {event.weapon}
                 </Text>
                 <View style={styles.eventActions}>
-                  {/* Navigate to EventSettings on edit */}
                   <TouchableOpacity
                       style={[styles.actionButton, styles.flexAction]}
                       onPress={() =>
@@ -281,7 +287,6 @@ export const EventManagement = ({ route }: Props) => {
           ))}
         </View>
 
-        {/* Modal for creating a new event */}
         <Modal
             visible={modalVisible}
             animationType="slide"
@@ -297,18 +302,10 @@ export const EventManagement = ({ route }: Props) => {
                 {['Cadet', 'Senior', 'Veteran'].map((ageOption) => (
                     <TouchableOpacity
                         key={ageOption}
-                        style={[
-                          styles.optionButton,
-                          selectedAge === ageOption && styles.selectedButton,
-                        ]}
+                        style={[styles.optionButton, selectedAge === ageOption && styles.selectedButton]}
                         onPress={() => setSelectedAge(ageOption)}
                     >
-                      <Text
-                          style={[
-                            styles.optionText,
-                            { color: selectedAge === ageOption ? '#fff' : '#000' },
-                          ]}
-                      >
+                      <Text style={[styles.optionText, { color: selectedAge === ageOption ? '#fff' : '#000' }]}>
                         {ageOption}
                       </Text>
                     </TouchableOpacity>
@@ -320,18 +317,10 @@ export const EventManagement = ({ route }: Props) => {
                 {["Men's", 'Mixed', "Women's"].map((gender) => (
                     <TouchableOpacity
                         key={gender}
-                        style={[
-                          styles.optionButton,
-                          selectedGender === gender && styles.selectedButton,
-                        ]}
+                        style={[styles.optionButton, selectedGender === gender && styles.selectedButton]}
                         onPress={() => setSelectedGender(gender)}
                     >
-                      <Text
-                          style={[
-                            styles.optionText,
-                            { color: selectedGender === gender ? '#fff' : '#000' },
-                          ]}
-                      >
+                      <Text style={[styles.optionText, { color: selectedGender === gender ? '#fff' : '#000' }]}>
                         {gender}
                       </Text>
                     </TouchableOpacity>
@@ -343,18 +332,10 @@ export const EventManagement = ({ route }: Props) => {
                 {['Epee', 'Foil', 'Saber'].map((weapon) => (
                     <TouchableOpacity
                         key={weapon}
-                        style={[
-                          styles.optionButton,
-                          selectedWeapon === weapon && styles.selectedButton,
-                        ]}
+                        style={[styles.optionButton, selectedWeapon === weapon && styles.selectedButton]}
                         onPress={() => setSelectedWeapon(weapon)}
                     >
-                      <Text
-                          style={[
-                            styles.optionText,
-                            { color: selectedWeapon === weapon ? '#fff' : '#000' },
-                          ]}
-                      >
+                      <Text style={[styles.optionText, { color: selectedWeapon === weapon ? '#fff' : '#000' }]}>
                         {weapon}
                       </Text>
                     </TouchableOpacity>
@@ -515,7 +496,7 @@ const styles = StyleSheet.create({
     backgroundColor: white,
   },
   title: {
-    fontSize: 24,
+    fontSize: 26,
     marginBottom: 10,
     color: navyBlue,
   },

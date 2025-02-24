@@ -273,8 +273,8 @@ const BoutOrderPage: React.FC = () => {
         const bout = bouts[index];
         navigation.navigate('RefereeModule', {
             boutIndex: index,
-            fencer1Name: bout.fencerA.lastName || bout.fencerA.firstName,
-            fencer2Name: bout.fencerB.lastName || bout.fencerB.firstName,
+            fencer1Name: bout.fencerA.lname || bout.fencerA.fname,
+            fencer2Name: bout.fencerB.lname || bout.fencerB.fname,
             currentScore1: bout.scoreA,
             currentScore2: bout.scoreB,
             onSaveScores: (score1: number, score2: number) => {
@@ -382,7 +382,7 @@ const BoutOrderPage: React.FC = () => {
                                             styles.pendingFencerText,
                                         ]}
                                     >
-                                        {fencerIndexMap[bout.fencerA.id]} {bout.fencerA.firstName}
+                                        {fencerIndexMap[bout.fencerA.id]} {bout.fencerA.fname}
                                     </Text>
                                 </View>
 
@@ -415,7 +415,7 @@ const BoutOrderPage: React.FC = () => {
                                             styles.pendingFencerText,
                                         ]}
                                     >
-                                        {fencerIndexMap[bout.fencerB.id]} {bout.fencerB.firstName}
+                                        {fencerIndexMap[bout.fencerB.id]} {bout.fencerB.fname}
                                     </Text>
                                 </View>
                             </TouchableOpacity>
@@ -429,7 +429,7 @@ const BoutOrderPage: React.FC = () => {
                                     <View style={styles.scoreRow}>
                                         <Text style={styles.scoreFencerLabel}>
                                             {fencerIndexMap[bout.fencerA.id]}{' '}
-                                            {bout.fencerA.firstName}:
+                                            {bout.fencerA.fname}:
                                         </Text>
                                         <TextInput
                                             style={styles.scoreInput}
@@ -443,7 +443,7 @@ const BoutOrderPage: React.FC = () => {
                                     <View style={styles.scoreRow}>
                                         <Text style={styles.scoreFencerLabel}>
                                             {fencerIndexMap[bout.fencerB.id]}{' '}
-                                            {bout.fencerB.firstName}:
+                                            {bout.fencerB.fname}:
                                         </Text>
                                         <TextInput
                                             style={styles.scoreInput}

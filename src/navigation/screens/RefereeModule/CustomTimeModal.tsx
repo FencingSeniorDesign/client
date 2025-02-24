@@ -41,7 +41,7 @@ export function CustomTimeModal({
         onSetCustomTime(minutes, seconds);
     };
 
-    // Determine colors based on mode
+    // Determine colors for preset and cancel buttons.
     const buttonBackgroundColor = kawaiiMode ? "#ff69b4" : "#001f3f";
     const cancelButtonBackgroundColor = kawaiiMode ? "#ba55d3" : "#FF3B30";
 
@@ -126,12 +126,14 @@ export function CustomTimeModal({
                         <Pressable
                             style={({ pressed }) => [
                                 styles.modalButton,
-                                { backgroundColor: buttonBackgroundColor },
+                                { backgroundColor: "#ff69b4" }, // Always pink for Kawaii Mode
                                 pressed && { opacity: 0.6 },
                             ]}
                             onPress={onKawaiiMode}
                         >
-                            <Text style={styles.modalButtonText}>Kawaii Mode</Text>
+                            <Text style={[styles.modalButtonText, styles.kawaiiButtonText]}>
+                                Kawaii Mode
+                            </Text>
                         </Pressable>
                     )}
 
@@ -139,12 +141,14 @@ export function CustomTimeModal({
                         <Pressable
                             style={({ pressed }) => [
                                 styles.modalButton,
-                                { backgroundColor: buttonBackgroundColor },
+                                { backgroundColor: "#CCAA00" }, // Darker yellow for revert
                                 pressed && { opacity: 0.6 },
                             ]}
                             onPress={onRevertLastPoint}
                         >
-                            <Text style={styles.modalButtonText}>Revert Last Point</Text>
+                            <Text style={[styles.modalButtonText, { color: 'black' }]}>
+                                Revert Last Point
+                            </Text>
                         </Pressable>
                     )}
 
@@ -193,6 +197,10 @@ const styles = StyleSheet.create({
         color: 'white',
         textAlign: 'center',
         fontSize: 16,
+    },
+    kawaiiButtonText: {
+        color: 'black',
+        fontFamily: 'Comic Sans MS',
     },
     cancelButton: {
         marginTop: 10,
