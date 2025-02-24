@@ -18,6 +18,7 @@ interface CustomTimeModalProps {
     setCustomMinutes: (value: string) => void;
     setCustomSeconds: (value: string) => void;
     onKawaiiMode?: () => void;
+    onRevertLastPoint?: () => void; // New prop for reverting the last point
 }
 
 export function CustomTimeModal({
@@ -30,6 +31,7 @@ export function CustomTimeModal({
                                     setCustomMinutes,
                                     setCustomSeconds,
                                     onKawaiiMode,
+                                    onRevertLastPoint,
                                 }: CustomTimeModalProps) {
     const handleCustomTime = () => {
         const minutes = parseInt(customMinutes) || 0;
@@ -48,15 +50,33 @@ export function CustomTimeModal({
                 <View style={styles.modalContent}>
                     <Text style={styles.modalTitle}>Set Timer Duration</Text>
 
-                    <Pressable style={styles.modalButton} onPress={() => onSetTime(1)}>
+                    <Pressable
+                        style={({ pressed }) => [
+                            styles.modalButton,
+                            pressed && { opacity: 0.6 },
+                        ]}
+                        onPress={() => onSetTime(1)}
+                    >
                         <Text style={styles.modalButtonText}>1 Minute</Text>
                     </Pressable>
 
-                    <Pressable style={styles.modalButton} onPress={() => onSetTime(3)}>
+                    <Pressable
+                        style={({ pressed }) => [
+                            styles.modalButton,
+                            pressed && { opacity: 0.6 },
+                        ]}
+                        onPress={() => onSetTime(3)}
+                    >
                         <Text style={styles.modalButtonText}>3 Minutes</Text>
                     </Pressable>
 
-                    <Pressable style={styles.modalButton} onPress={() => onSetTime(5)}>
+                    <Pressable
+                        style={({ pressed }) => [
+                            styles.modalButton,
+                            pressed && { opacity: 0.6 },
+                        ]}
+                        onPress={() => onSetTime(5)}
+                    >
                         <Text style={styles.modalButtonText}>5 Minutes</Text>
                     </Pressable>
 
@@ -81,22 +101,50 @@ export function CustomTimeModal({
                                 maxLength={2}
                             />
                         </View>
-                        <Pressable style={styles.modalButton} onPress={handleCustomTime}>
+                        <Pressable
+                            style={({ pressed }) => [
+                                styles.modalButton,
+                                pressed && { opacity: 0.6 },
+                            ]}
+                            onPress={handleCustomTime}
+                        >
                             <Text style={styles.modalButtonText}>Set Custom Time</Text>
                         </Pressable>
                     </View>
 
                     {onKawaiiMode && (
-                        <Pressable style={styles.modalButton} onPress={onKawaiiMode}>
+                        <Pressable
+                            style={({ pressed }) => [
+                                styles.modalButton,
+                                pressed && { opacity: 0.6 },
+                            ]}
+                            onPress={onKawaiiMode}
+                        >
                             <Text style={styles.modalButtonText}>Kawaii Mode</Text>
                         </Pressable>
                     )}
 
+                    {onRevertLastPoint && (
+                        <Pressable
+                            style={({ pressed }) => [
+                                styles.modalButton,
+                                pressed && { opacity: 0.6 },
+                            ]}
+                            onPress={onRevertLastPoint}
+                        >
+                            <Text style={styles.modalButtonText}>Revert Last Point</Text>
+                        </Pressable>
+                    )}
+
                     <Pressable
-                        style={[styles.modalButton, styles.cancelButton]}
+                        style={({ pressed }) => [
+                            styles.modalButton,
+                            styles.cancelButton,
+                            pressed && { opacity: 0.6 },
+                        ]}
                         onPress={onClose}
                     >
-                        <Text style={styles.modalButtonText}>Cancel</Text>
+                        <Text style={styles.modalButtonText}>Back</Text>
                     </Pressable>
                 </View>
             </View>
