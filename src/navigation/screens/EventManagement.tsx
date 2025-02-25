@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { useNavigation, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { RootStackParamList, Event, RoundData } from '../navigation/types';
+import { RootStackParamList, Event } from '../navigation/types';
 import {
   dbGetFencersInEventById,
   dbListEvents,
@@ -475,22 +475,6 @@ const styles = StyleSheet.create({
   targetButtonText: {
     fontSize: 14,
     color: '#000',
-  },
-  roundTypeMenu: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginBottom: 15,
-  },
-  roundTypeChoice: {
-    borderWidth: 1,
-    borderColor: navyBlue,
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 5,
-  },
-  roundTypeChoiceText: {
-    fontSize: 16,
-    color: navyBlue,
   },
   addRoundButton: {
     width: '100%',

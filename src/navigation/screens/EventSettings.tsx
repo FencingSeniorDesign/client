@@ -9,7 +9,7 @@ import {
     Alert,
 } from "react-native";
 import { RouteProp, useNavigation } from "@react-navigation/native";
-import { Event, Fencer, RoundData } from "../navigation/types";
+import { Event, Fencer } from "../navigation/types";
 import * as DocumentPicker from "expo-document-picker";
 import * as FileSystem from "expo-file-system";
 import {
@@ -18,9 +18,51 @@ import {
     dbDeleteFencerFromEventById,
     dbGetFencersInEventById,
     dbSearchFencers,
-    dbUpdateEvent,
 } from "../../db/TournamentDatabaseUtils";
 import { Picker } from "@react-native-picker/picker";
+
+// ----- Pool Configuration Helper Types and Functions -----
+interface PoolConfiguration {
+    pools: number;
+    baseSize: number;
+    extraPools: number; // number of pools that get one extra fencer
+}
+
+function calculatePoolConfigurations(totalFencers: number): PoolConfiguration[] {
+    const configurations: PoolConfiguration[] = [];
+    // For a given number of pools, each must have at least 4 fencers.
+    // Loop from 1 pool up to the maximum possible number of pools (totalFencers / 4)
+    for (let numPools = 1; numPools <= Math.floor(totalFencers / 4); numPools++) {
+        const baseSize = Math.floor(totalFencers / numPools);
+        const remainder = totalFencers % numPools;
+
+        // Ensure every pool has between 4 and 9 fencers.
+        if (baseSize < 4) continue;
+        if (remainder > 0 && baseSize + 1 > 9) continue;
+        if (baseSize > 9) continue;
+
+        configurations.push({
+            pools: numPools,
+            baseSize: baseSize,
+            extraPools: remainder, // remainder pools will have baseSize+1 fencers
+        });
+    }
+    return configurations;
+}
+
+function formatPoolLabel(config: PoolConfiguration): string {
+    const { pools, baseSize, extraPools } = config;
+    if (extraPools === 0) {
+        return `${pools} ${pools === 1 ? "pool" : "pools"} of ${baseSize} fencers`;
+    } else {
+        const evenPools = pools - extraPools;
+        const extraLabel = `${extraPools} ${extraPools === 1 ? "pool" : "pools"} of ${baseSize + 1} fencers`;
+        const evenLabel = `${evenPools} ${evenPools === 1 ? "pool" : "pools"} of ${baseSize} fencers`;
+        return `${extraLabel}, ${evenLabel}`;
+    }
+}
+
+// ----- End Pool Configuration Helpers -----
 
 type EventSettingsRouteProp = RouteProp<
     { params: { event: Event; onSave: (updatedEvent: Event) => void } },
@@ -31,11 +73,6 @@ type Props = {
     route: EventSettingsRouteProp;
 };
 
-type ExtendedEvent = Event & {
-    poolCount?: number;
-    fencersPerPool?: number;
-    rounds?: (RoundData & { promotionpercent?: number; roundType?: "Pools" | "DE" })[];
-};
 
 export const EventSettings = ({ route }: Props) => {
     const { event: initialEvent, onSave } = route.params || {};
@@ -50,7 +87,7 @@ export const EventSettings = ({ route }: Props) => {
 
     const navigation = useNavigation();
 
-    const [event, setEvent] = useState<ExtendedEvent>({ ...initialEvent });
+    const [event, setEvent] = useState<Event>({ ...initialEvent });
     const [fencers, setFencers] = useState<Fencer[]>([]);
     const initialWeapon = initialEvent.weapon.toLowerCase();
     const [selectedWeapon, setSelectedWeapon] = useState<string>(initialWeapon);
@@ -69,6 +106,22 @@ export const EventSettings = ({ route }: Props) => {
     const [searchQuery, setSearchQuery] = useState<string>("");
     const [fencerSuggestions, setFencerSuggestions] = useState<Fencer[]>([]);
 
+    // Round management states
+    const [rounds, setRounds] = useState<any[]>([]); // using any[] for ExtendedRoundData for simplicity
+    const [showRoundTypeOptions, setShowRoundTypeOptions] = useState<boolean>(false);
+    const [expandedConfigIndex, setExpandedConfigIndex] = useState<number | null>(null);
+
+    // Dropdown states
+    const [fencingDropdownOpen, setFencingDropdownOpen] = useState<boolean>(false);
+    const [roundDropdownOpen, setRoundDropdownOpen] = useState<boolean>(false);
+
+    // Pool configurations state (refreshed when fencers change)
+    const [poolConfigurations, setPoolConfigurations] = useState<PoolConfiguration[]>([]);
+
+    useEffect(() => {
+        setPoolConfigurations(calculatePoolConfigurations(fencers.length));
+    }, [fencers]);
+
     const currentRating =
         selectedWeapon === "epee"
             ? epeeRating
@@ -81,15 +134,6 @@ export const EventSettings = ({ route }: Props) => {
             : selectedWeapon === "foil"
                 ? foilYear
                 : saberYear;
-
-    // Rounds state for event creation
-    const [rounds, setRounds] = useState<Event[]>([]);
-    const [showRoundTypeOptions, setShowRoundTypeOptions] = useState<boolean>(false);
-    const [expandedConfigIndex, setExpandedConfigIndex] = useState<number | null>(null);
-
-    // Dropdown states
-    const [fencingDropdownOpen, setFencingDropdownOpen] = useState<boolean>(false);
-    const [roundDropdownOpen, setRoundDropdownOpen] = useState<boolean>(false);
 
     // Fencer functions
     const handleAddFencer = () => {
@@ -162,7 +206,7 @@ export const EventSettings = ({ route }: Props) => {
         fetchFencers();
     }, []);
 
-    function handleRemoveFencer(fencer: Fencer, event: ExtendedEvent) {
+    function handleRemoveFencer(fencer: Fencer, event: Event) {
         dbDeleteFencerFromEventById(fencer, event);
         fetchFencers();
     }
@@ -227,26 +271,10 @@ export const EventSettings = ({ route }: Props) => {
         setFencerSuggestions([]);
     };
 
-    // Round management functions.
-    const handlePoolCountChange = (text: string) => {
-        setEvent((prev) => ({ ...prev, poolCount: parseInt(text) || 0 }));
-    };
-    const handleFencersPerPoolChange = (text: string) => {
-        setEvent((prev) => ({ ...prev, fencersPerPool: parseInt(text) || 0 }));
-    };
-    const handleRoundPromotionChange = (index: number, text: string) => {
-        if (event.rounds) {
-            const updatedRounds = event.rounds.map((round, i) =>
-                i === index ? { ...round, promotionpercent: parseInt(text) || 0 } : round
-            );
-            setEvent((prev) => ({ ...prev, rounds: updatedRounds }));
-        }
-    };
-
     // ----- Round Management Helper Functions -----
     const moveRoundUp = (index: number) => {
         if (index <= 0) return;
-        setRounds(prev => {
+        setRounds((prev) => {
             const newRounds = [...prev];
             [newRounds[index - 1], newRounds[index]] = [newRounds[index], newRounds[index - 1]];
             return newRounds;
@@ -254,7 +282,7 @@ export const EventSettings = ({ route }: Props) => {
     };
 
     const moveRoundDown = (index: number) => {
-        setRounds(prev => {
+        setRounds((prev) => {
             if (index >= prev.length - 1) return prev;
             const newRounds = [...prev];
             [newRounds[index], newRounds[index + 1]] = [newRounds[index + 1], newRounds[index]];
@@ -263,18 +291,18 @@ export const EventSettings = ({ route }: Props) => {
     };
 
     const removeRound = (index: number) => {
-        setRounds(prev => prev.filter((_, i) => i !== index));
+        setRounds((prev) => prev.filter((_, i) => i !== index));
         if (expandedConfigIndex === index) {
             setExpandedConfigIndex(null);
         }
     };
 
     const toggleRoundConfig = (index: number) => {
-        setExpandedConfigIndex(prev => (prev === index ? null : index));
+        setExpandedConfigIndex((prev) => (prev === index ? null : index));
     };
 
-    const setPoolsOption = (index: number, option: 'promotion' | 'target') => {
-        setRounds(prev => {
+    const setPoolsOption = (index: number, option: "promotion" | "target") => {
+        setRounds((prev) => {
             const newRounds = [...prev];
             newRounds[index] = { ...newRounds[index], poolsOption: option };
             return newRounds;
@@ -283,7 +311,7 @@ export const EventSettings = ({ route }: Props) => {
 
     const updateRoundPromotion = (index: number, val: string) => {
         const promotion = parseInt(val, 10) || 0;
-        setRounds(prev => {
+        setRounds((prev) => {
             const newRounds = [...prev];
             newRounds[index] = { ...newRounds[index], promotionpercent: promotion };
             return newRounds;
@@ -291,50 +319,47 @@ export const EventSettings = ({ route }: Props) => {
     };
 
     const updateRoundTarget = (index: number, size: number) => {
-        setRounds(prev => {
+        setRounds((prev) => {
             const newRounds = [...prev];
             newRounds[index] = { ...newRounds[index], targetBracketSize: size };
             return newRounds;
         });
     };
 
-    const updateRoundElimination = (index: number, format: 'single' | 'double' | 'compass') => {
-        setRounds(prev => {
+    const updateRoundElimination = (index: number, format: "single" | "double" | "compass") => {
+        setRounds((prev) => {
             const newRounds = [...prev];
             newRounds[index] = { ...newRounds[index], eliminationFormat: format };
             return newRounds;
         });
     };
 
-    const addRound = (roundType: 'Pools' | 'DE') => {
-        if (roundType === 'Pools') {
-            const newRound: ExtendedRoundData = {
-                roundType: 'Pools',
+    const addRound = (roundType: "Pools" | "DE") => {
+        if (roundType === "Pools") {
+            const newRound = {
+                roundType: "Pools",
                 promotionpercent: 100,
-                poolsOption: 'promotion',
+                poolsOption: "promotion",
                 targetBracketSize: 8,
             };
             setRounds([...rounds, newRound]);
         } else {
-            const newRound: ExtendedRoundData = {
-                roundType: 'DE',
-                eliminationFormat: 'single',
+            const newRound = {
+                roundType: "DE",
+                eliminationFormat: "single",
             };
             setRounds([...rounds, newRound]);
         }
         setShowRoundTypeOptions(false);
     };
-    // -----------------------------------------------
+    // ----- End Round Management Helper Functions -----
 
-    const handleSaveSettings = async () => {
-        const updatedEvent: ExtendedEvent = { ...event };
-        try {
-            await dbUpdateEvent(updatedEvent.id, updatedEvent);
-            onSave(updatedEvent);
-            navigation.goBack();
-        } catch (error) {
-            console.error("Error updating event settings:", error);
-        }
+    // Handler for selecting a pool configuration for a specific round (e.g., storing the choice in that round's data)
+    const handleSelectPoolConfiguration = (config: PoolConfiguration, roundIndex: number) => {
+        const updatedRounds = [...rounds];
+        updatedRounds[roundIndex] = { ...updatedRounds[roundIndex], poolConfiguration: config };
+        setRounds(updatedRounds);
+        console.log("Selected pool configuration for round", roundIndex, ":", config);
     };
 
     return (
@@ -454,7 +479,7 @@ export const EventSettings = ({ route }: Props) => {
                         </View>
                     </View>
                     <View style={styles.fencerListContainer}>
-                        <Text style={styles.fencerListHeader}>Current Fencers:</Text>
+                        <Text style={styles.fencerListHeader}>Current Fencers: {fencers.length}</Text>
                         {fencers.length === 0 ? (
                             <Text style={styles.note}>No fencers added yet.</Text>
                         ) : (
@@ -528,7 +553,7 @@ export const EventSettings = ({ route }: Props) => {
                                                         <TextInput
                                                             style={styles.configInput}
                                                             keyboardType="numeric"
-                                                            value={round.promotion?.toString() || ''}
+                                                            value={round.promotionpercent?.toString() || ''}
                                                             onChangeText={(val) => updateRoundPromotion(idx, val)}
                                                             placeholder="Enter Promotion %"
                                                         />
@@ -548,6 +573,21 @@ export const EventSettings = ({ route }: Props) => {
                                                             ))}
                                                         </View>
                                                     )}
+                                                    {/* Pool Configurations Section */}
+                                                    <View style={styles.poolConfigContainer}>
+                                                        <Text style={styles.configTitle}>Pool Configurations</Text>
+                                                        {poolConfigurations.map((config, index) => (
+                                                            <TouchableOpacity
+                                                                key={index}
+                                                                style={styles.poolConfigButton}
+                                                                onPress={() => handleSelectPoolConfiguration(config, idx)}
+                                                            >
+                                                                <Text style={styles.poolConfigButtonText}>
+                                                                    {formatPoolLabel(config)}
+                                                                </Text>
+                                                            </TouchableOpacity>
+                                                        ))}
+                                                    </View>
                                                 </View>
                                             ) : (
                                                 <View style={styles.deConfig}>
@@ -585,14 +625,14 @@ export const EventSettings = ({ route }: Props) => {
                     {showRoundTypeOptions && (
                         <View style={styles.roundTypeMenu}>
                             <TouchableOpacity
-                                style={[styles.roundTypeChoice, { backgroundColor: '#fff' }]}
-                                onPress={() => addRound('Pools')}
+                                style={[styles.roundTypeChoice, { backgroundColor: "#fff" }]}
+                                onPress={() => addRound("Pools")}
                             >
                                 <Text style={styles.roundTypeChoiceText}>Pools</Text>
                             </TouchableOpacity>
                             <TouchableOpacity
-                                style={[styles.roundTypeChoice, { backgroundColor: '#fff' }]}
-                                onPress={() => addRound('DE')}
+                                style={[styles.roundTypeChoice, { backgroundColor: "#fff" }]}
+                                onPress={() => addRound("DE")}
                             >
                                 <Text style={styles.roundTypeChoiceText}>DE</Text>
                             </TouchableOpacity>
@@ -600,23 +640,16 @@ export const EventSettings = ({ route }: Props) => {
                     )}
                 </View>
             )}
-
-            <View style={styles.section}>
-                <TouchableOpacity onPress={handleSaveSettings}>
-                    <Text style={styles.saveButtonText}>Save Event Settings</Text>
-                </TouchableOpacity>
-            </View>
         </ScrollView>
     );
 };
 
 export default EventSettings;
 
-const navyBlue = '#000080';
-const white = '#ffffff';
-const greyAccent = '#cccccc';
-const lightRed = '#ff9999';
-
+const navyBlue = "#000080";
+const white = "#ffffff";
+const greyAccent = "#cccccc";
+const lightRed = "#ff9999";
 
 const styles = StyleSheet.create({
     container: {
@@ -698,6 +731,10 @@ const styles = StyleSheet.create({
         paddingHorizontal: 20,
         borderRadius: 5,
     },
+    roundTypeChoiceText: {
+        fontSize: 16,
+        color: navyBlue,
+    },
     fencerRow: {
         flexDirection: "row",
         justifyContent: "space-between",
@@ -751,55 +788,48 @@ const styles = StyleSheet.create({
         marginBottom: 8,
         color: "#001f3f",
     },
-    /* Round Management styles */
-    roundRow: {
-        marginBottom: 15,
-        paddingVertical: 10,
-        borderBottomWidth: 1,
-        borderColor: "#ccc",
-    },
-    roundLabel: {
-        fontSize: 16,
-        fontWeight: "500",
-        marginBottom: 5,
-        color: "#001f3f",
-    },
-    roundTypeMenu: {
-        flexDirection: 'row',
-        justifyContent: 'space-around',
-        marginBottom: 15,
-    },
-    roundTypeChoiceText: {
-        fontSize: 16,
-        color: navyBlue,
-    },
-    roundInput: {
+    roundItem: {
         borderWidth: 1,
-        borderColor: "#ccc",
-        borderRadius: 6,
+        borderColor: greyAccent,
+        borderRadius: 5,
         padding: 8,
-        fontSize: 16,
-        backgroundColor: "#fff",
+        marginBottom: 8,
+        backgroundColor: white,
     },
-    /* Additional button styles */
-    addFencerButton: {
-        backgroundColor: "#001f3f",
-        paddingVertical: 10,
-        paddingHorizontal: 15,
-        borderRadius: 6,
+    roundItemRow: {
+        flexDirection: "row",
         alignItems: "center",
-        marginVertical: 5,
+        justifyContent: "space-between",
     },
-    addFencerButtonText: {
-        color: "#fff",
+    dragHandle: {
+        flexDirection: "row",
+        alignItems: "center",
+    },
+    dragIcon: {
+        fontSize: 20,
+        marginRight: 4,
+    },
+    moveButton: {
+        paddingHorizontal: 4,
+    },
+    moveButtonText: {
+        fontSize: 16,
+    },
+    roundLabelText: {
+        flex: 1,
         fontSize: 16,
         fontWeight: "600",
     },
-    uploadCSVText: {
-        color: "#001f3f",
-        fontSize: 16,
-        textAlign: "center",
-        textDecorationLine: "underline",
+    roundItemActions: {
+        flexDirection: "row",
+    },
+    removeRoundButton: {
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+    },
+    removeRoundButtonText: {
+        fontSize: 18,
+        color: "red",
     },
     configButton: {
         paddingHorizontal: 8,
@@ -822,8 +852,8 @@ const styles = StyleSheet.create({
         borderColor: greyAccent,
     },
     targetSelector: {
-        flexDirection: 'row',
-        justifyContent: 'space-around',
+        flexDirection: "row",
+        justifyContent: "space-around",
     },
     targetButton: {
         padding: 8,
@@ -837,55 +867,12 @@ const styles = StyleSheet.create({
     },
     targetButtonText: {
         fontSize: 14,
-        color: '#000',
+        color: "#000",
     },
     configToggle: {
-        flexDirection: 'row',
-        justifyContent: 'space-around',
+        flexDirection: "row",
+        justifyContent: "space-around",
         marginBottom: 8,
-    },
-    roundItem: {
-        borderWidth: 1,
-        borderColor: greyAccent,
-        borderRadius: 5,
-        padding: 8,
-        marginBottom: 8,
-        backgroundColor: white,
-    },
-    roundItemRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-    },
-    dragHandle: {
-        flexDirection: 'row',
-        alignItems: 'center',
-    },
-    dragIcon: {
-        fontSize: 20,
-        marginRight: 4,
-    },
-    moveButton: {
-        paddingHorizontal: 4,
-    },
-    moveButtonText: {
-        fontSize: 16,
-    },
-    roundLabelText: {
-        flex: 1,
-        fontSize: 16,
-        fontWeight: '600',
-    },
-    roundItemActions: {
-        flexDirection: 'row',
-    },
-    removeRoundButton: {
-        paddingHorizontal: 8,
-        paddingVertical: 4,
-    },
-    removeRoundButtonText: {
-        fontSize: 18,
-        color: 'red',
     },
     configOptionButton: {
         flex: 1,
@@ -893,35 +880,86 @@ const styles = StyleSheet.create({
         paddingVertical: 8,
         marginHorizontal: 4,
         borderRadius: 4,
-        alignItems: 'center',
+        alignItems: "center",
     },
     configOptionSelected: {
         backgroundColor: navyBlue,
     },
     configOptionText: {
         fontSize: 14,
-        color: '#000',
+        color: "#000",
     },
     configInput: {
         borderWidth: 1,
-        borderColor: '#ccc',
+        borderColor: "#ccc",
         borderRadius: 4,
         padding: 8,
         fontSize: 14,
     },
+    addFencerButton: {
+        backgroundColor: "#001f3f",
+        paddingVertical: 10,
+        paddingHorizontal: 15,
+        borderRadius: 6,
+        alignItems: "center",
+        marginVertical: 5,
+    },
+    addFencerButtonText: {
+        color: "#fff",
+        fontSize: 16,
+        fontWeight: "600",
+    },
+    uploadCSVText: {
+        color: "#001f3f",
+        fontSize: 16,
+        textAlign: "center",
+        textDecorationLine: "underline",
+    },
     addRoundButton: {
-        width: '100%',
+        width: "100%",
         borderWidth: 2,
         borderColor: navyBlue,
         paddingVertical: 14,
         borderRadius: 5,
-        alignItems: 'center',
+        alignItems: "center",
         marginBottom: 15,
         marginTop: 5,
     },
     addRoundButtonText: {
         color: navyBlue,
         fontSize: 16,
-        fontWeight: '600',
+        fontWeight: "600",
+    },
+    // ----- Pool Configuration Styles -----
+    poolConfigContainer: {
+        marginTop: 10,
+        padding: 10,
+        borderWidth: 1,
+        borderColor: greyAccent,
+        borderRadius: 6,
+        backgroundColor: "#fafafa",
+    },
+    poolConfigButton: {
+        paddingVertical: 8,
+        paddingHorizontal: 12,
+        backgroundColor: "#001f3f",
+        borderRadius: 4,
+        marginVertical: 4,
+    },
+    poolConfigButtonText: {
+        color: "#fff",
+        fontSize: 14,
+        textAlign: "center",
+    },
+    configTitle: {
+        fontSize: 16,
+        fontWeight: "600",
+        marginBottom: 8,
+        color: "#001f3f",
+    },
+    roundTypeMenu: {
+        flexDirection: 'row',
+        justifyContent: 'space-around',
+        marginBottom: 15,
     },
 });
