@@ -116,8 +116,11 @@ export async function initDB(): Promise<void> {
                 type        text check (type in ('pool', 'de')),
                 rorder      integer, -- round 1 is fenced first, then round 2, etc
 
-
                 -- Pool Settings
+                poolcount integer,
+                poolsize integer, -- When setting in the UI, use the higher of the two numbers
+
+                poolsoption TEXT DEFAULT 'promotion' check (poolsoption in ('promotion', 'target')),
                 promotionpercent integer default 100,
                 targetbracket integer,
                 usetargetbracket integer default 0, -- If we're using promotion % (default) or target bracket
@@ -248,12 +251,12 @@ export async function initDB(): Promise<void> {
     }
 
     console.log("Database initialized");
-    dbInsertExampleData();
+    await dbInsertExampleData();
 }
 
 export async function dbInsertExampleData(): Promise<void> {
-    dbCreateTournament("Completed Tournament 1", 1);
-    dbCreateTournament("Completed Tournament 2", 1);
+    await dbCreateTournament("Completed Tournament 1", 1);
+    await dbCreateTournament("Completed Tournament 2", 1);
 
     const Guy1 = <Fencer>{
         fname: "Rasta",
@@ -453,3 +456,100 @@ export async function dbMarkRoundAsComplete(roundId: number): Promise<void> {
     }
 }
 
+export async function dbGetRoundsForEvent(eventId: number): Promise<Round[]> {
+    try {
+        const db = await openDB();
+        const rounds: Round[] = await db.getAllAsync(
+            'SELECT * FROM Rounds WHERE eventid = ? ORDER BY rorder',
+            [eventId]
+        );
+        console.log(`Fetched ${rounds.length} rounds for event ${eventId}`);
+        return rounds;
+    } catch (error) {
+        console.error('Error fetching rounds:', error);
+        throw error;
+    }
+}
+
+export async function dbAddRound(round: Round): Promise<void> {
+    try {
+        const db = await openDB();
+        await db.runAsync(
+            `INSERT INTO Rounds
+             (eventid, rorder, type, promotionpercent, targetbracket, usetargetbracket, deformat, detablesize, iscomplete, poolcount, poolsize, poolsoption)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [
+                round.eventid,
+                round.rorder,
+                round.type,
+                round.promotionpercent,
+                round.targetbracket,
+                round.usetargetbracket,
+                round.deformat,
+                round.detablesize,
+                round.iscomplete,
+                round.poolcount,
+                round.poolsize,
+                round.poolsoption,
+            ]
+        );
+
+
+        console.log('Round added successfully.');
+    } catch (error) {
+        console.error('Error adding round:', error);
+        throw error;
+    }
+}
+
+export async function dbUpdateRound(round: Round): Promise<void> {
+    try {
+        const db = await openDB();
+        await db.runAsync(
+            `UPDATE Rounds
+             SET rorder = ?,
+                 type = ?,
+                 promotionpercent = ?,
+                 targetbracket = ?,
+                 usetargetbracket = ?,
+                 deformat = ?,
+                 detablesize = ?,
+                 iscomplete = ?,
+                 poolcount = ?,
+                 poolsize = ?,
+                 poolsoption = ?
+             WHERE id = ?`,
+            [
+                round.rorder,
+                round.type,
+                round.promotionpercent,
+                round.targetbracket,
+                round.usetargetbracket,
+                round.deformat,
+                round.detablesize,
+                round.iscomplete,
+                round.poolcount,
+                round.poolsize,
+                round.poolsoption,
+                round.id,
+            ]
+        );
+
+        console.log('Round updated successfully.');
+    } catch (error) {
+        console.error('Error updating round:', error);
+        throw error;
+    }
+}
+
+
+export async function dbDeleteRound(roundId: number): Promise<void> {
+    try {
+        const db = await openDB();
+        await db.runAsync('DELETE FROM Rounds WHERE id = ?', [roundId]);
+        console.log(`Round ${roundId} deleted successfully.`);
+    } catch (error) {
+        console.error('Error deleting round:', error);
+        throw error;
+    }
+}

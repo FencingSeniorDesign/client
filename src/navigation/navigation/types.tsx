@@ -1,4 +1,4 @@
-export type Tournament = { // TODO - Make homescreen use this
+export type Tournament = {
     name: string;
     isComplete: boolean;
 }
@@ -24,29 +24,32 @@ export type Referee = {
     nickname?: string;
 };
 
-export type Round = {
-    id: number
-    eventid: number
-    rorder: number
-    type: string | "pool" | "de"
-    promotionpercent: number
-    targetbracket: number
-    deformat: string | 'single' | 'double' | 'compass'
-    detablesize: number
-    iscomplete: number
-}
+export type PoolConfiguration = {
+    pools: number;
+    baseSize: number;
+    extraPools: number; // number of pools that get one extra fencer
+};
 
-export type RoundData = {
-    roundType: 'Pools' | 'DE';
-    promotion?: number;
-    poolsOption?: 'promotion' | 'target';
-    targetBracketSize?: number;
-    eliminationFormat?: 'single' | 'double' | 'compass';
+export type Round = {
+    id: number;
+    eventid: number;
+    rorder: number;
+    type: 'pool' | 'de' ;
+    poolcount: number
+    poolsize: number
+    promotionpercent: number;
+    targetbracket: number;
+    usetargetbracket: 0 | 1;
+    deformat: 'single' | 'double' | 'compass';
+    detablesize: number;
+    iscomplete: number;
+    // UI-only properties (not persisted in the database)
+    poolsoption: 'promotion' | 'target';
+    poolConfiguration?: PoolConfiguration;
 };
 
 export type Event = {
     id: number;
-    tname: string;
     weapon: string;
     gender: string;
     age: string;
@@ -91,9 +94,6 @@ export type RootStackParamList = {
         PoolsPage: {
             event: Event;
             currentRoundIndex: number;
-            fencers: Fencer[];
-            poolCount: number;
-            fencersPerPool: number;
         };
         BoutOrderPage: {
             poolFencers: Fencer[];

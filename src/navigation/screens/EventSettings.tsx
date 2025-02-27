@@ -9,15 +9,19 @@ import {
     Alert,
 } from "react-native";
 import { RouteProp, useNavigation } from "@react-navigation/native";
-import { Event, Fencer } from "../navigation/types";
+import { Event, Fencer, Round } from "../navigation/types";
 import * as DocumentPicker from "expo-document-picker";
 import * as FileSystem from "expo-file-system";
 import {
     dbAddFencerToEventById,
     dbCreateFencerByName,
     dbDeleteFencerFromEventById,
+    dbDeleteRound,
     dbGetFencersInEventById,
     dbSearchFencers,
+    dbUpdateRound,
+    dbGetRoundsForEvent,
+    dbAddRound,
 } from "../../db/TournamentDatabaseUtils";
 import { Picker } from "@react-native-picker/picker";
 
@@ -73,7 +77,6 @@ type Props = {
     route: EventSettingsRouteProp;
 };
 
-
 export const EventSettings = ({ route }: Props) => {
     const { event: initialEvent, onSave } = route.params || {};
 
@@ -89,6 +92,7 @@ export const EventSettings = ({ route }: Props) => {
 
     const [event, setEvent] = useState<Event>({ ...initialEvent });
     const [fencers, setFencers] = useState<Fencer[]>([]);
+    const [rounds, setRounds] = useState<any[]>([]);
     const initialWeapon = initialEvent.weapon.toLowerCase();
     const [selectedWeapon, setSelectedWeapon] = useState<string>(initialWeapon);
     const [fencerFirstName, setFencerFirstName] = useState<string>("");
@@ -107,7 +111,6 @@ export const EventSettings = ({ route }: Props) => {
     const [fencerSuggestions, setFencerSuggestions] = useState<Fencer[]>([]);
 
     // Round management states
-    const [rounds, setRounds] = useState<any[]>([]); // using any[] for ExtendedRoundData for simplicity
     const [showRoundTypeOptions, setShowRoundTypeOptions] = useState<boolean>(false);
     const [expandedConfigIndex, setExpandedConfigIndex] = useState<number | null>(null);
 
@@ -271,95 +274,82 @@ export const EventSettings = ({ route }: Props) => {
         setFencerSuggestions([]);
     };
 
-    // ----- Round Management Helper Functions -----
-    const moveRoundUp = (index: number) => {
-        if (index <= 0) return;
-        setRounds((prev) => {
-            const newRounds = [...prev];
-            [newRounds[index - 1], newRounds[index]] = [newRounds[index], newRounds[index - 1]];
-            return newRounds;
-        });
-    };
-
-    const moveRoundDown = (index: number) => {
-        setRounds((prev) => {
-            if (index >= prev.length - 1) return prev;
-            const newRounds = [...prev];
-            [newRounds[index], newRounds[index + 1]] = [newRounds[index + 1], newRounds[index]];
-            return newRounds;
-        });
-    };
-
-    const removeRound = (index: number) => {
-        setRounds((prev) => prev.filter((_, i) => i !== index));
-        if (expandedConfigIndex === index) {
-            setExpandedConfigIndex(null);
-        }
-    };
-
     const toggleRoundConfig = (index: number) => {
         setExpandedConfigIndex((prev) => (prev === index ? null : index));
     };
 
-    const setPoolsOption = (index: number, option: "promotion" | "target") => {
-        setRounds((prev) => {
-            const newRounds = [...prev];
-            newRounds[index] = { ...newRounds[index], poolsOption: option };
-            return newRounds;
-        });
-    };
 
-    const updateRoundPromotion = (index: number, val: string) => {
-        const promotion = parseInt(val, 10) || 0;
-        setRounds((prev) => {
-            const newRounds = [...prev];
-            newRounds[index] = { ...newRounds[index], promotionpercent: promotion };
-            return newRounds;
-        });
-    };
 
-    const updateRoundTarget = (index: number, size: number) => {
-        setRounds((prev) => {
-            const newRounds = [...prev];
-            newRounds[index] = { ...newRounds[index], targetBracketSize: size };
-            return newRounds;
-        });
-    };
-
-    const updateRoundElimination = (index: number, format: "single" | "double" | "compass") => {
-        setRounds((prev) => {
-            const newRounds = [...prev];
-            newRounds[index] = { ...newRounds[index], eliminationFormat: format };
-            return newRounds;
-        });
-    };
-
-    const addRound = (roundType: "Pools" | "DE") => {
-        if (roundType === "Pools") {
-            const newRound = {
-                roundType: "Pools",
-                promotionpercent: 100,
-                poolsOption: "promotion",
-                targetBracketSize: 8,
-            };
-            setRounds([...rounds, newRound]);
-        } else {
-            const newRound = {
-                roundType: "DE",
-                eliminationFormat: "single",
-            };
-            setRounds([...rounds, newRound]);
-        }
-        setShowRoundTypeOptions(false);
-    };
-    // ----- End Round Management Helper Functions -----
-
-    // Handler for selecting a pool configuration for a specific round (e.g., storing the choice in that round's data)
+    // Handler for selecting a pool configuration for a specific round
     const handleSelectPoolConfiguration = (config: PoolConfiguration, roundIndex: number) => {
         const updatedRounds = [...rounds];
         updatedRounds[roundIndex] = { ...updatedRounds[roundIndex], poolConfiguration: config };
         setRounds(updatedRounds);
         console.log("Selected pool configuration for round", roundIndex, ":", config);
+    };
+
+    const fetchRounds = async () => {
+        try {
+            const roundsData = await dbGetRoundsForEvent(event.id);
+            setRounds(roundsData);
+        } catch (error) {
+            console.error("Failed to fetch rounds", error);
+        }
+    };
+
+    useEffect(() => {
+        fetchRounds();
+    }, [event]);
+
+// Inside your EventSettings component, after your state declarations
+
+// Handler to add a new round. Creates a new round object with default values.
+    const handleAddRound = async (roundType: 'pool' | 'de') => {
+        const newRound = {
+            eventid: event.id,
+            rorder: rounds.length + 1, // Append at the end
+            type: roundType,
+            promotionpercent: roundType === 'pool' ? 100 : 0,
+            targetbracket: roundType === 'pool' ? 0 : 0,
+            usetargetbracket: 0,
+            deformat: roundType === 'de' ? 'single' : '',
+            detablesize: roundType === 'de' ? 0 : 0,
+            iscomplete: 0,
+            // NEW: default pool configuration fields for pool rounds
+            poolcount: roundType === 'pool' ? 0 : null,
+            poolsize: roundType === 'pool' ? 0 : null,
+            poolsoption: roundType === 'pool' ? 'promotion' : undefined,
+        };
+        try {
+            await dbAddRound(newRound);
+            const updatedRounds = await dbGetRoundsForEvent(event.id);
+            setRounds(updatedRounds);
+        } catch (error) {
+            console.error("Failed to add round", error);
+        }
+    };
+
+
+// Handler to update a round immediately after a change
+    const handleUpdateRound = async (updatedRound: Round) => {
+        try {
+            await dbUpdateRound(updatedRound);
+            const updatedRounds = await dbGetRoundsForEvent(event.id);
+            setRounds(updatedRounds);
+        } catch (error) {
+            console.error("Failed to update round", error);
+        }
+    };
+
+// Handler to delete a round
+    const handleDeleteRound = async (roundId: number) => {
+        try {
+            await dbDeleteRound(roundId);
+            const updatedRounds = await dbGetRoundsForEvent(event.id);
+            setRounds(updatedRounds);
+        } catch (error) {
+            console.error("Failed to delete round", error);
+        }
     };
 
     return (
@@ -489,7 +479,7 @@ export const EventSettings = ({ route }: Props) => {
                 </View>
             )}
 
-            {/* Round Management Dropdown */}
+            {/* Round Management */}
             <TouchableOpacity
                 style={styles.dropdownHeader}
                 onPress={() => setRoundDropdownOpen(!roundDropdownOpen)}
@@ -498,112 +488,175 @@ export const EventSettings = ({ route }: Props) => {
             </TouchableOpacity>
             {roundDropdownOpen && (
                 <View style={styles.dropdownContent}>
-                    {/* Rounds List */}
                     {rounds.length > 0 && (
                         <View style={styles.roundsList}>
                             {rounds.map((round, idx) => (
-                                <View key={idx} style={styles.roundItem}>
+                                <View key={round.id} style={styles.roundItem}>
                                     <View style={styles.roundItemRow}>
                                         <View style={styles.dragHandle}>
                                             <Text style={styles.dragIcon}>☰</Text>
-                                            <TouchableOpacity onPress={() => moveRoundUp(idx)} style={styles.moveButton}>
+                                            <TouchableOpacity style={styles.moveButton}>
                                                 <Text style={styles.moveButtonText}>↑</Text>
                                             </TouchableOpacity>
-                                            <TouchableOpacity onPress={() => moveRoundDown(idx)} style={styles.moveButton}>
+                                            <TouchableOpacity style={styles.moveButton}>
                                                 <Text style={styles.moveButtonText}>↓</Text>
                                             </TouchableOpacity>
                                         </View>
                                         <Text style={styles.roundLabelText}>
-                                            {round.roundType === 'Pools' ? 'Pools Round' : 'DE Round'}
+                                            {round.type === "pool" ? "Pools Round" : "DE Round"}
                                         </Text>
                                         <View style={styles.roundItemActions}>
-                                            <TouchableOpacity onPress={() => removeRound(idx)} style={styles.removeRoundButton}>
+                                            <TouchableOpacity
+                                                style={styles.removeRoundButton}
+                                                onPress={() => handleDeleteRound(round.id)}
+                                            >
                                                 <Text style={styles.removeRoundButtonText}>✖</Text>
                                             </TouchableOpacity>
-                                            <TouchableOpacity onPress={() => toggleRoundConfig(idx)} style={styles.configButton}>
+                                            <TouchableOpacity
+                                                onPress={() => toggleRoundConfig(idx)}
+                                                style={styles.configButton}
+                                            >
                                                 <Text style={styles.configButtonText}>⚙</Text>
                                             </TouchableOpacity>
                                         </View>
                                     </View>
                                     {expandedConfigIndex === idx && (
                                         <View style={styles.roundConfig}>
-                                            {round.roundType === 'Pools' ? (
+                                            {round.type === "pool" ? (
                                                 <View>
                                                     <View style={styles.configToggle}>
                                                         <TouchableOpacity
-                                                            onPress={() => setPoolsOption(idx, 'promotion')}
                                                             style={[
                                                                 styles.configOptionButton,
-                                                                round.poolsOption === 'promotion' && styles.configOptionSelected,
+                                                                round.poolsption === "promotion" && styles.configOptionSelected,
                                                             ]}
+                                                            onPress={() => {
+                                                                const updatedRound = { ...round, poolsoption: "promotion" };
+                                                                setRounds(prev => {
+                                                                    const newRounds = [...prev];
+                                                                    newRounds[idx] = updatedRound;
+                                                                    return newRounds;
+                                                                });
+                                                                handleUpdateRound(updatedRound);
+                                                            }}
                                                         >
                                                             <Text style={styles.configOptionText}>Promotion %</Text>
                                                         </TouchableOpacity>
                                                         <TouchableOpacity
-                                                            onPress={() => setPoolsOption(idx, 'target')}
                                                             style={[
                                                                 styles.configOptionButton,
-                                                                round.poolsOption === 'target' && styles.configOptionSelected,
+                                                                round.poolsoption === "target" && styles.configOptionSelected,
                                                             ]}
+                                                            onPress={() => {
+                                                                const updatedRound = { ...round, poolsoption: "target" };
+                                                                setRounds(prev => {
+                                                                    const newRounds = [...prev];
+                                                                    newRounds[idx] = updatedRound;
+                                                                    return newRounds;
+                                                                });
+                                                                handleUpdateRound(updatedRound);
+                                                            }}
                                                         >
                                                             <Text style={styles.configOptionText}>Target Bracket</Text>
                                                         </TouchableOpacity>
                                                     </View>
-                                                    {round.poolsOption === 'promotion' ? (
+                                                    {round.poolsoption === "promotion" ? (
                                                         <TextInput
                                                             style={styles.configInput}
                                                             keyboardType="numeric"
-                                                            value={round.promotionpercent?.toString() || ''}
-                                                            onChangeText={(val) => updateRoundPromotion(idx, val)}
+                                                            value={round.promotionpercent?.toString() || ""}
                                                             placeholder="Enter Promotion %"
+                                                            onChangeText={(text) => {
+                                                                const updatedRound = { ...round, promotionpercent: parseInt(text) || 0 };
+                                                                setRounds(prev => {
+                                                                    const newRounds = [...prev];
+                                                                    newRounds[idx] = updatedRound;
+                                                                    return newRounds;
+                                                                });
+                                                            }}
+                                                            onEndEditing={() => handleUpdateRound(round)}
                                                         />
                                                     ) : (
                                                         <View style={styles.targetSelector}>
                                                             {[8, 16, 32, 64, 128, 256].map((size) => (
                                                                 <TouchableOpacity
                                                                     key={size}
-                                                                    onPress={() => updateRoundTarget(idx, size)}
                                                                     style={[
                                                                         styles.targetButton,
-                                                                        round.targetBracketSize === size && styles.targetButtonSelected,
+                                                                        round.targetbracket === size && styles.targetButtonSelected,
                                                                     ]}
+                                                                    onPress={() => {
+                                                                        const updatedRound = { ...round, targetbracket: size };
+                                                                        setRounds(prev => {
+                                                                            const newRounds = [...prev];
+                                                                            newRounds[idx] = updatedRound;
+                                                                            return newRounds;
+                                                                        });
+                                                                        handleUpdateRound(updatedRound);
+                                                                    }}
                                                                 >
                                                                     <Text style={styles.targetButtonText}>{size}</Text>
                                                                 </TouchableOpacity>
                                                             ))}
                                                         </View>
                                                     )}
-                                                    {/* Pool Configurations Section */}
                                                     <View style={styles.poolConfigContainer}>
                                                         <Text style={styles.configTitle}>Pool Configurations</Text>
-                                                        {poolConfigurations.map((config, index) => (
-                                                            <TouchableOpacity
-                                                                key={index}
-                                                                style={styles.poolConfigButton}
-                                                                onPress={() => handleSelectPoolConfiguration(config, idx)}
-                                                            >
-                                                                <Text style={styles.poolConfigButtonText}>
-                                                                    {formatPoolLabel(config)}
-                                                                </Text>
-                                                            </TouchableOpacity>
-                                                        ))}
+                                                        {poolConfigurations.map((config, index) => {
+                                                            // Determine the expected poolsize based on this config.
+                                                            const expectedPoolSize = config.extraPools > 0 ? config.baseSize + 1 : config.baseSize;
+                                                            // Check if the current round's pool configuration matches this one.
+                                                            const isSelected =
+                                                                round.poolcount === config.pools && round.poolsize === expectedPoolSize;
+                                                            return (
+                                                                <TouchableOpacity
+                                                                    key={index}
+                                                                    style={[
+                                                                        styles.poolConfigButton,
+                                                                        isSelected && styles.poolConfigButtonSelected,
+                                                                    ]}
+                                                                    onPress={() => {
+                                                                        const updatedRound = {
+                                                                            ...round,
+                                                                            poolcount: config.pools,
+                                                                            poolsize: expectedPoolSize,
+                                                                        };
+                                                                        setRounds((prev) => {
+                                                                            const newRounds = [...prev];
+                                                                            newRounds[idx] = updatedRound;
+                                                                            return newRounds;
+                                                                        });
+                                                                        handleUpdateRound(updatedRound);
+                                                                    }}
+                                                                >
+                                                                    <Text style={styles.poolConfigButtonText}>{formatPoolLabel(config)}</Text>
+                                                                </TouchableOpacity>
+                                                            );
+                                                        })}
                                                     </View>
+
                                                 </View>
                                             ) : (
                                                 <View style={styles.deConfig}>
-                                                    {['single', 'double', 'compass'].map((format) => (
+                                                    {["single", "double", "compass"].map((format) => (
                                                         <TouchableOpacity
                                                             key={format}
-                                                            onPress={() =>
-                                                                updateRoundElimination(idx, format as 'single' | 'double' | 'compass')
-                                                            }
                                                             style={[
                                                                 styles.configOptionButton,
-                                                                round.eliminationFormat === format && styles.configOptionSelected,
+                                                                round.deformat === format && styles.configOptionSelected,
                                                             ]}
+                                                            onPress={() => {
+                                                                const updatedRound = { ...round, deformat: format };
+                                                                setRounds(prev => {
+                                                                    const newRounds = [...prev];
+                                                                    newRounds[idx] = updatedRound;
+                                                                    return newRounds;
+                                                                });
+                                                                handleUpdateRound(updatedRound);
+                                                            }}
                                                         >
                                                             <Text style={styles.configOptionText}>
-                                                                {format === 'single' ? 'Single' : format === 'double' ? 'Double' : 'Compass'}
+                                                                {format === "single" ? "Single" : format === "double" ? "Double" : "Compass"}
                                                             </Text>
                                                         </TouchableOpacity>
                                                     ))}
@@ -615,7 +668,6 @@ export const EventSettings = ({ route }: Props) => {
                             ))}
                         </View>
                     )}
-
                     <TouchableOpacity
                         style={styles.addRoundButton}
                         onPress={() => setShowRoundTypeOptions(!showRoundTypeOptions)}
@@ -625,14 +677,20 @@ export const EventSettings = ({ route }: Props) => {
                     {showRoundTypeOptions && (
                         <View style={styles.roundTypeMenu}>
                             <TouchableOpacity
-                                style={[styles.roundTypeChoice, { backgroundColor: "#fff" }]}
-                                onPress={() => addRound("Pools")}
+                                style={styles.roundTypeChoice}
+                                onPress={() => {
+                                    handleAddRound("pool");
+                                    setShowRoundTypeOptions(false);
+                                }}
                             >
                                 <Text style={styles.roundTypeChoiceText}>Pools</Text>
                             </TouchableOpacity>
                             <TouchableOpacity
-                                style={[styles.roundTypeChoice, { backgroundColor: "#fff" }]}
-                                onPress={() => addRound("DE")}
+                                style={styles.roundTypeChoice}
+                                onPress={() => {
+                                    handleAddRound("de");
+                                    setShowRoundTypeOptions(false);
+                                }}
                             >
                                 <Text style={styles.roundTypeChoiceText}>DE</Text>
                             </TouchableOpacity>
@@ -930,7 +988,6 @@ const styles = StyleSheet.create({
         fontSize: 16,
         fontWeight: "600",
     },
-    // ----- Pool Configuration Styles -----
     poolConfigContainer: {
         marginTop: 10,
         padding: 10,
@@ -961,5 +1018,8 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-around',
         marginBottom: 15,
+    },
+    poolConfigButtonSelected: {
+        backgroundColor: "#28a745",
     },
 });
