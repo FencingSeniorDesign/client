@@ -42,6 +42,7 @@ export type Round = {
     usetargetbracket: 0 | 1;
     deformat: 'single' | 'double' | 'compass';
     detablesize: number;
+    isstarted: boolean;
     iscomplete: number;
     // UI-only properties (not persisted in the database)
     poolsoption: 'promotion' | 'target';
@@ -55,6 +56,7 @@ export type Event = {
     age: string;
     class: string;
     seeding: string;
+    startedCount?: number; // Used to make sure we don't re-init pool/de brackets
 };
 
 export type DEBracketMatch = {

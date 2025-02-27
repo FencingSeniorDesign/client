@@ -1,6 +1,7 @@
 // TournamentDatabaseUtils.ts
 import * as SQLite from 'expo-sqlite';
 import { Fencer, Event, Tournament, Round } from "../navigation/navigation/types";
+import {buildPools, DEBracketData} from "../navigation/utils/RoundAlgorithms";
 
 const DATABASE_NAME = 'tf.db';
 
@@ -346,7 +347,14 @@ export async function dbListCompletedTournaments(): Promise<Tournament[]> {
 export async function dbListEvents(tournamentName: string): Promise<Event[]> {
     try {
         const db = await openDB();
-        return await db.getAllAsync('SELECT * FROM Events WHERE tname = ?', [tournamentName]);
+        // Return all event fields and a computed field "startedCount"
+        return await db.getAllAsync(
+            `SELECT E.*, 
+              (SELECT COUNT(*) FROM Rounds WHERE eventid = E.id AND isstarted = 1) as startedCount 
+       FROM Events E 
+       WHERE tname = ?`,
+            [tournamentName]
+        );
     } catch (error) {
         console.error('Error listing events:', error);
         throw error;
@@ -552,4 +560,125 @@ export async function dbDeleteRound(roundId: number): Promise<void> {
         console.error('Error deleting round:', error);
         throw error;
     }
+}
+
+export async function dbMarkRoundAsStarted(roundId: number): Promise<void> {
+    try {
+        const db = await openDB();
+        await db.runAsync('UPDATE Rounds SET isstarted = 1 WHERE id = ?', [roundId]);
+        console.log(`Round ${roundId} marked as started.`);
+    } catch (error) {
+        console.error('Error marking round as started:', error);
+        throw error;
+    }
+}
+
+
+/**
+ * Creates pool assignments and round-robin bout orders for a pool round.
+ * Inserts assignments into FencerPoolAssignment and bouts into Bouts.
+ */
+export async function dbCreatePoolAssignmentsAndBoutOrders(
+    event: Event,
+    round: Round,
+    fencers: Fencer[],
+    poolCount: number,
+    fencersPerPool: number
+): Promise<void> {
+    const pools: Fencer[][] = buildPools(fencers, poolCount, fencersPerPool);
+    const db = await openDB();
+
+    for (let poolIndex = 0; poolIndex < pools.length; poolIndex++) {
+        const pool = pools[poolIndex];
+        // Insert each fencer's pool assignment.
+        for (let i = 0; i < pool.length; i++) {
+            const fencer = pool[i];
+            await db.runAsync(
+                'INSERT INTO FencerPoolAssignment (roundid, poolid, fencerid, fenceridinpool) VALUES (?, ?, ?, ?)',
+                [round.id, poolIndex, fencer.id, i + 1]
+            );
+        }
+        // Create round-robin bouts for the pool (each pair plays once).
+        for (let i = 0; i < pool.length; i++) {
+            for (let j = i + 1; j < pool.length; j++) {
+                const fencerA = pool[i];
+                const fencerB = pool[j];
+                // Using a default value (2) for tableof that satisfies your check constraint.
+                await db.runAsync(
+                    'INSERT INTO Bouts (lfencer, rfencer, eventid, roundid, tableof) VALUES (?, ?, ?, ?, ?)',
+                    [fencerA.id, fencerB.id, event.id, round.id, 2]
+                );
+            }
+        }
+    }
+}
+
+/**
+ * Inserts the first round of DE bouts into the Bouts table based on the bracket.
+ */
+// TODO - Untested placeholder
+export async function dbCreateDEBouts(
+    event: Event,
+    round: Round,
+    bracketData: DEBracketData
+): Promise<void> {
+    const db = await openDB();
+    // We assume the first round is at index 0.
+    const firstRound = bracketData.rounds[0];
+    for (const match of firstRound.matches) {
+        // Only insert a bout if at least one competitor is present.
+        if (match.fencerA || match.fencerB) {
+            await db.runAsync(
+                'INSERT INTO Bouts (lfencer, rfencer, eventid, roundid, tableof) VALUES (?, ?, ?, ?, ?)',
+                [
+                    match.fencerA ? match.fencerA.id : null,
+                    match.fencerB ? match.fencerB.id : null,
+                    event.id,
+                    round.id,
+                    round.detablesize // use the DE round's detablesize value
+                ]
+            );
+        }
+    }
+}
+
+// In TournamentDatabaseUtils.ts, add this function:
+
+export async function dbGetPoolsForRound(roundId: number): Promise<{ poolid: number; fencers: Fencer[] }[]> {
+    const db = await openDB();
+    const results = await db.getAllAsync(
+        `SELECT poolid, fencers.id, fencers.fname, fencers.lname, fencers.erating, fencers.eyear, fencers.frating, fencers.fyear, fencers.srating, fencers.syear
+     FROM FencerPoolAssignment
+     JOIN Fencers ON FencerPoolAssignment.fencerid = Fencers.id
+     WHERE roundid = ?
+     ORDER BY poolid, fenceridinpool`,
+        [roundId]
+    );
+
+    // Group rows by poolid
+    const poolsMap = new Map<number, Fencer[]>();
+    results.forEach(row => {
+        const poolid = row.poolid;
+        if (!poolsMap.has(poolid)) {
+            poolsMap.set(poolid, []);
+        }
+        poolsMap.get(poolid)?.push({
+            id: row.id,
+            fname: row.fname,
+            lname: row.lname,
+            erating: row.erating,
+            eyear: row.eyear,
+            frating: row.frating,
+            fyear: row.fyear,
+            srating: row.srating,
+            syear: row.syear,
+        });
+    });
+
+    const pools: { poolid: number; fencers: Fencer[] }[] = [];
+    poolsMap.forEach((fencers, poolid) => {
+        pools.push({ poolid, fencers });
+    });
+    pools.sort((a, b) => a.poolid - b.poolid);
+    return pools;
 }

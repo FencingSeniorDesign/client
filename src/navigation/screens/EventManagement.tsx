@@ -12,14 +12,17 @@ import {
 } from 'react-native';
 import { useNavigation, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { RootStackParamList, Event } from '../navigation/types';
+import { RootStackParamList, Event, Round } from '../navigation/types';
 import {
   dbGetFencersInEventById,
   dbListEvents,
   dbCreateEvent,
   dbDeleteEvent,
+  dbGetRoundsForEvent,
+  dbCreatePoolAssignmentsAndBoutOrders,
+  dbCreateDEBouts
 } from '../../db/TournamentDatabaseUtils';
-
+import { buildDEBracket } from '../utils/RoundAlgorithms';
 
 type Props = {
   route: RouteProp<{ params: { tournamentName: string } }, 'params'>;
@@ -28,6 +31,8 @@ type Props = {
 export const EventManagement = ({ route }: Props) => {
   const { tournamentName } = route.params;
   const [events, setEvents] = useState<Event[]>([]);
+  // Map event id -> boolean (true if already started)
+  const [eventStatuses, setEventStatuses] = useState<{ [key: number]: boolean }>({});
   const [modalVisible, setModalVisible] = useState<boolean>(false);
   const [editingEventId, setEditingEventId] = useState<number | null>(null);
 
@@ -38,10 +43,19 @@ export const EventManagement = ({ route }: Props) => {
 
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
+  // Load events and determine if they have already been started (i.e. rounds exist)
   const loadEvents = async () => {
     try {
       const eventsList = await dbListEvents(tournamentName);
       setEvents(eventsList);
+      const statuses: { [key: number]: boolean } = {};
+      await Promise.all(
+          eventsList.map(async (evt) => {
+            const rounds: Round[] = await dbGetRoundsForEvent(evt.id);
+            statuses[evt.id] = rounds && rounds.length > 0;
+          })
+      );
+      setEventStatuses(statuses);
     } catch (error) {
       console.error('Error loading events from DB:', error);
     }
@@ -68,7 +82,7 @@ export const EventManagement = ({ route }: Props) => {
         age: selectedAge
         // class: string;
         // seeding: string;
-      }
+      };
 
       if (editingEventId === null) {
         //@ts-ignore TODO - once classification and seeding options are added, fix this
@@ -103,6 +117,7 @@ export const EventManagement = ({ route }: Props) => {
     );
   };
 
+  // For new (unstarted) events, confirm start before initializing rounds
   const confirmStartEvent = (id: number) => {
     Alert.alert(
         'Confirm Start',
@@ -115,21 +130,79 @@ export const EventManagement = ({ route }: Props) => {
     );
   };
 
+  // If event not started, initialize rounds (assign pools or generate bracket) then navigate
   const handleStartEvent = async (eventId: number) => {
     const eventToStart = events.find((evt) => evt.id === eventId);
     if (!eventToStart) return;
     try {
       const fencers = await dbGetFencersInEventById(eventToStart);
-      navigation.navigate('PoolsPage', {
-        event: eventToStart,
-        currentRoundIndex: 0,
-      });
+      // Fetch rounds for the event (assume rounds were created when configuring the event)
+      const rounds: Round[] = await dbGetRoundsForEvent(eventToStart.id);
+      const firstRound = rounds[0];
+
+      if (firstRound.type === 'pool') {
+        // For a pool round, create assignments and a round-robin bout order.
+        await dbCreatePoolAssignmentsAndBoutOrders(
+            eventToStart,
+            firstRound,
+            fencers,
+            firstRound.poolcount,   // poolCount stored in the round
+            firstRound.poolsize     // poolsize stored in the round
+        );
+        navigation.navigate('PoolsPage', {
+          event: eventToStart,
+          currentRoundIndex: 0,
+          // For PoolsPage, you can pass the round id so it can fetch the pool assignments
+          roundId: firstRound.id,
+        });
+      } else if (firstRound.type === 'de') {
+        // For DE rounds, generate the bracket and insert bouts.
+        const bracketData = buildDEBracket(fencers);
+        await dbCreateDEBouts(eventToStart, firstRound, bracketData);
+        navigation.navigate('DEBracketPage', {
+          event: eventToStart,
+          currentRoundIndex: 0,
+          bracketData,
+        });
+      }
     } catch (error) {
-      console.error('Error loading fencers for event', error);
-      Alert.alert('Error', 'Failed to load fencers for this event.');
+      console.error('Error starting event:', error);
+      Alert.alert('Error', 'Failed to start event.');
     }
   };
 
+  // If the event is already started, simply open it without reinitialization.
+  const handleOpenEvent = async (eventId: number) => {
+    const eventToOpen = events.find((evt) => evt.id === eventId);
+    if (!eventToOpen) return;
+    try {
+      const fencers = await dbGetFencersInEventById(eventToOpen);
+      const rounds: Round[] = await dbGetRoundsForEvent(eventToOpen.id);
+      if (!rounds || rounds.length === 0) {
+        Alert.alert("Event not started", "This event has not been started yet.");
+        return;
+      }
+      const firstRound = rounds[0];
+      if (firstRound.type === 'pool') {
+        navigation.navigate('PoolsPage', {
+          event: eventToOpen,
+          currentRoundIndex: 0,
+          roundId: firstRound.id,
+        });
+      } else if (firstRound.type === 'de') {
+        // For DE, if no stored bracket, you might recompute it.
+        const bracketData = buildDEBracket(fencers);
+        navigation.navigate('DEBracketPage', {
+          event: eventToOpen,
+          currentRoundIndex: 0,
+          bracketData,
+        });
+      }
+    } catch (error) {
+      console.error('Error opening event:', error);
+      Alert.alert('Error', 'Failed to open event.');
+    }
+  };
 
   // This callback is passed to EventSettings so that updates made there (e.g. rounds, pool settings) are saved.
   const handleSaveEventSettings = async (updatedEvent: Event) => {
@@ -167,9 +240,15 @@ export const EventManagement = ({ route }: Props) => {
                   </TouchableOpacity>
                   <TouchableOpacity
                       style={[styles.actionButton, styles.flexAction]}
-                      onPress={() => confirmStartEvent(event.id)}
+                      onPress={() =>
+                          eventStatuses[event.id]
+                              ? handleOpenEvent(event.id)
+                              : confirmStartEvent(event.id)
+                      }
                   >
-                    <Text style={styles.buttonText}>Start</Text>
+                    <Text style={styles.buttonText}>
+                      {eventStatuses[event.id] ? 'Open' : 'Start'}
+                    </Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                       onPress={() => confirmRemoveEvent(event.id)}
@@ -197,10 +276,18 @@ export const EventManagement = ({ route }: Props) => {
                 {['Cadet', 'Senior', 'Veteran'].map((ageOption) => (
                     <TouchableOpacity
                         key={ageOption}
-                        style={[styles.optionButton, selectedAge === ageOption && styles.selectedButton]}
+                        style={[
+                          styles.optionButton,
+                          selectedAge === ageOption && styles.selectedButton,
+                        ]}
                         onPress={() => setSelectedAge(ageOption)}
                     >
-                      <Text style={[styles.optionText, { color: selectedAge === ageOption ? '#fff' : '#000' }]}>
+                      <Text
+                          style={[
+                            styles.optionText,
+                            { color: selectedAge === ageOption ? '#fff' : '#000' },
+                          ]}
+                      >
                         {ageOption}
                       </Text>
                     </TouchableOpacity>
@@ -212,10 +299,18 @@ export const EventManagement = ({ route }: Props) => {
                 {["Men's", 'Mixed', "Women's"].map((gender) => (
                     <TouchableOpacity
                         key={gender}
-                        style={[styles.optionButton, selectedGender === gender && styles.selectedButton]}
+                        style={[
+                          styles.optionButton,
+                          selectedGender === gender && styles.selectedButton,
+                        ]}
                         onPress={() => setSelectedGender(gender)}
                     >
-                      <Text style={[styles.optionText, { color: selectedGender === gender ? '#fff' : '#000' }]}>
+                      <Text
+                          style={[
+                            styles.optionText,
+                            { color: selectedGender === gender ? '#fff' : '#000' },
+                          ]}
+                      >
                         {gender}
                       </Text>
                     </TouchableOpacity>
@@ -227,10 +322,18 @@ export const EventManagement = ({ route }: Props) => {
                 {['Epee', 'Foil', 'Saber'].map((weapon) => (
                     <TouchableOpacity
                         key={weapon}
-                        style={[styles.optionButton, selectedWeapon === weapon && styles.selectedButton]}
+                        style={[
+                          styles.optionButton,
+                          selectedWeapon === weapon && styles.selectedButton,
+                        ]}
                         onPress={() => setSelectedWeapon(weapon)}
                     >
-                      <Text style={[styles.optionText, { color: selectedWeapon === weapon ? '#fff' : '#000' }]}>
+                      <Text
+                          style={[
+                            styles.optionText,
+                            { color: selectedWeapon === weapon ? '#fff' : '#000' },
+                          ]}
+                      >
                         {weapon}
                       </Text>
                     </TouchableOpacity>
@@ -238,7 +341,10 @@ export const EventManagement = ({ route }: Props) => {
               </View>
 
               <View style={styles.modalActions}>
-                <TouchableOpacity style={styles.modalActionButton} onPress={handleSubmitEvent}>
+                <TouchableOpacity
+                    style={styles.modalActionButton}
+                    onPress={handleSubmitEvent}
+                >
                   <Text style={styles.modalActionText}>Submit</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
