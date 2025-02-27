@@ -1,6 +1,6 @@
 // src/utils/RoundAlgorithms.ts
 
-import { Fencer, RoundData } from '../navigation/types';
+import { Fencer, Round } from '../navigation/types';
 
 /**
  * A direct-elimination match between two competitors.
