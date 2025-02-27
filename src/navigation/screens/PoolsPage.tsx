@@ -11,6 +11,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { dbGetPoolsForRound } from "../../db/TournamentDatabaseUtils";
 import { RootStackParamList, Event, Fencer } from '../navigation/types';
 
+// Updated route params to include roundId
 type PoolsPageRouteParams = {
     event: Event;
     currentRoundIndex: number;
@@ -57,29 +58,44 @@ const PoolsPage: React.FC = () => {
                     No pool assignments found. Please verify that the round has been initialized.
                 </Text>
             )}
-            {pools.map((poolObj, index) => (
-                <View key={poolObj.poolid} style={styles.poolContainer}>
-                    <TouchableOpacity onPress={() => togglePool(index)} style={styles.poolHeader}>
-                        <View style={styles.poolHeaderRow}>
-                            <Text style={styles.poolHeaderText}>
-                                Pool {poolObj.poolid + 1} : {poolObj.fencers.length} fencer{poolObj.fencers.length !== 1 ? 's' : ''}
-                            </Text>
-                            <Text style={styles.arrowText}>
-                                {expandedPools[index] ? '▼' : '▶'}
-                            </Text>
-                        </View>
-                    </TouchableOpacity>
-                    {expandedPools[index] && (
-                        <View style={styles.fencerList}>
-                            {poolObj.fencers.map((fencer, i) => (
-                                <Text key={i} style={styles.fencerText}>
-                                    {fencer.lname}, {fencer.fname}
+            {pools.map((poolObj, index) => {
+                const isExpanded = expandedPools[index];
+                return (
+                    <View key={poolObj.poolid} style={styles.poolContainer}>
+                        <TouchableOpacity onPress={() => togglePool(index)} style={styles.poolHeader}>
+                            <View style={styles.poolHeaderRow}>
+                                <Text style={styles.poolHeaderText}>
+                                    Pool {poolObj.poolid + 1} : {poolObj.fencers.length} fencer{poolObj.fencers.length !== 1 ? 's' : ''}
                                 </Text>
-                            ))}
-                        </View>
-                    )}
-                </View>
-            ))}
+                                <Text style={styles.arrowText}>
+                                    {isExpanded ? '▼' : '▶'}
+                                </Text>
+                            </View>
+                        </TouchableOpacity>
+                        {isExpanded && (
+                            <View style={styles.fencerList}>
+                                {poolObj.fencers.map((fencer, i) => (
+                                    <Text key={i} style={styles.fencerText}>
+                                        {fencer.lname}, {fencer.fname}
+                                    </Text>
+                                ))}
+                                {/* "Referee" button below the fencer list */}
+                                <TouchableOpacity
+                                    style={styles.refereeButton}
+                                    onPress={() =>
+                                        navigation.navigate('BoutOrderPage', {
+                                            roundId: roundId,
+                                            poolId: poolObj.poolid,
+                                        })
+                                    }
+                                >
+                                    <Text style={styles.refereeButtonText}>Referee</Text>
+                                </TouchableOpacity>
+                            </View>
+                        )}
+                    </View>
+                );
+            })}
         </ScrollView>
     );
 };
@@ -129,5 +145,17 @@ const styles = StyleSheet.create({
     fencerText: {
         fontSize: 16,
         marginBottom: 10,
+    },
+    refereeButton: {
+        backgroundColor: '#000080',
+        paddingVertical: 10,
+        borderRadius: 6,
+        alignItems: 'center',
+        marginTop: 10,
+    },
+    refereeButtonText: {
+        color: '#fff',
+        fontSize: 16,
+        fontWeight: '600',
     },
 });

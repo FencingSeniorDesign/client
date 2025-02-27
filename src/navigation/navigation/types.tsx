@@ -69,6 +69,16 @@ export type DEBracketMatch = {
     scoreB?: number;
 };
 
+export type Bout = {
+    id: number;
+    fencerA: Fencer;
+    fencerB: Fencer;
+    scoreA: number;
+    scoreB: number;
+    status: 'pending' | 'active' | 'completed';
+};
+
+
 // Import DEBracketData from your RoundAlgorithms (if needed)
 import { DEBracketData } from '../utils/RoundAlgorithms';
 
@@ -97,10 +107,7 @@ export type RootStackParamList = {
             event: Event;
             currentRoundIndex: number;
         };
-        BoutOrderPage: {
-            poolFencers: Fencer[];
-            updatedBout?: { boutIndex: number; score1: number; score2: number };
-        };
+        BoutOrderPage: { roundId: number; poolId: number };
         DEBracketPage: { event: Event; currentRoundIndex: number; bracketData: DEBracketData };
         HostTournament: undefined;
         JoinTournament: undefined;

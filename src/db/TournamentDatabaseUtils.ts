@@ -1,6 +1,6 @@
 // TournamentDatabaseUtils.ts
 import * as SQLite from 'expo-sqlite';
-import { Fencer, Event, Tournament, Round } from "../navigation/navigation/types";
+import {Fencer, Event, Tournament, Round, Bout} from "../navigation/navigation/types";
 import {buildPools, DEBracketData} from "../navigation/utils/RoundAlgorithms";
 
 const DATABASE_NAME = 'tf.db';
@@ -681,4 +681,66 @@ export async function dbGetPoolsForRound(roundId: number): Promise<{ poolid: num
     });
     pools.sort((a, b) => a.poolid - b.poolid);
     return pools;
+}
+
+export async function dbGetBoutsForPool(roundId: number, poolId: number): Promise<Bout[]> {
+    const db = await openDB();
+    const rows = (await db.getAllAsync(
+        `SELECT
+         B.id,
+         fpa1.fencerid AS left_fencerid,
+         fpa2.fencerid AS right_fencerid,
+         fpa1.fenceridinpool,
+         fpa2.fenceridinpool,
+         leftF.fname AS left_fname,
+         leftF.lname AS left_lname,
+         rightF.fname AS right_fname,
+         rightF.lname AS right_lname,
+         fb1.score AS left_score,
+         fb2.score AS right_score,
+         victor
+     FROM Bouts AS B
+          JOIN FencerPoolAssignment AS fpa1
+               ON B.lfencer = fpa1.fencerid
+                  AND B.roundid = fpa1.roundid
+          JOIN FencerPoolAssignment AS fpa2
+               ON B.rfencer = fpa2.fencerid
+                  AND B.roundid = fpa2.roundid
+          JOIN Fencers AS leftF
+               ON B.lfencer = leftF.id
+          JOIN Fencers AS rightF
+               ON B.rfencer = rightF.id
+          LEFT JOIN FencerBouts AS fb1
+                    ON fb1.boutid = B.id
+                        AND fb1.fencerid = fpa1.fencerid
+          LEFT JOIN FencerBouts AS fb2
+                    ON fb2.boutid = B.id
+                        AND fb2.fencerid = fpa2.fencerid
+     WHERE B.roundid = ?
+       AND fpa1.poolid = ?
+       AND fpa2.poolid = ?;`,
+        [roundId, poolId, poolId]
+    ));
+
+
+    return rows;
+}
+
+export async function dbUpdateBoutScore(boutId: number, fencerId: number, score: number): Promise<void> {
+    const db = await openDB();
+    await db.runAsync(
+        'UPDATE FencerBouts SET score = ? WHERE boutid = ? AND fencerid = ?',
+        [score, boutId, fencerId]
+    );
+}
+
+export async function dbUpdateBoutScores(
+    boutId: number,
+    scoreA: number,
+    scoreB: number,
+    fencerAId: number,
+    fencerBId: number
+): Promise<void> {
+    await dbUpdateBoutScore(boutId, fencerAId, scoreA);
+    await dbUpdateBoutScore(boutId, fencerBId, scoreB);
 }
