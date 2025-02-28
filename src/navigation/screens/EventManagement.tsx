@@ -21,7 +21,6 @@ import {
   dbGetRoundsForEvent,
   dbInitializeRound
 } from '../../db/TournamentDatabaseUtils';
-import { buildDEBracket } from '../utils/RoundAlgorithms';
 
 type Props = {
   route: RouteProp<{ params: { tournamentName: string } }, 'params'>;
@@ -48,20 +47,20 @@ export const EventManagement = ({ route }: Props) => {
       const eventsList = await dbListEvents(tournamentName);
       setEvents(eventsList);
       const statuses: { [key: number]: boolean } = {};
-      
+
       await Promise.all(
           eventsList.map(async (evt) => {
             const rounds: Round[] = await dbGetRoundsForEvent(evt.id);
-            
+
             // An event is considered started if it has at least one round AND the first round has isstarted=1
             if (rounds && rounds.length > 0) {
-              statuses[evt.id] = rounds[0].isstarted === 1;
+              statuses[evt.id] = rounds[0].isstarted;
             } else {
               statuses[evt.id] = false;
             }
           })
       );
-      
+
       setEventStatuses(statuses);
     } catch (error) {
       console.error('Error loading events from DB:', error);
@@ -143,22 +142,22 @@ export const EventManagement = ({ route }: Props) => {
     if (!eventToStart) return;
     try {
       const fencers = await dbGetFencersInEventById(eventToStart);
-      
+
       if (fencers.length === 0) {
         Alert.alert('Error', 'Cannot start event with no fencers. Please add fencers first.');
         return;
       }
-      
+
       // Fetch rounds for the event (assume rounds were created when configuring the event)
       const rounds: Round[] = await dbGetRoundsForEvent(eventToStart.id);
-      
+
       if (rounds.length === 0) {
         Alert.alert('Error', 'Cannot start event with no rounds. Please configure rounds first.');
         return;
       }
-      
+
       const firstRound = rounds[0];
-      
+
       // Validate round configuration
       if (firstRound.type === 'pool' && (!firstRound.poolcount || !firstRound.poolsize)) {
         Alert.alert('Error', 'Pool round is not configured correctly. Please set pool count and size.');
@@ -175,14 +174,6 @@ export const EventManagement = ({ route }: Props) => {
           currentRoundIndex: 0,
           roundId: firstRound.id,
         });
-      } else if (firstRound.type === 'de') {
-        // Build bracket data for the navigation (the data is already stored in the DB)
-        const bracketData = buildDEBracket(fencers);
-        navigation.navigate('DEBracketPage', {
-          event: eventToStart,
-          currentRoundIndex: 0,
-          bracketData,
-        });
       }
     } catch (error) {
       console.error('Error starting event:', error);
@@ -197,18 +188,18 @@ export const EventManagement = ({ route }: Props) => {
     try {
       const fencers = await dbGetFencersInEventById(eventToOpen);
       const rounds: Round[] = await dbGetRoundsForEvent(eventToOpen.id);
-      
+
       if (!rounds || rounds.length === 0) {
         Alert.alert("Event not started", "This event has not been set up with rounds yet.");
         return;
       }
-      
+
       const firstRound = rounds[0];
-      
+
       // Check if the round has been initialized (marked as started)
       if (!firstRound.isstarted) {
         Alert.alert(
-          "Round Not Started", 
+          "Round Not Started",
           "This round hasn't been initialized yet. Would you like to start it now?",
           [
             { text: "Cancel", style: "cancel" },
@@ -217,7 +208,7 @@ export const EventManagement = ({ route }: Props) => {
         );
         return;
       }
-      
+
       // Navigate to the appropriate page based on round type
       if (firstRound.type === 'pool') {
         navigation.navigate('PoolsPage', {
@@ -227,11 +218,9 @@ export const EventManagement = ({ route }: Props) => {
         });
       } else if (firstRound.type === 'de') {
         // For DE, reconstruct the bracket data from the fencers for visualization
-        const bracketData = buildDEBracket(fencers);
         navigation.navigate('DEBracketPage', {
           event: eventToOpen,
           currentRoundIndex: 0,
-          bracketData,
         });
       }
     } catch (error) {

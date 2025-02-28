@@ -59,16 +59,6 @@ export type Event = {
     startedCount?: number; // Used to make sure we don't re-init pool/de brackets
 };
 
-export type DEBracketMatch = {
-    fencerA: Fencer | undefined;
-    fencerB: Fencer | undefined;
-    round: number;      // Round number (1 = first round, etc.)
-    matchIndex: number; // The index within that round
-    winner?: Fencer;
-    scoreA?: number;
-    scoreB?: number;
-};
-
 export type Bout = {
     id: number;
     fencerA: Fencer;
@@ -78,9 +68,6 @@ export type Bout = {
     status: 'pending' | 'active' | 'completed';
 };
 
-
-// Import DEBracketData from your RoundAlgorithms (if needed)
-import { DEBracketData } from '../utils/RoundAlgorithms';
 
 export type RootStackParamList = {
     HomeTabs: undefined;
@@ -108,9 +95,5 @@ export type RootStackParamList = {
             currentRoundIndex: number;
         };
         BoutOrderPage: { roundId: number; poolId: number };
-        DEBracketPage: { event: Event; currentRoundIndex: number; bracketData: DEBracketData };
-        HostTournament: undefined;
-        JoinTournament: undefined;
-        BracketViewPage: { bracketData: DEBracketData; event: Event };
     };
 };

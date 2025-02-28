@@ -315,7 +315,6 @@ export const EventSettings = ({ route }: Props) => {
             deformat: roundType === 'de' ? 'single' : '',
             detablesize: roundType === 'de' ? 0 : 0,
             iscomplete: 0,
-            // NEW: default pool configuration fields for pool rounds
             poolcount: roundType === 'pool' ? 0 : null,
             poolsize: roundType === 'pool' ? 0 : null,
             poolsoption: roundType === 'pool' ? 'promotion' : undefined,

@@ -1,7 +1,7 @@
 // TournamentDatabaseUtils.ts
 import * as SQLite from 'expo-sqlite';
 import {Fencer, Event, Tournament, Round, Bout} from "../navigation/navigation/types";
-import {buildDEBracket, buildPools, DEBracketData} from "../navigation/utils/RoundAlgorithms";
+import { buildPools } from "../navigation/utils/RoundAlgorithms";
 
 const DATABASE_NAME = 'tf.db';
 
@@ -593,8 +593,7 @@ export async function dbInitializeRound(
                 round.poolsize
             );
         } else if (round.type === 'de') {
-            const bracketData = buildDEBracket(fencers);
-            await dbCreateDEBouts(event, round, bracketData);
+            // TODO - create DE bouts
         }
         // Mark the round as started
         await dbMarkRoundAsStarted(round.id);
