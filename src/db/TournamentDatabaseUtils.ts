@@ -642,8 +642,6 @@ export async function dbCreateDEBouts(
     }
 }
 
-// In TournamentDatabaseUtils.ts, add this function:
-
 export async function dbGetPoolsForRound(roundId: number): Promise<{ poolid: number; fencers: Fencer[] }[]> {
     const db = await openDB();
     const results = await db.getAllAsync(
@@ -720,7 +718,7 @@ export async function dbGetBoutsForPool(roundId: number, poolId: number): Promis
        AND fpa1.poolid = ?
        AND fpa2.poolid = ?;`,
         [roundId, poolId, poolId]
-    ));
+    )) as any[];
 
 
     return rows;

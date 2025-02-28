@@ -70,8 +70,8 @@ const DEBracketPage: React.FC = () => {
         navigation.navigate('RefereeModule', {
             round: match.round,
             matchIndex: match.matchIndex,
-            fencer1Name: match.fencerA?.firstName || 'Fencer 1',
-            fencer2Name: match.fencerB?.firstName || 'Fencer 2',
+            fencer1Name: match.fencerA.fname || 'Fencer 1',
+            fencer2Name: match.fencerB.fname || 'Fencer 2',
             currentScore1: match.scoreA || 0,
             currentScore2: match.scoreB || 0,
             onSaveScores: (score1: number, score2: number) => {

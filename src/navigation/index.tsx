@@ -11,6 +11,7 @@ import BoutOrderPage from './screens/BoutOrderPage';
 
 import DEBracketPage from './screens/DEBracketPage';
 import BracketViewPage from './screens/BracketViewPage';
+import RoundResults from "./screens/RoundResults";
 
 const RootStack = createNativeStackNavigator({
   screens: {
@@ -64,6 +65,9 @@ const RootStack = createNativeStackNavigator({
       screen: BracketViewPage,
       options: { title: 'Bracket View' },
     },
+    RoundResults: {
+      screen: RoundResults,
+    }
   },
 });
 

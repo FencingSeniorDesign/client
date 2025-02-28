@@ -1,17 +1,18 @@
-import React, { useEffect, useState } from 'react';
+// In PoolsPage.tsx
+import React, { useEffect, useState, useCallback } from 'react';
 import {
     View,
     Text,
     TouchableOpacity,
     StyleSheet,
     ScrollView,
+    Alert,
 } from 'react-native';
-import { useRoute, RouteProp, useNavigation } from '@react-navigation/native';
+import { useRoute, RouteProp, useNavigation, useFocusEffect } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { dbGetPoolsForRound } from "../../db/TournamentDatabaseUtils";
+import { dbGetPoolsForRound, dbGetBoutsForPool, dbMarkRoundAsComplete } from "../../db/TournamentDatabaseUtils";
 import { RootStackParamList, Event, Fencer } from '../navigation/types';
 
-// Updated route params to include roundId
 type PoolsPageRouteParams = {
     event: Event;
     currentRoundIndex: number;
@@ -27,6 +28,7 @@ const PoolsPage: React.FC = () => {
     const { event, currentRoundIndex, roundId } = route.params;
     const [pools, setPools] = useState<{ poolid: number; fencers: Fencer[] }[]>([]);
     const [expandedPools, setExpandedPools] = useState<boolean[]>([]);
+    const [allBoutsComplete, setAllBoutsComplete] = useState<boolean>(false);
 
     useEffect(() => {
         async function fetchPools() {
@@ -43,12 +45,65 @@ const PoolsPage: React.FC = () => {
         fetchPools();
     }, [roundId]);
 
+    const checkBoutsCompletion = useCallback(async () => {
+        try {
+            const results = await Promise.all(
+                pools.map(pool => dbGetBoutsForPool(roundId, pool.poolid))
+            );
+            const allBouts = results.flat();
+            const complete = allBouts.every(bout => {
+                const scoreA = bout.scoreA ?? null;
+                const scoreB = bout.scoreB ?? null;
+                return scoreA !== 0 || scoreB !== 0;
+            });
+            setAllBoutsComplete(complete);
+        } catch (error) {
+            console.error("Error checking bout completion:", error);
+        }
+    }, [pools, roundId]);
+
+    useEffect(() => {
+        if (pools.length > 0) {
+            checkBoutsCompletion();
+        }
+    }, [pools, checkBoutsCompletion]);
+
+    useFocusEffect(
+        useCallback(() => {
+            if (pools.length > 0) {
+                checkBoutsCompletion();
+            }
+        }, [pools, checkBoutsCompletion])
+    );
+
     const togglePool = (index: number) => {
-        setExpandedPools((prev) => {
+        setExpandedPools(prev => {
             const updated = [...prev];
             updated[index] = !updated[index];
             return updated;
         });
+    };
+
+    const confirmEndRound = () => {
+        Alert.alert(
+            "End Round",
+            "Are you sure you want to end the round?",
+            [
+                { text: "Cancel", style: "cancel" },
+                {
+                    text: "Yes", onPress: async () => {
+                        try {
+                            // Mark the round as complete in the database.
+                            await dbMarkRoundAsComplete(roundId);
+                            // Then navigate to the RoundResults page.
+                            navigation.navigate('RoundResults', { roundId });
+                        } catch (error) {
+                            console.error("Error marking round as complete:", error);
+                        }
+                    }
+                }
+            ]
+        );
     };
 
     return (
@@ -79,7 +134,6 @@ const PoolsPage: React.FC = () => {
                                         {fencer.lname}, {fencer.fname}
                                     </Text>
                                 ))}
-                                {/* "Referee" button below the fencer list */}
                                 <TouchableOpacity
                                     style={styles.refereeButton}
                                     onPress={() =>
@@ -96,6 +150,16 @@ const PoolsPage: React.FC = () => {
                     </View>
                 );
             })}
+            <TouchableOpacity
+                style={[
+                    styles.endRoundButton,
+                    !allBoutsComplete && styles.disabledButton
+                ]}
+                disabled={!allBoutsComplete}
+                onPress={confirmEndRound}
+            >
+                <Text style={styles.endRoundButtonText}>End Round</Text>
+            </TouchableOpacity>
         </ScrollView>
     );
 };
@@ -105,6 +169,7 @@ export default PoolsPage;
 const styles = StyleSheet.create({
     container: {
         padding: 20,
+        paddingBottom: 40,
     },
     infoText: {
         fontSize: 16,
@@ -157,5 +222,20 @@ const styles = StyleSheet.create({
         color: '#fff',
         fontSize: 16,
         fontWeight: '600',
+    },
+    endRoundButton: {
+        backgroundColor: '#228B22',
+        paddingVertical: 15,
+        borderRadius: 6,
+        alignItems: 'center',
+        marginTop: 20,
+    },
+    endRoundButtonText: {
+        color: '#fff',
+        fontSize: 18,
+        fontWeight: '600',
+    },
+    disabledButton: {
+        backgroundColor: '#ccc',
     },
 });
