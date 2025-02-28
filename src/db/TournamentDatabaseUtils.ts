@@ -1,7 +1,7 @@
 // TournamentDatabaseUtils.ts
 import * as SQLite from 'expo-sqlite';
 import {Fencer, Event, Tournament, Round, Bout} from "../navigation/navigation/types";
-import {buildPools, DEBracketData} from "../navigation/utils/RoundAlgorithms";
+import {buildDEBracket, buildPools, DEBracketData} from "../navigation/utils/RoundAlgorithms";
 
 const DATABASE_NAME = 'tf.db';
 
@@ -569,6 +569,37 @@ export async function dbMarkRoundAsStarted(roundId: number): Promise<void> {
         console.log(`Round ${roundId} marked as started.`);
     } catch (error) {
         console.error('Error marking round as started:', error);
+        throw error;
+    }
+}
+
+/**
+ * Initialize a round when an event is started.
+ * - For pools: Creates pool assignments and bouts
+ * - For DE: Creates the initial DE bracket
+ */
+export async function dbInitializeRound(
+    event: Event, 
+    round: Round, 
+    fencers: Fencer[]
+): Promise<void> {
+    try {
+        if (round.type === 'pool') {
+            await dbCreatePoolAssignmentsAndBoutOrders(
+                event,
+                round,
+                fencers,
+                round.poolcount,
+                round.poolsize
+            );
+        } else if (round.type === 'de') {
+            const bracketData = buildDEBracket(fencers);
+            await dbCreateDEBouts(event, round, bracketData);
+        }
+        // Mark the round as started
+        await dbMarkRoundAsStarted(round.id);
+    } catch (error) {
+        console.error('Error initializing round:', error);
         throw error;
     }
 }

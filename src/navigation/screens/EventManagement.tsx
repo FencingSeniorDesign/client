@@ -19,8 +19,7 @@ import {
   dbCreateEvent,
   dbDeleteEvent,
   dbGetRoundsForEvent,
-  dbCreatePoolAssignmentsAndBoutOrders,
-  dbCreateDEBouts
+  dbInitializeRound
 } from '../../db/TournamentDatabaseUtils';
 import { buildDEBracket } from '../utils/RoundAlgorithms';
 
@@ -43,18 +42,26 @@ export const EventManagement = ({ route }: Props) => {
 
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
-  // Load events and determine if they have already been started (i.e. rounds exist)
+  // Load events and determine if they have already been started (rounds exist AND first round is initialized)
   const loadEvents = async () => {
     try {
       const eventsList = await dbListEvents(tournamentName);
       setEvents(eventsList);
       const statuses: { [key: number]: boolean } = {};
+      
       await Promise.all(
           eventsList.map(async (evt) => {
             const rounds: Round[] = await dbGetRoundsForEvent(evt.id);
-            statuses[evt.id] = rounds && rounds.length > 0;
+            
+            // An event is considered started if it has at least one round AND the first round has isstarted=1
+            if (rounds && rounds.length > 0) {
+              statuses[evt.id] = rounds[0].isstarted === 1;
+            } else {
+              statuses[evt.id] = false;
+            }
           })
       );
+      
       setEventStatuses(statuses);
     } catch (error) {
       console.error('Error loading events from DB:', error);
@@ -136,29 +143,41 @@ export const EventManagement = ({ route }: Props) => {
     if (!eventToStart) return;
     try {
       const fencers = await dbGetFencersInEventById(eventToStart);
+      
+      if (fencers.length === 0) {
+        Alert.alert('Error', 'Cannot start event with no fencers. Please add fencers first.');
+        return;
+      }
+      
       // Fetch rounds for the event (assume rounds were created when configuring the event)
       const rounds: Round[] = await dbGetRoundsForEvent(eventToStart.id);
+      
+      if (rounds.length === 0) {
+        Alert.alert('Error', 'Cannot start event with no rounds. Please configure rounds first.');
+        return;
+      }
+      
       const firstRound = rounds[0];
+      
+      // Validate round configuration
+      if (firstRound.type === 'pool' && (!firstRound.poolcount || !firstRound.poolsize)) {
+        Alert.alert('Error', 'Pool round is not configured correctly. Please set pool count and size.');
+        return;
+      }
 
+      // Initialize the first round (creates assignments, bouts, etc.)
+      await dbInitializeRound(eventToStart, firstRound, fencers);
+
+      // Navigate to appropriate page based on round type
       if (firstRound.type === 'pool') {
-        // For a pool round, create assignments and a round-robin bout order.
-        await dbCreatePoolAssignmentsAndBoutOrders(
-            eventToStart,
-            firstRound,
-            fencers,
-            firstRound.poolcount,   // poolCount stored in the round
-            firstRound.poolsize     // poolsize stored in the round
-        );
         navigation.navigate('PoolsPage', {
           event: eventToStart,
           currentRoundIndex: 0,
-          // For PoolsPage, you can pass the round id so it can fetch the pool assignments
           roundId: firstRound.id,
         });
       } else if (firstRound.type === 'de') {
-        // For DE rounds, generate the bracket and insert bouts.
+        // Build bracket data for the navigation (the data is already stored in the DB)
         const bracketData = buildDEBracket(fencers);
-        await dbCreateDEBouts(eventToStart, firstRound, bracketData);
         navigation.navigate('DEBracketPage', {
           event: eventToStart,
           currentRoundIndex: 0,
@@ -178,11 +197,28 @@ export const EventManagement = ({ route }: Props) => {
     try {
       const fencers = await dbGetFencersInEventById(eventToOpen);
       const rounds: Round[] = await dbGetRoundsForEvent(eventToOpen.id);
+      
       if (!rounds || rounds.length === 0) {
-        Alert.alert("Event not started", "This event has not been started yet.");
+        Alert.alert("Event not started", "This event has not been set up with rounds yet.");
         return;
       }
+      
       const firstRound = rounds[0];
+      
+      // Check if the round has been initialized (marked as started)
+      if (!firstRound.isstarted) {
+        Alert.alert(
+          "Round Not Started", 
+          "This round hasn't been initialized yet. Would you like to start it now?",
+          [
+            { text: "Cancel", style: "cancel" },
+            { text: "Start Round", onPress: () => handleStartEvent(eventId) }
+          ]
+        );
+        return;
+      }
+      
+      // Navigate to the appropriate page based on round type
       if (firstRound.type === 'pool') {
         navigation.navigate('PoolsPage', {
           event: eventToOpen,
@@ -190,7 +226,7 @@ export const EventManagement = ({ route }: Props) => {
           roundId: firstRound.id,
         });
       } else if (firstRound.type === 'de') {
-        // For DE, if no stored bracket, you might recompute it.
+        // For DE, reconstruct the bracket data from the fencers for visualization
         const bracketData = buildDEBracket(fencers);
         navigation.navigate('DEBracketPage', {
           event: eventToOpen,
