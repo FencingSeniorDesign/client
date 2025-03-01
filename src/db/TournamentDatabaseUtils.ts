@@ -457,6 +457,17 @@ export async function dbDeleteFencerFromEventById(fencer: Fencer, event: Event):
 export async function dbMarkRoundAsComplete(roundId: number): Promise<void> {
     try {
         const db = await openDB();
+        
+        // First, get the round and event info
+        const round = await db.getFirstAsync('SELECT * FROM Rounds WHERE id = ?', [roundId]);
+        if (!round) {
+            throw new Error(`Round with id ${roundId} not found`);
+        }
+        
+        // Calculate and save seeding from the round results
+        await dbCalculateAndSaveSeedingFromRoundResults(round.eventid, roundId);
+        
+        // Then mark the round as complete
         await db.runAsync('UPDATE Rounds SET iscomplete = 1 WHERE id = ?', [roundId]);
         console.log(`Round ${roundId} marked as complete`);
     } catch (error) {
@@ -584,13 +595,50 @@ export async function dbInitializeRound(
     fencers: Fencer[]
 ): Promise<void> {
     try {
+        // Get seeding for this round
+        let seeding;
+        
+        // If this is the first round, calculate preliminary seeding
+        if (round.rorder === 1) {
+            const { calculatePreliminarySeeding } = require("../navigation/utils/RoundAlgorithms");
+            seeding = calculatePreliminarySeeding(fencers);
+            // Save the preliminary seeding to the database
+            await dbSaveSeeding(event.id, round.id, seeding);
+        } else {
+            // Get the results-based seeding from the previous round
+            const previousRounds = await dbGetRoundsForEvent(event.id);
+            const previousRound = previousRounds.find(r => r.rorder === round.rorder - 1);
+            
+            if (previousRound) {
+                // Explicitly use the previous round's results to determine seeding
+                seeding = await dbGetSeedingForRound(previousRound.id);
+                
+                // If no seeding found, we need to calculate it from the previous round's results
+                if (!seeding || seeding.length === 0) {
+                    await dbCalculateAndSaveSeedingFromRoundResults(event.id, previousRound.id);
+                    seeding = await dbGetSeedingForRound(previousRound.id);
+                }
+            }
+            
+            // If still no seeding found (unlikely), use preliminary seeding as a last resort
+            if (!seeding || seeding.length === 0) {
+                console.warn("No previous round results found, using preliminary seeding as fallback");
+                const { calculatePreliminarySeeding } = require("../navigation/utils/RoundAlgorithms");
+                seeding = calculatePreliminarySeeding(fencers);
+            }
+            
+            // Save this seeding for the current round too (it will be used for pool assignments)
+            await dbSaveSeeding(event.id, round.id, seeding);
+        }
+        
         if (round.type === 'pool') {
             await dbCreatePoolAssignmentsAndBoutOrders(
                 event,
                 round,
                 fencers,
                 round.poolcount,
-                round.poolsize
+                round.poolsize,
+                seeding
             );
         } else if (round.type === 'de') {
             // TODO - create DE bouts
@@ -613,9 +661,10 @@ export async function dbCreatePoolAssignmentsAndBoutOrders(
     round: Round,
     fencers: Fencer[],
     poolCount: number,
-    fencersPerPool: number
+    fencersPerPool: number,
+    seeding?: any[]
 ): Promise<void> {
-    const pools: Fencer[][] = buildPools(fencers, poolCount, fencersPerPool);
+    const pools: Fencer[][] = buildPools(fencers, poolCount, fencersPerPool, seeding);
     const db = await openDB();
 
     for (let poolIndex = 0; poolIndex < pools.length; poolIndex++) {
@@ -771,4 +820,159 @@ export async function dbUpdateBoutScores(
 ): Promise<void> {
     await dbUpdateBoutScore(boutId, fencerAId, scoreA);
     await dbUpdateBoutScore(boutId, fencerBId, scoreB);
+}
+
+/**
+ * Save seeding data to the database for a specific round
+ */
+export async function dbSaveSeeding(eventId: number, roundId: number, seeding: any[]): Promise<void> {
+    try {
+        const db = await openDB();
+        
+        // Delete any existing seeding for this round
+        await db.runAsync('DELETE FROM SeedingFromRoundResults WHERE roundid = ?', [roundId]);
+        
+        // Insert new seeding data
+        for (const seedingItem of seeding) {
+            await db.runAsync(
+                'INSERT INTO SeedingFromRoundResults (fencerid, eventid, roundid, seed) VALUES (?, ?, ?, ?)',
+                [seedingItem.fencer.id, eventId, roundId, seedingItem.seed]
+            );
+        }
+        
+        console.log(`Saved seeding for round ${roundId}`);
+    } catch (error) {
+        console.error('Error saving seeding:', error);
+        throw error;
+    }
+}
+
+/**
+ * Retrieve seeding data from the database for a specific round
+ */
+export async function dbGetSeedingForRound(roundId: number): Promise<any[]> {
+    try {
+        const db = await openDB();
+        
+        // Get seeding data joined with fencer information
+        const seedingData = await db.getAllAsync(
+            `SELECT s.seed, f.id, f.fname, f.lname, f.erating, f.eyear, f.frating, f.fyear, f.srating, f.syear
+             FROM SeedingFromRoundResults s
+             JOIN Fencers f ON s.fencerid = f.id
+             WHERE s.roundid = ?
+             ORDER BY s.seed`,
+            [roundId]
+        );
+        
+        // Transform to the format expected by the buildPools function
+        return seedingData.map(row => ({
+            seed: row.seed,
+            fencer: {
+                id: row.id,
+                fname: row.fname,
+                lname: row.lname,
+                erating: row.erating,
+                eyear: row.eyear,
+                frating: row.frating,
+                fyear: row.fyear,
+                srating: row.srating,
+                syear: row.syear
+            }
+        }));
+    } catch (error) {
+        console.error('Error getting seeding:', error);
+        return [];
+    }
+}
+
+/**
+ * Calculate seeding from round results and save it to the database
+ */
+export async function dbCalculateAndSaveSeedingFromRoundResults(eventId: number, roundId: number): Promise<void> {
+    try {
+        const db = await openDB();
+        
+        // First, get all pools for the round
+        const pools = await dbGetPoolsForRound(roundId);
+        
+        // For each pool, calculate stats for each fencer
+        const poolResults = [];
+        
+        for (const pool of pools) {
+            // Get all bouts for this pool
+            const bouts = await dbGetBoutsForPool(roundId, pool.poolid);
+            
+            // Initialize stats for each fencer
+            const fencerStats = new Map();
+            pool.fencers.forEach(fencer => {
+                if (fencer.id !== undefined) {
+                    fencerStats.set(fencer.id, {
+                        fencer,
+                        boutsCount: 0,
+                        wins: 0,
+                        touchesScored: 0,
+                        touchesReceived: 0,
+                        winRate: 0,
+                        indicator: 0
+                    });
+                }
+            });
+            
+            // Process each bout to update fencer stats
+            bouts.forEach((bout: any) => {
+                const leftId = bout.left_fencerid;
+                const rightId = bout.right_fencerid;
+                const leftScore = bout.left_score ?? 0;
+                const rightScore = bout.right_score ?? 0;
+                
+                // Update left fencer stats
+                if (fencerStats.has(leftId)) {
+                    const stats = fencerStats.get(leftId);
+                    stats.boutsCount += 1;
+                    stats.touchesScored += leftScore;
+                    stats.touchesReceived += rightScore;
+                    if (leftScore > rightScore) {
+                        stats.wins += 1;
+                    }
+                }
+                
+                // Update right fencer stats
+                if (fencerStats.has(rightId)) {
+                    const stats = fencerStats.get(rightId);
+                    stats.boutsCount += 1;
+                    stats.touchesScored += rightScore;
+                    stats.touchesReceived += leftScore;
+                    if (rightScore > leftScore) {
+                        stats.wins += 1;
+                    }
+                }
+            });
+            
+            // Calculate win rates and indicators
+            fencerStats.forEach(stats => {
+                if (stats.boutsCount > 0) {
+                    stats.winRate = (stats.wins / stats.boutsCount) * 100;
+                }
+                stats.indicator = stats.touchesScored - stats.touchesReceived;
+            });
+            
+            // Add to pool results
+            poolResults.push({
+                poolid: pool.poolid,
+                stats: Array.from(fencerStats.values())
+            });
+        }
+        
+        // Calculate seeding based on pool results
+        const { calculateSeedingFromResults } = require('../navigation/utils/RoundAlgorithms');
+        const seeding = calculateSeedingFromResults(poolResults);
+        
+        // Save the seeding to the database
+        await dbSaveSeeding(eventId, roundId, seeding);
+        
+        console.log(`Calculated and saved seeding from results of round ${roundId}`);
+    } catch (error) {
+        console.error('Error calculating seeding from round results:', error);
+        throw error;
+    }
 }

@@ -7,10 +7,11 @@ import {
     StyleSheet,
     ScrollView,
     Alert,
+    Modal,
 } from 'react-native';
 import { useRoute, RouteProp, useNavigation, useFocusEffect } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { dbGetPoolsForRound, dbGetBoutsForPool, dbMarkRoundAsComplete } from "../../db/TournamentDatabaseUtils";
+import { dbGetPoolsForRound, dbGetBoutsForPool, dbMarkRoundAsComplete, dbGetSeedingForRound } from "../../db/TournamentDatabaseUtils";
 import { RootStackParamList, Event, Fencer } from '../navigation/types';
 
 type PoolsPageRouteParams = {
@@ -29,6 +30,10 @@ const PoolsPage: React.FC = () => {
     const [pools, setPools] = useState<{ poolid: number; fencers: Fencer[] }[]>([]);
     const [expandedPools, setExpandedPools] = useState<boolean[]>([]);
     const [allBoutsComplete, setAllBoutsComplete] = useState<boolean>(false);
+    
+    // Seeding modal state
+    const [seedingModalVisible, setSeedingModalVisible] = useState<boolean>(false);
+    const [seeding, setSeeding] = useState<{ seed: number; fencer: Fencer }[]>([]);
 
     useEffect(() => {
         async function fetchPools() {
@@ -83,6 +88,17 @@ const PoolsPage: React.FC = () => {
             return updated;
         });
     };
+    
+    const fetchSeeding = async () => {
+        try {
+            const seedingData = await dbGetSeedingForRound(roundId);
+            setSeeding(seedingData);
+            setSeedingModalVisible(true);
+        } catch (error) {
+            console.error("Error fetching seeding:", error);
+            Alert.alert("Error", "Could not fetch seeding information.");
+        }
+    };
 
     const confirmEndRound = () => {
         Alert.alert(
@@ -96,7 +112,11 @@ const PoolsPage: React.FC = () => {
                             // Mark the round as complete in the database.
                             await dbMarkRoundAsComplete(roundId);
                             // Then navigate to the RoundResults page.
-                            navigation.navigate('RoundResults', { roundId });
+                            navigation.navigate('RoundResults', { 
+                                roundId, 
+                                eventId: event.id,
+                                currentRoundIndex 
+                            });
                         } catch (error) {
                             console.error("Error marking round as complete:", error);
                         }
@@ -113,6 +133,14 @@ const PoolsPage: React.FC = () => {
                     No pool assignments found. Please verify that the round has been initialized.
                 </Text>
             )}
+            
+            <TouchableOpacity
+                style={styles.viewSeedingButton}
+                onPress={fetchSeeding}
+            >
+                <Text style={styles.viewSeedingButtonText}>View Seeding</Text>
+            </TouchableOpacity>
+            
             {pools.map((poolObj, index) => {
                 const isExpanded = expandedPools[index];
                 return (
@@ -150,6 +178,7 @@ const PoolsPage: React.FC = () => {
                     </View>
                 );
             })}
+            
             <TouchableOpacity
                 style={[
                     styles.endRoundButton,
@@ -160,6 +189,39 @@ const PoolsPage: React.FC = () => {
             >
                 <Text style={styles.endRoundButtonText}>End Round</Text>
             </TouchableOpacity>
+            
+            {/* Seeding Modal */}
+            <Modal
+                animationType="slide"
+                transparent={true}
+                visible={seedingModalVisible}
+                onRequestClose={() => setSeedingModalVisible(false)}
+            >
+                <View style={styles.modalContainer}>
+                    <View style={styles.modalContent}>
+                        <Text style={styles.modalTitle}>Current Seeding</Text>
+                        
+                        <ScrollView style={styles.seedingList}>
+                            {seeding.map((item) => (
+                                <View key={item.fencer.id} style={styles.seedingItem}>
+                                    <Text style={styles.seedNumber}>{item.seed}</Text>
+                                    <Text style={styles.seedFencer}>
+                                        {item.fencer.lname}, {item.fencer.fname}
+                                        {item.fencer.frating !== 'U' && ` (${item.fencer.frating}${item.fencer.fyear})`}
+                                    </Text>
+                                </View>
+                            ))}
+                        </ScrollView>
+                        
+                        <TouchableOpacity
+                            style={styles.closeButton}
+                            onPress={() => setSeedingModalVisible(false)}
+                        >
+                            <Text style={styles.closeButtonText}>Close</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </Modal>
         </ScrollView>
     );
 };
@@ -237,5 +299,77 @@ const styles = StyleSheet.create({
     },
     disabledButton: {
         backgroundColor: '#ccc',
+    },
+    // New styles for seeding button and modal
+    viewSeedingButton: {
+        backgroundColor: '#4682B4', // Steel Blue
+        paddingVertical: 12,
+        borderRadius: 6,
+        alignItems: 'center',
+        marginBottom: 15,
+    },
+    viewSeedingButtonText: {
+        color: '#fff',
+        fontSize: 16,
+        fontWeight: '600',
+    },
+    modalContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    },
+    modalContent: {
+        width: '80%',
+        maxHeight: '80%',
+        backgroundColor: 'white',
+        borderRadius: 10,
+        padding: 20,
+        shadowColor: '#000',
+        shadowOffset: {
+            width: 0,
+            height: 2,
+        },
+        shadowOpacity: 0.25,
+        shadowRadius: 3.84,
+        elevation: 5,
+    },
+    modalTitle: {
+        fontSize: 22,
+        fontWeight: 'bold',
+        marginBottom: 15,
+        textAlign: 'center',
+    },
+    seedingList: {
+        maxHeight: 400,
+    },
+    seedingItem: {
+        flexDirection: 'row',
+        paddingVertical: 10,
+        borderBottomWidth: 1,
+        borderBottomColor: '#eee',
+        alignItems: 'center',
+    },
+    seedNumber: {
+        width: 40,
+        fontSize: 18,
+        fontWeight: 'bold',
+        textAlign: 'center',
+    },
+    seedFencer: {
+        flex: 1,
+        fontSize: 16,
+    },
+    closeButton: {
+        backgroundColor: '#007AFF',
+        paddingVertical: 12,
+        borderRadius: 6,
+        alignItems: 'center',
+        marginTop: 15,
+    },
+    closeButtonText: {
+        color: '#fff',
+        fontSize: 16,
+        fontWeight: '600',
     },
 });

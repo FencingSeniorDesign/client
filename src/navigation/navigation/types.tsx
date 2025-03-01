@@ -93,7 +93,13 @@ export type RootStackParamList = {
         PoolsPage: {
             event: Event;
             currentRoundIndex: number;
+            roundId: number;
         };
         BoutOrderPage: { roundId: number; poolId: number };
+        RoundResults: { 
+            roundId: number; 
+            eventId: number;
+            currentRoundIndex: number;
+        };
     };
 };

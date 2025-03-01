@@ -6,10 +6,19 @@ import {
     StyleSheet,
     ScrollView,
     ActivityIndicator,
+    TouchableOpacity,
+    Alert,
 } from 'react-native';
-import { useRoute, RouteProp } from '@react-navigation/native';
-import { RootStackParamList, Fencer } from '../navigation/types';
-import { dbGetPoolsForRound, dbGetBoutsForPool } from '../../db/TournamentDatabaseUtils';
+import { useRoute, RouteProp, useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { RootStackParamList, Fencer, Round, Event } from '../navigation/types';
+import { 
+    dbGetPoolsForRound, 
+    dbGetBoutsForPool, 
+    dbGetRoundsForEvent,
+    dbInitializeRound,
+    dbGetFencersInEventById
+} from '../../db/TournamentDatabaseUtils';
 
 interface FencerStats {
     fencer: Fencer;
@@ -29,14 +38,21 @@ interface PoolResult {
 type RoundResultsRouteProp = RouteProp<RootStackParamList, 'RoundResults'>;
 
 const RoundResults: React.FC = () => {
+    const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
     const route = useRoute<RoundResultsRouteProp>();
-    const { roundId } = route.params;
+    const { roundId, eventId, currentRoundIndex } = route.params;
     const [poolResults, setPoolResults] = useState<PoolResult[]>([]);
     const [loading, setLoading] = useState<boolean>(true);
+    const [event, setEvent] = useState<Event | null>(null);
+    const [nextRound, setNextRound] = useState<Round | null>(null);
+    const [hasNextRound, setHasNextRound] = useState<boolean>(false);
+    const [nextRoundStarted, setNextRoundStarted] = useState<boolean>(false);
 
     useEffect(() => {
-        async function fetchResults() {
+        async function fetchData() {
             try {
+                setLoading(true);
+                
                 // Fetch all pools for this round
                 const pools = await dbGetPoolsForRound(roundId);
                 const results: PoolResult[] = [];
@@ -111,14 +127,41 @@ const RoundResults: React.FC = () => {
                     });
                 }
                 setPoolResults(results);
+                
+                // Check for the next round
+                const allRounds = await dbGetRoundsForEvent(eventId);
+                
+                // Get the current round
+                const currentRound = allRounds.find(r => r.id === roundId);
+                if (!currentRound) {
+                    throw new Error("Current round not found");
+                }
+                
+                // Find the event information
+                const eventsList = await dbGetFencersInEventById({ id: eventId } as Event);
+                if (eventsList.length > 0) {
+                    // We're just using this to get the event, not the fencers
+                    setEvent({ id: eventId } as Event);
+                }
+                
+                // Find next round (if any)
+                const nextRoundIndex = currentRoundIndex + 1;
+                if (nextRoundIndex < allRounds.length) {
+                    const nextRoundData = allRounds[nextRoundIndex];
+                    setNextRound(nextRoundData);
+                    setHasNextRound(true);
+                    setNextRoundStarted(nextRoundData.isstarted === 1);
+                } else {
+                    setHasNextRound(false);
+                }
             } catch (error) {
-                console.error("Error fetching round results:", error);
+                console.error("Error fetching data:", error);
             } finally {
                 setLoading(false);
             }
         }
-        fetchResults();
-    }, [roundId]);
+        fetchData();
+    }, [roundId, eventId, currentRoundIndex]);
 
     if (loading) {
         return (
@@ -127,6 +170,33 @@ const RoundResults: React.FC = () => {
             </View>
         );
     }
+
+    // Handle starting or opening the next round
+    const handleNextRound = async () => {
+        if (!hasNextRound || !nextRound || !event) {
+            return;
+        }
+
+        try {
+            if (!nextRoundStarted) {
+                // Initialize the next round if it's not started yet
+                const fencers = await dbGetFencersInEventById(event);
+                await dbInitializeRound(event, nextRound, fencers);
+                Alert.alert("Success", "Next round initialized successfully!");
+                setNextRoundStarted(true);
+            }
+            
+            // Navigate to the PoolsPage for the next round
+            navigation.navigate('PoolsPage', {
+                event: event,
+                currentRoundIndex: currentRoundIndex + 1,
+                roundId: nextRound.id
+            });
+        } catch (error) {
+            console.error("Error handling next round:", error);
+            Alert.alert("Error", "Failed to initialize or open the next round.");
+        }
+    };
 
     return (
         <ScrollView contentContainerStyle={styles.container}>
@@ -154,6 +224,17 @@ const RoundResults: React.FC = () => {
                     ))}
                 </View>
             ))}
+            
+            {hasNextRound && (
+                <TouchableOpacity 
+                    style={styles.nextRoundButton} 
+                    onPress={handleNextRound}
+                >
+                    <Text style={styles.nextRoundButtonText}>
+                        {nextRoundStarted ? "Open Next Round" : "Start Next Round"}
+                    </Text>
+                </TouchableOpacity>
+            )}
         </ScrollView>
     );
 };
@@ -211,5 +292,18 @@ const styles = StyleSheet.create({
     tableCell: {
         flex: 1,
         textAlign: 'center',
+    },
+    nextRoundButton: {
+        backgroundColor: '#228B22', // Forest Green
+        paddingVertical: 15,
+        borderRadius: 6,
+        alignItems: 'center',
+        marginTop: 20,
+        marginBottom: 10,
+    },
+    nextRoundButtonText: {
+        color: '#fff',
+        fontSize: 18,
+        fontWeight: '600',
     },
 });
