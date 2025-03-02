@@ -1,4 +1,4 @@
-// index.tsx
+// src/navigation/index.tsx
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createStaticNavigation } from '@react-navigation/native';
 import { Home } from './screens/Home';
@@ -8,6 +8,9 @@ import { RefereeModule } from './screens/RefereeModule/RefereeModule';
 import PoolsPage from './screens/PoolsPage';
 import BoutOrderPage from './screens/BoutOrderPage';
 import RoundResults from "./screens/RoundResults";
+import DEBracketPage from './screens/DEBracketPage';
+import DoubleEliminationPage from './screens/DoubleEliminationPage';
+import CompassDrawPage from './screens/CompassDrawPage';
 
 const RootStack = createNativeStackNavigator({
   screens: {
@@ -50,6 +53,24 @@ const RootStack = createNativeStackNavigator({
     },
     RoundResults: {
       screen: RoundResults,
+    },
+    DEBracketPage: {
+      screen: DEBracketPage,
+      options: {
+        title: 'Single Elimination',
+      },
+    },
+    DoubleEliminationPage: {
+      screen: DoubleEliminationPage,
+      options: {
+        title: 'Double Elimination',
+      },
+    },
+    CompassDrawPage: {
+      screen: CompassDrawPage,
+      options: {
+        title: 'Compass Draw',
+      },
     }
   },
 });

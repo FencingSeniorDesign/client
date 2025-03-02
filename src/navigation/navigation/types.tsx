@@ -79,27 +79,35 @@ export type RootStackParamList = {
         fencer2Name: string;
         currentScore1: number;
         currentScore2: number;
-        onSaveScores: (score1: number, score2: number) => void;
-        EventManagment: { tournamentName: string };
-        EventSettings: { event: Event; onSave: (updatedEvent: Event) => void };
-        RefereeModule: {
-            boutIndex: number;
-            fencer1Name: string;
-            fencer2Name: string;
-            currentScore1: number;
-            currentScore2: number;
-            onSaveScores?: (score1: number, score2: number) => void;
-        };
-        PoolsPage: {
-            event: Event;
-            currentRoundIndex: number;
-            roundId: number;
-        };
-        BoutOrderPage: { roundId: number; poolId: number };
-        RoundResults: { 
-            roundId: number; 
-            eventId: number;
-            currentRoundIndex: number;
-        };
+        onSaveScores?: (score1: number, score2: number) => void;
+    };
+    PoolsPage: {
+        event: Event;
+        currentRoundIndex: number;
+        roundId: number;
+    };
+    BoutOrderPage: {
+        roundId: number;
+        poolId: number
+    };
+    RoundResults: {
+        roundId: number;
+        eventId: number;
+        currentRoundIndex: number;
+    };
+    DEBracketPage: {
+        event: Event;
+        currentRoundIndex: number;
+        roundId: number;
+    };
+    DoubleEliminationPage: {
+        event: Event;
+        currentRoundIndex: number;
+        roundId: number;
+    };
+    CompassDrawPage: {
+        event: Event;
+        currentRoundIndex: number;
+        roundId: number;
     };
 };

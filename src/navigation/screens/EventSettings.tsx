@@ -637,28 +637,58 @@ export const EventSettings = ({ route }: Props) => {
                                                 </View>
                                             ) : (
                                                 <View style={styles.deConfig}>
-                                                    {["single", "double", "compass"].map((format) => (
-                                                        <TouchableOpacity
-                                                            key={format}
-                                                            style={[
-                                                                styles.configOptionButton,
-                                                                round.deformat === format && styles.configOptionSelected,
-                                                            ]}
-                                                            onPress={() => {
-                                                                const updatedRound = { ...round, deformat: format };
-                                                                setRounds(prev => {
-                                                                    const newRounds = [...prev];
-                                                                    newRounds[idx] = updatedRound;
-                                                                    return newRounds;
-                                                                });
-                                                                handleUpdateRound(updatedRound);
-                                                            }}
-                                                        >
-                                                            <Text style={styles.configOptionText}>
-                                                                {format === "single" ? "Single" : format === "double" ? "Double" : "Compass"}
+                                                    <Text style={styles.configLabel}>Elimination Format:</Text>
+                                                    <View style={styles.deFormatContainer}>
+                                                        {["single", "double", "compass"].map((format) => (
+                                                            <TouchableOpacity
+                                                                key={format}
+                                                                style={[
+                                                                    styles.deFormatButton,
+                                                                    round.deformat === format && styles.deFormatButtonSelected,
+                                                                ]}
+                                                                onPress={() => {
+                                                                    const updatedRound = { ...round, deformat: format };
+                                                                    setRounds(prev => {
+                                                                        const newRounds = [...prev];
+                                                                        newRounds[idx] = updatedRound;
+                                                                        return newRounds;
+                                                                    });
+                                                                    handleUpdateRound(updatedRound);
+                                                                }}
+                                                            >
+                                                                <Text style={[
+                                                                    styles.deFormatButtonText,
+                                                                    round.deformat === format && styles.deFormatButtonTextSelected
+                                                                ]}>
+                                                                    {format.charAt(0).toUpperCase() + format.slice(1)}
+                                                                </Text>
+                                                            </TouchableOpacity>
+                                                        ))}
+                                                    </View>
+
+                                                    <Text style={styles.deFormatInfoHeader}>Format Information:</Text>
+
+                                                    <View style={styles.deFormatInfo}>
+                                                        {round.deformat === 'single' && (
+                                                            <Text style={styles.deFormatDescription}>
+                                                                Single elimination: Fencers are eliminated after one loss. The bracket size will be automatically determined based on the number of registered fencers.
                                                             </Text>
-                                                        </TouchableOpacity>
-                                                    ))}
+                                                        )}
+                                                        {round.deformat === 'double' && (
+                                                            <Text style={styles.deFormatDescription}>
+                                                                Double elimination: Fencers continue in a losers bracket after first loss. All fencers get at least two bouts before elimination. The bracket size will be automatically determined.
+                                                            </Text>
+                                                        )}
+                                                        {round.deformat === 'compass' && (
+                                                            <Text style={styles.deFormatDescription}>
+                                                                Compass format: All fencers continue in different brackets based on when they lose. This format maximizes the number of bouts per fencer. Bracket size will be calculated automatically.
+                                                            </Text>
+                                                        )}
+                                                    </View>
+
+                                                    <Text style={styles.fencerCountNote}>
+                                                        The bracket will be sized as the smallest power of 2 (8, 16, 32, 64, etc.) that can accommodate all registered fencers.
+                                                    </Text>
                                                 </View>
                                             )}
                                         </View>
@@ -1020,5 +1050,58 @@ const styles = StyleSheet.create({
     },
     poolConfigButtonSelected: {
         backgroundColor: "#28a745",
+    },
+    configLabel: {
+        fontSize: 16,
+        fontWeight: '600',
+        marginBottom: 8,
+        color: '#001f3f',
+    },
+    deFormatContainer: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        marginBottom: 15,
+    },
+    deFormatButton: {
+        flex: 1,
+        padding: 12,
+        alignItems: 'center',
+        backgroundColor: '#f0f0f0',
+        borderRadius: 6,
+        marginHorizontal: 4,
+    },
+    deFormatButtonSelected: {
+        backgroundColor: '#001f3f',
+    },
+    deFormatButtonText: {
+        fontSize: 14,
+        color: '#333',
+    },
+    deFormatButtonTextSelected: {
+        color: '#fff',
+    },
+    deFormatInfoHeader: {
+        fontSize: 16,
+        fontWeight: '600',
+        marginTop: 15,
+        marginBottom: 8,
+        color: '#001f3f',
+    },
+    deFormatInfo: {
+        backgroundColor: '#f0f4f8',
+        padding: 12,
+        borderRadius: 6,
+        marginBottom: 12,
+    },
+    deFormatDescription: {
+        fontSize: 14,
+        lineHeight: 20,
+        color: '#444',
+    },
+    fencerCountNote: {
+        fontSize: 14,
+        fontStyle: 'italic',
+        color: '#666',
+        marginTop: 10,
     },
 });

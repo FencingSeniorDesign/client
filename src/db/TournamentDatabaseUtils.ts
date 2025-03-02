@@ -183,6 +183,27 @@ export async function initDB(): Promise<void> {
         console.log(error);
     }
 
+    // DEBracketBouts
+    try {
+        await db.execAsync(`
+        CREATE TABLE IF NOT EXISTS DEBracketBouts (
+            id INTEGER PRIMARY KEY,
+            roundid INTEGER,
+            bout_id INTEGER,
+            bracket_type TEXT CHECK (bracket_type IN ('winners', 'losers', 'finals', 'east', 'north', 'west', 'south')),
+            bracket_round INTEGER,
+            bout_order INTEGER,
+            next_bout_id INTEGER,
+            loser_next_bout_id INTEGER,
+            FOREIGN KEY (roundid) REFERENCES Rounds (id),
+            FOREIGN KEY (bout_id) REFERENCES Bouts (id)
+        );
+    `);
+        console.log("DEBracketBouts table initialized");
+    } catch (error) {
+        console.log(error);
+    }
+
     // DETable
     try {
         await db.execAsync(`
@@ -608,74 +629,6 @@ export async function dbMarkRoundAsStarted(roundId: number): Promise<void> {
 }
 
 /**
- * Initialize a round when an event is started.
- * - For pools: Creates pool assignments and bouts
- * - For DE: Creates the initial DE bracket
- */
-export async function dbInitializeRound(
-    event: Event, 
-    round: Round, 
-    fencers: Fencer[]
-): Promise<void> {
-    try {
-        // Get seeding for this round
-        let seeding;
-        
-        // If this is the first round, calculate preliminary seeding
-        if (round.rorder === 1) {
-            const { calculatePreliminarySeeding } = require("../navigation/utils/RoundAlgorithms");
-            seeding = calculatePreliminarySeeding(fencers);
-            // Save the preliminary seeding to the database
-            await dbSaveSeeding(event.id, round.id, seeding);
-        } else {
-            // Get the results-based seeding from the previous round
-            const previousRounds = await dbGetRoundsForEvent(event.id);
-            const previousRound = previousRounds.find(r => r.rorder === round.rorder - 1);
-            
-            if (previousRound) {
-                // Explicitly use the previous round's results to determine seeding
-                seeding = await dbGetSeedingForRound(previousRound.id);
-                
-                // If no seeding found, we need to calculate it from the previous round's results
-                if (!seeding || seeding.length === 0) {
-                    await dbCalculateAndSaveSeedingFromRoundResults(event.id, previousRound.id);
-                    seeding = await dbGetSeedingForRound(previousRound.id);
-                }
-            }
-            
-            // If still no seeding found (unlikely), use preliminary seeding as a last resort
-            if (!seeding || seeding.length === 0) {
-                console.warn("No previous round results found, using preliminary seeding as fallback");
-                const { calculatePreliminarySeeding } = require("../navigation/utils/RoundAlgorithms");
-                seeding = calculatePreliminarySeeding(fencers);
-            }
-            
-            // Save this seeding for the current round too (it will be used for pool assignments)
-            await dbSaveSeeding(event.id, round.id, seeding);
-        }
-        
-        if (round.type === 'pool') {
-            await dbCreatePoolAssignmentsAndBoutOrders(
-                event,
-                round,
-                fencers,
-                round.poolcount,
-                round.poolsize,
-                seeding
-            );
-        } else if (round.type === 'de') {
-            // TODO - create DE bouts
-        }
-        // Mark the round as started
-        await dbMarkRoundAsStarted(round.id);
-    } catch (error) {
-        console.error('Error initializing round:', error);
-        throw error;
-    }
-}
-
-
-/**
  * Creates pool assignments and round-robin bout orders for a pool round.
  * Inserts assignments into FencerPoolAssignment and bouts into Bouts.
  */
@@ -997,5 +950,838 @@ export async function dbCalculateAndSaveSeedingFromRoundResults(eventId: number,
     } catch (error) {
         console.error('Error calculating seeding from round results:', error);
         throw error;
+    }
+}
+
+// These functions should be added to src/db/TournamentDatabaseUtils.ts
+
+/**
+ * Gets all bouts for a DE round
+ */
+export async function dbGetDEBouts(roundId: number): Promise<any[]> {
+    try {
+        const db = await openDB();
+        return await db.getAllAsync(
+            `SELECT 
+                B.id, B.lfencer, B.rfencer, B.victor, B.eventid, B.roundid, B.tableof,
+                leftF.fname AS left_fname, leftF.lname AS left_lname,
+                rightF.fname AS right_fname, rightF.lname AS right_lname,
+                fb1.score AS left_score, fb2.score AS right_score,
+                LEFT_SEEDING.seed AS seed_left, RIGHT_SEEDING.seed AS seed_right
+             FROM Bouts AS B
+             LEFT JOIN Fencers AS leftF ON B.lfencer = leftF.id
+             LEFT JOIN Fencers AS rightF ON B.rfencer = rightF.id
+             LEFT JOIN FencerBouts AS fb1 ON fb1.boutid = B.id AND fb1.fencerid = B.lfencer
+             LEFT JOIN FencerBouts AS fb2 ON fb2.boutid = B.id AND fb2.fencerid = B.rfencer
+             LEFT JOIN SeedingFromRoundResults AS LEFT_SEEDING 
+                    ON LEFT_SEEDING.fencerid = B.lfencer AND LEFT_SEEDING.roundid = B.roundid
+             LEFT JOIN SeedingFromRoundResults AS RIGHT_SEEDING 
+                    ON RIGHT_SEEDING.fencerid = B.rfencer AND RIGHT_SEEDING.roundid = B.roundid
+             WHERE B.roundid = ?
+             ORDER BY B.tableof DESC, B.id`,
+            [roundId]
+        );
+    } catch (error) {
+        console.error('Error getting DE bouts:', error);
+        throw error;
+    }
+}
+
+/**
+ * Creates the first round of DE bouts based on seeding and table size
+ */
+async function createFirstRoundDEBouts(
+    event: Event,
+    round: Round,
+    fencers: Fencer[],
+    seeding: any[]
+): Promise<void> {
+    try {
+        const db = await openDB();
+
+        // Determine the appropriate table size based on number of fencers
+        const fencerCount = fencers.length;
+        let tableSize = 2;
+        while (tableSize < fencerCount) {
+            tableSize *= 2;
+        }
+
+        // Update the round with the DE table size
+        await db.runAsync(
+            'UPDATE Rounds SET detablesize = ? WHERE id = ?',
+            [tableSize, round.id]
+        );
+
+        // Sort fencers by seed
+        const sortedFencers = [...seeding].sort((a, b) => a.seed - b.seed);
+
+        // Generate standard bracket positions
+        const positions = generateBracketPositions(tableSize);
+
+        // Place fencers according to seeding
+        for (let i = 0; i < positions.length; i++) {
+            const [posA, posB] = positions[i];
+
+            // Get fencers for this bout (or null for byes)
+            const fencerA = posA <= sortedFencers.length ? sortedFencers[posA - 1].fencer : null;
+            const fencerB = posB <= sortedFencers.length ? sortedFencers[posB - 1].fencer : null;
+
+            // If both fencers are null, skip this bout
+            if (!fencerA && !fencerB) continue;
+
+            // If only one fencer, it's a bye
+            const isBye = !fencerA || !fencerB;
+
+            // If it's a bye, the present fencer automatically advances
+            const victor = isBye ? (fencerA ? fencerA.id : fencerB!.id) : null;
+
+            await db.runAsync(
+                'INSERT INTO Bouts (lfencer, rfencer, victor, eventid, roundid, tableof) VALUES (?, ?, ?, ?, ?, ?)',
+                [
+                    fencerA ? fencerA.id : null,
+                    fencerB ? fencerB.id : null,
+                    victor,
+                    event.id,
+                    round.id,
+                    tableSize
+                ]
+            );
+
+            // If it's a bye, automatically create the score (15-0 for victor)
+            if (isBye && victor) {
+                const boutId = await db.getFirstAsync<{ id: number }>(
+                    'SELECT id FROM Bouts WHERE roundid = ? AND tableof = ? AND (lfencer = ? OR rfencer = ?)',
+                    [round.id, tableSize, victor, victor]
+                );
+
+                if (boutId) {
+                    if (fencerA) {
+                        await db.runAsync(
+                            'UPDATE FencerBouts SET score = ? WHERE boutid = ? AND fencerid = ?',
+                            [15, boutId.id, fencerA.id]
+                        );
+                    } else if (fencerB) {
+                        await db.runAsync(
+                            'UPDATE FencerBouts SET score = ? WHERE boutid = ? AND fencerid = ?',
+                            [15, boutId.id, fencerB.id]
+                        );
+                    }
+                }
+            }
+        }
+
+        // For byes, also create the next round bouts for advancing fencers
+        if (fencers.length < tableSize) {
+            await createNextRoundBouts(round.id, tableSize / 2);
+        }
+
+        console.log(`Created ${Math.ceil(tableSize / 2)} first round DE bouts`);
+    } catch (error) {
+        console.error('Error creating first round DE bouts:', error);
+        throw error;
+    }
+}
+
+/**
+ * Generates the standard bracket positions for a given table size
+ * @param tableSize The size of the DE table (must be a power of 2)
+ * @returns An array of pairs [seedA, seedB] for each first round match
+ */
+function generateBracketPositions(tableSize: number): [number, number][] {
+    const positions: [number, number][] = [];
+
+    // For a table of size N, the first round has N/2 bouts
+    for (let i = 0; i < tableSize / 2; i++) {
+        // Standard bracket pairing: 1 vs N, 2 vs N-1, etc.
+        const seedA = i + 1;
+        const seedB = tableSize - i;
+        positions.push([seedA, seedB]);
+    }
+
+    return positions;
+}
+
+/**
+ * Creates bouts for the next DE round after all bouts in the current round are complete
+ */
+export async function createNextRoundBouts(roundId: number, tableOf: number): Promise<void> {
+    try {
+        const db = await openDB();
+
+        // Get the round and event info
+        const round = await db.getFirstAsync<Round>('SELECT * FROM Rounds WHERE id = ?', [roundId]);
+        if (!round) throw new Error(`Round with id ${roundId} not found`);
+
+        // Get all completed bouts from the previous round (higher tableOf)
+        const prevTableOf = tableOf * 2;
+        const prevBouts = await db.getAllAsync(
+            `SELECT * FROM Bouts 
+             WHERE roundid = ? AND tableof = ? AND victor IS NOT NULL
+             ORDER BY id`,
+            [roundId, prevTableOf]
+        );
+
+        // Create bouts for the next round
+        for (let i = 0; i < prevBouts.length; i += 2) {
+            const boutA = prevBouts[i];
+
+            // If we don't have enough bouts, break
+            if (i + 1 >= prevBouts.length) break;
+
+            const boutB = prevBouts[i + 1];
+
+            // Create a new bout with the winners from boutA and boutB
+            await db.runAsync(
+                'INSERT INTO Bouts (lfencer, rfencer, eventid, roundid, tableof) VALUES (?, ?, ?, ?, ?)',
+                [
+                    boutA.victor,
+                    boutB.victor,
+                    round.eventid,
+                    roundId,
+                    tableOf
+                ]
+            );
+        }
+
+        console.log(`Created ${Math.floor(prevBouts.length / 2)} bouts for table of ${tableOf}`);
+
+        // If tableOf is 2, we've reached the final
+        if (tableOf === 2) {
+            console.log('Reached the final bout');
+        }
+    } catch (error) {
+        console.error('Error creating next round bouts:', error);
+        throw error;
+    }
+}
+
+/**
+ * Updates a bout with scores and advances the winner to the next round
+ */
+export async function dbUpdateDEBoutAndAdvanceWinner(
+    boutId: number,
+    scoreA: number,
+    scoreB: number,
+    fencerAId: number,
+    fencerBId: number
+): Promise<void> {
+    try {
+        const db = await openDB();
+
+        // Update the scores
+        await dbUpdateBoutScores(boutId, scoreA, scoreB, fencerAId, fencerBId);
+
+        // Determine the winner
+        const victorId = scoreA > scoreB ? fencerAId : fencerBId;
+
+        // Update the bout with the victor
+        await db.runAsync(
+            'UPDATE Bouts SET victor = ? WHERE id = ?',
+            [victorId, boutId]
+        );
+
+        // Get the bout details to determine next steps
+        const bout = await db.getFirstAsync(
+            'SELECT roundid, tableof FROM Bouts WHERE id = ?',
+            [boutId]
+        );
+
+        if (!bout) throw new Error(`Bout with id ${boutId} not found`);
+
+        // Get all bouts in the same round and table
+        const boutsInSameTable = await db.getAllAsync(
+            'SELECT id, victor FROM Bouts WHERE roundid = ? AND tableof = ?',
+            [bout.roundid, bout.tableof]
+        );
+
+        // Check if all bouts in the current table have victors
+        const allComplete = boutsInSameTable.every(b => b.victor !== null);
+
+        // If all complete and not the final (tableof > 2), create next round bouts
+        if (allComplete && bout.tableof > 2) {
+            await createNextRoundBouts(bout.roundid, bout.tableof / 2);
+        }
+
+        console.log(`Updated bout ${boutId} and advanced winner ${victorId}`);
+    } catch (error) {
+        console.error('Error updating bout and advancing winner:', error);
+        throw error;
+    }
+}
+
+// Additional database functions for advanced DE formats
+
+/**
+ * Gets bouts for a double elimination format
+ */
+export async function dbGetDoubleBracketBouts(
+    roundId: number
+): Promise<{ winners: any[], losers: any[], finals: any[] }> {
+    try {
+        const db = await openDB();
+
+        // Get all bouts categorized by bracket type
+        const allBouts = await db.getAllAsync(`
+            SELECT 
+                B.id, B.lfencer, B.rfencer, B.victor, B.tableof, B.eventid,
+                leftF.fname AS left_fname, leftF.lname AS left_lname,
+                rightF.fname AS right_fname, rightF.lname AS right_lname,
+                fb1.score AS left_score, fb2.score AS right_score,
+                DEB.bracket_type, DEB.bracket_round, DEB.bout_order,
+                LEFT_SEEDING.seed AS seed_left, RIGHT_SEEDING.seed AS seed_right
+            FROM Bouts B
+            JOIN DEBracketBouts DEB ON B.id = DEB.bout_id
+            LEFT JOIN Fencers leftF ON B.lfencer = leftF.id
+            LEFT JOIN Fencers rightF ON B.rfencer = rightF.id
+            LEFT JOIN FencerBouts fb1 ON fb1.boutid = B.id AND fb1.fencerid = B.lfencer
+            LEFT JOIN FencerBouts fb2 ON fb2.boutid = B.id AND fb2.fencerid = B.rfencer
+            LEFT JOIN SeedingFromRoundResults LEFT_SEEDING 
+                   ON LEFT_SEEDING.fencerid = B.lfencer AND LEFT_SEEDING.roundid = B.roundid
+            LEFT JOIN SeedingFromRoundResults RIGHT_SEEDING 
+                   ON RIGHT_SEEDING.fencerid = B.rfencer AND RIGHT_SEEDING.roundid = B.roundid
+            WHERE B.roundid = ?
+            ORDER BY DEB.bracket_type, DEB.bracket_round, DEB.bout_order
+        `, [roundId]);
+
+        // Separate into different brackets
+        const winners = allBouts.filter(bout => bout.bracket_type === 'winners');
+        const losers = allBouts.filter(bout => bout.bracket_type === 'losers');
+        const finals = allBouts.filter(bout => bout.bracket_type === 'finals');
+
+        return { winners, losers, finals };
+    } catch (error) {
+        console.error('Error getting double elimination bouts:', error);
+        throw error;
+    }
+}
+
+/**
+ * Gets bouts for a compass draw format
+ */
+export async function dbGetCompassBracketBouts(
+    roundId: number
+): Promise<{ east: any[], north: any[], west: any[], south: any[] }> {
+    try {
+        const db = await openDB();
+
+        // Get all bouts categorized by bracket type
+        const allBouts = await db.getAllAsync(`
+            SELECT 
+                B.id, B.lfencer, B.rfencer, B.victor, B.tableof, B.eventid,
+                leftF.fname AS left_fname, leftF.lname AS left_lname,
+                rightF.fname AS right_fname, rightF.lname AS right_lname,
+                fb1.score AS left_score, fb2.score AS right_score,
+                DEB.bracket_type, DEB.bracket_round, DEB.bout_order,
+                LEFT_SEEDING.seed AS seed_left, RIGHT_SEEDING.seed AS seed_right
+            FROM Bouts B
+            JOIN DEBracketBouts DEB ON B.id = DEB.bout_id
+            LEFT JOIN Fencers leftF ON B.lfencer = leftF.id
+            LEFT JOIN Fencers rightF ON B.rfencer = rightF.id
+            LEFT JOIN FencerBouts fb1 ON fb1.boutid = B.id AND fb1.fencerid = B.lfencer
+            LEFT JOIN FencerBouts fb2 ON fb2.boutid = B.id AND fb2.fencerid = B.rfencer
+            LEFT JOIN SeedingFromRoundResults LEFT_SEEDING 
+                   ON LEFT_SEEDING.fencerid = B.lfencer AND LEFT_SEEDING.roundid = B.roundid
+            LEFT JOIN SeedingFromRoundResults RIGHT_SEEDING 
+                   ON RIGHT_SEEDING.fencerid = B.rfencer AND RIGHT_SEEDING.roundid = B.roundid
+            WHERE B.roundid = ?
+            ORDER BY DEB.bracket_type, DEB.bracket_round, DEB.bout_order
+        `, [roundId]);
+
+        // Separate into different brackets
+        const east = allBouts.filter(bout => bout.bracket_type === 'east');
+        const north = allBouts.filter(bout => bout.bracket_type === 'north');
+        const west = allBouts.filter(bout => bout.bracket_type === 'west');
+        const south = allBouts.filter(bout => bout.bracket_type === 'south');
+
+        return { east, north, west, south };
+    } catch (error) {
+        console.error('Error getting compass draw bouts:', error);
+        throw error;
+    }
+}
+
+/**
+ * Creates a double elimination bracket structure in the database.
+ */
+export async function dbCreateDoubleEliminationBracket(
+    roundId: number,
+    tableSize: number,
+    seededFencers: { fencer: any, seed: number }[]
+): Promise<void> {
+    try {
+        const db = await openDB();
+
+        // Get round information
+        const round = await db.getFirstAsync<{ id: number, eventid: number }>(
+            'SELECT id, eventid FROM Rounds WHERE id = ?',
+            [roundId]
+        );
+
+        if (!round) {
+            throw new Error(`Round with ID ${roundId} not found`);
+        }
+
+        // Generate the bracket structure
+        const { generateDoubleEliminationStructure, placeFencersInDoubleElimination } = require('../navigation/utils/DoubleEliminationUtils');
+
+        // Create the structure
+        const brackets = generateDoubleEliminationStructure(seededFencers.length);
+
+        // Place fencers in the brackets
+        const populatedBrackets = placeFencersInDoubleElimination(brackets, seededFencers);
+
+        // Insert all bouts into the database
+        const { winnersBracket, losersBracket, finalsBracket } = populatedBrackets;
+        const allBrackets = [
+            ...winnersBracket.map(bout => ({ ...bout, bracketType: 'winners' })),
+            ...losersBracket.map(bout => ({ ...bout, bracketType: 'losers' })),
+            ...finalsBracket.map(bout => ({ ...bout, bracketType: 'finals' }))
+        ];
+
+        // Create bouts first
+        for (const bout of allBrackets) {
+            const boutResult = await db.runAsync(
+                `INSERT INTO Bouts (lfencer, rfencer, victor, eventid, roundid, tableof) 
+                 VALUES (?, ?, ?, ?, ?, ?)`,
+                [
+                    bout.fencerA || null,
+                    bout.fencerB || null,
+                    bout.winner || null,
+                    round.eventid,
+                    roundId,
+                    tableSize
+                ]
+            );
+
+            const boutId = boutResult.lastInsertRowId;
+
+            // Then add bracket information
+            await db.runAsync(
+                `INSERT INTO DEBracketBouts (
+                    roundid, bout_id, bracket_type, bracket_round, 
+                    bout_order, next_bout_id, loser_next_bout_id
+                ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+                [
+                    roundId,
+                    boutId,
+                    bout.bracketType,
+                    bout.round,
+                    bout.position,
+                    bout.nextBoutId || null,
+                    bout.loserNextBoutId || null
+                ]
+            );
+
+            // If it's a bye, automatically update scores (15-0)
+            if (bout.isBye && bout.winner) {
+                const leftFencer = bout.fencerA;
+                const rightFencer = bout.fencerB;
+
+                if (leftFencer) {
+                    await db.runAsync(
+                        'UPDATE FencerBouts SET score = ? WHERE boutid = ? AND fencerid = ?',
+                        [15, boutId, leftFencer]
+                    );
+                }
+
+                if (rightFencer) {
+                    await db.runAsync(
+                        'UPDATE FencerBouts SET score = ? WHERE boutid = ? AND fencerid = ?',
+                        [0, boutId, rightFencer]
+                    );
+                }
+            }
+        }
+
+        console.log(`Created double elimination bracket for round ${roundId}`);
+    } catch (error) {
+        console.error('Error creating double elimination bracket:', error);
+        throw error;
+    }
+}
+
+/**
+ * Creates a compass draw bracket structure in the database.
+ */
+export async function dbCreateCompassDrawBracket(
+    roundId: number,
+    tableSize: number,
+    seededFencers: { fencer: any, seed: number }[]
+): Promise<void> {
+    try {
+        const db = await openDB();
+
+        // Get round information
+        const round = await db.getFirstAsync<{ id: number, eventid: number }>(
+            'SELECT id, eventid FROM Rounds WHERE id = ?',
+            [roundId]
+        );
+
+        if (!round) {
+            throw new Error(`Round with ID ${roundId} not found`);
+        }
+
+        // Generate the bracket structure
+        const { generateCompassDrawStructure, placeFencersInCompassDraw } = require('../navigation/utils/CompassDrawUtils');
+
+        // Create the structure
+        const brackets = generateCompassDrawStructure(seededFencers.length);
+
+        // Place fencers in the brackets
+        const populatedBrackets = placeFencersInCompassDraw(brackets, seededFencers);
+
+        // Insert all bouts into the database
+        const { eastBracket, northBracket, westBracket, southBracket } = populatedBrackets;
+        const allBrackets = [
+            ...eastBracket.map(bout => ({ ...bout, bracketType: 'east' })),
+            ...northBracket.map(bout => ({ ...bout, bracketType: 'north' })),
+            ...westBracket.map(bout => ({ ...bout, bracketType: 'west' })),
+            ...southBracket.map(bout => ({ ...bout, bracketType: 'south' }))
+        ];
+
+        // Create bouts first
+        for (const bout of allBrackets) {
+            const boutResult = await db.runAsync(
+                `INSERT INTO Bouts (lfencer, rfencer, victor, eventid, roundid, tableof) 
+                 VALUES (?, ?, ?, ?, ?, ?)`,
+                [
+                    bout.fencerA || null,
+                    bout.fencerB || null,
+                    bout.winner || null,
+                    round.eventid,
+                    roundId,
+                    tableSize
+                ]
+            );
+
+            const boutId = boutResult.lastInsertRowId;
+
+            // Then add bracket information
+            await db.runAsync(
+                `INSERT INTO DEBracketBouts (
+                    roundid, bout_id, bracket_type, bracket_round, 
+                    bout_order, next_bout_id, loser_next_bout_id
+                ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+                [
+                    roundId,
+                    boutId,
+                    bout.bracketType,
+                    bout.round,
+                    bout.position,
+                    bout.nextBoutId || null,
+                    bout.loserNextBoutId || null
+                ]
+            );
+
+            // If it's a bye, automatically update scores (15-0)
+            if (bout.isBye && bout.winner) {
+                const leftFencer = bout.fencerA;
+                const rightFencer = bout.fencerB;
+
+                if (leftFencer) {
+                    await db.runAsync(
+                        'UPDATE FencerBouts SET score = ? WHERE boutid = ? AND fencerid = ?',
+                        [15, boutId, leftFencer]
+                    );
+                }
+
+                if (rightFencer) {
+                    await db.runAsync(
+                        'UPDATE FencerBouts SET score = ? WHERE boutid = ? AND fencerid = ?',
+                        [0, boutId, rightFencer]
+                    );
+                }
+            }
+        }
+
+        console.log(`Created compass draw bracket for round ${roundId}`);
+    } catch (error) {
+        console.error('Error creating compass draw bracket:', error);
+        throw error;
+    }
+}
+
+/**
+ * Updates the initializeRound function to handle different DE formats
+ */
+export async function dbInitializeRound(
+    event: Event,
+    round: Round,
+    fencers: Fencer[]
+): Promise<void> {
+    try {
+        // Get seeding for this round
+        let seeding;
+
+        // If this is the first round, calculate preliminary seeding
+        if (round.rorder === 1) {
+            const { calculatePreliminarySeeding } = require("../navigation/utils/RoundAlgorithms");
+            seeding = calculatePreliminarySeeding(fencers);
+            // Save the preliminary seeding to the database
+            await dbSaveSeeding(event.id, round.id, seeding);
+        } else {
+            // Get the results-based seeding from the previous round
+            const previousRounds = await dbGetRoundsForEvent(event.id);
+            const previousRound = previousRounds.find(r => r.rorder === round.rorder - 1);
+
+            if (previousRound) {
+                // Explicitly use the previous round's results to determine seeding
+                seeding = await dbGetSeedingForRound(previousRound.id);
+
+                // If no seeding found, we need to calculate it from the previous round's results
+                if (!seeding || seeding.length === 0) {
+                    await dbCalculateAndSaveSeedingFromRoundResults(event.id, previousRound.id);
+                    seeding = await dbGetSeedingForRound(previousRound.id);
+                }
+            }
+
+            // If still no seeding found (unlikely), use preliminary seeding as a last resort
+            if (!seeding || seeding.length === 0) {
+                console.warn("No previous round results found, using preliminary seeding as fallback");
+                const { calculatePreliminarySeeding } = require("../navigation/utils/RoundAlgorithms");
+                seeding = calculatePreliminarySeeding(fencers);
+            }
+
+            // Save this seeding for the current round too
+            await dbSaveSeeding(event.id, round.id, seeding);
+        }
+
+        if (round.type === 'pool') {
+            await dbCreatePoolAssignmentsAndBoutOrders(
+                event,
+                round,
+                fencers,
+                round.poolcount,
+                round.poolsize,
+                seeding
+            );
+        } else if (round.type === 'de') {
+            // Automatically determine the appropriate bracket size
+            let tableSize = 2;
+            while (tableSize < fencers.length) {
+                tableSize *= 2;
+            }
+
+            // Update the round with the automatically calculated table size
+            const db = await openDB();
+            await db.runAsync(
+                'UPDATE Rounds SET detablesize = ? WHERE id = ?',
+                [tableSize, round.id]
+            );
+
+            console.log(`Automatically set DE table size to ${tableSize} for ${fencers.length} fencers`);
+
+            // Initialize based on DE format
+            if (round.deformat === 'single') {
+                await createFirstRoundDEBouts(event, round, fencers, seeding);
+            } else if (round.deformat === 'double') {
+                await dbCreateDoubleEliminationBracket(round.id, tableSize, seeding);
+            } else if (round.deformat === 'compass') {
+                await dbCreateCompassDrawBracket(round.id, tableSize, seeding);
+            }
+        }
+
+        // Mark the round as started
+        await dbMarkRoundAsStarted(round.id);
+    } catch (error) {
+        console.error('Error initializing round:', error);
+        throw error;
+    }
+}
+/**
+ * Gets summary statistics for a DE round
+ */
+export async function dbGetDESummary(roundId: number): Promise<{
+    totalFencers: number;
+    tableSize: number;
+    remainingFencers: number;
+    currentRound: number;
+    totalRounds: number;
+    topSeeds: any[];
+}> {
+    try {
+        const db = await openDB();
+
+        // Get the round information
+        const round = await db.getFirstAsync<{
+            id: number;
+            eventid: number;
+            detablesize: number;
+        }>('SELECT id, eventid, detablesize FROM Rounds WHERE id = ?', [roundId]);
+
+        if (!round) {
+            throw new Error(`Round with ID ${roundId} not found`);
+        }
+
+        // Get the total number of fencers in the event
+        const fencersResult = await db.getFirstAsync<{count: number}>(
+            'SELECT COUNT(*) as count FROM FencerEvents WHERE eventid = ?',
+            [round.eventid]
+        );
+        const totalFencers = fencersResult?.count || 0;
+
+        // Get the table size
+        const tableSize = round.detablesize || 0;
+
+        // Get the number of remaining fencers (those who have not been eliminated yet)
+        const remainingResult = await db.getFirstAsync<{count: number}>(
+            `SELECT COUNT(DISTINCT fencerid) as count 
+             FROM FencerBouts fb
+             JOIN Bouts b ON fb.boutid = b.id
+             WHERE b.roundid = ? AND b.victor IS NULL`,
+            [roundId]
+        );
+        const remainingFencers = remainingResult?.count || 0;
+
+        // Calculate the current round and total rounds based on table size
+        const totalRounds = Math.log2(tableSize);
+
+        // Get the most advanced round that has any bouts
+        const currentRoundResult = await db.getFirstAsync<{max_round: number}>(
+            `SELECT MAX(bracket_round) as max_round 
+             FROM DEBracketBouts 
+             WHERE roundid = ?`,
+            [roundId]
+        );
+        const currentRound = (currentRoundResult?.max_round || 1) + 1;
+
+        // Get the top 4 seeds
+        const topSeeds = await db.getAllAsync(
+            `SELECT s.seed, f.id, f.fname, f.lname, f.erating, f.eyear, f.frating, f.fyear, f.srating, f.syear
+             FROM SeedingFromRoundResults s
+             JOIN Fencers f ON s.fencerid = f.id
+             WHERE s.roundid = ?
+             ORDER BY s.seed
+             LIMIT 4`,
+            [roundId]
+        );
+
+        return {
+            totalFencers,
+            tableSize,
+            remainingFencers,
+            currentRound,
+            totalRounds,
+            topSeeds: topSeeds.map(row => ({
+                seed: row.seed,
+                fencer: {
+                    id: row.id,
+                    fname: row.fname,
+                    lname: row.lname,
+                    erating: row.erating,
+                    eyear: row.eyear,
+                    frating: row.frating,
+                    fyear: row.fyear,
+                    srating: row.srating,
+                    syear: row.syear
+                }
+            }))
+        };
+    } catch (error) {
+        console.error('Error getting DE summary:', error);
+        throw error;
+    }
+}
+
+/**
+ * Gets the DE format for a round
+ */
+export async function dbGetDEFormat(roundId: number): Promise<'single' | 'double' | 'compass'> {
+    try {
+        const db = await openDB();
+
+        const round = await db.getFirstAsync<{ deformat: string }>(
+            'SELECT deformat FROM Rounds WHERE id = ?',
+            [roundId]
+        );
+
+        if (!round) {
+            throw new Error(`Round with ID ${roundId} not found`);
+        }
+
+        // Default to single elimination if no format is specified
+        return (round.deformat as 'single' | 'double' | 'compass') || 'single';
+    } catch (error) {
+        console.error('Error getting DE format:', error);
+        return 'single'; // Default to single elimination
+    }
+}
+
+/**
+ * Checks if a DE round has completed (final bout has a winner)
+ */
+export async function dbIsDERoundComplete(roundId: number): Promise<boolean> {
+    try {
+        const db = await openDB();
+
+        // For single elimination, check if the finals bout has a winner
+        const finalBoutResult = await db.getFirstAsync<{ has_victor: number }>(
+            `SELECT COUNT(*) as has_victor 
+             FROM Bouts
+             WHERE roundid = ? AND
+                   id IN (SELECT bout_id FROM DEBracketBouts WHERE roundid = ? AND bracket_round = 1 AND bracket_type = 'finals')
+             AND victor IS NOT NULL`,
+            [roundId, roundId]
+        );
+
+        return finalBoutResult?.has_victor > 0;
+    } catch (error) {
+        console.error('Error checking if DE round is complete:', error);
+        return false;
+    }
+}
+
+/**
+ * Gets the event name for a DE round
+ */
+export async function dbGetEventNameForRound(roundId: number): Promise<string> {
+    try {
+        const db = await openDB();
+
+        const result = await db.getFirstAsync<{
+            weapon: string;
+            gender: string;
+            age: string;
+        }>(
+            `SELECT e.weapon, e.gender, e.age
+             FROM Events e
+             JOIN Rounds r ON e.id = r.eventid
+             WHERE r.id = ?`,
+            [roundId]
+        );
+
+        if (!result) {
+            return "Unknown Event";
+        }
+
+        return `${result.gender} ${result.age} ${result.weapon}`;
+    } catch (error) {
+        console.error('Error getting event name:', error);
+        return "Unknown Event";
+    }
+}
+
+/**
+ * Gets the table size for a DE round
+ * @param roundId ID of the round
+ * @returns The configured table size for the DE bracket
+ */
+export async function dbGetDETableSize(roundId: number): Promise<number> {
+    try {
+        const db = await openDB();
+
+        const result = await db.getFirstAsync<{ detablesize: number }>(
+            'SELECT detablesize FROM Rounds WHERE id = ?',
+            [roundId]
+        );
+
+        if (!result) {
+            throw new Error(`Round with ID ${roundId} not found`);
+        }
+
+        return result.detablesize || 0;
+    } catch (error) {
+        console.error('Error getting DE table size:', error);
+        return 0; // Default to 0 if there's an error
     }
 }
