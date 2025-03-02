@@ -289,10 +289,33 @@ export async function dbInsertExampleData(): Promise<void> {
         syear: 2025,
     };
 
+    const Guy5 = <Fencer>{
+        fname: "Cate",
+        lname: "L",
+        srating: "A",
+        syear: 2025,
+    };
+
+    const Guy6 = <Fencer>{
+        fname: "Jack",
+        lname: "D",
+    };
+
+    const Guy7 = <Fencer>{
+        fname: "Tim",
+        lname: "B",
+        srating: "C",
+        syear: 2025,
+    };
+
     await dbCreateFencerByName(Guy1);
     await dbCreateFencerByName(Guy2);
     await dbCreateFencerByName(Guy3);
     await dbCreateFencerByName(Guy4);
+    await dbCreateFencerByName(Guy5);
+    await dbCreateFencerByName(Guy6);
+    await dbCreateFencerByName(Guy7);
+
 
     console.log("Sample data loaded");
 }
