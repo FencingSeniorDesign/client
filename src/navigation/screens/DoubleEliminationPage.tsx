@@ -77,20 +77,26 @@ const DoubleEliminationPage: React.FC = () => {
         fetchBrackets();
     }, [event, roundId, refreshKey]);
 
+// Modified handleBoutPress function for DoubleEliminationPage.tsx
+
     const handleBoutPress = (bout: any) => {
-        // Skip if it's a BYE
-        if (bout.isBye) {
+        // First check if this is a bye match (one fencer present, one missing)
+        const hasFencerA = !!bout.lfencer;
+        const hasFencerB = !!bout.rfencer;
+
+        // True bye condition: exactly one fencer is present and has a victor set
+        if ((hasFencerA && !hasFencerB) || (!hasFencerA && hasFencerB)) {
             Alert.alert('BYE', 'This fencer advances automatically.');
             return;
         }
 
-        // Skip if both fencers aren't set yet (waiting for previous round)
-        if (!bout.fencerA || !bout.fencerB) {
+        // If neither fencer is set, this bout is waiting for previous results
+        if (!hasFencerA && !hasFencerB) {
             Alert.alert('Not Ready', 'This bout is waiting for fencers from previous rounds.');
             return;
         }
 
-        // Navigate to Referee Module
+        // If we get here, both fencers are set and the bout is valid
         navigation.navigate('RefereeModule', {
             boutIndex: bout.bout_order || 0,
             fencer1Name: `${bout.left_fname} ${bout.left_lname}`,
@@ -138,7 +144,17 @@ const DoubleEliminationPage: React.FC = () => {
             }));
     };
 
+// Modified renderBout function for DoubleEliminationPage.tsx
+
     const renderBout = (bout: any, bracketType: 'winners' | 'losers' | 'finals') => {
+        // Determine if this is a bye match (one fencer present, one missing)
+        const hasFencerA = !!bout.lfencer;
+        const hasFencerB = !!bout.rfencer;
+        const isBye = (hasFencerA && !hasFencerB) || (!hasFencerA && hasFencerB);
+
+        // Add the isBye property to the bout object so handleBoutPress can use it
+        bout.isBye = isBye;
+
         return (
             <DEBoutCard
                 key={bout.id}
@@ -170,13 +186,12 @@ const DoubleEliminationPage: React.FC = () => {
                 seedA={bout.seed_left}
                 seedB={bout.seed_right}
                 winner={bout.victor}
-                isBye={!bout.lfencer || !bout.rfencer}
+                isBye={isBye}
                 bracketType={bracketType}
                 onPress={() => handleBoutPress(bout)}
             />
         );
     };
-
     if (loading) {
         return (
             <View style={styles.loadingContainer}>

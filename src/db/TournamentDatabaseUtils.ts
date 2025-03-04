@@ -1341,7 +1341,7 @@ export async function dbCreateDoubleEliminationBracket(
         // Create bouts first
         for (const bout of allBrackets) {
             const boutResult = await db.runAsync(
-                `INSERT INTO Bouts (lfencer, rfencer, victor, eventid, roundid, tableof) 
+                `INSERT INTO Bouts (lfencer, rfencer, victor, eventid, roundid, tableof)
                  VALUES (?, ?, ?, ?, ?, ?)`,
                 [
                     bout.fencerA || null,
@@ -1358,7 +1358,7 @@ export async function dbCreateDoubleEliminationBracket(
             // Then add bracket information
             await db.runAsync(
                 `INSERT INTO DEBracketBouts (
-                    roundid, bout_id, bracket_type, bracket_round, 
+                    roundid, bout_id, bracket_type, bracket_round,
                     bout_order, next_bout_id, loser_next_bout_id
                 ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
                 [
@@ -1372,22 +1372,23 @@ export async function dbCreateDoubleEliminationBracket(
                 ]
             );
 
-            // If it's a bye, automatically update scores (15-0)
-            if (bout.isBye && bout.winner) {
-                const leftFencer = bout.fencerA;
-                const rightFencer = bout.fencerB;
+            // If it's a bye, automatically update scores properly
+            if ((bout.fencerA === null && bout.fencerB !== null) ||
+                (bout.fencerA !== null && bout.fencerB === null)) {
 
-                if (leftFencer) {
+                const winningFencer = bout.fencerA || bout.fencerB;
+
+                if (winningFencer) {
+                    // Set the victor in Bouts table
                     await db.runAsync(
-                        'UPDATE FencerBouts SET score = ? WHERE boutid = ? AND fencerid = ?',
-                        [15, boutId, leftFencer]
+                        'UPDATE Bouts SET victor = ? WHERE id = ?',
+                        [winningFencer, boutId]
                     );
-                }
 
-                if (rightFencer) {
+                    // Set scores in FencerBouts (15-0 for winner)
                     await db.runAsync(
                         'UPDATE FencerBouts SET score = ? WHERE boutid = ? AND fencerid = ?',
-                        [0, boutId, rightFencer]
+                        [15, boutId, winningFencer]
                     );
                 }
             }
@@ -1442,7 +1443,7 @@ export async function dbCreateCompassDrawBracket(
         // Create bouts first
         for (const bout of allBrackets) {
             const boutResult = await db.runAsync(
-                `INSERT INTO Bouts (lfencer, rfencer, victor, eventid, roundid, tableof) 
+                `INSERT INTO Bouts (lfencer, rfencer, victor, eventid, roundid, tableof)
                  VALUES (?, ?, ?, ?, ?, ?)`,
                 [
                     bout.fencerA || null,
@@ -1459,7 +1460,7 @@ export async function dbCreateCompassDrawBracket(
             // Then add bracket information
             await db.runAsync(
                 `INSERT INTO DEBracketBouts (
-                    roundid, bout_id, bracket_type, bracket_round, 
+                    roundid, bout_id, bracket_type, bracket_round,
                     bout_order, next_bout_id, loser_next_bout_id
                 ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
                 [
@@ -1473,22 +1474,23 @@ export async function dbCreateCompassDrawBracket(
                 ]
             );
 
-            // If it's a bye, automatically update scores (15-0)
-            if (bout.isBye && bout.winner) {
-                const leftFencer = bout.fencerA;
-                const rightFencer = bout.fencerB;
+            // If it's a bye, automatically update scores properly
+            if ((bout.fencerA === null && bout.fencerB !== null) ||
+                (bout.fencerA !== null && bout.fencerB === null)) {
 
-                if (leftFencer) {
+                const winningFencer = bout.fencerA || bout.fencerB;
+
+                if (winningFencer) {
+                    // Set the victor in Bouts table
                     await db.runAsync(
-                        'UPDATE FencerBouts SET score = ? WHERE boutid = ? AND fencerid = ?',
-                        [15, boutId, leftFencer]
+                        'UPDATE Bouts SET victor = ? WHERE id = ?',
+                        [winningFencer, boutId]
                     );
-                }
 
-                if (rightFencer) {
+                    // Set scores in FencerBouts (15-0 for winner)
                     await db.runAsync(
                         'UPDATE FencerBouts SET score = ? WHERE boutid = ? AND fencerid = ?',
-                        [0, boutId, rightFencer]
+                        [15, boutId, winningFencer]
                     );
                 }
             }
