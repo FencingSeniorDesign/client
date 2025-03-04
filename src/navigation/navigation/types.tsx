@@ -1,4 +1,4 @@
-export type Tournament = { // TODO - Make homescreen use this
+export type Tournament = {
     name: string;
     isComplete: boolean;
 }
@@ -24,36 +24,50 @@ export type Referee = {
     nickname?: string;
 };
 
-export type RoundData = {
-    roundType: 'Pools' | 'DE';
-    promotion?: number;
-    poolsOption?: 'promotion' | 'target';
-    targetBracketSize?: number;
-    eliminationFormat?: 'single' | 'double' | 'compass';
+export type PoolConfiguration = {
+    pools: number;
+    baseSize: number;
+    extraPools: number; // number of pools that get one extra fencer
+};
+
+export type Round = {
+    id: number;
+    eventid: number;
+    rorder: number;
+    type: 'pool' | 'de' ;
+    poolcount: number
+    poolsize: number
+    promotionpercent: number;
+    targetbracket: number;
+    usetargetbracket: 0 | 1;
+    deformat: 'single' | 'double' | 'compass';
+    detablesize: number;
+    isstarted: boolean;
+    iscomplete: number;
+    // UI-only properties (not persisted in the database)
+    poolsoption: 'promotion' | 'target';
+    poolConfiguration?: PoolConfiguration;
 };
 
 export type Event = {
     id: number;
-    tname: string;
     weapon: string;
     gender: string;
     age: string;
     class: string;
     seeding: string;
+    startedCount?: number; // Used to make sure we don't re-init pool/de brackets
 };
 
-export type DEBracketMatch = {
-    fencerA: Fencer | undefined;
-    fencerB: Fencer | undefined;
-    round: number;      // Round number (1 = first round, etc.)
-    matchIndex: number; // The index within that round
-    winner?: Fencer;
-    scoreA?: number;
-    scoreB?: number;
+export type Bout = {
+    id: number;
+    fencerA: Fencer;
+    fencerB: Fencer;
+    scoreA: number;
+    scoreB: number;
+    status: 'pending' | 'active' | 'completed';
 };
 
-// Import DEBracketData from your RoundAlgorithms (if needed)
-import { DEBracketData } from '../utils/RoundAlgorithms';
 
 export type RootStackParamList = {
     HomeTabs: undefined;
@@ -65,31 +79,35 @@ export type RootStackParamList = {
         fencer2Name: string;
         currentScore1: number;
         currentScore2: number;
-        onSaveScores: (score1: number, score2: number) => void;
-        EventManagment: { tournamentName: string };
-        EventSettings: { event: Event; onSave: (updatedEvent: Event) => void };
-        RefereeModule: {
-            boutIndex: number;
-            fencer1Name: string;
-            fencer2Name: string;
-            currentScore1: number;
-            currentScore2: number;
-            onSaveScores?: (score1: number, score2: number) => void;
-        };
-        PoolsPage: {
-            event: Event;
-            currentRoundIndex: number;
-            fencers: Fencer[];
-            poolCount: number;
-            fencersPerPool: number;
-        };
-        BoutOrderPage: {
-            poolFencers: Fencer[];
-            updatedBout?: { boutIndex: number; score1: number; score2: number };
-        };
-        DEBracketPage: { event: Event; currentRoundIndex: number; bracketData: DEBracketData };
-        HostTournament: undefined;
-        JoinTournament: undefined;
-        BracketViewPage: { bracketData: DEBracketData; event: Event };
+        onSaveScores?: (score1: number, score2: number) => void;
+    };
+    PoolsPage: {
+        event: Event;
+        currentRoundIndex: number;
+        roundId: number;
+    };
+    BoutOrderPage: {
+        roundId: number;
+        poolId: number
+    };
+    RoundResults: {
+        roundId: number;
+        eventId: number;
+        currentRoundIndex: number;
+    };
+    DEBracketPage: {
+        event: Event;
+        currentRoundIndex: number;
+        roundId: number;
+    };
+    DoubleEliminationPage: {
+        event: Event;
+        currentRoundIndex: number;
+        roundId: number;
+    };
+    CompassDrawPage: {
+        event: Event;
+        currentRoundIndex: number;
+        roundId: number;
     };
 };

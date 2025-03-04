@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, {useState, useEffect, useCallback} from 'react';
 import {
   View,
   Text,
@@ -10,23 +10,18 @@ import {
   ScrollView,
   TextInput,
 } from 'react-native';
-import { useNavigation, RouteProp } from '@react-navigation/native';
+import {useNavigation, RouteProp, useFocusEffect} from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { RootStackParamList, Event, RoundData } from '../navigation/types';
+import {RootStackParamList, Event, Round, Fencer} from '../navigation/types';
 import {
+  dbGetFencersInEventById,
   dbListEvents,
   dbCreateEvent,
   dbDeleteEvent,
+  dbGetRoundsForEvent,
+  dbInitializeRound
 } from '../../db/TournamentDatabaseUtils';
-
-// Extend RoundData with additional configuration properties
-type ExtendedRoundData = RoundData & {
-  // For Pools rounds:
-  poolsOption?: 'promotion' | 'target';
-  targetBracketSize?: number;
-  // For DE rounds:
-  eliminationFormat?: 'single' | 'double' | 'compass';
-};
+import {navigateToDEPage} from "../utils/DENavigationUtil";
 
 type Props = {
   route: RouteProp<{ params: { tournamentName: string } }, 'params'>;
@@ -35,146 +30,115 @@ type Props = {
 export const EventManagement = ({ route }: Props) => {
   const { tournamentName } = route.params;
   const [events, setEvents] = useState<Event[]>([]);
+  // Map event id -> boolean (true if already started)
+  const [eventStatuses, setEventStatuses] = useState<{ [key: number]: boolean }>({});
   const [modalVisible, setModalVisible] = useState<boolean>(false);
   const [editingEventId, setEditingEventId] = useState<number | null>(null);
 
-  // Fields for event creation (creation still uses the modal)
+  // Fields for event creation
   const [selectedGender, setSelectedGender] = useState<string>('Mixed');
   const [selectedWeapon, setSelectedWeapon] = useState<string>('Foil');
   const [selectedAge, setSelectedAge] = useState<string>('Senior');
 
-  // Use our extended rounds type
-  const [rounds, setRounds] = useState<ExtendedRoundData[]>([]);
-  const [showRoundTypeOptions, setShowRoundTypeOptions] = useState<boolean>(false);
-  const [expandedConfigIndex, setExpandedConfigIndex] = useState<number | null>(null);
-
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
-  // Load events from DB filtered by tournament name
-  const loadEvents = async () => {
+  // // Load events and determine if they have already been started (rounds exist AND first round is initialized)
+  // const loadEvents = async () => {
+  //   try {
+  //     const eventsList = await dbListEvents(tournamentName);
+  //     setEvents(eventsList);
+  //     const statuses: { [key: number]: boolean } = {};
+  //
+  //     await Promise.all(
+  //         eventsList.map(async (evt) => {
+  //           const rounds: Round[] = await dbGetRoundsForEvent(evt.id);
+  //
+  //           // An event is considered started if it has at least one round AND the first round has isstarted=1
+  //           if (rounds && rounds.length > 0) {
+  //             statuses[evt.id] = rounds[0].isstarted;
+  //           } else {
+  //             statuses[evt.id] = false;
+  //           }
+  //         })
+  //     );
+  //
+  //     setEventStatuses(statuses);
+  //   } catch (error) {
+  //     console.error('Error loading events from DB:', error);
+  //   }
+  // };
+  //
+  // useEffect(() => {
+  //   loadEvents();
+  // }, []);
+
+  const loadEvents = useCallback(async () => {
     try {
+      console.log("Loading events and their statuses...");
       const eventsList = await dbListEvents(tournamentName);
       setEvents(eventsList);
+      const statuses: { [key: number]: boolean } = {};
+
+      await Promise.all(
+          eventsList.map(async (evt) => {
+            const rounds: Round[] = await dbGetRoundsForEvent(evt.id);
+
+            // An event is considered started if it has at least one round AND the first round has isstarted=1
+            if (rounds && rounds.length > 0) {
+              statuses[evt.id] = rounds[0].isstarted;
+            } else {
+              statuses[evt.id] = false;
+            }
+          })
+      );
+
+      setEventStatuses(statuses);
+      console.log("Loaded event statuses:", statuses);
     } catch (error) {
       console.error('Error loading events from DB:', error);
     }
-  };
+  }, [tournamentName]);
 
+  // This effect runs when component mounts
   useEffect(() => {
     loadEvents();
-  }, []);
+  }, [loadEvents]);
 
-  // Opens the modal for creating a new event
+  // This effect runs when the screen comes into focus
+  useFocusEffect(
+      useCallback(() => {
+        console.log("EventManagement screen is now focused, refreshing data...");
+        loadEvents();
+
+        // Return a cleanup function (optional)
+        return () => {
+          console.log("EventManagement screen is losing focus");
+        };
+      }, [loadEvents])
+  );
+
   const openCreateModal = () => {
     setEditingEventId(null);
     setSelectedGender('Mixed');
     setSelectedWeapon('Foil');
     setSelectedAge('Senior');
-    setRounds([]);
     setModalVisible(true);
   };
 
-  // Helper functions for round reordering and configuration
-
-  const moveRoundUp = (index: number) => {
-    if (index <= 0) return;
-    setRounds(prev => {
-      const newRounds = [...prev];
-      [newRounds[index - 1], newRounds[index]] = [newRounds[index], newRounds[index - 1]];
-      return newRounds;
-    });
-  };
-
-  const moveRoundDown = (index: number) => {
-    setRounds(prev => {
-      if (index >= prev.length - 1) return prev;
-      const newRounds = [...prev];
-      [newRounds[index], newRounds[index + 1]] = [newRounds[index + 1], newRounds[index]];
-      return newRounds;
-    });
-  };
-
-  const removeRound = (index: number) => {
-    setRounds(prev => prev.filter((_, i) => i !== index));
-    if (expandedConfigIndex === index) {
-      setExpandedConfigIndex(null);
-    }
-  };
-
-  const toggleRoundConfig = (index: number) => {
-    if (expandedConfigIndex === index) {
-      setExpandedConfigIndex(null);
-    } else {
-      setExpandedConfigIndex(index);
-    }
-  };
-
-  const setPoolsOption = (index: number, option: 'promotion' | 'target') => {
-    setRounds(prev => {
-      const newRounds = [...prev];
-      newRounds[index] = { ...newRounds[index], poolsOption: option };
-      return newRounds;
-    });
-  };
-
-  const updateRoundPromotion = (index: number, val: string) => {
-    const promotion = parseInt(val, 10) || 0;
-    setRounds(prev => {
-      const newRounds = [...prev];
-      newRounds[index] = { ...newRounds[index], promotion };
-      return newRounds;
-    });
-  };
-
-  const updateRoundTarget = (index: number, size: number) => {
-    setRounds(prev => {
-      const newRounds = [...prev];
-      newRounds[index] = { ...newRounds[index], targetBracketSize: size };
-      return newRounds;
-    });
-  };
-
-  const updateRoundElimination = (index: number, format: 'single' | 'double' | 'compass') => {
-    setRounds(prev => {
-      const newRounds = [...prev];
-      newRounds[index] = { ...newRounds[index], eliminationFormat: format };
-      return newRounds;
-    });
-  };
-
-  const addRound = (roundType: 'Pools' | 'DE') => {
-    if (roundType === 'Pools') {
-      const newRound: ExtendedRoundData = {
-        roundType: 'Pools',
-        promotion: 100,
-        poolsOption: 'promotion',
-        targetBracketSize: 8,
-      };
-      setRounds([...rounds, newRound]);
-    } else {
-      const newRound: ExtendedRoundData = {
-        roundType: 'DE',
-        eliminationFormat: 'single',
-      };
-      setRounds([...rounds, newRound]);
-    }
-    setShowRoundTypeOptions(false);
-  };
-
-  // For new event creation, handle submission from the modal
+  // When submitting an event creation, include the rounds and pool settings
   const handleSubmitEvent = async () => {
     try {
+      const event = {
+        weapon: selectedWeapon,
+        gender: selectedGender,
+        age: selectedAge
+        // class: string;
+        // seeding: string;
+      };
+
       if (editingEventId === null) {
-        await dbCreateEvent(tournamentName, {
-          age: selectedAge,
-          gender: selectedGender,
-          weapon: selectedWeapon,
-          name: '', // Adjust if you have a name field
-          rounds,
-          fencers: [],
-          poolCount: 4,
-          fencersPerPool: 5,
-        });
+        //@ts-ignore TODO - once classification and seeding options are added, fix this
+        await dbCreateEvent(tournamentName, event);
       }
       setModalVisible(false);
       loadEvents();
@@ -205,6 +169,7 @@ export const EventManagement = ({ route }: Props) => {
     );
   };
 
+  // For new (unstarted) events, confirm start before initializing rounds
   const confirmStartEvent = (id: number) => {
     Alert.alert(
         'Confirm Start',
@@ -217,22 +182,115 @@ export const EventManagement = ({ route }: Props) => {
     );
   };
 
-  const handleStartEvent = (eventId: number) => {
-    const eventToStart = events.find((evt) => evt.id === eventId);
-    if (!eventToStart) return;
-    navigation.navigate('PoolsPage', {
-      event: eventToStart,
-      currentRoundIndex: 0,
-      fencers: eventToStart.fencers ?? [],
-      poolCount: eventToStart.poolCount ?? 4,
-      fencersPerPool: eventToStart.fencersPerPool ?? 5,
-    });
+// Helper function that ONLY handles initialization
+  const initializeRound = async (event: Event, round: Round, fencers: Fencer[]): Promise<boolean> => {
+    try {
+      // Initialize the round (creates assignments, bouts, etc.)
+      await dbInitializeRound(event, round, fencers);
+      return true;
+    } catch (error) {
+      console.error('Error initializing event:', error);
+      Alert.alert('Error', 'Failed to initialize the round.');
+      return false;
+    }
   };
 
-  // Callback passed to EventSettings to update the event in the database
+// Centralized navigation function for any round type
+  const navigateToRoundPage = (event: Event, round: Round, roundIndex: number) => {
+    if (round.type === 'pool') {
+      navigation.navigate('PoolsPage', {
+        event: event,
+        currentRoundIndex: roundIndex,
+        roundId: round.id,
+      });
+    } else if (round.type === 'de') {
+      // Use the utility function for DE navigation
+      navigateToDEPage(navigation, event, round, roundIndex);
+    }
+  };
+
+// The handleStartEvent now uses the separate functions
+  const handleStartEvent = async (eventId: number) => {
+    const eventToStart = events.find((evt) => evt.id === eventId);
+    if (!eventToStart) return;
+
+    try {
+      const fencers = await dbGetFencersInEventById(eventToStart);
+      // Validation code as before...
+
+      const rounds = await dbGetRoundsForEvent(eventToStart.id);
+      const firstRound = rounds[0];
+
+      // For DE rounds, show the auto-sizing confirmation
+      if (firstRound.type === 'de') {
+        let tableSize = 2;
+        while (tableSize < fencers.length) {
+          tableSize *= 2;
+        }
+
+        Alert.alert(
+            'Starting DE Round',
+            `The bracket will be automatically sized to ${tableSize} based on ${fencers.length} registered fencers.`,
+            [
+              { text: 'Cancel', style: 'cancel' },
+              {
+                text: 'Continue',
+                onPress: async () => {
+                  const success = await initializeRound(eventToStart, firstRound, fencers);
+                  if (success) {
+                    navigateToRoundPage(eventToStart, firstRound, 0);
+                  }
+                }
+              }
+            ]
+        );
+      } else {
+        // For pool rounds, just initialize without confirmation
+        const success = await initializeRound(eventToStart, firstRound, fencers);
+        if (success) {
+          navigateToRoundPage(eventToStart, firstRound, 0);
+        }
+      }
+    } catch (error) {
+      console.error('Error starting event:', error);
+      Alert.alert('Error', 'Failed to start event.');
+    }
+  };
+
+  // handleOpenEvent also uses the common navigation function
+  const handleOpenEvent = async (eventId: number) => {
+    const eventToOpen = events.find((evt) => evt.id === eventId);
+    if (!eventToOpen) return;
+
+    try {
+      const rounds = await dbGetRoundsForEvent(eventToOpen.id);
+      const firstRound = rounds[0];
+
+      // Check if already started
+      if (!firstRound.isstarted) {
+        Alert.alert(
+            "Round Not Started",
+            "This round hasn't been initialized yet. Would you like to start it now?",
+            [
+              { text: "Cancel", style: "cancel" },
+              { text: "Start Round", onPress: () => handleStartEvent(eventId) }
+            ]
+        );
+        return;
+      }
+
+      // If it's already started, simply navigate to the appropriate page
+      navigateToRoundPage(eventToOpen, firstRound, 0);
+    } catch (error) {
+      console.error('Error opening event:', error);
+      Alert.alert('Error', 'Failed to open event.');
+    }
+  };
+
+  // This callback is passed to EventSettings so that updates made there (e.g. rounds, pool settings) are saved.
   const handleSaveEventSettings = async (updatedEvent: Event) => {
     try {
-      // await dbUpdateEvent(updatedEvent.id, updatedEvent); // TODO save settings in EventSettings.tsx
+      // await dbUpdateEvent(updatedEvent.id, updatedEvent);
       loadEvents();
     } catch (error) {
       console.error('Error updating event settings:', error);
@@ -252,7 +310,6 @@ export const EventManagement = ({ route }: Props) => {
                   {event.age} {event.gender} {event.weapon}
                 </Text>
                 <View style={styles.eventActions}>
-                  {/* Navigate to EventSettings on edit */}
                   <TouchableOpacity
                       style={[styles.actionButton, styles.flexAction]}
                       onPress={() =>
@@ -266,9 +323,15 @@ export const EventManagement = ({ route }: Props) => {
                   </TouchableOpacity>
                   <TouchableOpacity
                       style={[styles.actionButton, styles.flexAction]}
-                      onPress={() => confirmStartEvent(event.id)}
+                      onPress={() =>
+                          eventStatuses[event.id]
+                              ? handleOpenEvent(event.id)
+                              : confirmStartEvent(event.id)
+                      }
                   >
-                    <Text style={styles.buttonText}>Start</Text>
+                    <Text style={styles.buttonText}>
+                      {eventStatuses[event.id] ? 'Open' : 'Start'}
+                    </Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                       onPress={() => confirmRemoveEvent(event.id)}
@@ -281,7 +344,6 @@ export const EventManagement = ({ route }: Props) => {
           ))}
         </View>
 
-        {/* Modal for creating a new event */}
         <Modal
             visible={modalVisible}
             animationType="slide"
@@ -361,132 +423,11 @@ export const EventManagement = ({ route }: Props) => {
                 ))}
               </View>
 
-              {/* Rounds List */}
-              {rounds.length > 0 && (
-                  <View style={styles.roundsList}>
-                    {rounds.map((round, idx) => (
-                        <View key={idx} style={styles.roundItem}>
-                          <View style={styles.roundItemRow}>
-                            <View style={styles.dragHandle}>
-                              <Text style={styles.dragIcon}>☰</Text>
-                              <TouchableOpacity onPress={() => moveRoundUp(idx)} style={styles.moveButton}>
-                                <Text style={styles.moveButtonText}>↑</Text>
-                              </TouchableOpacity>
-                              <TouchableOpacity onPress={() => moveRoundDown(idx)} style={styles.moveButton}>
-                                <Text style={styles.moveButtonText}>↓</Text>
-                              </TouchableOpacity>
-                            </View>
-                            <Text style={styles.roundLabelText}>
-                              {round.roundType === 'Pools' ? 'Pools Round' : 'DE Round'}
-                            </Text>
-                            <View style={styles.roundItemActions}>
-                              <TouchableOpacity onPress={() => removeRound(idx)} style={styles.removeRoundButton}>
-                                <Text style={styles.removeRoundButtonText}>✖</Text>
-                              </TouchableOpacity>
-                              <TouchableOpacity onPress={() => toggleRoundConfig(idx)} style={styles.configButton}>
-                                <Text style={styles.configButtonText}>⚙</Text>
-                              </TouchableOpacity>
-                            </View>
-                          </View>
-                          {expandedConfigIndex === idx && (
-                              <View style={styles.roundConfig}>
-                                {round.roundType === 'Pools' ? (
-                                    <View>
-                                      <View style={styles.configToggle}>
-                                        <TouchableOpacity
-                                            onPress={() => setPoolsOption(idx, 'promotion')}
-                                            style={[
-                                              styles.configOptionButton,
-                                              round.poolsOption === 'promotion' && styles.configOptionSelected,
-                                            ]}
-                                        >
-                                          <Text style={styles.configOptionText}>Promotion %</Text>
-                                        </TouchableOpacity>
-                                        <TouchableOpacity
-                                            onPress={() => setPoolsOption(idx, 'target')}
-                                            style={[
-                                              styles.configOptionButton,
-                                              round.poolsOption === 'target' && styles.configOptionSelected,
-                                            ]}
-                                        >
-                                          <Text style={styles.configOptionText}>Target Bracket</Text>
-                                        </TouchableOpacity>
-                                      </View>
-                                      {round.poolsOption === 'promotion' ? (
-                                          <TextInput
-                                              style={styles.configInput}
-                                              keyboardType="numeric"
-                                              value={round.promotion?.toString() || ''}
-                                              onChangeText={(val) => updateRoundPromotion(idx, val)}
-                                              placeholder="Enter Promotion %"
-                                          />
-                                      ) : (
-                                          <View style={styles.targetSelector}>
-                                            {[8, 16, 32, 64, 128, 256].map((size) => (
-                                                <TouchableOpacity
-                                                    key={size}
-                                                    onPress={() => updateRoundTarget(idx, size)}
-                                                    style={[
-                                                      styles.targetButton,
-                                                      round.targetBracketSize === size && styles.targetButtonSelected,
-                                                    ]}
-                                                >
-                                                  <Text style={styles.targetButtonText}>{size}</Text>
-                                                </TouchableOpacity>
-                                            ))}
-                                          </View>
-                                      )}
-                                    </View>
-                                ) : (
-                                    <View style={styles.deConfig}>
-                                      {['single', 'double', 'compass'].map((format) => (
-                                          <TouchableOpacity
-                                              key={format}
-                                              onPress={() =>
-                                                  updateRoundElimination(idx, format as 'single' | 'double' | 'compass')
-                                              }
-                                              style={[
-                                                styles.configOptionButton,
-                                                round.eliminationFormat === format && styles.configOptionSelected,
-                                              ]}
-                                          >
-                                            <Text style={styles.configOptionText}>
-                                              {format === 'single' ? 'Single' : format === 'double' ? 'Double' : 'Compass'}
-                                            </Text>
-                                          </TouchableOpacity>
-                                      ))}
-                                    </View>
-                                )}
-                              </View>
-                          )}
-                        </View>
-                    ))}
-                  </View>
-              )}
-              <TouchableOpacity
-                  style={styles.addRoundButton}
-                  onPress={() => setShowRoundTypeOptions(!showRoundTypeOptions)}
-              >
-                <Text style={styles.addRoundButtonText}>Add Round</Text>
-              </TouchableOpacity>
-              {showRoundTypeOptions && (
-                  <View style={styles.roundTypeMenu}>
-                    <TouchableOpacity
-                        style={[styles.roundTypeChoice, { backgroundColor: '#fff' }]}
-                        onPress={() => addRound('Pools')}
-                    >
-                      <Text style={styles.roundTypeChoiceText}>Pools</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                        style={[styles.roundTypeChoice, { backgroundColor: '#fff' }]}
-                        onPress={() => addRound('DE')}
-                    >
-                      <Text style={styles.roundTypeChoiceText}>DE</Text>
-                    </TouchableOpacity>
-                  </View>
-              )}
               <View style={styles.modalActions}>
-                <TouchableOpacity style={styles.modalActionButton} onPress={handleSubmitEvent}>
+                <TouchableOpacity
+                    style={styles.modalActionButton}
+                    onPress={handleSubmitEvent}
+                >
                   <Text style={styles.modalActionText}>Submit</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
@@ -515,7 +456,7 @@ const styles = StyleSheet.create({
     backgroundColor: white,
   },
   title: {
-    fontSize: 24,
+    fontSize: 26,
     marginBottom: 10,
     color: navyBlue,
   },
@@ -723,22 +664,6 @@ const styles = StyleSheet.create({
   targetButtonText: {
     fontSize: 14,
     color: '#000',
-  },
-  roundTypeMenu: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginBottom: 15,
-  },
-  roundTypeChoice: {
-    borderWidth: 1,
-    borderColor: navyBlue,
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 5,
-  },
-  roundTypeChoiceText: {
-    fontSize: 16,
-    color: navyBlue,
   },
   addRoundButton: {
     width: '100%',

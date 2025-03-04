@@ -1,16 +1,16 @@
-// index.tsx
+// src/navigation/index.tsx
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { createStaticNavigation, StaticParamList } from '@react-navigation/native';
-
+import { createStaticNavigation } from '@react-navigation/native';
 import { Home } from './screens/Home';
 import { EventManagement } from './screens/EventManagement';
 import { EventSettings } from './screens/EventSettings';
 import { RefereeModule } from './screens/RefereeModule/RefereeModule';
 import PoolsPage from './screens/PoolsPage';
 import BoutOrderPage from './screens/BoutOrderPage';
-
+import RoundResults from "./screens/RoundResults";
 import DEBracketPage from './screens/DEBracketPage';
-import BracketViewPage from './screens/BracketViewPage';
+import DoubleEliminationPage from './screens/DoubleEliminationPage';
+import CompassDrawPage from './screens/CompassDrawPage';
 
 const RootStack = createNativeStackNavigator({
   screens: {
@@ -51,32 +51,28 @@ const RootStack = createNativeStackNavigator({
         title: 'Bout Order',
       },
     },
-    /**
-     * REGISTER THE NEW DE BRACKET SCREEN
-     */
+    RoundResults: {
+      screen: RoundResults,
+    },
     DEBracketPage: {
       screen: DEBracketPage,
       options: {
-        title: 'DE Bracket',
+        title: 'Single Elimination',
       },
     },
-    BracketViewPage: {
-      screen: BracketViewPage,
-      options: { title: 'Bracket View' },
+    DoubleEliminationPage: {
+      screen: DoubleEliminationPage,
+      options: {
+        title: 'Double Elimination',
+      },
     },
+    CompassDrawPage: {
+      screen: CompassDrawPage,
+      options: {
+        title: 'Compass Draw',
+      },
+    }
   },
 });
 
 export const Navigation = createStaticNavigation(RootStack);
-
-export type RootStackParamList = StaticParamList<typeof RootStack>;
-
-/**
- * Extend ReactNavigation's global types so
- * "useNavigation()" and "useRoute()" know about your routes
- */
-declare global {
-  namespace ReactNavigation {
-    interface RootParamList extends RootStackParamList {}
-  }
-}

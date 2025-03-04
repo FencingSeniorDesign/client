@@ -7,8 +7,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 Asset.loadAsync([
     ...NavigationAssets,
-    require('./assets/newspaper.png'),
-    require('./assets/bell.png'),
+    require('./assets/logo.png'),
 ]);
 
 SplashScreen.preventAutoHideAsync();

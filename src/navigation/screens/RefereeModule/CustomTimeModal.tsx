@@ -19,6 +19,7 @@ interface CustomTimeModalProps {
     setCustomSeconds: (value: string) => void;
     onKawaiiMode?: () => void;
     onRevertLastPoint?: () => void; // New prop for reverting the last point
+    kawaiiMode?: boolean; // Indicates if kawaii mode is active
 }
 
 export function CustomTimeModal({
@@ -32,12 +33,17 @@ export function CustomTimeModal({
                                     setCustomSeconds,
                                     onKawaiiMode,
                                     onRevertLastPoint,
+                                    kawaiiMode = false,
                                 }: CustomTimeModalProps) {
     const handleCustomTime = () => {
         const minutes = parseInt(customMinutes) || 0;
         const seconds = parseInt(customSeconds) || 0;
         onSetCustomTime(minutes, seconds);
     };
+
+    // Determine colors for preset and cancel buttons.
+    const buttonBackgroundColor = kawaiiMode ? "#ff69b4" : "#001f3f";
+    const cancelButtonBackgroundColor = kawaiiMode ? "#ba55d3" : "#FF3B30";
 
     return (
         <Modal
@@ -53,6 +59,7 @@ export function CustomTimeModal({
                     <Pressable
                         style={({ pressed }) => [
                             styles.modalButton,
+                            { backgroundColor: buttonBackgroundColor },
                             pressed && { opacity: 0.6 },
                         ]}
                         onPress={() => onSetTime(1)}
@@ -63,6 +70,7 @@ export function CustomTimeModal({
                     <Pressable
                         style={({ pressed }) => [
                             styles.modalButton,
+                            { backgroundColor: buttonBackgroundColor },
                             pressed && { opacity: 0.6 },
                         ]}
                         onPress={() => onSetTime(3)}
@@ -73,6 +81,7 @@ export function CustomTimeModal({
                     <Pressable
                         style={({ pressed }) => [
                             styles.modalButton,
+                            { backgroundColor: buttonBackgroundColor },
                             pressed && { opacity: 0.6 },
                         ]}
                         onPress={() => onSetTime(5)}
@@ -104,6 +113,7 @@ export function CustomTimeModal({
                         <Pressable
                             style={({ pressed }) => [
                                 styles.modalButton,
+                                { backgroundColor: buttonBackgroundColor },
                                 pressed && { opacity: 0.6 },
                             ]}
                             onPress={handleCustomTime}
@@ -116,11 +126,14 @@ export function CustomTimeModal({
                         <Pressable
                             style={({ pressed }) => [
                                 styles.modalButton,
+                                { backgroundColor: "#ff69b4" }, // Always pink for Kawaii Mode
                                 pressed && { opacity: 0.6 },
                             ]}
                             onPress={onKawaiiMode}
                         >
-                            <Text style={styles.modalButtonText}>Kawaii Mode</Text>
+                            <Text style={[styles.modalButtonText, styles.kawaiiButtonText]}>
+                                Kawaii Mode
+                            </Text>
                         </Pressable>
                     )}
 
@@ -128,11 +141,14 @@ export function CustomTimeModal({
                         <Pressable
                             style={({ pressed }) => [
                                 styles.modalButton,
+                                { backgroundColor: "#CCAA00" }, // Darker yellow for revert
                                 pressed && { opacity: 0.6 },
                             ]}
                             onPress={onRevertLastPoint}
                         >
-                            <Text style={styles.modalButtonText}>Revert Last Point</Text>
+                            <Text style={[styles.modalButtonText, { color: 'black' }]}>
+                                Revert Last Point
+                            </Text>
                         </Pressable>
                     )}
 
@@ -140,6 +156,7 @@ export function CustomTimeModal({
                         style={({ pressed }) => [
                             styles.modalButton,
                             styles.cancelButton,
+                            { backgroundColor: cancelButtonBackgroundColor },
                             pressed && { opacity: 0.6 },
                         ]}
                         onPress={onClose}
@@ -172,7 +189,6 @@ const styles = StyleSheet.create({
         textAlign: 'center',
     },
     modalButton: {
-        backgroundColor: '#007AFF',
         padding: 15,
         borderRadius: 8,
         marginVertical: 5,
@@ -182,8 +198,11 @@ const styles = StyleSheet.create({
         textAlign: 'center',
         fontSize: 16,
     },
+    kawaiiButtonText: {
+        color: 'black',
+        fontFamily: 'Comic Sans MS',
+    },
     cancelButton: {
-        backgroundColor: '#FF3B30',
         marginTop: 10,
     },
     customTimeContainer: {

@@ -1,127 +1,6 @@
 // src/utils/RoundAlgorithms.ts
 
-import { Fencer, RoundData } from '../navigation/types';
-
-/**
- * A direct-elimination match between two competitors.
- */
-export type DEBracketMatch = {
-    fencerA: Fencer | null;
-    fencerB: Fencer | null;
-    round: number;      // Round number (1 = first round, etc.)
-    matchIndex: number; // The index within that round
-    winner?: Fencer;
-    scoreA?: number;
-    scoreB?: number;
-};
-
-/**
- * A single round of the bracket.
- */
-export type DEBracketRound = {
-    round: number;
-    label: string;         // For example, "Table of 128"
-    matches: DEBracketMatch[];
-};
-
-/**
- * The full bracket data, consisting of a series of rounds.
- */
-export type DEBracketData = {
-    rounds: DEBracketRound[];
-};
-
-/**
- * Builds a full direct-elimination bracket.
- * Participants are padded with BYEs (null values) to reach the next power of 2.
- * Each round is built from the winners of the previous round.
- */
-export function buildDEBracket(fencers: Fencer[]): DEBracketData {
-    // Determine the next power of 2 (m) for the number of participants.
-    let m = 1;
-    while (m < fencers.length) {
-        m *= 2;
-    }
-    // Create a padded array: if there aren’t enough fencers, add undefined (BYEs).
-    const padded: (Fencer | undefined)[] = [...fencers];
-    while (padded.length < m) {
-        padded.push(undefined);
-    }
-
-    const rounds: DEBracketRound[] = [];
-
-    // --- Round 1 ---
-    const round1Matches: DEBracketMatch[] = [];
-    for (let i = 0; i < m; i += 2) {
-        const fA = padded[i];
-        const fB = padded[i + 1];
-        let winner: Fencer | undefined = undefined;
-        // If one competitor is missing, the other automatically wins.
-        if (fA && !fB) {
-            winner = fA;
-        } else if (fB && !fA) {
-            winner = fB;
-        }
-        round1Matches.push({
-            fencerA: fA,
-            fencerB: fB,
-            round: 1,
-            matchIndex: i / 2,
-            winner,
-            scoreA: 0,
-            scoreB: 0,
-        });
-    }
-    rounds.push({
-        round: 1,
-        label: `Table of ${m}`,
-        matches: round1Matches,
-    });
-
-    // --- Subsequent Rounds ---
-    let previousMatches = round1Matches;
-    const totalRounds = Math.log2(m);
-    for (let r = 2; r <= totalRounds; r++) {
-        const numMatches = previousMatches.length / 2;
-        const currentMatches: DEBracketMatch[] = [];
-        for (let i = 0; i < numMatches; i++) {
-            const matchA = previousMatches[2 * i];
-            const matchB = previousMatches[2 * i + 1];
-            // If winners from previous matches exist, use them; otherwise, set to undefined.
-            const fA = matchA.winner ? matchA.winner : undefined;
-            const fB = matchB.winner ? matchB.winner : undefined;
-            let winner: Fencer | undefined = undefined;
-            if (fA && !fB) {
-                winner = fA;
-            } else if (fB && !fA) {
-                winner = fB;
-            }
-            currentMatches.push({
-                fencerA: fA,
-                fencerB: fB,
-                round: r,
-                matchIndex: i,
-                winner,
-                scoreA: 0,
-                scoreB: 0,
-            });
-        }
-        rounds.push({
-            round: r,
-            label: `Table of ${m / Math.pow(2, r - 1)}`,
-            matches: currentMatches,
-        });
-        previousMatches = currentMatches;
-    }
-
-    return { rounds };
-}
-
-/* The functions rankFencersFromPools, getPromotedFencers, and buildPools remain unchanged.
-   (They are used for pool rounds and need not be modified for the direct-elimination bracket.)
-*/
-
-// ... (existing pool functions) ...
+import { Fencer, Round } from '../navigation/types';
 
 export type PoolResult = {
     fencer: Fencer;
@@ -131,22 +10,91 @@ export type PoolResult = {
     touchesReceived: number;
 };
 
-export function rankFencersFromPools(allPoolResults: PoolResult[][]): Fencer[] {
-    const merged: PoolResult[] = allPoolResults.reduce(
-        (acc, pool) => acc.concat(pool),
-        []
-    );
-    merged.sort((a, b) => {
-        const winRatioA = a.wins / (a.totalBouts || 1);
-        const winRatioB = b.wins / (b.totalBouts || 1);
-        if (winRatioB !== winRatioA) {
-            return winRatioB - winRatioA;
+export type FencerSeeding = {
+    fencer: Fencer;
+    seed: number;
+};
+
+// Calculate preliminary seeding based on rating, year, then randomize unrated fencers
+export function calculatePreliminarySeeding(fencers: Fencer[]): FencerSeeding[] {
+    // Make a copy to avoid modifying the original array
+    const fencersCopy = [...fencers];
+    
+    // Define rating rank value (A is best, U is worst)
+    const ratingValue = {
+        'A': 6,
+        'B': 5,
+        'C': 4,
+        'D': 3,
+        'E': 2,
+        'U': 1
+    };
+    
+    // Sort by relevant criteria
+    fencersCopy.sort((a, b) => {
+        // First compare the ratings (prioritize weapon-specific rating first)
+        const aRating = ratingValue[a.frating as keyof typeof ratingValue] || 
+                       ratingValue[a.erating as keyof typeof ratingValue] || 
+                       ratingValue[a.srating as keyof typeof ratingValue] || 
+                       ratingValue['U'];
+                       
+        const bRating = ratingValue[b.frating as keyof typeof ratingValue] || 
+                       ratingValue[b.erating as keyof typeof ratingValue] || 
+                       ratingValue[b.srating as keyof typeof ratingValue] || 
+                       ratingValue['U'];
+        
+        if (aRating !== bRating) {
+            return bRating - aRating; // Higher rating values first
         }
-        const netA = a.touchesScored - a.touchesReceived;
-        const netB = b.touchesScored - b.touchesReceived;
-        return netB - netA;
+        
+        // If ratings are equal, compare years (most recent first)
+        const aYear = Math.max(a.fyear || 0, a.eyear || 0, a.syear || 0);
+        const bYear = Math.max(b.fyear || 0, b.eyear || 0, b.syear || 0);
+        
+        if (aYear !== bYear) {
+            return bYear - aYear; // More recent years first
+        }
+        
+        // If everything is equal (or both are unrated), randomize
+        return Math.random() - 0.5;
     });
-    return merged.map((r) => r.fencer);
+    
+    // Create the seeding array with indices
+    return fencersCopy.map((fencer, index) => ({
+        fencer,
+        seed: index + 1
+    }));
+}
+
+// Calculate seeding based on round results
+export function calculateSeedingFromResults(poolResults: {
+    poolid: number;
+    stats: {
+        fencer: Fencer;
+        boutsCount: number;
+        wins: number;
+        touchesScored: number;
+        touchesReceived: number;
+        winRate: number;
+        indicator: number;
+    }[];
+}[]): FencerSeeding[] {
+    // Flatten all the stats from all pools into a single array
+    const allStats = poolResults.flatMap(pool => pool.stats);
+    
+    // Sort by win rate (descending), then by indicator (descending)
+    allStats.sort((a, b) => {
+        if (a.winRate !== b.winRate) {
+            return b.winRate - a.winRate;
+        }
+        return b.indicator - a.indicator;
+    });
+    
+    // Create the seeding array with indices
+    return allStats.map((stat, index) => ({
+        fencer: stat.fencer,
+        seed: index + 1
+    }));
 }
 
 export function getPromotedFencers(sortedFencers: Fencer[], promotionPercent: number): Fencer[] {
@@ -157,14 +105,48 @@ export function getPromotedFencers(sortedFencers: Fencer[], promotionPercent: nu
     return sortedFencers.slice(0, cutoff);
 }
 
-export function buildPools(fencers: Fencer[], poolCount: number, fencersPerPool: number): Fencer[][] {
-    const shuffled = [...fencers].sort(() => Math.random() - 0.5);
-    const result: Fencer[][] = [];
-    let startIndex = 0;
-    for (let i = 0; i < poolCount; i++) {
-        const slice = shuffled.slice(startIndex, startIndex + fencersPerPool);
-        result.push(slice);
-        startIndex += fencersPerPool;
+export function buildPools(fencers: Fencer[], poolCount: number, fencersPerPool: number, seeding?: FencerSeeding[]): Fencer[][] {
+    // Always use seeding if provided, otherwise calculate preliminary seeding
+    let orderedFencers: Fencer[];
+    
+    if (seeding && seeding.length > 0) {
+        // Sort fencers by their seed
+        orderedFencers = seeding.map(s => s.fencer);
+        
+        // Ensure all fencers are included (in case some weren't in the seeding)
+        const seededFencerIds = new Set(orderedFencers.map(f => f.id));
+        const unseededFencers = fencers.filter(f => f.id !== undefined && !seededFencerIds.has(f.id));
+        
+        // Add any unseeded fencers at the end by calculating their preliminary seeding
+        if (unseededFencers.length > 0) {
+            const unseededSeeding = calculatePreliminarySeeding(unseededFencers);
+            const unseededOrdered = unseededSeeding.map(s => s.fencer);
+            orderedFencers = [...orderedFencers, ...unseededOrdered];
+        }
+    } else {
+        // If no seeding provided, calculate preliminary seeding
+        const preliminarySeeding = calculatePreliminarySeeding(fencers);
+        orderedFencers = preliminarySeeding.map(s => s.fencer);
     }
+    
+    // Distribute fencers to pools using snake seeding
+    const result: Fencer[][] = Array(poolCount).fill(null).map(() => []);
+    
+    // Special case for small number of pools
+    if (poolCount <= 1) {
+        return [orderedFencers];
+    }
+    
+    // Implement snake seeding
+    for (let i = 0; i < orderedFencers.length; i++) {
+        const roundPosition = Math.floor(i / poolCount);
+        const poolPosition = i % poolCount;
+        
+        // For even rounds, go right to left to create snake pattern
+        const poolIndex = roundPosition % 2 === 0 ? poolPosition : poolCount - 1 - poolPosition;
+        
+        result[poolIndex].push(orderedFencers[i]);
+    }
+    
     return result;
 }
