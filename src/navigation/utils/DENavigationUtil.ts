@@ -1,13 +1,15 @@
 // src/navigation/utils/DENavigationUtil.ts
 import { NavigationProp } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList, Event, Round } from '../navigation/types';
+
 
 /**
  * Utility function to navigate to the appropriate DE page
  * based on the format of the round
  */
 export function navigateToDEPage(
-    navigation: NavigationProp<RootStackParamList>,
+    navigation: NativeStackNavigationProp<RootStackParamList>,
     event: Event,
     round: Round,
     currentRoundIndex: number

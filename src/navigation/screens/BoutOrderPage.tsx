@@ -1,3 +1,4 @@
+// src/navigation/screens/BoutOrderPage.tsx
 import React, { useEffect, useState } from 'react';
 import {
     View,
@@ -30,7 +31,12 @@ const BoutOrderPage: React.FC = () => {
     const [alterScoreA, setAlterScoreA] = useState<string>('0');
     const [alterScoreB, setAlterScoreB] = useState<string>('0');
 
-    // Reusable function to load bouts from the DB.
+    // Toggle for double stripping mode.
+    const [doubleStripping, setDoubleStripping] = useState<boolean>(false);
+    const activeCount = doubleStripping ? 2 : 1;
+    const onDeckCount = doubleStripping ? 2 : 1;
+
+    // Load bouts from DB and pull each fencer’s pool id from the DB result.
     const loadBouts = async () => {
         try {
             const rows = await dbGetBoutsForPool(roundId, poolId);
@@ -45,6 +51,8 @@ const BoutOrderPage: React.FC = () => {
                     fyear: 0,
                     srating: 'U',
                     syear: 0,
+                    // Use the alias from the query:
+                    poolNumber: row.left_poolposition,
                 };
                 const fencerB: Fencer = {
                     id: row.right_fencerid,
@@ -56,18 +64,12 @@ const BoutOrderPage: React.FC = () => {
                     fyear: 0,
                     srating: 'U',
                     syear: 0,
+                    poolNumber: row.right_poolposition,
                 };
                 const scoreA = row.left_score ?? 0;
                 const scoreB = row.right_score ?? 0;
                 const status = (scoreA !== 0 || scoreB !== 0) ? 'completed' : 'pending';
-                return {
-                    id: row.id,
-                    fencerA,
-                    fencerB,
-                    scoreA,
-                    scoreB,
-                    status,
-                };
+                return { id: row.id, fencerA, fencerB, scoreA, scoreB, status };
             });
             setBouts(fetchedBouts);
         } catch (error) {
@@ -75,17 +77,24 @@ const BoutOrderPage: React.FC = () => {
         }
     };
 
-    // Load bouts when the component mounts or when roundId/poolId change.
     useEffect(() => {
         loadBouts();
     }, [roundId, poolId]);
 
-    // Toggle expansion for a bout (to show/hide score entry UI).
+    // For pending bouts, compute a pendingRank based on order in the list.
+    let pendingCounter = 0;
+    const getPendingRank = (bout: Bout): number | null => {
+        if (bout.status === 'pending') {
+            return pendingCounter++;
+        }
+        return null;
+    };
+
+    // All bouts (active or not) are interactive for altering scores when protectedScores is off.
     const handleBoutPress = (index: number) => {
         setExpandedBoutIndex(prev => (prev === index ? null : index));
     };
 
-    // Submit scores for a bout, update the DB, then refresh the bout list.
     const handleSubmitScores = async (index: number) => {
         const bout = bouts[index];
         try {
@@ -103,7 +112,6 @@ const BoutOrderPage: React.FC = () => {
         }
     };
 
-    // Handle local score changes.
     const handleScoreChange = (index: number, which: 'A' | 'B', val: string) => {
         const intVal = parseInt(val, 10) || 0;
         const updatedBouts = bouts.map((b, i) => {
@@ -115,22 +123,18 @@ const BoutOrderPage: React.FC = () => {
         setBouts(updatedBouts);
     };
 
-    // On long press, open the modal to alter scores (if not protected).
+    // Allow altering scores regardless of bout status if protectedScores is off.
     const handleBoutLongPress = (index: number) => {
         if (protectedScores) return;
-        if (bouts[index].status === 'completed') {
-            setAlterIndex(index);
-            setAlterScoreA(String(bouts[index].scoreA));
-            setAlterScoreB(String(bouts[index].scoreB));
-            setAlterModalVisible(true);
-        }
+        setAlterIndex(index);
+        setAlterScoreA(String(bouts[index].scoreA));
+        setAlterScoreB(String(bouts[index].scoreB));
+        setAlterModalVisible(true);
     };
 
-    // Save altered scores, update the DB, then refresh the bout list.
     const handleAlterSave = async () => {
         if (alterIndex === null) return;
-        const index = alterIndex;
-        const bout = bouts[index];
+        const bout = bouts[alterIndex];
         const newScoreA = parseInt(alterScoreA, 10) || 0;
         const newScoreB = parseInt(alterScoreB, 10) || 0;
         try {
@@ -149,7 +153,6 @@ const BoutOrderPage: React.FC = () => {
         }
     };
 
-    // Navigate to the Referee Module for additional score entry.
     const openRefModuleForBout = (index: number) => {
         const bout = bouts[index];
         navigation.navigate('RefereeModule', {
@@ -175,12 +178,108 @@ const BoutOrderPage: React.FC = () => {
         });
     };
 
+    // Render each bout using the original order.
+    const renderBoutWithRank = (bout: Bout, index: number) => {
+        const pendingRank = bout.status === 'pending' ? getPendingRank(bout) : null;
+
+        // Determine winner for completed bouts.
+        let winnerId: number | null = null;
+        if (bout.status === 'completed') {
+            if (bout.scoreA > bout.scoreB) {
+                winnerId = bout.fencerA.id;
+            } else if (bout.scoreB > bout.scoreA) {
+                winnerId = bout.fencerB.id;
+            }
+        }
+
+        // Apply styling for pending bouts based on pendingRank.
+        let styleOverride = {};
+        if (bout.status === 'pending' && pendingRank !== null) {
+            if (pendingRank < activeCount) {
+                styleOverride = { borderColor: green, borderWidth: 2 };
+            } else if (pendingRank < activeCount + onDeckCount) {
+                styleOverride = { borderColor: green, borderWidth: 2, borderStyle: 'dashed', opacity: 0.8 };
+            } else {
+                styleOverride = { borderColor: '#ccc', borderWidth: 1, opacity: 0.5 };
+            }
+        } else {
+            styleOverride = { borderColor: mediumGrey, borderWidth: 1, opacity: 0.5 };
+        }
+
+        return (
+            <View key={index} style={{ marginBottom: 12 }}>
+                <TouchableOpacity
+                    activeOpacity={0.9}
+                    onPress={() => handleBoutPress(index)}
+                    onLongPress={() => handleBoutLongPress(index)}
+                    style={[styles.boutContainer, styleOverride]}
+                >
+                    <View style={styles.fencerBox}>
+                        <Text style={[styles.fencerText, winnerId === bout.fencerA.id && styles.winnerText]}>
+                            {`(${bout.fencerA.poolNumber || '-'}) ${bout.fencerA.fname}`}
+                        </Text>
+                    </View>
+                    <Text style={styles.middleText}>
+                        {bout.status === 'completed' ? `${bout.scoreA}-${bout.scoreB}` : 'VS'}
+                    </Text>
+                    <View style={styles.fencerBox}>
+                        <Text style={[styles.fencerText, winnerId === bout.fencerB.id && styles.winnerText]}>
+                            {`(${bout.fencerB.poolNumber || '-'}) ${bout.fencerB.fname}`}
+                        </Text>
+                    </View>
+                </TouchableOpacity>
+                {expandedBoutIndex === index && bout.status === 'pending' && (
+                    <View style={styles.scoreEntryContainer}>
+                        <Text style={styles.scoreEntryTitle}>Enter Scores</Text>
+                        <View style={styles.scoreRow}>
+                            <Text style={styles.scoreFencerLabel}>{bout.fencerA.fname}:</Text>
+                            <TextInput
+                                style={styles.scoreInput}
+                                keyboardType="numeric"
+                                value={String(bout.scoreA)}
+                                onChangeText={(val) => handleScoreChange(index, 'A', val)}
+                            />
+                        </View>
+                        <View style={styles.scoreRow}>
+                            <Text style={styles.scoreFencerLabel}>{bout.fencerB.fname}:</Text>
+                            <TextInput
+                                style={styles.scoreInput}
+                                keyboardType="numeric"
+                                value={String(bout.scoreB)}
+                                onChangeText={(val) => handleScoreChange(index, 'B', val)}
+                            />
+                        </View>
+                        <View style={styles.scoreButtonsRow}>
+                            <TouchableOpacity style={styles.enterButton} onPress={() => handleSubmitScores(index)}>
+                                <Text style={styles.enterButtonText}>Enter</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity style={styles.refModuleButton} onPress={() => openRefModuleForBout(index)}>
+                                <Text style={styles.refModuleButtonText}>Ref Module</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                )}
+            </View>
+        );
+    };
+
     return (
         <View style={{ flex: 1 }}>
-            {/* Top toggles */}
+            {/* Header with double stripping toggle */}
+            <View style={styles.header}>
+                <Text style={styles.headerTitle}>Bout Order</Text>
+                <TouchableOpacity
+                    style={styles.toggleButton}
+                    onPress={() => setDoubleStripping(prev => !prev)}
+                >
+                    <Text style={styles.toggleButtonText}>
+                        {doubleStripping ? 'Double Stripping On' : 'Double Stripping Off'}
+                    </Text>
+                </TouchableOpacity>
+            </View>
             <View style={styles.toggleRow}>
                 <TouchableOpacity
-                    style={[styles.toggleButton, protectedScores && styles.toggleButtonActive]}
+                    style={[styles.toggleButtonSmall, protectedScores && styles.toggleButtonActive]}
                     onPress={() => setProtectedScores(!protectedScores)}
                 >
                     <Text style={styles.toggleButtonText}>Protected Scores</Text>
@@ -188,75 +287,7 @@ const BoutOrderPage: React.FC = () => {
             </View>
             <ScrollView contentContainerStyle={styles.container}>
                 <Text style={styles.title}>Bout Order</Text>
-                {bouts.map((bout, index) => {
-                    let middleText = 'VS';
-                    if (bout.status === 'completed') {
-                        middleText = `${bout.scoreA}-${bout.scoreB}`;
-                    }
-                    let containerStyle;
-                    if (bout.status === 'completed') {
-                        containerStyle = styles.completedContainer;
-                    } else if (bout.status === 'pending') {
-                        containerStyle = styles.pendingContainer;
-                    } else {
-                        containerStyle = styles.activeContainer;
-                    }
-                    return (
-                        <View key={index} style={{ marginBottom: 12 }}>
-                            <TouchableOpacity
-                                activeOpacity={0.9}
-                                onPress={() => handleBoutPress(index)}
-                                onLongPress={() => handleBoutLongPress(index)}
-                                style={[styles.boutContainer, containerStyle]}
-                            >
-                                <View style={styles.fencerBox}>
-                                    <Text style={styles.fencerText}>{bout.fencerA.fname}</Text>
-                                </View>
-                                <Text style={styles.middleText}>{middleText}</Text>
-                                <View style={styles.fencerBox}>
-                                    <Text style={styles.fencerText}>{bout.fencerB.fname}</Text>
-                                </View>
-                            </TouchableOpacity>
-                            {expandedBoutIndex === index && bout.status !== 'completed' && (
-                                <View style={styles.scoreEntryContainer}>
-                                    <Text style={styles.scoreEntryTitle}>Enter Scores</Text>
-                                    <View style={styles.scoreRow}>
-                                        <Text style={styles.scoreFencerLabel}>{bout.fencerA.fname}:</Text>
-                                        <TextInput
-                                            style={styles.scoreInput}
-                                            keyboardType="numeric"
-                                            value={String(bout.scoreA)}
-                                            onChangeText={(val) => handleScoreChange(index, 'A', val)}
-                                        />
-                                    </View>
-                                    <View style={styles.scoreRow}>
-                                        <Text style={styles.scoreFencerLabel}>{bout.fencerB.fname}:</Text>
-                                        <TextInput
-                                            style={styles.scoreInput}
-                                            keyboardType="numeric"
-                                            value={String(bout.scoreB)}
-                                            onChangeText={(val) => handleScoreChange(index, 'B', val)}
-                                        />
-                                    </View>
-                                    <View style={styles.scoreButtonsRow}>
-                                        <TouchableOpacity
-                                            style={styles.enterButton}
-                                            onPress={() => handleSubmitScores(index)}
-                                        >
-                                            <Text style={styles.enterButtonText}>Enter</Text>
-                                        </TouchableOpacity>
-                                        <TouchableOpacity
-                                            style={styles.refModuleButton}
-                                            onPress={() => openRefModuleForBout(index)}
-                                        >
-                                            <Text style={styles.refModuleButtonText}>Ref Module</Text>
-                                        </TouchableOpacity>
-                                    </View>
-                                </View>
-                            )}
-                        </View>
-                    );
-                })}
+                {bouts.map((bout, index) => renderBoutWithRank(bout, index))}
             </ScrollView>
             {/* Alter Scores Modal */}
             <Modal visible={alterModalVisible} transparent animationType="fade">
@@ -281,14 +312,11 @@ const BoutOrderPage: React.FC = () => {
                                 onChangeText={setAlterScoreB}
                             />
                         </View>
-                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 12 }}>
+                        <View style={styles.scoreButtonsRow}>
                             <TouchableOpacity style={styles.enterButton} onPress={handleAlterSave}>
                                 <Text style={styles.enterButtonText}>Save</Text>
                             </TouchableOpacity>
-                            <TouchableOpacity
-                                style={[styles.enterButton, { backgroundColor: '#666' }]}
-                                onPress={() => setAlterModalVisible(false)}
-                            >
+                            <TouchableOpacity style={[styles.enterButton, { backgroundColor: '#666' }]} onPress={() => setAlterModalVisible(false)}>
                                 <Text style={styles.enterButtonText}>Cancel</Text>
                             </TouchableOpacity>
                         </View>
@@ -305,33 +333,47 @@ export default BoutOrderPage;
 const navyBlue = '#000080';
 const darkGrey = '#4f4f4f';
 const mediumGrey = '#888888';
-const green = '#008000';
+const green = '#4CAF50';
 const red = '#FF0000';
-const lightOpacityNavy = 'rgba(0, 0, 128, 0.5)';
-const tieColor = '#ffffff99';
 
 const styles = StyleSheet.create({
     container: {
         padding: 16,
     },
+    header: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        backgroundColor: '#001f3f',
+        padding: 10,
+    },
+    headerTitle: {
+        color: '#fff',
+        fontSize: 20,
+        fontWeight: 'bold',
+    },
+    toggleButton: {
+        padding: 8,
+        backgroundColor: green,
+        borderRadius: 4,
+    },
+    toggleButtonSmall: {
+        padding: 8,
+        backgroundColor: '#ccc',
+        borderRadius: 4,
+        alignSelf: 'flex-end',
+        margin: 10,
+    },
+    toggleButtonActive: {
+        backgroundColor: green,
+    },
+    toggleButtonText: {
+        color: '#fff',
+        fontSize: 14,
+    },
     toggleRow: {
         flexDirection: 'row',
         justifyContent: 'flex-end',
-        padding: 8,
-    },
-    toggleButton: {
-        borderWidth: 1,
-        borderColor: navyBlue,
-        borderRadius: 4,
-        paddingHorizontal: 8,
-        paddingVertical: 4,
-        marginLeft: 8,
-    },
-    toggleButtonActive: {
-        backgroundColor: navyBlue,
-    },
-    toggleButtonText: {
-        color: '#000',
     },
     title: {
         fontSize: 24,
@@ -345,20 +387,6 @@ const styles = StyleSheet.create({
         borderRadius: 6,
         padding: 8,
     },
-    activeContainer: {
-        backgroundColor: darkGrey,
-    },
-    onDeckContainer: {
-        backgroundColor: lightOpacityNavy,
-    },
-    pendingContainer: {
-        backgroundColor: '#fff',
-        borderWidth: 1,
-        borderColor: navyBlue,
-    },
-    completedContainer: {
-        backgroundColor: mediumGrey,
-    },
     fencerBox: {
         flex: 1,
         padding: 12,
@@ -366,47 +394,19 @@ const styles = StyleSheet.create({
         marginHorizontal: 4,
         justifyContent: 'center',
     },
-    activeFencerBox: {
-        backgroundColor: navyBlue,
-    },
-    onDeckFencerBox: {
-        backgroundColor: navyBlue,
-        opacity: 0.8,
-    },
-    pendingFencerBox: {
-        backgroundColor: '#fff',
-        borderWidth: 1,
-        borderColor: navyBlue,
-    },
-    winnerBox: {
-        backgroundColor: green,
-    },
-    loserBox: {
-        backgroundColor: red,
-    },
-    tieBox: {
-        backgroundColor: tieColor,
-    },
     fencerText: {
         fontSize: 16,
         textAlign: 'center',
         fontWeight: '600',
     },
-    pendingFencerText: {
-        color: navyBlue,
+    winnerText: {
+        color: green,
+        fontWeight: 'bold',
     },
     middleText: {
         color: '#000',
         fontSize: 18,
         fontWeight: 'bold',
-    },
-    onDeckLabel: {
-        textAlign: 'left',
-        marginLeft: 4,
-        marginBottom: 2,
-        fontSize: 14,
-        color: navyBlue,
-        fontWeight: '600',
     },
     scoreEntryContainer: {
         backgroundColor: '#fff',
@@ -470,18 +470,6 @@ const styles = StyleSheet.create({
         fontWeight: '600',
         fontSize: 16,
     },
-    savePoolButton: {
-        backgroundColor: '#228B22',
-        paddingVertical: 12,
-        borderRadius: 6,
-        alignItems: 'center',
-        marginTop: 16,
-    },
-    savePoolButtonText: {
-        color: '#fff',
-        fontSize: 16,
-        fontWeight: '600',
-    },
     modalOverlay: {
         flex: 1,
         backgroundColor: 'rgba(0,0,0,0.4)',
@@ -500,3 +488,5 @@ const styles = StyleSheet.create({
         marginBottom: 12,
     },
 });
+
+export { BoutOrderPage };
