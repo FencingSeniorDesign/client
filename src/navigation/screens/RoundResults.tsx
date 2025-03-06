@@ -1,5 +1,5 @@
-// RoundResults.tsx
-import React, { useEffect, useState } from 'react';
+// src/navigation/screens/RoundResults.tsx
+import React, { useEffect, useState, useCallback } from 'react';
 import {
     View,
     Text,
@@ -9,16 +9,17 @@ import {
     TouchableOpacity,
     Alert,
 } from 'react-native';
-import { useRoute, RouteProp, useNavigation } from '@react-navigation/native';
+import { useRoute, RouteProp, useNavigation, useFocusEffect } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList, Fencer, Round, Event } from '../navigation/types';
-import { 
-    dbGetPoolsForRound, 
-    dbGetBoutsForPool, 
+import {
+    dbGetPoolsForRound,
+    dbGetBoutsForPool,
     dbGetRoundsForEvent,
     dbInitializeRound,
     dbGetFencersInEventById
 } from '../../db/TournamentDatabaseUtils';
+import { navigateToDEPage } from '../utils/DENavigationUtil';
 
 interface FencerStats {
     fencer: Fencer;
@@ -52,14 +53,12 @@ const RoundResults: React.FC = () => {
         async function fetchData() {
             try {
                 setLoading(true);
-                
-                // Fetch all pools for this round
+
+                // Fetch pool results for this round
                 const pools = await dbGetPoolsForRound(roundId);
                 const results: PoolResult[] = [];
 
-                // Process each pool
                 for (const pool of pools) {
-                    // Initialize stats for each fencer in this pool.
                     const statsMap = new Map<number, FencerStats>();
                     pool.fencers.forEach(fencer => {
                         if (fencer.id !== undefined) {
@@ -75,16 +74,13 @@ const RoundResults: React.FC = () => {
                         }
                     });
 
-                    // Retrieve bouts for the current pool.
                     const bouts = await dbGetBoutsForPool(roundId, pool.poolid);
-
                     bouts.forEach((bout: any) => {
                         const leftId = bout.left_fencerid;
                         const rightId = bout.right_fencerid;
                         const leftScore = bout.left_score ?? 0;
                         const rightScore = bout.right_score ?? 0;
 
-                        // Update left fencer's stats.
                         if (statsMap.has(leftId)) {
                             const leftStats = statsMap.get(leftId)!;
                             leftStats.boutsCount += 1;
@@ -94,7 +90,6 @@ const RoundResults: React.FC = () => {
                                 leftStats.wins += 1;
                             }
                         }
-                        // Update right fencer's stats.
                         if (statsMap.has(rightId)) {
                             const rightStats = statsMap.get(rightId)!;
                             rightStats.boutsCount += 1;
@@ -106,45 +101,26 @@ const RoundResults: React.FC = () => {
                         }
                     });
 
-                    // Compute win rate and indicator for each fencer.
                     const stats: FencerStats[] = [];
                     statsMap.forEach(stat => {
-                        if (stat.boutsCount > 0) {
-                            stat.winRate = (stat.wins / stat.boutsCount) * 100;
-                        } else {
-                            stat.winRate = 0;
-                        }
+                        stat.winRate = stat.boutsCount > 0 ? (stat.wins / stat.boutsCount) * 100 : 0;
                         stat.indicator = stat.touchesScored - stat.touchesReceived;
                         stats.push(stat);
                     });
-
-                    // Optionally sort stats—for example, by win rate descending.
                     stats.sort((a, b) => b.winRate - a.winRate);
-
                     results.push({
                         poolid: pool.poolid,
                         stats,
                     });
                 }
                 setPoolResults(results);
-                
-                // Check for the next round
+
+                // Fetch round data for next round determination
                 const allRounds = await dbGetRoundsForEvent(eventId);
-                
-                // Get the current round
                 const currentRound = allRounds.find(r => r.id === roundId);
                 if (!currentRound) {
                     throw new Error("Current round not found");
                 }
-                
-                // Find the event information
-                const eventsList = await dbGetFencersInEventById({ id: eventId } as Event);
-                if (eventsList.length > 0) {
-                    // We're just using this to get the event, not the fencers
-                    setEvent({ id: eventId } as Event);
-                }
-                
-                // Find next round (if any)
                 const nextRoundIndex = currentRoundIndex + 1;
                 if (nextRoundIndex < allRounds.length) {
                     const nextRoundData = allRounds[nextRoundIndex];
@@ -153,6 +129,12 @@ const RoundResults: React.FC = () => {
                     setNextRoundStarted(nextRoundData.isstarted === 1);
                 } else {
                     setHasNextRound(false);
+                }
+
+                // Fetch event info (here we simply call dbGetFencersInEventById to get the event structure)
+                const eventFencers = await dbGetFencersInEventById({ id: eventId } as Event);
+                if (eventFencers.length > 0) {
+                    setEvent({ id: eventId } as Event);
                 }
             } catch (error) {
                 console.error("Error fetching data:", error);
@@ -163,35 +145,27 @@ const RoundResults: React.FC = () => {
         fetchData();
     }, [roundId, eventId, currentRoundIndex]);
 
-    if (loading) {
-        return (
-            <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color="#007AFF" />
-            </View>
-        );
-    }
-
-    // Handle starting or opening the next round
     const handleNextRound = async () => {
         if (!hasNextRound || !nextRound || !event) {
             return;
         }
-
         try {
             if (!nextRoundStarted) {
-                // Initialize the next round if it's not started yet
                 const fencers = await dbGetFencersInEventById(event);
                 await dbInitializeRound(event, nextRound, fencers);
                 Alert.alert("Success", "Next round initialized successfully!");
                 setNextRoundStarted(true);
             }
-            
-            // Navigate to the PoolsPage for the next round
-            navigation.navigate('PoolsPage', {
-                event: event,
-                currentRoundIndex: currentRoundIndex + 1,
-                roundId: nextRound.id
-            });
+            // If the next round is a DE round, navigate to the DE screen; otherwise, go to PoolsPage.
+            if (nextRound.type === 'de') {
+                navigateToDEPage(navigation, event, nextRound, currentRoundIndex + 1);
+            } else {
+                navigation.navigate('PoolsPage', {
+                    event: event,
+                    currentRoundIndex: currentRoundIndex + 1,
+                    roundId: nextRound.id
+                });
+            }
         } catch (error) {
             console.error("Error handling next round:", error);
             Alert.alert("Error", "Failed to initialize or open the next round.");
@@ -224,12 +198,9 @@ const RoundResults: React.FC = () => {
                     ))}
                 </View>
             ))}
-            
+
             {hasNextRound && (
-                <TouchableOpacity 
-                    style={styles.nextRoundButton} 
-                    onPress={handleNextRound}
-                >
+                <TouchableOpacity style={styles.nextRoundButton} onPress={handleNextRound}>
                     <Text style={styles.nextRoundButtonText}>
                         {nextRoundStarted ? "Open Next Round" : "Start Next Round"}
                     </Text>
@@ -239,17 +210,10 @@ const RoundResults: React.FC = () => {
     );
 };
 
-export default RoundResults;
-
 const styles = StyleSheet.create({
     container: {
         padding: 20,
         paddingBottom: 40,
-    },
-    loadingContainer: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
     },
     title: {
         fontSize: 24,
@@ -294,7 +258,7 @@ const styles = StyleSheet.create({
         textAlign: 'center',
     },
     nextRoundButton: {
-        backgroundColor: '#228B22', // Forest Green
+        backgroundColor: '#228B22',
         paddingVertical: 15,
         borderRadius: 6,
         alignItems: 'center',
@@ -307,3 +271,5 @@ const styles = StyleSheet.create({
         fontWeight: '600',
     },
 });
+
+export default RoundResults;

@@ -127,6 +127,11 @@ export function RefereeModule() {
         }
     };
 
+    function getLastName(fullName: string): string {
+        const parts = fullName.trim().split(/\s+/);
+        return parts[parts.length - 1] || fullName;
+    }
+
     // Function to revert the last score change and restore the passivity timer
     const revertLastPoint = () => {
         if (lastScoreChange) {
@@ -294,7 +299,7 @@ export function RefereeModule() {
                         {renderAggregatedCards(fencer1Cards)}
                     </View>
                     <Text style={styles.fencerLabel}>
-                        {kawaiiMode ? 'Kitten 1' : fencer1Name}
+                        {kawaiiMode ? 'Kitten 1' : getLastName(fencer1Name)}
                     </Text>
                     <Text style={styles.scoreText}>{fencer1Score}</Text>
                     <View style={styles.buttonContainer}>
@@ -318,7 +323,7 @@ export function RefereeModule() {
                         {renderAggregatedCards(fencer2Cards)}
                     </View>
                     <Text style={styles.fencerLabel}>
-                        {kawaiiMode ? 'Kitten 2' : fencer2Name}
+                        {kawaiiMode ? 'Kitten 2' : getLastName(fencer2Name)}
                     </Text>
                     <Text style={styles.scoreText}>{fencer2Score}</Text>
                     <View style={styles.buttonContainer}>

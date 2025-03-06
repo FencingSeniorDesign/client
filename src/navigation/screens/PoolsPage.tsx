@@ -1,4 +1,4 @@
-// In PoolsPage.tsx
+// src/navigation/screens/PoolsPage.tsx
 import React, { useEffect, useState, useCallback } from 'react';
 import {
     View,
@@ -8,16 +8,22 @@ import {
     ScrollView,
     Alert,
     Modal,
+    TextInput,
 } from 'react-native';
 import { useRoute, RouteProp, useNavigation, useFocusEffect } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { dbGetPoolsForRound, dbGetBoutsForPool, dbMarkRoundAsComplete, dbGetSeedingForRound } from "../../db/TournamentDatabaseUtils";
+import {
+    dbGetPoolsForRound,
+    dbGetBoutsForPool,
+    dbMarkRoundAsComplete,
+    dbGetSeedingForRound,
+} from '../../db/TournamentDatabaseUtils';
 import { RootStackParamList, Event, Fencer } from '../navigation/types';
 
 type PoolsPageRouteParams = {
     event: Event;
     currentRoundIndex: number;
-    roundId: number; // Ensure roundId is provided when navigating here
+    roundId: number;
 };
 
 type PoolsPageNavProp = NativeStackNavigationProp<RootStackParamList, 'PoolsPage'>;
@@ -29,8 +35,14 @@ const PoolsPage: React.FC = () => {
     const { event, currentRoundIndex, roundId } = route.params;
     const [pools, setPools] = useState<{ poolid: number; fencers: Fencer[] }[]>([]);
     const [expandedPools, setExpandedPools] = useState<boolean[]>([]);
-    const [allBoutsComplete, setAllBoutsComplete] = useState<boolean>(false);
-    
+    const [poolCompletionStatus, setPoolCompletionStatus] = useState<{ [poolId: number]: boolean }>({});
+
+    // For strip number modal
+    const [stripModalVisible, setStripModalVisible] = useState<boolean>(false);
+    const [currentPoolForStrip, setCurrentPoolForStrip] = useState<number | null>(null);
+    const [stripInput, setStripInput] = useState<string>('');
+    const [poolStrips, setPoolStrips] = useState<{ [poolId: number]: number }>({});
+
     // Seeding modal state
     const [seedingModalVisible, setSeedingModalVisible] = useState<boolean>(false);
     const [seeding, setSeeding] = useState<{ seed: number; fencer: Fencer }[]>([]);
@@ -52,16 +64,19 @@ const PoolsPage: React.FC = () => {
 
     const checkBoutsCompletion = useCallback(async () => {
         try {
-            const results = await Promise.all(
-                pools.map(pool => dbGetBoutsForPool(roundId, pool.poolid))
+            const statusObj: { [poolId: number]: boolean } = {};
+            await Promise.all(
+                pools.map(async (pool) => {
+                    const bouts = await dbGetBoutsForPool(roundId, pool.poolid);
+                    const complete = bouts.every(bout => {
+                        const scoreA = bout.left_score ?? 0;
+                        const scoreB = bout.right_score ?? 0;
+                        return scoreA !== 0 || scoreB !== 0;
+                    });
+                    statusObj[pool.poolid] = complete;
+                })
             );
-            const allBouts = results.flat();
-            const complete = allBouts.every(bout => {
-                const scoreA = bout.scoreA ?? null;
-                const scoreB = bout.scoreB ?? null;
-                return scoreA !== 0 || scoreB !== 0;
-            });
-            setAllBoutsComplete(complete);
+            setPoolCompletionStatus(statusObj);
         } catch (error) {
             console.error("Error checking bout completion:", error);
         }
@@ -88,10 +103,30 @@ const PoolsPage: React.FC = () => {
             return updated;
         });
     };
-    
+
+    const handlePoolLongPress = (poolId: number) => {
+        setCurrentPoolForStrip(poolId);
+        setStripInput('');
+        setStripModalVisible(true);
+    };
+
+    const submitStripNumber = () => {
+        if (currentPoolForStrip !== null && stripInput.trim() !== '') {
+            const num = parseInt(stripInput, 10);
+            if (!isNaN(num)) {
+                setPoolStrips(prev => ({ ...prev, [currentPoolForStrip]: num }));
+            }
+        }
+        setStripModalVisible(false);
+        setCurrentPoolForStrip(null);
+        setStripInput('');
+    };
+
+    // Seeding modal code
     const fetchSeeding = async () => {
         try {
             const seedingData = await dbGetSeedingForRound(roundId);
+            console.log("Seeding data fetched:", seedingData);
             setSeeding(seedingData);
             setSeedingModalVisible(true);
         } catch (error) {
@@ -109,13 +144,11 @@ const PoolsPage: React.FC = () => {
                 {
                     text: "Yes", onPress: async () => {
                         try {
-                            // Mark the round as complete in the database.
                             await dbMarkRoundAsComplete(roundId);
-                            // Then navigate to the RoundResults page.
-                            navigation.navigate('RoundResults', { 
-                                roundId, 
+                            navigation.navigate('RoundResults', {
+                                roundId,
                                 eventId: event.id,
-                                currentRoundIndex 
+                                currentRoundIndex
                             });
                         } catch (error) {
                             console.error("Error marking round as complete:", error);
@@ -128,31 +161,34 @@ const PoolsPage: React.FC = () => {
 
     return (
         <ScrollView contentContainerStyle={styles.container}>
-            {pools.length === 0 && (
-                <Text style={styles.infoText}>
-                    No pool assignments found. Please verify that the round has been initialized.
-                </Text>
-            )}
-            
+            <Text style={styles.title}>Pools</Text>
+
             <TouchableOpacity
                 style={styles.viewSeedingButton}
                 onPress={fetchSeeding}
             >
                 <Text style={styles.viewSeedingButtonText}>View Seeding</Text>
             </TouchableOpacity>
-            
+
             {pools.map((poolObj, index) => {
+                const displayPoolNumber = poolObj.poolid + 1;
                 const isExpanded = expandedPools[index];
+                const complete = poolCompletionStatus[poolObj.poolid] || false;
+                const stripText = poolStrips[poolObj.poolid] ? ` on strip ${poolStrips[poolObj.poolid]}` : '';
+                const headerText = `Pool ${displayPoolNumber} : ${poolObj.fencers.length} fencer${poolObj.fencers.length !== 1 ? 's' : ''}${stripText}`;
                 return (
                     <View key={poolObj.poolid} style={styles.poolContainer}>
-                        <TouchableOpacity onPress={() => togglePool(index)} style={styles.poolHeader}>
+                        <TouchableOpacity
+                            onPress={() => togglePool(index)}
+                            onLongPress={() => handlePoolLongPress(poolObj.poolid)}
+                            style={[
+                                styles.poolHeader,
+                                complete ? styles.poolHeaderComplete : styles.poolHeaderOngoing,
+                            ]}
+                        >
                             <View style={styles.poolHeaderRow}>
-                                <Text style={styles.poolHeaderText}>
-                                    Pool {poolObj.poolid + 1} : {poolObj.fencers.length} fencer{poolObj.fencers.length !== 1 ? 's' : ''}
-                                </Text>
-                                <Text style={styles.arrowText}>
-                                    {isExpanded ? '▼' : '▶'}
-                                </Text>
+                                <Text style={styles.poolHeaderText}>{headerText}</Text>
+                                <Text style={styles.arrowText}>{isExpanded ? '▼' : '▶'}</Text>
                             </View>
                         </TouchableOpacity>
                         {isExpanded && (
@@ -171,25 +207,54 @@ const PoolsPage: React.FC = () => {
                                         })
                                     }
                                 >
-                                    <Text style={styles.refereeButtonText}>Referee</Text>
+                                    <Text style={styles.refereeButtonText}>
+                                        {complete ? "Edit Completed Pool" : "Referee"}
+                                    </Text>
                                 </TouchableOpacity>
                             </View>
                         )}
                     </View>
                 );
             })}
-            
+
             <TouchableOpacity
                 style={[
                     styles.endRoundButton,
-                    !allBoutsComplete && styles.disabledButton
+                    !Object.values(poolCompletionStatus).every(status => status) && styles.disabledButton,
                 ]}
-                disabled={!allBoutsComplete}
+                disabled={!Object.values(poolCompletionStatus).every(status => status)}
                 onPress={confirmEndRound}
             >
                 <Text style={styles.endRoundButtonText}>End Round</Text>
             </TouchableOpacity>
-            
+
+            {/* Strip Number Modal */}
+            <Modal
+                visible={stripModalVisible}
+                transparent={true}
+                animationType="slide"
+                onRequestClose={() => setStripModalVisible(false)}
+            >
+                <View style={styles.modalOverlay}>
+                    <View style={styles.modalContent}>
+                        <Text style={styles.modalTitle}>Enter Strip Number</Text>
+                        <TextInput
+                            style={styles.stripInput}
+                            keyboardType="number-pad"
+                            placeholder="e.g., 17"
+                            value={stripInput}
+                            onChangeText={setStripInput}
+                        />
+                        <TouchableOpacity style={styles.modalButton} onPress={submitStripNumber}>
+                            <Text style={styles.modalButtonText}>Submit</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity style={[styles.modalButton, styles.cancelButton]} onPress={() => setStripModalVisible(false)}>
+                            <Text style={styles.modalButtonText}>Cancel</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </Modal>
+
             {/* Seeding Modal */}
             <Modal
                 animationType="slide"
@@ -197,22 +262,23 @@ const PoolsPage: React.FC = () => {
                 visible={seedingModalVisible}
                 onRequestClose={() => setSeedingModalVisible(false)}
             >
-                <View style={styles.modalContainer}>
+                <View style={styles.modalOverlay}>
                     <View style={styles.modalContent}>
                         <Text style={styles.modalTitle}>Current Seeding</Text>
-                        
                         <ScrollView style={styles.seedingList}>
                             {seeding.map((item) => (
                                 <View key={item.fencer.id} style={styles.seedingItem}>
-                                    <Text style={styles.seedNumber}>{item.seed}</Text>
-                                    <Text style={styles.seedFencer}>
-                                        {item.fencer.lname}, {item.fencer.fname}
-                                        {item.fencer.frating !== 'U' && ` (${item.fencer.frating}${item.fencer.fyear})`}
-                                    </Text>
+                                    {/* Put them on the same line via flexDirection: 'row' */}
+                                    <View style={styles.seedingRow}>
+                                        <Text style={styles.seedNumber}>{item.seed}</Text>
+                                        <Text style={styles.seedFencer}>
+                                            {item.fencer.lname}, {item.fencer.fname}
+                                            {item.fencer.frating !== 'U' && ` (${item.fencer.frating}${item.fencer.fyear})`}
+                                        </Text>
+                                    </View>
                                 </View>
                             ))}
                         </ScrollView>
-                        
                         <TouchableOpacity
                             style={styles.closeButton}
                             onPress={() => setSeedingModalVisible(false)}
@@ -233,6 +299,12 @@ const styles = StyleSheet.create({
         padding: 20,
         paddingBottom: 40,
     },
+    title: {
+        fontSize: 24,
+        fontWeight: 'bold',
+        marginBottom: 8,
+        textAlign: 'center',
+    },
     infoText: {
         fontSize: 16,
         color: 'red',
@@ -248,7 +320,12 @@ const styles = StyleSheet.create({
     },
     poolHeader: {
         padding: 15,
+    },
+    poolHeaderOngoing: {
         backgroundColor: '#007AFF',
+    },
+    poolHeaderComplete: {
+        backgroundColor: '#4CAF50',
     },
     poolHeaderRow: {
         flexDirection: 'row',
@@ -300,9 +377,8 @@ const styles = StyleSheet.create({
     disabledButton: {
         backgroundColor: '#ccc',
     },
-    // New styles for seeding button and modal
     viewSeedingButton: {
-        backgroundColor: '#4682B4', // Steel Blue
+        backgroundColor: '#4682B4',
         paddingVertical: 12,
         borderRadius: 6,
         alignItems: 'center',
@@ -313,7 +389,7 @@ const styles = StyleSheet.create({
         fontSize: 16,
         fontWeight: '600',
     },
-    modalContainer: {
+    modalOverlay: {
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
@@ -325,11 +401,9 @@ const styles = StyleSheet.create({
         backgroundColor: 'white',
         borderRadius: 10,
         padding: 20,
+        alignItems: 'center',
         shadowColor: '#000',
-        shadowOffset: {
-            width: 0,
-            height: 2,
-        },
+        shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.25,
         shadowRadius: 3.84,
         elevation: 5,
@@ -341,13 +415,20 @@ const styles = StyleSheet.create({
         textAlign: 'center',
     },
     seedingList: {
-        maxHeight: 400,
+        maxHeight: 700,
     },
     seedingItem: {
+        // Let each item sit on its own row
+        // But keep seed number and name side-by-side
         flexDirection: 'row',
+        alignItems: 'center',
         paddingVertical: 10,
         borderBottomWidth: 1,
         borderBottomColor: '#eee',
+    },
+    // We add a new style for a row:
+    seedingRow: {
+        flexDirection: 'row',
         alignItems: 'center',
     },
     seedNumber: {
@@ -355,6 +436,7 @@ const styles = StyleSheet.create({
         fontSize: 18,
         fontWeight: 'bold',
         textAlign: 'center',
+        marginRight: 8,
     },
     seedFencer: {
         flex: 1,
@@ -366,8 +448,35 @@ const styles = StyleSheet.create({
         borderRadius: 6,
         alignItems: 'center',
         marginTop: 15,
+        width: '60%',
     },
     closeButtonText: {
+        color: '#fff',
+        fontSize: 16,
+        fontWeight: '600',
+    },
+    stripInput: {
+        borderWidth: 1,
+        borderColor: '#ccc',
+        borderRadius: 6,
+        padding: 10,
+        width: '60%',
+        textAlign: 'center',
+        marginBottom: 15,
+    },
+    modalButton: {
+        backgroundColor: '#007AFF',
+        paddingVertical: 12,
+        paddingHorizontal: 20,
+        borderRadius: 6,
+        marginBottom: 10,
+        width: '60%',
+        alignItems: 'center',
+    },
+    cancelButton: {
+        backgroundColor: '#ccc',
+    },
+    modalButtonText: {
         color: '#fff',
         fontSize: 16,
         fontWeight: '600',

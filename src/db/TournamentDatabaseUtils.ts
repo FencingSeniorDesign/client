@@ -534,7 +534,20 @@ export async function dbGetRoundsForEvent(eventId: number): Promise<Round[]> {
     }
 }
 
-export async function dbAddRound(round: Round): Promise<void> {
+export async function dbAddRound(round: {
+    eventid: number;
+    rorder: number;
+    type: "pool" | "de";
+    promotionpercent: number;
+    targetbracket: number;
+    usetargetbracket: number;
+    deformat: string;
+    detablesize: number;
+    iscomplete: number;
+    poolcount: number | null;
+    poolsize: number | null;
+    poolsoption: string | undefined
+}): Promise<void> {
     try {
         const db = await openDB();
         await db.runAsync(
@@ -740,44 +753,41 @@ export async function dbGetBoutsForPool(roundId: number, poolId: number): Promis
     const db = await openDB();
     const rows = (await db.getAllAsync(
         `SELECT
-         B.id,
-         fpa1.fencerid AS left_fencerid,
-         fpa2.fencerid AS right_fencerid,
-         fpa1.fenceridinpool,
-         fpa2.fenceridinpool,
-         leftF.fname AS left_fname,
-         leftF.lname AS left_lname,
-         rightF.fname AS right_fname,
-         rightF.lname AS right_lname,
-         fb1.score AS left_score,
-         fb2.score AS right_score,
-         victor
-     FROM Bouts AS B
-          JOIN FencerPoolAssignment AS fpa1
-               ON B.lfencer = fpa1.fencerid
-                  AND B.roundid = fpa1.roundid
-          JOIN FencerPoolAssignment AS fpa2
-               ON B.rfencer = fpa2.fencerid
-                  AND B.roundid = fpa2.roundid
-          JOIN Fencers AS leftF
-               ON B.lfencer = leftF.id
-          JOIN Fencers AS rightF
-               ON B.rfencer = rightF.id
-          LEFT JOIN FencerBouts AS fb1
-                    ON fb1.boutid = B.id
-                        AND fb1.fencerid = fpa1.fencerid
-          LEFT JOIN FencerBouts AS fb2
-                    ON fb2.boutid = B.id
-                        AND fb2.fencerid = fpa2.fencerid
-     WHERE B.roundid = ?
-       AND fpa1.poolid = ?
-       AND fpa2.poolid = ?;`,
+             B.id,
+             fpa1.fencerid AS left_fencerid,
+             fpa2.fencerid AS right_fencerid,
+             fpa1.fenceridinpool AS left_poolposition,
+             fpa2.fenceridinpool AS right_poolposition,
+             leftF.fname AS left_fname,
+             leftF.lname AS left_lname,
+             rightF.fname AS right_fname,
+             rightF.lname AS right_lname,
+             fb1.score AS left_score,
+             fb2.score AS right_score,
+             victor
+         FROM Bouts AS B
+                  JOIN FencerPoolAssignment AS fpa1
+                       ON B.lfencer = fpa1.fencerid
+                           AND B.roundid = fpa1.roundid
+                  JOIN FencerPoolAssignment AS fpa2
+                       ON B.rfencer = fpa2.fencerid
+                           AND B.roundid = fpa2.roundid
+                  JOIN Fencers AS leftF
+                       ON B.lfencer = leftF.id
+                  JOIN Fencers AS rightF
+                       ON B.rfencer = rightF.id
+                  LEFT JOIN FencerBouts AS fb1
+                            ON fb1.boutid = B.id AND fb1.fencerid = fpa1.fencerid
+                  LEFT JOIN FencerBouts AS fb2
+                            ON fb2.boutid = B.id AND fb2.fencerid = fpa2.fencerid
+         WHERE B.roundid = ?
+           AND fpa1.poolid = ?
+           AND fpa2.poolid = ?;`,
         [roundId, poolId, poolId]
     )) as any[];
-
-
     return rows;
 }
+
 
 export async function dbUpdateBoutScore(boutId: number, fencerId: number, score: number): Promise<void> {
     const db = await openDB();
