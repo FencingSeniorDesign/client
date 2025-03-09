@@ -1,6 +1,6 @@
 // src/navigation/screens/Home.tsx with Join Tournament functionality
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, View, Text, Image, TouchableOpacity, Alert } from 'react-native';
+import { StyleSheet, View, Text, Image, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import { CreateTournamentButton } from './CreateTournamentModal';
 import { TournamentList } from './TournamentListComponent';
 import { dbListCompletedTournaments, dbListOngoingTournaments } from '../../db/TournamentDatabaseUtils';
@@ -8,37 +8,32 @@ import { useNavigation } from '@react-navigation/native';
 import { Tournament } from "../navigation/types";
 import { JoinTournamentModal } from './JoinTournamentModal';
 import tournamentClient from '../../networking/TournamentClient';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 // Import the logo image
 import logo from '../../assets/logo.png';
 
 export function Home() {
   const navigation = useNavigation();
-  const [ongoingTournaments, setOngoingTournaments] = useState<Tournament[]>([]);
-  const [completedTournaments, setCompletedTournaments] = useState<Tournament[]>([]);
-
+  const queryClient = useQueryClient();
+  
   // State for join tournament modal
   const [joinModalVisible, setJoinModalVisible] = useState(false);
   const [connectedTournament, setConnectedTournament] = useState<string | null>(null);
 
-  // Function to load tournaments into the state
-  const loadOngoingTournaments = async () => {
-    try {
-      const tournamentsList = await dbListOngoingTournaments();
-      setOngoingTournaments(tournamentsList);
-    } catch (error) {
-      console.error('Failed to load tournaments:', error);
-    }
-  };
+  // Use TanStack Query for ongoing tournaments
+  const ongoingTournamentsQuery = useQuery({
+    queryKey: ['tournaments', 'ongoing'],
+    queryFn: dbListOngoingTournaments,
+    staleTime: 1000 * 60, // 1 minute
+  });
 
-  const loadCompletedTournaments = async () => {
-    try {
-      const tournamentsList = await dbListCompletedTournaments();
-      setCompletedTournaments(tournamentsList);
-    } catch (error) {
-      console.error('Failed to load tournaments:', error);
-    }
-  }
+  // Use TanStack Query for completed tournaments
+  const completedTournamentsQuery = useQuery({
+    queryKey: ['tournaments', 'completed'],
+    queryFn: dbListCompletedTournaments,
+    staleTime: 1000 * 60, // 1 minute
+  });
 
   // Check if we're connected to a tournament on load
   useEffect(() => {
@@ -53,12 +48,6 @@ export function Home() {
     checkConnection();
   }, []);
 
-  // Load tournaments initially
-  useEffect(() => {
-    loadOngoingTournaments();
-    loadCompletedTournaments();
-  }, []);
-
   const handleJoinSuccess = (tournamentName: string) => {
     setConnectedTournament(tournamentName);
     Alert.alert('Success', `Connected to tournament: ${tournamentName}`);
@@ -69,13 +58,17 @@ export function Home() {
     setConnectedTournament(null);
     Alert.alert('Disconnected', 'You have disconnected from the tournament');
   };
+  
+  const refreshTournaments = () => {
+    queryClient.invalidateQueries({ queryKey: ['tournaments'] });
+  };
 
   return (
       <View style={styles.container}>
         <Image source={logo} style={styles.logo} resizeMode="contain" />
 
         {/* Create Tournament Button */}
-        <CreateTournamentButton onTournamentCreated={loadOngoingTournaments} />
+        <CreateTournamentButton onTournamentCreated={refreshTournaments} />
 
         {/* Join Tournament Button or Connection Status */}
         {connectedTournament ? (
@@ -99,12 +92,32 @@ export function Home() {
         {/* Ongoing Tournaments */}
         <Text style={styles.tournamentHistoryTitle}>Ongoing Tournaments</Text>
         <View style={styles.ongoingTournamentsContainer}>
-          <TournamentList tournaments={ongoingTournaments} onTournamentDeleted={loadOngoingTournaments} isComplete={false} />
+          {ongoingTournamentsQuery.isLoading ? (
+            <ActivityIndicator size="large" color="#ffffff" />
+          ) : ongoingTournamentsQuery.isError ? (
+            <Text style={styles.errorText}>Error loading tournaments</Text>
+          ) : (
+            <TournamentList 
+              tournaments={ongoingTournamentsQuery.data || []} 
+              onTournamentDeleted={refreshTournaments} 
+              isComplete={false} 
+            />
+          )}
         </View>
 
         {/* Tournament History Section */}
         <Text style={styles.tournamentHistoryTitle}>Tournament History</Text>
-        <TournamentList tournaments={completedTournaments} onTournamentDeleted={loadCompletedTournaments} isComplete={true} />
+        {completedTournamentsQuery.isLoading ? (
+          <ActivityIndicator size="large" color="#001f3f" />
+        ) : completedTournamentsQuery.isError ? (
+          <Text style={styles.errorText}>Error loading tournament history</Text>
+        ) : (
+          <TournamentList 
+            tournaments={completedTournamentsQuery.data || []} 
+            onTournamentDeleted={refreshTournaments} 
+            isComplete={true} 
+          />
+        )}
 
         {/* Referee Module Button */}
         <TouchableOpacity style={styles.customButton} onPress={() => navigation.navigate('RefereeModule')}>
@@ -198,5 +211,11 @@ const styles = StyleSheet.create({
   disconnectButtonText: {
     color: '#fff',
     fontSize: 14,
+  },
+  errorText: {
+    color: '#ff3b30',
+    fontSize: 16,
+    textAlign: 'center',
+    padding: 10,
   },
 });

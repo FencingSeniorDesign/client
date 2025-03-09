@@ -24,6 +24,11 @@ class TournamentClient extends EventEmitter {
     private messageQueue: string[] = [];
     private connectionAttempts: number = 0;
     private maxReconnectAttempts: number = 5;
+    private responsePromises: Map<string, {
+        resolve: (data: any) => void;
+        reject: (error: any) => void;
+        timeoutId: NodeJS.Timeout;
+    }> = new Map();
 
     constructor() {
         super();
@@ -156,6 +161,12 @@ class TournamentClient extends EventEmitter {
     // Disconnect from the server
     async disconnect(): Promise<boolean> {
         try {
+            this.responsePromises.forEach((handlers, type) => {
+                clearTimeout(handlers.timeoutId);
+                handlers.reject(new Error('Disconnected from server'));
+            });
+            this.responsePromises.clear();
+
             if (this.socket) {
                 try {
                     this.socket.destroy();
@@ -186,6 +197,15 @@ class TournamentClient extends EventEmitter {
             console.error('Failed to disconnect:', error);
             return false;
         }
+    }
+
+    async getEvents(tournamentName: string): Promise<any> {
+        this.sendMessage({
+            type: 'get_events',
+            tournamentName
+        });
+
+        return this.waitForResponse('events_list');
     }
 
     // Check if client is connected
@@ -233,6 +253,23 @@ class TournamentClient extends EventEmitter {
     private handleServerMessage(message: string): void {
         try {
             const data = JSON.parse(message);
+            console.log(`Processing message of type: ${data.type}`);
+
+            // Validate and normalize events data if present
+            if (data.type === 'events_list' && data.events !== undefined) {
+                // Ensure events is always an array
+                if (!Array.isArray(data.events)) {
+                    console.warn(`Received events_list with non-array events:`, data.events);
+                    data.events = [];
+                }
+                console.log(`Normalized events_list contains ${data.events.length} events`);
+            }
+
+            const promiseHandlers = this.responsePromises.get(data.type);
+            if (promiseHandlers) {
+                console.log(`Resolving promise for ${data.type}`);
+                promiseHandlers.resolve(data);
+            }
 
             // Handle different message types
             switch (data.type) {
@@ -254,15 +291,61 @@ class TournamentClient extends EventEmitter {
                 case 'server_closing':
                     this.handleServerClosing(data);
                     break;
+                case 'events_list':
+                    console.log(`Received events_list with ${data.events.length} events`);
+                    break;
                 default:
                     console.log(`Unknown message type: ${data.type}`);
             }
 
             // Emit the message to any listeners
+            this.emit(data.type, data);
             this.emit('message', data);
         } catch (error) {
             console.error('Error handling server message:', error);
         }
+    }
+
+    async waitForResponse(type: string, timeout: number = 10000): Promise<any> {
+        // If we already have a pending promise for this type, return it
+        if (this.responsePromises.has(type)) {
+            return new Promise((_, reject) => {
+                reject(new Error(`Already waiting for response of type: ${type}`));
+            });
+        }
+
+        return new Promise((resolve, reject) => {
+            // Create a timeout to reject the promise if no response comes
+            const timeoutId = setTimeout(() => {
+                const promiseHandlers = this.responsePromises.get(type);
+                if (promiseHandlers) {
+                    this.responsePromises.delete(type);
+                    reject(new Error(`Timeout waiting for response type: ${type}`));
+                }
+            }, timeout);
+
+            // Store the promise handlers
+            this.responsePromises.set(type, {
+                resolve: (data) => {
+                    clearTimeout(timeoutId);
+                    this.responsePromises.delete(type);
+                    resolve(data);
+                },
+                reject: (error) => {
+                    clearTimeout(timeoutId);
+                    this.responsePromises.delete(type);
+                    reject(error);
+                },
+                timeoutId
+            });
+
+            // If we're not connected, reject immediately
+            if (!this.isConnected()) {
+                clearTimeout(timeoutId);
+                this.responsePromises.delete(type);
+                reject(new Error('Not connected to server'));
+            }
+        });
     }
 
     // Handle welcome message from server

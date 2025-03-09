@@ -230,6 +230,9 @@ class TournamentServer {
                 case 'request_tournament_data':
                     this.handleTournamentDataRequest(clientId);
                     break;
+                case 'get_events':
+                    this.handleGetEvents(clientId, data);
+                    break;
                 default:
                     console.log(`Unknown message type: ${data.type}`);
             }
@@ -292,6 +295,61 @@ class TournamentServer {
             }
         } catch (error) {
             console.error('Error handling tournament data request:', error);
+        }
+    }
+
+    private async handleGetEvents(clientId: string, data: any): Promise<void> {
+        if (!this.serverInfo) {
+            console.error('No server info available');
+            return;
+        }
+
+        const tournamentName = data.tournamentName || this.serverInfo.tournamentName;
+
+        try {
+            // Refresh tournament data if needed
+            await this.refreshTournamentData(tournamentName);
+
+            // Extract just the events data, ensure it's an array
+            let events = this.cachedTournamentData?.events || [];
+            
+            // Extra safety check to ensure events is always an array
+            if (!Array.isArray(events)) {
+                console.warn(`Events data is not an array, converting to empty array. Data was:`, events);
+                events = [];
+            }
+
+            // Send events to the requesting client
+            const client = this.clients.get(clientId);
+            if (client) {
+                try {
+                    client.write(JSON.stringify({
+                        type: 'events_list',
+                        tournamentName,
+                        events
+                    }));
+                    console.log(`Events list sent to client ${clientId}: ${events.length} events`);
+                } catch (error) {
+                    console.error(`Error sending events to client ${clientId}:`, error);
+                }
+            }
+        } catch (error) {
+            console.error('Error handling get_events request:', error);
+
+            // Send error response with empty array
+            const client = this.clients.get(clientId);
+            if (client) {
+                try {
+                    client.write(JSON.stringify({
+                        type: 'events_list',
+                        tournamentName,
+                        events: [], // Always an array
+                        error: 'Failed to fetch events'
+                    }));
+                } catch (error) {
+                    console.error(`Error sending error response to client ${clientId}:`, error);
+                }
+            }
         }
     }
 

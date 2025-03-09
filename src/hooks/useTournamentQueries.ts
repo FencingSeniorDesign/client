@@ -35,15 +35,25 @@ export function useEvents(tournamentName: string) {
         queryFn: async () => {
             // For remote connections, fetch from server
             if (isRemoteConnection()) {
-                // Request events from server
-                tournamentClient.sendMessage({
-                    type: 'get_events',
-                    tournamentName
-                });
+                try {
+                    // Request events from server
+                    tournamentClient.sendMessage({
+                        type: 'get_events',
+                        tournamentName
+                    });
 
-                // This is a promise that will resolve when the server responds
-                // You'll need to implement this in your TournamentClient
-                return await tournamentClient.waitForResponse('events_list');
+                    // This is a promise that will resolve when the server responds
+                    const response = await tournamentClient.waitForResponse('events_list');
+                    
+                    // Ensure events is always an array
+                    if (response && response.events) {
+                        return Array.isArray(response.events) ? response.events : [];
+                    }
+                    return [];
+                } catch (error) {
+                    console.error('Error fetching remote events:', error);
+                    return []; // Return empty array on error
+                }
             }
 
             // For local tournaments, fetch from database
@@ -53,12 +63,19 @@ export function useEvents(tournamentName: string) {
         refetchOnWindowFocus: true,
         staleTime: 1000 * 60, // 1 minute
         onSuccess: (data) => {
+            if (!Array.isArray(data)) {
+                console.error('Events data is not an array:', data);
+                return;
+            }
+            
             // When we get events, prefetch fencers for each event
             data.forEach(event => {
-                queryClient.prefetchQuery({
-                    queryKey: keys.fencers(event.id),
-                    queryFn: () => dbGetFencersInEventById(event)
-                });
+                if (event && event.id) {
+                    queryClient.prefetchQuery({
+                        queryKey: keys.fencers(event.id),
+                        queryFn: () => dbGetFencersInEventById(event)
+                    });
+                }
             });
         }
     });

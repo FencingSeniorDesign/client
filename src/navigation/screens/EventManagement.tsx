@@ -11,6 +11,7 @@ import {
   ScrollView,
   TextInput,
   BackHandler,
+  ActivityIndicator,
 } from 'react-native';
 import {useNavigation, RouteProp, useFocusEffect} from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -28,6 +29,8 @@ import tournamentServer from '../../networking/TournamentServer';
 import tournamentClient from '../../networking/TournamentClient';
 import { getLocalIpAddress } from '../../networking/NetworkUtils';
 import ConnectionStatusBar from '../../networking/components/ConnectionStatusBar';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useEvents, useCreateEvent } from '../../hooks/useTournamentQueries';
 
 type Props = {
   route: RouteProp<{ params: { tournamentName: string, isRemoteConnection?: boolean } }, 'params'>;
@@ -35,8 +38,16 @@ type Props = {
 
 export const EventManagement = ({ route }: Props) => {
   const { tournamentName, isRemoteConnection = false } = route.params;
-  const [events, setEvents] = useState<Event[]>([]);
-  // Map event id -> boolean (true if already started)
+  const queryClient = useQueryClient();
+  
+  // Use TanStack Query for fetching events
+  const { 
+    data: events = [], 
+    isLoading: eventsLoading,
+    isError: eventsError
+  } = useEvents(tournamentName);
+  
+  // State for event status tracking
   const [eventStatuses, setEventStatuses] = useState<{ [key: number]: boolean }>({});
   const [modalVisible, setModalVisible] = useState<boolean>(false);
   const [editingEventId, setEditingEventId] = useState<number | null>(null);
@@ -50,6 +61,7 @@ export const EventManagement = ({ route }: Props) => {
   const [serverEnabled, setServerEnabled] = useState(false);
   const [serverInfo, setServerInfo] = useState<{ip: string | null, port: number} | null>(null);
   const [localIpAddress, setLocalIpAddress] = useState<string | null>(null);
+  const [serverOperationPending, setServerOperationPending] = useState(false);
 
   // Remote connection state
   const [isRemote, setIsRemote] = useState(isRemoteConnection);
@@ -58,6 +70,9 @@ export const EventManagement = ({ route }: Props) => {
     hostIp: string;
     port: number;
   } | null>(null);
+  
+  // Use TanStack Query mutation for creating events
+  const createEventMutation = useCreateEvent();
 
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
@@ -118,17 +133,26 @@ export const EventManagement = ({ route }: Props) => {
     }
   }, [isRemote, navigation]);
 
-  const loadEvents = useCallback(async () => {
-    try {
-      console.log("Loading events and their statuses...");
-      const eventsList = await dbListEvents(tournamentName);
-      setEvents(eventsList);
+  // Load event statuses when events data changes
+  useEffect(() => {
+    const loadEventStatuses = async () => {
+      // Make sure events is an array with elements
+      if (!events || !Array.isArray(events) || events.length === 0) {
+        setEventStatuses({});
+        return;
+      }
+      
       const statuses: { [key: number]: boolean } = {};
-
-      await Promise.all(
-          eventsList.map(async (evt) => {
+      try {
+        await Promise.all(
+          events.map(async (evt) => {
+            if (!evt || typeof evt.id !== 'number') {
+              console.warn('Invalid event object:', evt);
+              return;
+            }
+            
             const rounds: Round[] = await dbGetRoundsForEvent(evt.id);
-
+            
             // An event is considered started if it has at least one round AND the first round has isstarted=1
             if (rounds && rounds.length > 0) {
               statuses[evt.id] = rounds[0].isstarted;
@@ -136,19 +160,41 @@ export const EventManagement = ({ route }: Props) => {
               statuses[evt.id] = false;
             }
           })
-      );
+        );
+        
+        setEventStatuses(statuses);
+      } catch (error) {
+        console.error('Error loading event statuses:', error);
+        setEventStatuses({});
+      }
+    };
+    
+    loadEventStatuses();
+  }, [events]);
 
-      setEventStatuses(statuses);
-      console.log("Loaded event statuses:", statuses);
-    } catch (error) {
-      console.error('Error loading events from DB:', error);
+  // Function to check actual server status
+  const checkServerStatus = useCallback(async () => {
+    await tournamentServer.loadServerInfo();
+    const info = tournamentServer.getServerInfo();
+    const isRunning = tournamentServer.isServerRunning();
+    
+    // Update UI state based on actual server status
+    setServerEnabled(isRunning);
+    
+    if (isRunning && info) {
+      setServerInfo({
+        ip: info.hostIp === '0.0.0.0' ? localIpAddress : info.hostIp,
+        port: info.port
+      });
+    } else if (!isRunning) {
+      setServerInfo(null);
     }
-  }, [tournamentName]);
+    
+    return isRunning;
+  }, [localIpAddress]);
 
   // This effect runs when component mounts
   useEffect(() => {
-    loadEvents();
-
     // Get the local IP address
     const fetchIpAddress = async () => {
       const ip = await getLocalIpAddress();
@@ -156,35 +202,16 @@ export const EventManagement = ({ route }: Props) => {
     };
 
     fetchIpAddress();
-
-    // Check if the server is already running
-    const checkServer = async () => {
-      await tournamentServer.loadServerInfo();
-      const info = tournamentServer.getServerInfo();
-      if (info && info.isActive) {
-        setServerEnabled(true);
-        setServerInfo({
-          ip: info.hostIp === '0.0.0.0' ? 'Any' : info.hostIp,
-          port: info.port
-        });
-      }
-    };
-
-    checkServer();
-  }, [loadEvents]);
-
-  // This effect runs when the screen comes into focus
-  useFocusEffect(
-      useCallback(() => {
-        console.log("EventManagement screen is now focused, refreshing data...");
-        loadEvents();
-
-        // Return a cleanup function (optional)
-        return () => {
-          console.log("EventManagement screen is losing focus");
-        };
-      }, [loadEvents])
-  );
+    checkServerStatus();
+    
+    // Set up periodic check for server status (every 5 seconds)
+    const intervalId = setInterval(() => {
+      checkServerStatus();
+    }, 5000);
+    
+    // Clean up interval on unmount
+    return () => clearInterval(intervalId);
+  }, [checkServerStatus]);
 
   const openCreateModal = () => {
     setEditingEventId(null);
@@ -193,6 +220,21 @@ export const EventManagement = ({ route }: Props) => {
     setSelectedAge('Senior');
     setModalVisible(true);
   };
+
+  // TanStack Query mutation for deleting events
+  const deleteEventMutation = useMutation({
+    mutationFn: (eventId: number) => dbDeleteEvent(eventId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['events', tournamentName] });
+      // If we're hosting a server, broadcast the update
+      if (tournamentServer.isServerRunning()) {
+        tournamentServer.broadcastTournamentUpdate({
+          type: 'event_deleted',
+          tournamentName
+        });
+      }
+    }
+  });
 
   // When submitting an event creation, include the rounds and pool settings
   const handleSubmitEvent = async () => {
@@ -204,11 +246,13 @@ export const EventManagement = ({ route }: Props) => {
       };
 
       if (editingEventId === null) {
-        //@ts-ignore TODO - once classification and seeding options are added, fix this
-        await dbCreateEvent(tournamentName, event);
+        // Use the mutation from useTournamentQueries
+        await createEventMutation.mutate({ 
+          tournamentName, 
+          event: event as any // ts-ignore via casting
+        });
       }
       setModalVisible(false);
-      loadEvents();
     } catch (error) {
       Alert.alert('Error', 'Failed to save event.');
       console.error(error);
@@ -217,8 +261,7 @@ export const EventManagement = ({ route }: Props) => {
 
   const handleRemoveEvent = async (id: number) => {
     try {
-      await dbDeleteEvent(id);
-      loadEvents();
+      deleteEventMutation.mutate(id);
     } catch (error) {
       console.error('Error deleting event:', error);
     }
@@ -393,33 +436,66 @@ export const EventManagement = ({ route }: Props) => {
   };
 
   const handleToggleServer = async () => {
-    if (serverEnabled) {
-      // Stop the server
-      const success = await tournamentServer.stopServer();
-      if (success) {
-        setServerEnabled(false);
-        setServerInfo(null);
-        Alert.alert('Server Stopped', 'Tournament server has been shut down');
-      } else {
-        Alert.alert('Error', 'Failed to stop the tournament server');
-      }
-    } else {
-      // Start the server
-      const tournament = { name: tournamentName };
-      const success = await tournamentServer.startServer(tournament);
-      if (success) {
-        setServerEnabled(true);
-        const info = tournamentServer.getServerInfo();
-        if (info) {
-          setServerInfo({
-            ip: info.hostIp === '0.0.0.0' ? localIpAddress : info.hostIp,
-            port: info.port
-          });
-          Alert.alert('Server Started', 'Tournament server is now running');
+    // Don't allow multiple operations in progress
+    if (serverOperationPending) return;
+    
+    setServerOperationPending(true);
+    
+    try {
+      if (serverEnabled) {
+        // Verify server is actually running before trying to stop it
+        const isRunning = await checkServerStatus();
+        if (!isRunning) {
+          // Server isn't actually running - reset UI and return
+          setServerEnabled(false);
+          setServerInfo(null);
+          setServerOperationPending(false);
+          return;
+        }
+        
+        // Stop the server
+        const success = await tournamentServer.stopServer();
+        
+        // Check actual server status after stop attempt
+        const stillRunning = await checkServerStatus();
+        
+        if (!stillRunning) {
+          Alert.alert('Server Stopped', 'Tournament server has been shut down');
+        } else {
+          Alert.alert(
+            'Error', 
+            'Failed to stop the tournament server. The server process may still be running in the background.'
+          );
         }
       } else {
-        Alert.alert('Error', 'Failed to start the tournament server');
+        // Start the server
+        const tournament = { name: tournamentName };
+        const success = await tournamentServer.startServer(tournament);
+        
+        // Verify server actually started
+        const isRunning = await checkServerStatus();
+        
+        if (isRunning) {
+          const info = tournamentServer.getServerInfo();
+          if (info) {
+            setServerInfo({
+              ip: info.hostIp === '0.0.0.0' ? localIpAddress : info.hostIp,
+              port: info.port
+            });
+            Alert.alert('Server Started', 'Tournament server is now running');
+          }
+        } else {
+          Alert.alert(
+            'Error', 
+            'Failed to start the tournament server. Please check your network connection and try again.'
+          );
+        }
       }
+    } catch (error) {
+      console.error('Error toggling server:', error);
+      Alert.alert('Error', 'An unexpected error occurred while managing the server');
+    } finally {
+      setServerOperationPending(false);
     }
   };
 
@@ -482,12 +558,26 @@ export const EventManagement = ({ route }: Props) => {
         {/* Server Control Button (only for local tournaments) */}
         {!isRemote && (
             <TouchableOpacity
-                style={[styles.serverButton, serverEnabled ? styles.serverEnabledButton : styles.serverDisabledButton]}
+                style={[
+                  styles.serverButton, 
+                  serverEnabled ? styles.serverEnabledButton : styles.serverDisabledButton,
+                  serverOperationPending && styles.serverPendingButton
+                ]}
                 onPress={handleToggleServer}
+                disabled={serverOperationPending}
             >
-              <Text style={styles.serverButtonText}>
-                {serverEnabled ? 'Disable Server' : 'Enable Server'}
-              </Text>
+              {serverOperationPending ? (
+                <View style={styles.buttonLoadingContainer}>
+                  <ActivityIndicator size="small" color="#fff" />
+                  <Text style={styles.serverButtonText}>
+                    {serverEnabled ? 'Stopping...' : 'Starting...'}
+                  </Text>
+                </View>
+              ) : (
+                <Text style={styles.serverButtonText}>
+                  {serverEnabled ? 'Disable Server' : 'Enable Server'}
+                </Text>
+              )}
             </TouchableOpacity>
         )}
 
@@ -503,53 +593,73 @@ export const EventManagement = ({ route }: Props) => {
         )}
 
         {!isRemote && (
-            <Button title="Create Event" onPress={openCreateModal} />
+            <Button 
+              title="Create Event" 
+              onPress={openCreateModal}
+              disabled={createEventMutation.isPending} 
+            />
         )}
 
-        <View style={styles.eventList}>
-          {events.map((event) => (
-              <View key={event.id} style={styles.eventItem}>
-                <Text style={styles.eventText}>
-                  {event.age} {event.gender} {event.weapon}
-                </Text>
-                <View style={styles.eventActions}>
-                  {!isRemote && (
-                      <TouchableOpacity
-                          style={[styles.actionButton, styles.flexAction]}
-                          onPress={() =>
-                              navigation.navigate('EventSettings', {
-                                event: event,
-                                onSave: handleSaveEventSettings,
-                              })
-                          }
-                      >
-                        <Text style={styles.buttonText}>Edit</Text>
-                      </TouchableOpacity>
-                  )}
-                  <TouchableOpacity
-                      style={[styles.actionButton, styles.flexAction]}
-                      onPress={() =>
-                          eventStatuses[event.id]
-                              ? handleOpenEvent(event.id)
-                              : confirmStartEvent(event.id)
-                      }
-                  >
-                    <Text style={styles.buttonText}>
-                      {eventStatuses[event.id] ? 'Open' : 'Start'}
-                    </Text>
-                  </TouchableOpacity>
-                  {!isRemote && (
-                      <TouchableOpacity
-                          onPress={() => confirmRemoveEvent(event.id)}
-                          style={styles.removeIconContainer}
-                      >
-                        <Text style={styles.removeIcon}>✖</Text>
-                      </TouchableOpacity>
-                  )}
+        {eventsLoading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#001f3f" />
+            <Text style={styles.loadingText}>Loading events...</Text>
+          </View>
+        ) : eventsError ? (
+          <View style={styles.errorContainer}>
+            <Text style={styles.errorText}>Error loading events. Please try again.</Text>
+          </View>
+        ) : (
+          <View style={styles.eventList}>
+            {events.length === 0 ? (
+              <Text style={styles.noEventsText}>No events created yet</Text>
+            ) : (
+              events.map((event) => (
+                <View key={event.id} style={styles.eventItem}>
+                  <Text style={styles.eventText}>
+                    {event.age} {event.gender} {event.weapon}
+                  </Text>
+                  <View style={styles.eventActions}>
+                    {!isRemote && (
+                        <TouchableOpacity
+                            style={[styles.actionButton, styles.flexAction]}
+                            onPress={() =>
+                                navigation.navigate('EventSettings', {
+                                  event: event,
+                                  onSave: handleSaveEventSettings,
+                                })
+                            }
+                        >
+                          <Text style={styles.buttonText}>Edit</Text>
+                        </TouchableOpacity>
+                    )}
+                    <TouchableOpacity
+                        style={[styles.actionButton, styles.flexAction]}
+                        onPress={() =>
+                            eventStatuses[event.id]
+                                ? handleOpenEvent(event.id)
+                                : confirmStartEvent(event.id)
+                        }
+                    >
+                      <Text style={styles.buttonText}>
+                        {eventStatuses[event.id] ? 'Open' : 'Start'}
+                      </Text>
+                    </TouchableOpacity>
+                    {!isRemote && (
+                        <TouchableOpacity
+                            onPress={() => confirmRemoveEvent(event.id)}
+                            style={styles.removeIconContainer}
+                            disabled={deleteEventMutation.isPending}
+                        >
+                          <Text style={styles.removeIcon}>✖</Text>
+                        </TouchableOpacity>
+                    )}
+                  </View>
                 </View>
-              </View>
-          ))}
-        </View>
+              ))
+            )}
+          </View>
+        )}
 
         <Modal
             visible={modalVisible}
@@ -842,10 +952,20 @@ const styles = StyleSheet.create({
   serverDisabledButton: {
     backgroundColor: '#34c759', // Green (to start server)
   },
+  serverPendingButton: {
+    backgroundColor: '#6c757d', // Gray for pending operations
+    opacity: 0.8,
+  },
   serverButtonText: {
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
+  },
+  buttonLoadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
   },
   serverInfoContainer: {
     backgroundColor: '#f0f0f0',
@@ -857,6 +977,36 @@ const styles = StyleSheet.create({
     fontSize: 14,
     textAlign: 'center',
     marginBottom: 5,
+  },
+  loadingContainer: {
+    marginTop: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 16,
+    color: navyBlue,
+  },
+  errorContainer: {
+    marginTop: 30,
+    padding: 15,
+    backgroundColor: '#ffeeee',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#ff3b30',
+  },
+  errorText: {
+    color: '#ff3b30',
+    fontSize: 16,
+    textAlign: 'center',
+  },
+  noEventsText: {
+    fontSize: 16,
+    textAlign: 'center',
+    marginTop: 20,
+    color: '#666',
+    fontStyle: 'italic',
   },
 });
 
