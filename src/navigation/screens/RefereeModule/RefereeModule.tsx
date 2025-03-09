@@ -1,4 +1,5 @@
-import React, { useState, useRef } from 'react';
+// src/navigation/screens/RefereeModule/RefereeModule.tsx with networking support
+import React, { useState, useRef, useEffect } from 'react';
 import {
     View,
     Text,
@@ -12,6 +13,9 @@ import { CustomTimeModal } from './CustomTimeModal';
 import { usePersistentState } from '../../../hooks/usePersistentStateHook';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { RootStackParamList } from '../../navigation/types';
+import tournamentClient from '../../../networking/TournamentClient';
+import tournamentServer from '../../../networking/TournamentServer';
+import ConnectionStatusBar from '../../../networking/components/ConnectionStatusBar';
 
 type CardColor = 'yellow' | 'red' | 'black' | null;
 type FencerCard = { color: CardColor };
@@ -33,6 +37,11 @@ export function RefereeModule() {
 
     const [kawaiiMode, setKawaiiMode] = useState(false);
 
+    // Whether we're connected to a tournament server
+    const [isConnected, setIsConnected] = useState(false);
+    const [isHost, setIsHost] = useState(false);
+    const [boutId, setBoutId] = useState<number | undefined>(boutIndex);
+
     // Main timer (persistent)
     const [time, setTime] = usePersistentState<number>('RefereeModule:time', 180);
     const [isRunning, setIsRunning] = useState(false);
@@ -41,8 +50,8 @@ export function RefereeModule() {
     const [customSeconds, setCustomSeconds] = useState('');
 
     // Score state
-    const [fencer1Score, setFencer1Score] = useState(0);
-    const [fencer2Score, setFencer2Score] = useState(0);
+    const [fencer1Score, setFencer1Score] = useState(currentScore1);
+    const [fencer2Score, setFencer2Score] = useState(currentScore2);
 
     const timerRef = useRef<NodeJS.Timer | null>(null);
 
@@ -59,6 +68,35 @@ export function RefereeModule() {
     const [removalMode, setRemovalMode] = useState(false);
     const [fencer1Cards, setFencer1Cards] = useState<FencerCard[]>([]);
     const [fencer2Cards, setFencer2Cards] = useState<FencerCard[]>([]);
+
+    // Check if we're connected to a tournament and/or running a server
+    useEffect(() => {
+        const checkConnection = () => {
+            setIsConnected(tournamentClient.isConnected());
+            setIsHost(tournamentServer.isServerRunning());
+        };
+
+        checkConnection();
+
+        // Set up event listeners for connection status changes
+        tournamentClient.on('connected', () => setIsConnected(true));
+        tournamentClient.on('disconnected', () => setIsConnected(false));
+
+        // Set up event listener for score updates from server
+        tournamentClient.on('scoreUpdate', (data: any) => {
+            if (data.boutId === boutId) {
+                setFencer1Score(data.scoreA);
+                setFencer2Score(data.scoreB);
+            }
+        });
+
+        return () => {
+            // Clean up event listeners
+            tournamentClient.removeAllListeners('connected');
+            tournamentClient.removeAllListeners('disconnected');
+            tournamentClient.removeAllListeners('scoreUpdate');
+        };
+    }, [boutId]);
 
     const kawaiiModeStyles = {
         container: { backgroundColor: '#ffe4e1' },
@@ -120,10 +158,31 @@ export function RefereeModule() {
         setLastScoreChange({ fencer, delta: increment ? 1 : -1 });
         setPassivityTime(60); // Reset passivity timer
 
+        let newScore;
         if (fencer === 1) {
-            setFencer1Score(prev => Math.max(0, increment ? prev + 1 : prev - 1));
+            newScore = Math.max(0, increment ? fencer1Score + 1 : fencer1Score - 1);
+            setFencer1Score(newScore);
         } else {
-            setFencer2Score(prev => Math.max(0, increment ? prev + 1 : prev - 1));
+            newScore = Math.max(0, increment ? fencer2Score + 1 : fencer2Score - 1);
+            setFencer2Score(newScore);
+        }
+
+        // If connected to a network, broadcast the score update
+        if (boutId !== undefined && (isConnected || isHost)) {
+            const scoreUpdate = {
+                type: 'update_scores',
+                boutId: boutId,
+                scoreA: fencer === 1 ? newScore : fencer1Score,
+                scoreB: fencer === 2 ? newScore : fencer2Score
+            };
+
+            if (isHost) {
+                // If we're the host, broadcast to all clients
+                tournamentServer.broadcastTournamentUpdate(scoreUpdate);
+            } else if (isConnected) {
+                // If we're a client, send to the server
+                tournamentClient.sendMessage(scoreUpdate);
+            }
         }
     };
 
@@ -266,6 +325,9 @@ export function RefereeModule() {
 
     return (
         <View style={[styles.container, kawaiiMode && kawaiiModeStyles.container]}>
+            {/* Connection status bar at the top */}
+            <ConnectionStatusBar compact={true} />
+
             <TouchableOpacity
                 style={[
                     styles.timerContainer,
@@ -345,7 +407,10 @@ export function RefereeModule() {
 
             <TouchableOpacity
                 style={[styles.doubleTouchButton, kawaiiMode && kawaiiModeStyles.doubleTouchButton]}
-                onPress={() => console.log('Double Touch pressed')}
+                onPress={() => {
+                    updateScore(1, true);
+                    updateScore(2, true);
+                }}
             >
                 <Text style={styles.doubleTouchButtonText}>Double Touch</Text>
             </TouchableOpacity>
@@ -445,6 +510,7 @@ export function RefereeModule() {
                     setModalVisible(false);
                 }}
                 onRevertLastPoint={revertLastPoint}
+                kawaiiMode={kawaiiMode}
             />
         </View>
     );
