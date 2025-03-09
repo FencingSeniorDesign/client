@@ -197,6 +197,12 @@ export const EventManagement = ({ route }: Props) => {
 
 // Centralized navigation function for any round type
   const navigateToRoundPage = (event: Event, round: Round, roundIndex: number) => {
+    if (!round || !round.type) {
+      console.error('Cannot navigate: round or round.type is undefined');
+      Alert.alert('Error', 'Failed to navigate to round: invalid round data');
+      return;
+    }
+    
     if (round.type === 'pool') {
       navigation.navigate('PoolsPage', {
         event: event,
@@ -206,6 +212,9 @@ export const EventManagement = ({ route }: Props) => {
     } else if (round.type === 'de') {
       // Use the utility function for DE navigation
       navigateToDEPage(navigation, event, round, roundIndex);
+    } else {
+      console.error(`Unknown round type: ${round.type}`);
+      Alert.alert('Error', `Unknown round type: ${round.type}`);
     }
   };
 
@@ -216,9 +225,29 @@ export const EventManagement = ({ route }: Props) => {
 
     try {
       const fencers = await dbGetFencersInEventById(eventToStart);
-      // Validation code as before...
+      // Check if there are fencers in the event
+      if (!fencers || fencers.length === 0) {
+        Alert.alert('Error', 'Cannot start event with no fencers. Please add fencers to this event.');
+        return;
+      }
 
       const rounds = await dbGetRoundsForEvent(eventToStart.id);
+      // Check if there are rounds defined for the event
+      if (!rounds || rounds.length === 0) {
+        Alert.alert('Error', 'No rounds defined for this event. Please add rounds in the event settings.');
+        return;
+      }
+      
+      // Check if any pool rounds don't have pool configurations
+      const poolRoundsWithoutConfig = rounds.filter(round => 
+        round.type === 'pool' && (!round.poolcount || !round.poolsize)
+      );
+      
+      if (poolRoundsWithoutConfig.length > 0) {
+        Alert.alert('Error', 'Some pool rounds do not have a pool configuration selected. Please set pool configurations in the event settings.');
+        return;
+      }
+
       const firstRound = rounds[0];
 
       // For DE rounds, show the auto-sizing confirmation
@@ -264,6 +293,23 @@ export const EventManagement = ({ route }: Props) => {
 
     try {
       const rounds = await dbGetRoundsForEvent(eventToOpen.id);
+      
+      // Check if there are rounds defined for the event
+      if (!rounds || rounds.length === 0) {
+        Alert.alert('Error', 'No rounds defined for this event. Please add rounds in the event settings.');
+        return;
+      }
+      
+      // Check if any pool rounds don't have pool configurations
+      const poolRoundsWithoutConfig = rounds.filter(round => 
+        round.type === 'pool' && (!round.poolcount || !round.poolsize)
+      );
+      
+      if (poolRoundsWithoutConfig.length > 0) {
+        Alert.alert('Error', 'Some pool rounds do not have a pool configuration selected. Please set pool configurations in the event settings.');
+        return;
+      }
+
       const firstRound = rounds[0];
 
       // Check if already started

@@ -14,6 +14,17 @@ export function navigateToDEPage(
     round: Round,
     currentRoundIndex: number
 ): void {
+    // Validate inputs
+    if (!round) {
+        console.error('navigateToDEPage: round is undefined');
+        return;
+    }
+
+    if (!event) {
+        console.error('navigateToDEPage: event is undefined');
+        return;
+    }
+
     if (round.type !== 'de') {
         console.error('This function should only be used for DE rounds');
         return;
@@ -43,6 +54,7 @@ export function navigateToDEPage(
             });
             break;
         default:
+            console.log(`DE format not specified, defaulting to single elimination. Format was: ${round.deformat}`);
             // Default to single elimination if format is not recognized
             navigation.navigate('DEBracketPage', {
                 event,
