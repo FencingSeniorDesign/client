@@ -1,5 +1,5 @@
 // src/navigation/screens/BoutOrderPage.tsx
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
     View,
     Text,
@@ -9,11 +9,14 @@ import {
     TextInput,
     Modal,
     Alert,
+    ActivityIndicator,
 } from 'react-native';
-import { useRoute, RouteProp, useNavigation } from '@react-navigation/native';
+import { useRoute, RouteProp, useNavigation, useFocusEffect } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList, Fencer, Bout } from '../navigation/types';
-import { dbGetBoutsForPool, dbUpdateBoutScores } from '../../db/TournamentDatabaseUtils';
+import { useBoutsForPool, useUpdatePoolBoutScores } from '../../data/TournamentDataHooks';
+import tournamentClient from '../../networking/TournamentClient';
+import ConnectionStatusBar from '../../networking/components/ConnectionStatusBar';
 
 type BoutOrderPageRouteProps = RouteProp<RootStackParamList, 'BoutOrderPage'>;
 type BoutOrderPageNavProp = StackNavigationProp<RootStackParamList, 'BoutOrderPage'>;
@@ -21,7 +24,11 @@ type BoutOrderPageNavProp = StackNavigationProp<RootStackParamList, 'BoutOrderPa
 const BoutOrderPage: React.FC = () => {
     const route = useRoute<BoutOrderPageRouteProps>();
     const navigation = useNavigation<BoutOrderPageNavProp>();
-    const { roundId, poolId } = route.params;
+    const { roundId, poolId, isRemote = false } = route.params;
+
+    // Use React Query hooks
+    const { data: boutsData, isLoading, error } = useBoutsForPool(roundId, poolId);
+    const updateBoutScoresMutation = useUpdatePoolBoutScores();
 
     const [bouts, setBouts] = useState<Bout[]>([]);
     const [expandedBoutIndex, setExpandedBoutIndex] = useState<number | null>(null);
@@ -36,11 +43,10 @@ const BoutOrderPage: React.FC = () => {
     const activeCount = doubleStripping ? 2 : 1;
     const onDeckCount = doubleStripping ? 2 : 1;
 
-    // Load bouts from DB and pull each fencer’s pool id from the DB result.
-    const loadBouts = async () => {
-        try {
-            const rows = await dbGetBoutsForPool(roundId, poolId);
-            const fetchedBouts: Bout[] = rows.map((row: any) => {
+    // Process the bouts data when it loads from the hook
+    useEffect(() => {
+        if (boutsData) {
+            const fetchedBouts: Bout[] = boutsData.map((row: any) => {
                 const fencerA: Fencer = {
                     id: row.left_fencerid,
                     fname: row.left_fname,
@@ -72,14 +78,8 @@ const BoutOrderPage: React.FC = () => {
                 return { id: row.id, fencerA, fencerB, scoreA, scoreB, status };
             });
             setBouts(fetchedBouts);
-        } catch (error) {
-            console.error("Error fetching bouts from DB:", error);
         }
-    };
-
-    useEffect(() => {
-        loadBouts();
-    }, [roundId, poolId]);
+    }, [boutsData]);
 
     // For pending bouts, compute a pendingRank based on order in the list.
     let pendingCounter = 0;
@@ -98,17 +98,21 @@ const BoutOrderPage: React.FC = () => {
     const handleSubmitScores = async (index: number) => {
         const bout = bouts[index];
         try {
-            await dbUpdateBoutScores(
-                bout.id,
-                bout.scoreA,
-                bout.scoreB,
-                bout.fencerA.id!,
-                bout.fencerB.id!
-            );
-            await loadBouts();
+            console.log(`Submitting scores for bout ${bout.id}: ${bout.scoreA}-${bout.scoreB}`);
+            const result = await updateBoutScoresMutation.mutateAsync({
+                boutId: bout.id, 
+                scoreA: bout.scoreA, 
+                scoreB: bout.scoreB,
+                fencerAId: bout.fencerA.id!,
+                fencerBId: bout.fencerB.id!,
+                roundId,
+                poolId
+            });
+            console.log(`Score update completed with result:`, result);
             setExpandedBoutIndex(null);
         } catch (error) {
-            console.error("Error updating bout scores in DB:", error);
+            console.error("Error updating bout scores:", error);
+            Alert.alert("Error", "Failed to update bout scores. Please try again.");
         }
     };
 
@@ -138,18 +142,22 @@ const BoutOrderPage: React.FC = () => {
         const newScoreA = parseInt(alterScoreA, 10) || 0;
         const newScoreB = parseInt(alterScoreB, 10) || 0;
         try {
-            await dbUpdateBoutScores(
-                bout.id,
-                newScoreA,
-                newScoreB,
-                bout.fencerA.id!,
-                bout.fencerB.id!
-            );
-            await loadBouts();
+            console.log(`Altering scores for bout ${bout.id} to ${newScoreA}-${newScoreB}`);
+            const result = await updateBoutScoresMutation.mutateAsync({
+                boutId: bout.id, 
+                scoreA: newScoreA, 
+                scoreB: newScoreB,
+                fencerAId: bout.fencerA.id!,
+                fencerBId: bout.fencerB.id!,
+                roundId,
+                poolId
+            });
+            console.log(`Score alteration completed with result:`, result);
             setAlterModalVisible(false);
             setAlterIndex(null);
         } catch (error) {
-            console.error("Error updating bout scores in DB:", error);
+            console.error("Error updating bout scores:", error);
+            Alert.alert("Error", "Failed to update bout scores. Please try again.");
         }
     };
 
@@ -163,20 +171,42 @@ const BoutOrderPage: React.FC = () => {
             currentScore2: bout.scoreB,
             onSaveScores: async (score1: number, score2: number) => {
                 try {
-                    await dbUpdateBoutScores(
-                        bout.id,
-                        score1,
-                        score2,
-                        bout.fencerA.id!,
-                        bout.fencerB.id!
-                    );
-                    await loadBouts();
+                    console.log(`Saving scores from ref module for bout ${bout.id}: ${score1}-${score2}`);
+                    const result = await updateBoutScoresMutation.mutateAsync({
+                        boutId: bout.id, 
+                        scoreA: score1, 
+                        scoreB: score2,
+                        fencerAId: bout.fencerA.id!,
+                        fencerBId: bout.fencerB.id!,
+                        roundId,
+                        poolId
+                    });
+                    console.log(`Ref module score update completed with result:`, result);
                 } catch (error) {
-                    console.error("Error updating bout scores in DB:", error);
+                    console.error("Error updating bout scores:", error);
                 }
             },
         });
     };
+
+    // Show loading state
+    if (isLoading) {
+        return (
+            <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color="#0000ff" />
+                <Text style={styles.loadingText}>Loading bouts...</Text>
+            </View>
+        );
+    }
+
+    // Show error message if there was an error
+    if (error) {
+        return (
+            <View style={styles.errorContainer}>
+                <Text style={styles.errorText}>Error loading bouts: {error.toString()}</Text>
+            </View>
+        );
+    }
 
     // Render each bout using the original order.
     const renderBoutWithRank = (bout: Bout, index: number) => {
@@ -265,6 +295,9 @@ const BoutOrderPage: React.FC = () => {
 
     return (
         <View style={{ flex: 1 }}>
+            {/* Show connection status if in remote mode */}
+            {isRemote && <ConnectionStatusBar compact={true} />}
+            
             {/* Header with double stripping toggle */}
             <View style={styles.header}>
                 <Text style={styles.headerTitle}>Bout Order</Text>
@@ -323,6 +356,16 @@ const BoutOrderPage: React.FC = () => {
                     </View>
                 </View>
             </Modal>
+            
+            {/* Loading overlay for mutations */}
+            {updateBoutScoresMutation.isPending && (
+                <View style={styles.modalOverlay}>
+                    <View style={styles.loadingContainer}>
+                        <ActivityIndicator size="large" color="#fff" />
+                        <Text style={styles.loadingText}>Updating scores...</Text>
+                    </View>
+                </View>
+            )}
         </View>
     );
 };
@@ -486,6 +529,28 @@ const styles = StyleSheet.create({
         fontSize: 18,
         fontWeight: 'bold',
         marginBottom: 12,
+    },
+    loadingContainer: {
+        backgroundColor: 'rgba(0,0,0,0.7)',
+        padding: 20,
+        borderRadius: 8,
+        alignItems: 'center',
+    },
+    loadingText: {
+        color: '#fff',
+        marginTop: 10,
+        fontSize: 16,
+    },
+    errorContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 20,
+    },
+    errorText: {
+        color: red,
+        fontSize: 16,
+        textAlign: 'center',
     },
 });
 

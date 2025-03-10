@@ -22,7 +22,7 @@ import tournamentClient from '../../networking/TournamentClient';
 import { getLocalIpAddress, isConnectedToInternet, getNetworkInfo } from '../../networking/NetworkUtils';
 import ConnectionStatusBar from '../../networking/components/ConnectionStatusBar';
 import { useQueryClient } from '@tanstack/react-query';
-import { useEvents, useCreateEvent, useEventStatuses, useDeleteEvent } from '../../data/TournamentDataHooks';
+import { useEvents, useCreateEvent, useEventStatuses, useDeleteEvent, useRounds, useFencers, useInitializeRound, queryKeys } from '../../data/TournamentDataHooks';
 import dataProvider from '../../data/TournamentDataProvider';
 
 type Props = {
@@ -86,7 +86,13 @@ export const EventManagement = ({ route }: Props) => {
                 text: 'Disconnect',
                 style: 'destructive',
                 onPress: () => {
+                  // Set flag to true to prevent disconnect alert
+                  tournamentClient.isShowingDisconnectAlert = true;
                   tournamentClient.disconnect();
+                  // Reset the flag after navigation
+                  setTimeout(() => {
+                    tournamentClient.isShowingDisconnectAlert = false;
+                  }, 500);
                   navigation.goBack();
                 }
               },
@@ -111,23 +117,10 @@ export const EventManagement = ({ route }: Props) => {
           port: clientInfo.port
         });
       }
-
-      // Listen for disconnection events
-      const handleDisconnect = () => {
-        Alert.alert(
-            'Connection Lost',
-            'The connection to the tournament server was lost.',
-            [{ text: 'OK', onPress: () => navigation.goBack() }]
-        );
-      };
-
-      tournamentClient.on('disconnected', handleDisconnect);
-
-      return () => {
-        tournamentClient.removeListener('disconnected', handleDisconnect);
-      };
     }
-  }, [isRemote, navigation]);
+  }, [isRemote]);
+  
+  // Connection alerts are now handled by the ConnectionAlertProvider in App.tsx
 
   // Use TanStack Query to get event statuses
   const { 
@@ -295,20 +288,60 @@ export const EventManagement = ({ route }: Props) => {
     }
   };
 
+  // Use the initialize round mutation hook
+  const initializeRoundMutation = useInitializeRound();
+  
+  // Create a function to initialize a round and handle navigation
+  const initializeAndNavigate = async (eventId: number, roundId: number, event: Event, round: Round, roundIndex: number) => {
+    try {
+      console.log(`Initializing round ${roundId} for event ${eventId}`);
+      const success = await initializeRoundMutation.mutateAsync({ eventId, roundId });
+      
+      if (success) {
+        console.log(`Round initialization successful. EventID: ${eventId}, Status now: true`);
+        
+        // Log to verify the event status update in the cache
+        const statuses = queryClient.getQueryData(queryKeys.eventStatuses);
+        console.log('Current event statuses after init:', statuses);
+        
+        navigateToRoundPage(event, round, roundIndex);
+      } else {
+        console.log(`Round initialization failed for event ${eventId}`);
+        Alert.alert('Error', 'Failed to initialize round.');
+      }
+    } catch (error) {
+      console.error('Error initializing round:', error);
+      Alert.alert('Error', 'Failed to initialize round.');
+    }
+  };
+
   const handleStartEvent = async (eventId: number) => {
     const eventToStart = events.find((evt) => evt.id === eventId);
     if (!eventToStart) return;
 
     try {
-      // Use data provider to get fencers - works for both local and remote
-      const fencers = await dataProvider.getFencers(eventToStart);
+      // Explicitly fetch fencers and rounds to ensure we have the latest data
+      // We're not using the hooks' direct return values because this is a function,
+      // not a component, so we need to ensure the data is fetched before continuing
+      await queryClient.fetchQuery({
+        queryKey: queryKeys.fencers(eventId),
+        queryFn: () => dataProvider.getFencers(eventToStart)  // This is what useFencers calls internally
+      });
+      
+      await queryClient.fetchQuery({
+        queryKey: queryKeys.rounds(eventId),
+        queryFn: () => dataProvider.getRounds(eventToStart)  // This is what useRounds calls internally
+      });
+      
+      // Get the freshly fetched data from the cache
+      const fencers = queryClient.getQueryData(queryKeys.fencers(eventId));
+      const rounds = queryClient.getQueryData(queryKeys.rounds(eventId));
+      
       if (!fencers || fencers.length === 0) {
         Alert.alert('Error', 'Cannot start event with no fencers. Please add fencers to this event.');
         return;
       }
-
-      // Use data provider to get rounds - works for both local and remote
-      const rounds = await dataProvider.getRounds(eventToStart);
+      
       if (!rounds || rounds.length === 0) {
         Alert.alert('Error', 'No rounds defined for this event. Please add rounds in the event settings.');
         return;
@@ -338,22 +371,12 @@ export const EventManagement = ({ route }: Props) => {
               { text: 'Cancel', style: 'cancel' },
               {
                 text: 'Continue',
-                onPress: async () => {
-                  // Use data provider to initialize round
-                  const success = await dataProvider.initializeRound(eventToStart.id, firstRound.id);
-                  if (success) {
-                    navigateToRoundPage(eventToStart, firstRound, 0);
-                  }
-                }
+                onPress: () => initializeAndNavigate(eventToStart.id, firstRound.id, eventToStart, firstRound, 0)
               }
             ]
         );
       } else {
-        // Use data provider to initialize round
-        const success = await dataProvider.initializeRound(eventToStart.id, firstRound.id);
-        if (success) {
-          navigateToRoundPage(eventToStart, firstRound, 0);
-        }
+        await initializeAndNavigate(eventToStart.id, firstRound.id, eventToStart, firstRound, 0);
       }
     } catch (error) {
       console.error('Error starting event:', error);
@@ -369,8 +392,14 @@ export const EventManagement = ({ route }: Props) => {
     try {
       console.log('Event to open:', eventToOpen);
       
-      // Get rounds using our data provider (handles remote/local automatically)
-      const rounds = await dataProvider.getRounds(eventToOpen);
+      // Fetch the latest rounds data using the proper query key
+      await queryClient.fetchQuery({
+        queryKey: queryKeys.rounds(eventId),
+        queryFn: () => dataProvider.getRounds(eventToOpen)  // This is what useRounds calls internally
+      });
+      
+      // Get the rounds from the query cache
+      const rounds = queryClient.getQueryData(queryKeys.rounds(eventId));
       console.log('Retrieved rounds:', rounds);
 
       if (!rounds || rounds.length === 0) {
@@ -410,7 +439,8 @@ export const EventManagement = ({ route }: Props) => {
 
   const handleSaveEventSettings = async (updatedEvent: Event) => {
     try {
-      loadEvents();
+      // Invalidate events query to refresh the data
+      queryClient.invalidateQueries({ queryKey: queryKeys.events(tournamentName) });
     } catch (error) {
       console.error('Error updating event settings:', error);
     }
@@ -532,7 +562,13 @@ export const EventManagement = ({ route }: Props) => {
               text: 'Disconnect',
               style: 'destructive',
               onPress: async () => {
+                // Set flag to true to prevent disconnect alert
+                tournamentClient.isShowingDisconnectAlert = true;
                 await tournamentClient.disconnect();
+                // Reset the flag after navigation
+                setTimeout(() => {
+                  tournamentClient.isShowingDisconnectAlert = false;
+                }, 500);
                 navigation.goBack();
               }
             },
@@ -665,7 +701,11 @@ export const EventManagement = ({ route }: Props) => {
                         style={[styles.actionButton, styles.flexAction]}
                         onPress={() => {
                             console.log('Event status for', event.id, ':', eventStatuses?.[event.id]);
-                            return (eventStatuses && eventStatuses[event.id] === true)
+                            console.log('All current event statuses:', eventStatuses);
+                            const isStarted = eventStatuses && eventStatuses[event.id] === true;
+                            console.log(`Event ${event.id} isStarted: ${isStarted}`);
+                            
+                            return isStarted
                                 ? handleOpenEvent(event.id)
                                 : confirmStartEvent(event.id);
                         }}

@@ -65,6 +65,31 @@ export interface GetRoundsMessage extends BaseMessage {
 }
 
 /**
+ * Request pools for a round
+ */
+export interface GetPoolsMessage extends BaseMessage {
+  type: 'get_pools';
+  roundId: number;
+}
+
+/**
+ * Request bouts for a pool
+ */
+export interface GetPoolBoutsMessage extends BaseMessage {
+  type: 'get_pool_bouts';
+  roundId: number;
+  poolId: number;
+}
+
+/**
+ * Request fencers for an event
+ */
+export interface GetFencersMessage extends BaseMessage {
+  type: 'get_fencers';
+  eventId: number;
+}
+
+/**
  * Update bout score message
  */
 export interface UpdateScoreMessage extends BaseMessage {
@@ -72,6 +97,26 @@ export interface UpdateScoreMessage extends BaseMessage {
   boutId: number;
   scoreA: number;
   scoreB: number;
+}
+
+/**
+ * Update pool bout scores message
+ */
+export interface UpdatePoolBoutScoresMessage extends BaseMessage {
+  type: 'update_pool_bout_scores';
+  boutId: number;
+  scoreA: number;
+  scoreB: number;
+  fencerAId: number;
+  fencerBId: number;
+}
+
+/**
+ * Complete round message
+ */
+export interface CompleteRoundMessage extends BaseMessage {
+  type: 'complete_round';
+  roundId: number;
 }
 
 /**
@@ -127,6 +172,37 @@ export interface RoundsListMessage extends BaseMessage {
 }
 
 /**
+ * Pools list response
+ */
+export interface PoolsListMessage extends BaseMessage {
+  type: 'pools_list';
+  roundId: number;
+  pools: any[];  // Using 'any' to accommodate different pool formats
+  error?: string;
+}
+
+/**
+ * Pool bouts list response
+ */
+export interface PoolBoutsListMessage extends BaseMessage {
+  type: 'pool_bouts_list';
+  roundId: number;
+  poolId: number;
+  bouts: any[];  // Using 'any' to accommodate different bout formats
+  error?: string;
+}
+
+/**
+ * Fencers list response
+ */
+export interface FencersListMessage extends BaseMessage {
+  type: 'fencers_list';
+  eventId: number;
+  fencers: any[];  // Using 'any' to accommodate different fencer formats
+  error?: string;
+}
+
+/**
  * Complete tournament data response
  */
 export interface TournamentDataMessage extends BaseMessage {
@@ -167,6 +243,24 @@ export interface TournamentUpdateMessage extends BaseMessage {
 }
 
 /**
+ * Round completed response 
+ */
+export interface RoundCompletedMessage extends BaseMessage {
+  type: 'round_completed';
+  roundId: number;
+  success: boolean;
+  error?: string;
+}
+
+/**
+ * Round completed broadcast notification
+ */
+export interface RoundCompletedBroadcastMessage extends BaseMessage {
+  type: 'round_completed_broadcast';
+  roundId: number;
+}
+
+/**
  * Tournament broadcast message for local discovery
  */
 export interface TournamentBroadcastMessage extends BaseMessage {
@@ -197,17 +291,27 @@ export type TournamentMessage =
   | RequestTournamentDataMessage
   | GetEventStatusesMessage
   | GetRoundsMessage
+  | GetPoolsMessage
+  | GetPoolBoutsMessage
+  | GetFencersMessage
   | UpdateScoreMessage
+  | UpdatePoolBoutScoresMessage
   | WelcomeMessage
   | JoinResponseMessage
   | EventsListMessage
   | EventStatusesMessage
   | RoundsListMessage
+  | PoolsListMessage
+  | PoolBoutsListMessage
+  | FencersListMessage
   | TournamentDataMessage
   | ScoreUpdateMessage
   | ServerClosingMessage
   | TournamentUpdateMessage
-  | TournamentBroadcastMessage;
+  | TournamentBroadcastMessage
+  | CompleteRoundMessage
+  | RoundCompletedMessage
+  | RoundCompletedBroadcastMessage;
 
 /**
  * Type guard functions
@@ -239,3 +343,11 @@ export const isTournamentBroadcastMessage = (msg: any): msg is TournamentBroadca
   typeof msg.tournamentName === 'string' && 
   typeof msg.hostIp === 'string' &&
   typeof msg.port === 'number';
+  
+export const isPoolsListMessage = (msg: any): msg is PoolsListMessage =>
+  validateMessage(msg) && msg.type === 'pools_list' &&
+  typeof msg.roundId === 'number' && Array.isArray(msg.pools);
+  
+export const isPoolBoutsListMessage = (msg: any): msg is PoolBoutsListMessage =>
+  validateMessage(msg) && msg.type === 'pool_bouts_list' &&
+  typeof msg.roundId === 'number' && typeof msg.poolId === 'number' && Array.isArray(msg.bouts);

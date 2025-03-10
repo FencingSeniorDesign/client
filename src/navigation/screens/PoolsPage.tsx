@@ -9,21 +9,24 @@ import {
     Alert,
     Modal,
     TextInput,
+    ActivityIndicator,
 } from 'react-native';
 import { useRoute, RouteProp, useNavigation, useFocusEffect } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import {
-    dbGetPoolsForRound,
     dbGetBoutsForPool,
-    dbMarkRoundAsComplete,
     dbGetSeedingForRound,
 } from '../../db/TournamentDatabaseUtils';
 import { RootStackParamList, Event, Fencer } from '../navigation/types';
+import { usePools, useCompleteRound } from '../../data/TournamentDataHooks';
+import tournamentClient from '../../networking/TournamentClient';
+import ConnectionStatusBar from '../../networking/components/ConnectionStatusBar';
 
 type PoolsPageRouteParams = {
     event: Event;
     currentRoundIndex: number;
     roundId: number;
+    isRemote?: boolean;
 };
 
 type PoolsPageNavProp = NativeStackNavigationProp<RootStackParamList, 'PoolsPage'>;
@@ -32,7 +35,7 @@ const PoolsPage: React.FC = () => {
     const route = useRoute<RouteProp<{ params: PoolsPageRouteParams }, 'params'>>();
     const navigation = useNavigation<PoolsPageNavProp>();
 
-    const { event, currentRoundIndex, roundId } = route.params;
+    const { event, currentRoundIndex, roundId, isRemote = false } = route.params;
     const [pools, setPools] = useState<{ poolid: number; fencers: Fencer[] }[]>([]);
     const [expandedPools, setExpandedPools] = useState<boolean[]>([]);
     const [poolCompletionStatus, setPoolCompletionStatus] = useState<{ [poolId: number]: boolean }>({});
@@ -47,20 +50,20 @@ const PoolsPage: React.FC = () => {
     const [seedingModalVisible, setSeedingModalVisible] = useState<boolean>(false);
     const [seeding, setSeeding] = useState<{ seed: number; fencer: Fencer }[]>([]);
 
+    // Use the pools hook instead of direct database access
+    const { data: poolsData, isLoading, error } = usePools(roundId);
+    
+    // Use the complete round mutation
+    const completeRoundMutation = useCompleteRound();
+    
+    // Set pools data when it's fetched from the server or database
     useEffect(() => {
-        async function fetchPools() {
-            try {
-                console.log("Fetching pools for roundId:", roundId);
-                const poolsData = await dbGetPoolsForRound(roundId);
-                console.log("Pools data fetched:", JSON.stringify(poolsData.map(pool => pool.fencers), null, 2));
-                setPools(poolsData);
-                setExpandedPools(new Array(poolsData.length).fill(false));
-            } catch (error) {
-                console.error("Error fetching pools from DB:", error);
-            }
+        if (poolsData) {
+            console.log("Pools data fetched:", JSON.stringify(poolsData.map(pool => pool.fencers), null, 2));
+            setPools(poolsData);
+            setExpandedPools(new Array(poolsData.length).fill(false));
         }
-        fetchPools();
-    }, [roundId]);
+    }, [poolsData]);
 
     const checkBoutsCompletion = useCallback(async () => {
         try {
@@ -95,6 +98,8 @@ const PoolsPage: React.FC = () => {
             }
         }, [pools, checkBoutsCompletion])
     );
+    
+    // Connection alerts are now handled by the ConnectionAlertProvider in App.tsx
 
     const togglePool = (index: number) => {
         setExpandedPools(prev => {
@@ -144,7 +149,11 @@ const PoolsPage: React.FC = () => {
                 {
                     text: "Yes", onPress: async () => {
                         try {
-                            await dbMarkRoundAsComplete(roundId);
+                            await completeRoundMutation.mutateAsync({
+                                roundId,
+                                eventId: event.id
+                            });
+                            
                             navigation.navigate('RoundResults', {
                                 roundId,
                                 eventId: event.id,
@@ -152,6 +161,10 @@ const PoolsPage: React.FC = () => {
                             });
                         } catch (error) {
                             console.error("Error marking round as complete:", error);
+                            Alert.alert(
+                                "Error", 
+                                "Failed to complete the round. Please try again."
+                            );
                         }
                     }
                 }
@@ -161,6 +174,7 @@ const PoolsPage: React.FC = () => {
 
     return (
         <ScrollView contentContainerStyle={styles.container}>
+            {isRemote && <ConnectionStatusBar compact={true} />}
             <Text style={styles.title}>Pools</Text>
 
             <TouchableOpacity
@@ -169,6 +183,19 @@ const PoolsPage: React.FC = () => {
             >
                 <Text style={styles.viewSeedingButtonText}>View Seeding</Text>
             </TouchableOpacity>
+            
+            {isLoading && (
+                <View style={styles.loadingContainer}>
+                    <ActivityIndicator size="large" color="#0000ff" />
+                    <Text style={styles.loadingText}>Loading pools data...</Text>
+                </View>
+            )}
+            
+            {error && (
+                <View style={styles.errorContainer}>
+                    <Text style={styles.errorText}>Error loading pools: {error.toString()}</Text>
+                </View>
+            )}
 
             {pools.map((poolObj, index) => {
                 const displayPoolNumber = poolObj.poolid + 1;
@@ -304,6 +331,24 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
         marginBottom: 8,
         textAlign: 'center',
+    },
+    loadingContainer: {
+        alignItems: 'center',
+        padding: 20,
+    },
+    loadingText: {
+        marginTop: 10,
+        fontSize: 16,
+        color: '#666',
+    },
+    errorContainer: {
+        backgroundColor: '#ffeded',
+        padding: 16,
+        borderRadius: 8,
+        marginVertical: 10,
+    },
+    errorText: {
+        color: 'red',
     },
     infoText: {
         fontSize: 16,

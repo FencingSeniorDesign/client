@@ -8,7 +8,7 @@ import {
     publishTournamentService, 
     unpublishTournamentService 
 } from './NetworkUtils';
-import { dbListEvents, dbGetRoundsForEvent } from '../db/TournamentDatabaseUtils';
+import { dbListEvents, dbGetRoundsForEvent, dbGetPoolsForRound, dbGetBoutsForPool, dbUpdateBoutScores } from '../db/TournamentDatabaseUtils';
 
 // Constants
 const DEFAULT_PORT = 9001;
@@ -67,10 +67,48 @@ class TournamentServer {
                 this.clients.set(clientId, socket);
 
                 // Handle data received from client
+                let buffer = ''; // Buffer to accumulate partial messages
+                
                 socket.on('data', (data) => {
                     try {
-                        console.log(`Received from ${clientId}: ${data.toString()}`);
-                        this.handleClientMessage(clientId, data.toString());
+                        const dataStr = data.toString();
+                        console.log(`Raw data received from ${clientId}: ${dataStr.length} bytes`);
+                        
+                        // Append to buffer
+                        buffer += dataStr;
+                        
+                        // Try to process complete JSON objects
+                        let startIdx = 0;
+                        for (let i = 0; i < buffer.length; i++) {
+                            // Look for what might be the end of a JSON object
+                            if (buffer[i] === '}') {
+                                try {
+                                    // Try to parse from the current start index to this }
+                                    const possibleJson = buffer.substring(startIdx, i + 1);
+                                    const parsedData = JSON.parse(possibleJson);
+                                    
+                                    // If we get here, it parsed successfully
+                                    console.log(`Successfully parsed message from ${clientId}: ${possibleJson}`);
+                                    this.handleClientMessage(clientId, possibleJson);
+                                    
+                                    // Move start index to after this object
+                                    startIdx = i + 1;
+                                } catch (parseError) {
+                                    // Not valid JSON yet, continue searching
+                                }
+                            }
+                        }
+                        
+                        // Remove processed messages from buffer
+                        if (startIdx > 0) {
+                            buffer = buffer.substring(startIdx);
+                        }
+                        
+                        // If buffer is getting too large without valid JSON, truncate it
+                        if (buffer.length > 10000) {
+                            console.error(`Buffer for client ${clientId} too large (${buffer.length} bytes), truncating`);
+                            buffer = buffer.substring(buffer.length - 5000); // Keep last 5000 chars
+                        }
                     } catch (error) {
                         console.error(`Error processing data from ${clientId}:`, error);
                     }
@@ -265,6 +303,7 @@ class TournamentServer {
     private handleClientMessage(clientId: string, message: string): void {
         try {
             const data = JSON.parse(message);
+            console.log(`Server received message from client ${clientId}, type: ${data.type}`);
 
             // Handle different message types
             switch (data.type) {
@@ -282,6 +321,18 @@ class TournamentServer {
                     break;
                 case 'get_rounds':
                     this.handleGetRounds(clientId, data);
+                    break;
+                case 'get_pools':
+                    this.handleGetPools(clientId, data);
+                    break;
+                case 'get_pool_bouts':
+                    this.handleGetPoolBouts(clientId, data);
+                    break;
+                case 'update_pool_bout_scores':
+                    this.handleUpdatePoolBoutScores(clientId, data);
+                    break;
+                case 'complete_round':
+                    this.handleCompleteRound(clientId, data);
                     break;
                 default:
                     console.log(`Unknown message type: ${data.type}`);
@@ -412,6 +463,8 @@ class TournamentServer {
             return;
         }
         
+        console.log(`🔄 Handling get_rounds request from client ${clientId}, data:`, JSON.stringify(data));
+        
         const eventId = data.eventId;
         if (!eventId) {
             console.error('No eventId provided in get_rounds request');
@@ -420,12 +473,14 @@ class TournamentServer {
             const client = this.clients.get(clientId);
             if (client) {
                 try {
-                    client.write(JSON.stringify({
+                    const errorResponse = {
                         type: 'rounds_list',
                         eventId: eventId,
                         rounds: [],
                         error: 'No eventId provided'
-                    }));
+                    };
+                    console.log(`Sending error rounds_list response to ${clientId}:`, JSON.stringify(errorResponse));
+                    client.write(JSON.stringify(errorResponse));
                 } catch (error) {
                     console.error(`Error sending error response to client ${clientId}:`, error);
                 }
@@ -436,47 +491,478 @@ class TournamentServer {
         try {
             // Fetch rounds from database directly rather than using cached data
             // This ensures we have the most up-to-date rounds information
+            console.log(`🔍 Fetching rounds for event ${eventId}...`);
             const rounds = await dbGetRoundsForEvent(eventId);
-            console.log(`Fetched ${rounds.length} rounds for event ${eventId}`);
+            console.log(`✅ Fetched ${rounds.length} rounds for event ${eventId}`);
             
             // Send rounds to the requesting client
             const client = this.clients.get(clientId);
             if (client) {
                 try {
-                    client.write(JSON.stringify({
+                    // Make sure to handle the case where rounds might be null
+                    const responseData = {
                         type: 'rounds_list',
                         eventId: eventId,
-                        rounds: rounds
-                    }));
-                    console.log(`Rounds list sent to client ${clientId}: ${rounds.length} rounds for event ${eventId}`);
+                        rounds: Array.isArray(rounds) ? rounds : []
+                    };
+                    
+                    // Verify rounds is serializable
+                    try {
+                        const responseText = JSON.stringify(responseData);
+                        console.log(`🔄 Sending rounds_list response to client ${clientId}: ${rounds.length} rounds (${responseText.length} bytes)`);
+                        
+                        // Use setTimeout to ensure asynchronous sending, which can help with TCP buffer issues
+                        setTimeout(() => {
+                            try {
+                                client.write(responseText);
+                                console.log(`✅ Rounds list sent to client ${clientId}`);
+                            } catch (innerErr) {
+                                console.error(`Error in delayed send to client ${clientId}:`, innerErr);
+                            }
+                        }, 0);
+                    } catch (jsonError) {
+                        console.error(`Error stringifying rounds response:`, jsonError);
+                        throw new Error("Failed to serialize rounds response");
+                    }
                 } catch (error) {
                     console.error(`Error sending rounds to client ${clientId}:`, error);
+                    throw error;
                 }
+            } else {
+                console.error(`❌ Client ${clientId} not found when sending rounds response`);
+                throw new Error(`Client ${clientId} not found`);
             }
         } catch (error) {
-            console.error(`Error handling get_rounds request for event ${eventId}:`, error);
+            console.error(`❌ Error handling get_rounds request for event ${eventId}:`, error);
             
             // Send error response with empty array
             const client = this.clients.get(clientId);
             if (client) {
                 try {
-                    client.write(JSON.stringify({
+                    const errorData = {
                         type: 'rounds_list',
                         eventId: eventId,
-                        rounds: [], // Always an array
-                        error: 'Failed to fetch rounds'
-                    }));
+                        rounds: [], 
+                        error: 'Failed to fetch rounds: ' + error.message
+                    };
+                    console.log(`Sending error rounds_list response:`, JSON.stringify(errorData));
+                    client.write(JSON.stringify(errorData));
+                } catch (sendError) {
+                    console.error(`Error sending error response to client ${clientId}:`, sendError);
+                }
+            }
+        }
+    }
+    
+    /**
+     * Handles a request for pools data for a specific round
+     */
+    private async handleGetPools(clientId: string, data: any): Promise<void> {
+        if (!this.serverInfo) {
+            console.error('No server info available');
+            return;
+        }
+        
+        console.log(`🔄 Handling get_pools request from client ${clientId}, data:`, JSON.stringify(data));
+        
+        const roundId = data.roundId;
+        if (!roundId) {
+            console.error('No roundId provided in get_pools request');
+            
+            // Send error response
+            const client = this.clients.get(clientId);
+            if (client) {
+                try {
+                    const errorResponse = {
+                        type: 'pools_list',
+                        roundId: roundId,
+                        pools: [],
+                        error: 'No roundId provided'
+                    };
+                    console.log(`Sending error pools_list response to ${clientId}:`, JSON.stringify(errorResponse));
+                    client.write(JSON.stringify(errorResponse));
                 } catch (error) {
                     console.error(`Error sending error response to client ${clientId}:`, error);
+                }
+            }
+            return;
+        }
+        
+        try {
+            // Fetch pools from database
+            console.log(`🔍 Fetching pools for round ${roundId}...`);
+            const pools = await dbGetPoolsForRound(roundId);
+            console.log(`✅ Fetched ${pools.length} pools for round ${roundId}`);
+            
+            // Send pools to the requesting client
+            const client = this.clients.get(clientId);
+            if (client) {
+                try {
+                    // Make sure to handle the case where pools might be null
+                    const responseData = {
+                        type: 'pools_list',
+                        roundId: roundId,
+                        pools: Array.isArray(pools) ? pools : []
+                    };
+                    
+                    // Verify pools is serializable
+                    try {
+                        const responseText = JSON.stringify(responseData);
+                        console.log(`🔄 Sending pools_list response to client ${clientId}: ${pools.length} pools (${responseText.length} bytes)`);
+                        
+                        // Use setTimeout to ensure asynchronous sending, which can help with TCP buffer issues
+                        setTimeout(() => {
+                            try {
+                                client.write(responseText);
+                                console.log(`✅ Pools list sent to client ${clientId}`);
+                            } catch (innerErr) {
+                                console.error(`Error in delayed send to client ${clientId}:`, innerErr);
+                            }
+                        }, 0);
+                    } catch (jsonError) {
+                        console.error(`Error stringifying pools response:`, jsonError);
+                        throw new Error("Failed to serialize pools response");
+                    }
+                } catch (error) {
+                    console.error(`Error sending pools to client ${clientId}:`, error);
+                    throw error;
+                }
+            } else {
+                console.error(`❌ Client ${clientId} not found when sending pools response`);
+                throw new Error(`Client ${clientId} not found`);
+            }
+        } catch (error) {
+            console.error(`❌ Error handling get_pools request for round ${roundId}:`, error);
+            
+            // Send error response with empty array
+            const client = this.clients.get(clientId);
+            if (client) {
+                try {
+                    const errorData = {
+                        type: 'pools_list',
+                        roundId: roundId,
+                        pools: [], 
+                        error: 'Failed to fetch pools: ' + error.message
+                    };
+                    console.log(`Sending error pools_list response:`, JSON.stringify(errorData));
+                    client.write(JSON.stringify(errorData));
+                } catch (sendError) {
+                    console.error(`Error sending error response to client ${clientId}:`, sendError);
+                }
+            }
+        }
+    }
+    
+    /**
+     * Handles a request for bouts data for a specific pool
+     */
+    private async handleGetPoolBouts(clientId: string, data: any): Promise<void> {
+        if (!this.serverInfo) {
+            console.error('No server info available');
+            return;
+        }
+        
+        console.log(`🔄 Handling get_pool_bouts request from client ${clientId}, data:`, JSON.stringify(data));
+        
+        const roundId = data.roundId;
+        const poolId = data.poolId;
+        
+        if (!roundId || poolId === undefined) {
+            console.error('Missing roundId or poolId in get_pool_bouts request');
+            
+            // Send error response
+            const client = this.clients.get(clientId);
+            if (client) {
+                try {
+                    const errorResponse = {
+                        type: 'pool_bouts_list',
+                        roundId: roundId,
+                        poolId: poolId,
+                        bouts: [],
+                        error: 'Missing roundId or poolId'
+                    };
+                    console.log(`Sending error pool_bouts_list response:`, JSON.stringify(errorResponse));
+                    client.write(JSON.stringify(errorResponse));
+                } catch (error) {
+                    console.error(`Error sending error response to client ${clientId}:`, error);
+                }
+            }
+            return;
+        }
+        
+        try {
+            // Fetch bouts from database
+            console.log(`🔍 Fetching bouts for pool ${poolId} in round ${roundId}...`);
+            const bouts = await dbGetBoutsForPool(roundId, poolId);
+            console.log(`✅ Fetched ${bouts.length} bouts for pool ${poolId} in round ${roundId}`);
+            
+            // Send bouts to the requesting client
+            const client = this.clients.get(clientId);
+            if (client) {
+                try {
+                    // Make sure to handle the case where bouts might be null
+                    const responseData = {
+                        type: 'pool_bouts_list',
+                        roundId: roundId,
+                        poolId: poolId,
+                        bouts: Array.isArray(bouts) ? bouts : []
+                    };
+                    
+                    // Verify bouts is serializable
+                    try {
+                        const responseText = JSON.stringify(responseData);
+                        console.log(`🔄 Sending pool_bouts_list response to client ${clientId}: ${bouts.length} bouts (${responseText.length} bytes)`);
+                        
+                        // Use setTimeout to ensure asynchronous sending, which can help with TCP buffer issues
+                        setTimeout(() => {
+                            try {
+                                client.write(responseText);
+                                console.log(`✅ Pool bouts list sent to client ${clientId}`);
+                            } catch (innerErr) {
+                                console.error(`Error in delayed send to client ${clientId}:`, innerErr);
+                            }
+                        }, 0);
+                    } catch (jsonError) {
+                        console.error(`Error stringifying pool bouts response:`, jsonError);
+                        throw new Error("Failed to serialize pool bouts response");
+                    }
+                } catch (error) {
+                    console.error(`Error sending pool bouts to client ${clientId}:`, error);
+                    throw error;
+                }
+            } else {
+                console.error(`❌ Client ${clientId} not found when sending pool bouts response`);
+                throw new Error(`Client ${clientId} not found`);
+            }
+        } catch (error) {
+            console.error(`❌ Error handling get_pool_bouts request for pool ${poolId}:`, error);
+            
+            // Send error response with empty array
+            const client = this.clients.get(clientId);
+            if (client) {
+                try {
+                    const errorData = {
+                        type: 'pool_bouts_list',
+                        roundId: roundId,
+                        poolId: poolId,
+                        bouts: [], // Always an array
+                        error: 'Failed to fetch pool bouts: ' + error.message
+                    };
+                    console.log(`Sending error pool_bouts_list response:`, JSON.stringify(errorData));
+                    client.write(JSON.stringify(errorData));
+                } catch (sendError) {
+                    console.error(`Error sending error response to client ${clientId}:`, sendError);
+                }
+            }
+        }
+    }
+    
+    /**
+     * Handles completing a round
+     */
+    private async handleCompleteRound(clientId: string, data: any): Promise<void> {
+        if (!this.serverInfo) {
+            console.error('No server info available');
+            return;
+        }
+        
+        console.log(`🔄 Handling complete_round from client ${clientId}, data:`, JSON.stringify(data));
+        
+        const { roundId } = data;
+        
+        if (!roundId) {
+            console.error('Missing roundId in complete_round request');
+            
+            // Send error response
+            const client = this.clients.get(clientId);
+            if (client) {
+                try {
+                    const errorResponse = {
+                        type: 'round_completed',
+                        roundId,
+                        success: false,
+                        error: 'Missing roundId'
+                    };
+                    console.log(`Sending error response: ${JSON.stringify(errorResponse)}`);
+                    client.write(JSON.stringify(errorResponse));
+                } catch (error) {
+                    console.error(`Error sending error response to client ${clientId}:`, error);
+                }
+            }
+            return;
+        }
+        
+        try {
+            // Mark the round as complete in the database
+            console.log(`🔍 Marking round ${roundId} as complete...`);
+            await import('../db/TournamentDatabaseUtils')
+                .then(module => module.dbMarkRoundAsComplete(roundId));
+            console.log(`✅ Round ${roundId} marked as complete`);
+            
+            // Send confirmation to the requesting client
+            const client = this.clients.get(clientId);
+            if (client) {
+                try {
+                    const confirmationMessage = {
+                        type: 'round_completed',
+                        roundId,
+                        success: true
+                    };
+                    console.log(`🔄 Sending confirmation to client ${clientId}: ${JSON.stringify(confirmationMessage)}`);
+                    
+                    // Use setTimeout to avoid any potential network issues
+                    setTimeout(() => {
+                        try {
+                            client.write(JSON.stringify(confirmationMessage));
+                            console.log(`✅ Confirmation sent to client ${clientId}`);
+                        } catch (innerErr) {
+                            console.error(`Error in delayed confirmation send to ${clientId}:`, innerErr);
+                        }
+                    }, 0);
+                } catch (error) {
+                    console.error(`Error sending confirmation to client ${clientId}:`, error);
+                    throw error;
+                }
+            }
+            
+            // Broadcast the round completion to all clients
+            const broadcastMessage = {
+                type: 'round_completed_broadcast',
+                roundId
+            };
+            console.log(`🔄 Broadcasting round completion to all clients: ${JSON.stringify(broadcastMessage)}`);
+            this.broadcastMessage(broadcastMessage);
+            
+        } catch (error) {
+            console.error(`❌ Error handling complete_round request:`, error);
+            
+            // Send error response
+            const client = this.clients.get(clientId);
+            if (client) {
+                try {
+                    const errorMessage = {
+                        type: 'round_completed',
+                        roundId,
+                        success: false,
+                        error: 'Failed to complete round: ' + error.message
+                    };
+                    console.log(`Sending error response to client ${clientId}: ${JSON.stringify(errorMessage)}`);
+                    client.write(JSON.stringify(errorMessage));
+                } catch (sendError) {
+                    console.error(`Error sending error response to client ${clientId}:`, sendError);
+                }
+            }
+        }
+    }
+    
+    /**
+     * Handles updating scores for a pool bout
+     */
+    private async handleUpdatePoolBoutScores(clientId: string, data: any): Promise<void> {
+        if (!this.serverInfo) {
+            console.error('No server info available');
+            return;
+        }
+        
+        console.log(`🔄 Handling update_pool_bout_scores from client ${clientId}, data:`, JSON.stringify(data));
+        
+        const { boutId, scoreA, scoreB, fencerAId, fencerBId } = data;
+        
+        if (!boutId || scoreA === undefined || scoreB === undefined || !fencerAId || !fencerBId) {
+            console.error('Missing required data in update_pool_bout_scores request');
+            
+            // Send error response
+            const client = this.clients.get(clientId);
+            if (client) {
+                try {
+                    const errorResponse = {
+                        type: 'bout_scores_updated',
+                        boutId: boutId,
+                        success: false,
+                        error: 'Missing required data'
+                    };
+                    console.log(`Sending error response: ${JSON.stringify(errorResponse)}`);
+                    client.write(JSON.stringify(errorResponse));
+                } catch (error) {
+                    console.error(`Error sending error response to client ${clientId}:`, error);
+                }
+            }
+            return;
+        }
+        
+        try {
+            // Update bout scores in database using the correct function with all parameters
+            console.log(`🔍 Updating bout ${boutId} scores to ${scoreA}-${scoreB} in database with fencers ${fencerAId} and ${fencerBId}...`);
+            await dbUpdateBoutScores(boutId, scoreA, scoreB, fencerAId, fencerBId);
+            console.log(`✅ Updated scores for bout ${boutId} to ${scoreA}-${scoreB}`);
+            
+            // First send confirmation to the requesting client
+            const client = this.clients.get(clientId);
+            if (client) {
+                try {
+                    const confirmationMessage = {
+                        type: 'bout_scores_updated',  // This is what the client is waiting for
+                        boutId: boutId,
+                        scoreA: scoreA,
+                        scoreB: scoreB,
+                        success: true
+                    };
+                    console.log(`🔄 Sending confirmation to client ${clientId}: ${JSON.stringify(confirmationMessage)}`);
+                    
+                    // Use setTimeout to avoid any potential network issues
+                    setTimeout(() => {
+                        try {
+                            client.write(JSON.stringify(confirmationMessage));
+                            console.log(`✅ Confirmation sent to client ${clientId}`);
+                        } catch (innerErr) {
+                            console.error(`Error in delayed confirmation send to ${clientId}:`, innerErr);
+                        }
+                    }, 0);
+                } catch (error) {
+                    console.error(`Error sending confirmation to client ${clientId}:`, error);
+                    throw error;
+                }
+            }
+            
+            // Then broadcast the update to ALL clients
+            // This ensures everyone gets the update
+            const broadcastMessage = {
+                type: 'bout_score_updated',  // This is for UI updates in listening clients
+                boutId: boutId,
+                scoreA: scoreA,
+                scoreB: scoreB
+            };
+            console.log(`🔄 Broadcasting bout score update to all clients: ${JSON.stringify(broadcastMessage)}`);
+            this.broadcastMessage(broadcastMessage);
+        } catch (error) {
+            console.error(`❌ Error handling update_pool_bout_scores request:`, error);
+            
+            // Send error response
+            const client = this.clients.get(clientId);
+            if (client) {
+                try {
+                    const errorMessage = {
+                        type: 'bout_scores_updated',
+                        boutId: boutId,
+                        success: false,
+                        error: 'Failed to update bout scores: ' + error.message
+                    };
+                    console.log(`Sending error response to client ${clientId}: ${JSON.stringify(errorMessage)}`);
+                    client.write(JSON.stringify(errorMessage));
+                } catch (sendError) {
+                    console.error(`Error sending error response to client ${clientId}:`, sendError);
                 }
             }
         }
     }
 
     // Broadcast a message to all connected clients
-    private broadcastMessage(message: any): void {
+    private broadcastMessage(message: any, excludeClientId?: string): void {
         const messageStr = JSON.stringify(message);
         for (const [clientId, client] of this.clients.entries()) {
+            if (excludeClientId && clientId === excludeClientId) {
+                continue; // Skip the excluded client
+            }
             try {
                 client.write(messageStr);
             } catch (error) {

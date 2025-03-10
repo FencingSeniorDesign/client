@@ -27,8 +27,8 @@ export function RefereeModule() {
     const navigation = useNavigation();
 
     const {
-        fencer1Name = 'Fencer 1',
-        fencer2Name = 'Fencer 2',
+        fencer1Name = 'Left',
+        fencer2Name = 'Right',
         boutIndex,
         currentScore1 = 0,
         currentScore2 = 0,
@@ -443,10 +443,10 @@ export function RefereeModule() {
                                     </Text>
                                     <View style={styles.modalButtonContainer}>
                                         <TouchableOpacity style={styles.modalButton} onPress={() => removeCard(1)}>
-                                            <Text style={styles.modalButtonText}>Fencer 1</Text>
+                                            <Text style={styles.modalButtonText}>Left</Text>
                                         </TouchableOpacity>
                                         <TouchableOpacity style={styles.modalButton} onPress={() => removeCard(2)}>
-                                            <Text style={styles.modalButtonText}>Fencer 2</Text>
+                                            <Text style={styles.modalButtonText}>Right</Text>
                                         </TouchableOpacity>
                                     </View>
                                 </>
@@ -456,10 +456,10 @@ export function RefereeModule() {
                                     <Text style={styles.modalText}>Assign card to:</Text>
                                     <View style={styles.modalButtonContainer}>
                                         <TouchableOpacity style={styles.modalButton} onPress={() => assignCard(1)}>
-                                            <Text style={styles.modalButtonText}>Fencer 1</Text>
+                                            <Text style={styles.modalButtonText}>Left</Text>
                                         </TouchableOpacity>
                                         <TouchableOpacity style={styles.modalButton} onPress={() => assignCard(2)}>
-                                            <Text style={styles.modalButtonText}>Fencer 2</Text>
+                                            <Text style={styles.modalButtonText}>Right</Text>
                                         </TouchableOpacity>
                                     </View>
                                 </>

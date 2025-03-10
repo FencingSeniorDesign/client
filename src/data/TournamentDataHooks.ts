@@ -1,5 +1,5 @@
 // src/data/TournamentDataHooks.ts
-import React from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Event, Fencer, Round } from '../navigation/navigation/types';
 import dataProvider from './TournamentDataProvider';
@@ -15,6 +15,9 @@ export const queryKeys = {
   eventStatuses: ['eventStatuses'] as const,
   fencers: (eventId: number) => ['fencers', eventId] as const,
   rounds: (eventId: number) => ['rounds', eventId] as const,
+  pools: (roundId: number) => ['pools', roundId] as const,
+  boutsForPool: (roundId: number, poolId: number) => ['bouts', 'pool', roundId, poolId] as const,
+  bouts: (roundId: number) => ['bouts', roundId] as const,
   fencerSearch: (query: string) => ['fencerSearch', query] as const,
 };
 
@@ -110,6 +113,30 @@ export function useSearchFencers(query: string) {
     queryFn: () => dataProvider.searchFencers(query),
     enabled: query.trim().length > 0,
     staleTime: 30000,
+  });
+}
+
+/**
+ * Hook to get pools for a round
+ */
+export function usePools(roundId: number) {
+  return useQuery({
+    queryKey: queryKeys.pools(roundId),
+    queryFn: () => dataProvider.getPools(roundId),
+    enabled: !!roundId,
+    staleTime: dataProvider.isRemoteConnection() ? 10000 : 60000,
+  });
+}
+
+/**
+ * Hook to get bouts for a pool
+ */
+export function useBoutsForPool(roundId: number, poolId: number) {
+  return useQuery({
+    queryKey: queryKeys.boutsForPool(roundId, poolId),
+    queryFn: () => dataProvider.getBoutsForPool(roundId, poolId),
+    enabled: !!roundId && poolId !== undefined,
+    staleTime: dataProvider.isRemoteConnection() ? 5000 : 30000,
   });
 }
 
@@ -252,6 +279,359 @@ export function useDeleteRound() {
   });
 }
 
+/**
+ * Hook to initialize a round
+ */
+export function useInitializeRound() {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: ({ eventId, roundId }: { eventId: number, roundId: number }) => {
+      return dataProvider.initializeRound(eventId, roundId);
+    },
+    onSuccess: (_, { eventId }) => {
+      // When a round is initialized, we need to update both rounds and event statuses
+      
+      // First invalidate the rounds to refetch them
+      queryClient.invalidateQueries({ queryKey: queryKeys.rounds(eventId) });
+      
+      // Directly update the event status in the cache - this ensures immediate UI update
+      const currentStatuses = queryClient.getQueryData(queryKeys.eventStatuses) || {};
+      queryClient.setQueryData(queryKeys.eventStatuses, {
+        ...currentStatuses,
+        [eventId]: true // Set this event as started
+      });
+      
+      // After directly updating, also invalidate to ensure eventual consistency
+      queryClient.invalidateQueries({ queryKey: queryKeys.eventStatuses });
+    },
+  });
+}
+
+/**
+ * Hook to complete a round
+ */
+export function useCompleteRound() {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: ({ roundId, eventId }: { roundId: number, eventId: number }) => {
+      return dataProvider.completeRound(roundId);
+    },
+    onSuccess: (_, { eventId }) => {
+      // Invalidate relevant queries after a round is completed
+      queryClient.invalidateQueries({ queryKey: queryKeys.rounds(eventId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.eventStatuses });
+      // Also invalidate any pool or bout data that might exist for this event
+      queryClient.invalidateQueries({ queryKey: ['pools'] });
+      queryClient.invalidateQueries({ queryKey: ['bouts'] });
+    },
+  });
+}
+
+/**
+ * Custom hook to handle round results data processing
+ */
+export function useRoundResultsData(roundId: number, eventId: number, currentRoundIndex: number) {
+  // Fetch pools data for the round
+  const { 
+    data: poolsData, 
+    isLoading: poolsLoading,
+    isError: poolsError
+  } = usePools(roundId);
+  
+  // Fetch rounds data for the event
+  const { 
+    data: roundsData, 
+    isLoading: roundsLoading,
+    isError: roundsError
+  } = useRounds(eventId);
+  
+  // Create a map of pool IDs to their bout data
+  const poolIds = React.useMemo(() => poolsData?.map(pool => pool.poolid) || [], [poolsData]);
+  
+  // Instead of trying to create dynamic queries which causes hook rules violations,
+  // use prefetching approach with queryClient
+  const queryClient = useQueryClient();
+  
+  // Prefetch all bout data when poolIds change
+  React.useEffect(() => {
+    if (!poolIds.length) return;
+    
+    // Prefetch bouts data for all pools
+    poolIds.forEach(poolId => {
+      queryClient.prefetchQuery({
+        queryKey: queryKeys.boutsForPool(roundId, poolId),
+        queryFn: () => dataProvider.getBoutsForPool(roundId, poolId)
+      });
+    });
+  }, [poolIds, roundId, queryClient]);
+  
+  // Use a single flag to track if we're still loading bout data
+  const [isBoutsLoading, setIsBoutsLoading] = React.useState(false);
+  const [isBoutsError, setIsBoutsError] = React.useState(false);
+  const [boutsData, setBoutsData] = React.useState<Record<number, any[]>>({});
+  
+  // Fetch all bout data in a single effect
+  React.useEffect(() => {
+    if (!poolIds.length) return;
+    
+    let isMounted = true;
+    setIsBoutsLoading(true);
+    setIsBoutsError(false);
+    
+    const fetchAllPoolBouts = async () => {
+      try {
+        const boutsResult: Record<number, any[]> = {};
+        
+        // Fetch bouts for each pool
+        await Promise.all(poolIds.map(async (poolId) => {
+          try {
+            // Try to get from cache first
+            const cached = queryClient.getQueryData(queryKeys.boutsForPool(roundId, poolId));
+            if (cached) {
+              boutsResult[poolId] = cached as any[];
+              return;
+            }
+            
+            // Otherwise fetch it
+            const data = await queryClient.fetchQuery({
+              queryKey: queryKeys.boutsForPool(roundId, poolId),
+              queryFn: () => dataProvider.getBoutsForPool(roundId, poolId)
+            });
+            
+            if (isMounted) {
+              boutsResult[poolId] = data || [];
+            }
+          } catch (err) {
+            console.error(`Error fetching bouts for pool ${poolId}:`, err);
+            if (isMounted) {
+              setIsBoutsError(true);
+            }
+          }
+        }));
+        
+        if (isMounted) {
+          setBoutsData(boutsResult);
+          setIsBoutsLoading(false);
+        }
+      } catch (error) {
+        console.error("Error fetching all pool bouts:", error);
+        if (isMounted) {
+          setIsBoutsError(true);
+          setIsBoutsLoading(false);
+        }
+      }
+    };
+    
+    fetchAllPoolBouts();
+    
+    // Cleanup function
+    return () => {
+      isMounted = false;
+    };
+  }, [poolIds, roundId, queryClient]);
+  
+  // Process data to calculate pool results when all data is available
+  const poolResults = React.useMemo(() => {
+    // Don't calculate if data is still loading or has errors
+    if (!poolsData || isBoutsLoading || poolsError || isBoutsError) {
+      return [];
+    }
+    
+    interface FencerStats {
+      fencer: any;
+      boutsCount: number;
+      wins: number;
+      touchesScored: number;
+      touchesReceived: number;
+      winRate: number;
+      indicator: number;
+    }
+
+    interface PoolResult {
+      poolid: number;
+      stats: FencerStats[];
+    }
+    
+    const results: PoolResult[] = [];
+    
+    // Process each pool
+    for (const pool of poolsData) {
+      const statsMap = new Map<number, FencerStats>();
+      
+      // Initialize fencer stats
+      pool.fencers.forEach(fencer => {
+        if (fencer.id !== undefined) {
+          statsMap.set(fencer.id, {
+            fencer,
+            boutsCount: 0,
+            wins: 0,
+            touchesScored: 0,
+            touchesReceived: 0,
+            winRate: 0,
+            indicator: 0,
+          });
+        }
+      });
+      
+      // Get bouts for this pool from our state
+      const bouts = boutsData[pool.poolid] || [];
+      
+      // Process bout data for this pool
+      bouts.forEach((bout: any) => {
+        const leftId = bout.left_fencerid;
+        const rightId = bout.right_fencerid;
+        const leftScore = bout.left_score ?? 0;
+        const rightScore = bout.right_score ?? 0;
+
+        if (statsMap.has(leftId)) {
+          const leftStats = statsMap.get(leftId)!;
+          leftStats.boutsCount += 1;
+          leftStats.touchesScored += leftScore;
+          leftStats.touchesReceived += rightScore;
+          if (leftScore > rightScore) {
+            leftStats.wins += 1;
+          }
+        }
+        if (statsMap.has(rightId)) {
+          const rightStats = statsMap.get(rightId)!;
+          rightStats.boutsCount += 1;
+          rightStats.touchesScored += rightScore;
+          rightStats.touchesReceived += leftScore;
+          if (rightScore > leftScore) {
+            rightStats.wins += 1;
+          }
+        }
+      });
+
+      // Calculate final stats and sort
+      const stats: FencerStats[] = [];
+      statsMap.forEach(stat => {
+        stat.winRate = stat.boutsCount > 0 ? (stat.wins / stat.boutsCount) * 100 : 0;
+        stat.indicator = stat.touchesScored - stat.touchesReceived;
+        stats.push(stat);
+      });
+      stats.sort((a, b) => b.winRate - a.winRate);
+      
+      // Add results for this pool
+      results.push({
+        poolid: pool.poolid,
+        stats,
+      });
+    }
+    
+    return results;
+  }, [poolsData, boutQueries, isBoutsLoading, poolsError, isBoutsError]);
+  
+  // Process round data to determine next round information
+  const nextRoundInfo = React.useMemo(() => {
+    if (!roundsData || roundsLoading || roundsError) {
+      return {
+        nextRound: null,
+        hasNextRound: false,
+        nextRoundStarted: false,
+      };
+    }
+    
+    const nextRoundIndex = currentRoundIndex + 1;
+    
+    if (nextRoundIndex < roundsData.length) {
+      const nextRound = roundsData[nextRoundIndex];
+      return {
+        nextRound,
+        hasNextRound: true,
+        nextRoundStarted: nextRound.isstarted === 1,
+      };
+    }
+    
+    return {
+      nextRound: null,
+      hasNextRound: false,
+      nextRoundStarted: false,
+    };
+  }, [roundsData, roundsLoading, roundsError, currentRoundIndex]);
+  
+  // Prepare an event object
+  const event = React.useMemo(() => {
+    return { id: eventId } as any;
+  }, [eventId]);
+  
+  // Overall loading state
+  const isLoading = poolsLoading || roundsLoading || isBoutsLoading;
+  
+  // Overall error state
+  const isError = poolsError || roundsError || isBoutsError;
+  
+  return {
+    poolResults,
+    event,
+    nextRoundInfo,
+    isLoading,
+    isError,
+  };
+}
+
+export function useUpdatePoolBoutScores() {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: ({ 
+      boutId, 
+      scoreA, 
+      scoreB, 
+      fencerAId, 
+      fencerBId, 
+      roundId, 
+      poolId 
+    }: { 
+      boutId: number, 
+      scoreA: number, 
+      scoreB: number, 
+      fencerAId: number, 
+      fencerBId: number,
+      roundId?: number,
+      poolId?: number
+    }) => {
+      return dataProvider.updatePoolBoutScores(boutId, scoreA, scoreB, fencerAId, fencerBId);
+    },
+    onSuccess: (result, variables) => {
+      console.log(`useUpdatePoolBoutScores onSuccess with result:`, result);
+      const { roundId, poolId } = variables;
+      
+      // Always invalidate all bouts queries to be safe
+      console.log(`Invalidating all bout queries after score update`);
+      queryClient.invalidateQueries({ 
+        queryKey: ['bouts'] 
+      });
+      
+      // Also invalidate pools as completion status may have changed
+      console.log(`Invalidating all pool queries after score update`);
+      queryClient.invalidateQueries({ 
+        queryKey: ['pools'] 
+      });
+      
+      // If we know the round and pool, do a more targeted invalidation too
+      if (roundId !== undefined && poolId !== undefined) {
+        console.log(`Also invalidating specific pool ${poolId} in round ${roundId}`);
+        queryClient.invalidateQueries({ 
+          queryKey: queryKeys.boutsForPool(roundId, poolId) 
+        });
+        
+        if (roundId) {
+          queryClient.invalidateQueries({ 
+            queryKey: queryKeys.pools(roundId) 
+          });
+        }
+      }
+    },
+    // Also handle errors more gracefully
+    onError: (error) => {
+      console.error(`Error in useUpdatePoolBoutScores:`, error);
+    }
+  });
+}
+
 // Setup sync between remote server and local cache
 export function setupTournamentSync(queryClient: any) {
   // Handle events_list updates
@@ -340,6 +720,104 @@ export function setupTournamentSync(queryClient: any) {
           queryKeys.eventStatuses,
           { ...currentStatuses, [data.eventId]: isStartedBool }
         );
+      }
+    }
+  });
+  
+  // Handle round completion
+  tournamentClient.on('round_completed', (data: any) => {
+    if (data?.roundId) {
+      console.log(`Client received round_completed for round ${data.roundId}`);
+      // Find the affected queries in the cache
+      const queriesData = queryClient.getQueriesData({ queryKey: ['rounds'] });
+      for (const [queryKey, queryData] of queriesData) {
+        if (Array.isArray(queryData)) {
+          // This is likely a rounds list
+          const eventId = queryKey[1]; // From the query key format ['rounds', eventId]
+          if (eventId) {
+            console.log(`Invalidating rounds and related data for event ${eventId}`);
+            queryClient.invalidateQueries({ queryKey: queryKeys.rounds(eventId) });
+            // Also invalidate pools and bouts that might be affected
+            queryClient.invalidateQueries({ queryKey: ['pools'] });
+            queryClient.invalidateQueries({ queryKey: ['bouts'] });
+          }
+        }
+      }
+    }
+  });
+  
+  // Handle round completion broadcast (for other clients)
+  tournamentClient.on('round_completed_broadcast', (data: any) => {
+    if (data?.roundId) {
+      console.log(`Client received round_completed_broadcast for round ${data.roundId}`);
+      // Invalidate all rounds, pools, and bouts data
+      queryClient.invalidateQueries({ queryKey: ['rounds'] });
+      queryClient.invalidateQueries({ queryKey: ['pools'] });
+      queryClient.invalidateQueries({ queryKey: ['bouts'] });
+    }
+  });
+  
+  // Handle fencers updates
+  tournamentClient.on('fencers_list', (data: any) => {
+    if (data?.eventId && Array.isArray(data.fencers)) {
+      console.log(`Received ${data.fencers.length} fencers for event ${data.eventId}`);
+      // Update fencers cache
+      queryClient.setQueryData(
+        queryKeys.fencers(data.eventId),
+        data.fencers
+      );
+    }
+  });
+  
+  // Handle pools updates
+  tournamentClient.on('pools_list', (data: any) => {
+    if (data?.roundId && Array.isArray(data.pools)) {
+      console.log(`Received ${data.pools.length} pools for round ${data.roundId}`);
+      // Update pools cache
+      queryClient.setQueryData(
+        queryKeys.pools(data.roundId),
+        data.pools
+      );
+    }
+  });
+  
+  // Handle pool bouts updates
+  tournamentClient.on('pool_bouts_list', (data: any) => {
+    if (data?.roundId && data?.poolId && Array.isArray(data.bouts)) {
+      console.log(`Received ${data.bouts.length} bouts for pool ${data.poolId}`);
+      // Update pool bouts cache
+      queryClient.setQueryData(
+        queryKeys.boutsForPool(data.roundId, data.poolId),
+        data.bouts
+      );
+    }
+  });
+  
+  // Handle bout score updates
+  tournamentClient.on('bout_score_updated', (data: any) => {
+    if (data?.boutId) {
+      console.log(`Received score update for bout ${data.boutId}: ${data.scoreA}-${data.scoreB}`);
+      
+      // Invalidate all bouts-related queries to ensure UI updates
+      console.log(`Invalidating all bout-related queries to refresh UI`);
+      queryClient.invalidateQueries({ queryKey: ['bouts'] });
+      
+      // Also invalidate pools queries as the completion status may have changed
+      console.log(`Invalidating all pool queries to refresh UI`);
+      queryClient.invalidateQueries({ queryKey: ['pools'] });
+    }
+  });
+  
+  // Handle bout scores updated confirmation
+  tournamentClient.on('bout_scores_updated', (data: any) => {
+    if (data?.boutId) {
+      console.log(`Bout ${data.boutId} scores updated confirmation received:`, data);
+      
+      // Even though mutation should handle this, let's be extra safe and invalidate here too
+      if (data.success) {
+        console.log(`bout_scores_updated: Invalidating all bout and pool queries to refresh UI`);
+        queryClient.invalidateQueries({ queryKey: ['bouts'] });
+        queryClient.invalidateQueries({ queryKey: ['pools'] });
       }
     }
   });

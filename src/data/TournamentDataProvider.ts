@@ -107,27 +107,44 @@ export class TournamentDataProvider {
           return event.rounds;
         }
         
-        // Request rounds from server
-        tournamentClient.sendMessage({
-          type: 'get_rounds',
-          eventId
-        });
-        
-        // Wait for the response
-        const response = await tournamentClient.waitForResponse('rounds_list', 5000);
-        
-        if (response && Array.isArray(response.rounds)) {
-          console.log(`[DataProvider] Received ${response.rounds.length} rounds from server`);
-          return response.rounds;
+        // Request rounds with multiple retries
+        for (let attempt = 1; attempt <= 3; attempt++) {
+          try {
+            console.log(`[DataProvider] Attempt ${attempt} to fetch rounds for event ${eventId}`);
+            
+            // Request rounds from server
+            tournamentClient.sendMessage({
+              type: 'get_rounds',
+              eventId
+            });
+            
+            // Wait for the response with increased timeout
+            const response = await tournamentClient.waitForResponse('rounds_list', 8000);
+            
+            if (response && Array.isArray(response.rounds)) {
+              console.log(`[DataProvider] Received ${response.rounds.length} rounds from server`);
+              return response.rounds;
+            }
+            
+            console.log(`[DataProvider] Invalid rounds response, retrying...`);
+          } catch (attemptError) {
+            if (attempt < 3) {
+              console.warn(`[DataProvider] Attempt ${attempt} failed, retrying: ${attemptError.message}`);
+              // Wait a moment before retrying
+              await new Promise(resolve => setTimeout(resolve, 1000));
+            } else {
+              throw attemptError; // Re-throw on final attempt
+            }
+          }
         }
         
-        throw new Error('Failed to fetch rounds from server');
+        throw new Error('Failed to fetch rounds from server after multiple attempts');
       } catch (error) {
         console.error('[DataProvider] Error fetching remote rounds:', error);
         
-        // Fall back to local database if we have the data
-        console.log('[DataProvider] Falling back to local database for rounds');
-        return await dbGetRoundsForEvent(eventId);
+        // No fallback for remote tournaments - return empty array
+        console.error('[DataProvider] Failed to fetch remote rounds and no fallback is available');
+        return [];
       }
     }
     
@@ -174,9 +191,9 @@ export class TournamentDataProvider {
       } catch (error) {
         console.error('[DataProvider] Error fetching remote fencers:', error);
         
-        // Fall back to local database
-        console.log('[DataProvider] Falling back to local database for fencers');
-        return await dbGetFencersInEventById(event);
+        // No fallback for remote tournaments - return empty array
+        console.error('[DataProvider] Failed to fetch remote fencers and no fallback is available');
+        return [];
       }
     }
     
@@ -252,8 +269,9 @@ export class TournamentDataProvider {
       } catch (error) {
         console.error('[DataProvider] Error searching remote fencers:', error);
         
-        // Fall back to local database
-        return await dbSearchFencers(query);
+        // No fallback for remote tournaments - return empty array
+        console.error('[DataProvider] Failed to search remote fencers and no fallback is available');
+        return [];
       }
     }
     
@@ -564,6 +582,62 @@ export class TournamentDataProvider {
   }
   
   /**
+   * Get bouts for a specific pool in a round
+   */
+  async getBoutsForPool(roundId: number, poolId: number): Promise<any[]> {
+    console.log(`[DataProvider] Getting bouts for pool ${poolId} in round ${roundId}, remote: ${this.isRemoteConnection()}`);
+    
+    if (this.isRemoteConnection()) {
+      try {
+        // Request bouts with multiple retries
+        for (let attempt = 1; attempt <= 3; attempt++) {
+          try {
+            console.log(`[DataProvider] Attempt ${attempt} to fetch bouts for pool ${poolId} in round ${roundId}`);
+            
+            // Request bouts for the pool from server
+            tournamentClient.requestPoolBouts(roundId, poolId);
+            
+            // Wait for the response with increased timeout
+            const response = await tournamentClient.waitForResponse('pool_bouts_list', 8000);
+            
+            if (response && Array.isArray(response.bouts)) {
+              console.log(`[DataProvider] Received ${response.bouts.length} pool bouts from server`);
+              return response.bouts;
+            }
+            
+            console.log(`[DataProvider] Invalid pool bouts response, retrying...`);
+          } catch (attemptError) {
+            if (attempt < 3) {
+              console.warn(`[DataProvider] Attempt ${attempt} failed, retrying: ${attemptError.message}`);
+              // Wait a moment before retrying
+              await new Promise(resolve => setTimeout(resolve, 1000));
+            } else {
+              throw attemptError; // Re-throw on final attempt
+            }
+          }
+        }
+        
+        throw new Error('Failed to fetch pool bouts from server after multiple attempts');
+      } catch (error) {
+        console.error('[DataProvider] Error fetching remote pool bouts:', error);
+        return [];
+      }
+    }
+    
+    // For local tournaments, fetch from database
+    try {
+      const bouts = await import('../db/TournamentDatabaseUtils')
+        .then(module => module.dbGetBoutsForPool(roundId, poolId));
+      
+      console.log(`[DataProvider] Retrieved ${bouts.length} pool bouts from local database`);
+      return bouts;
+    } catch (error) {
+      console.error('[DataProvider] Error reading local pool bouts:', error);
+      return [];
+    }
+  }
+  
+  /**
    * Get pools for a round
    */
   async getPools(roundId: number): Promise<any[]> {
@@ -571,21 +645,35 @@ export class TournamentDataProvider {
     
     if (this.isRemoteConnection()) {
       try {
-        // Request pools from server
-        tournamentClient.sendMessage({
-          type: 'get_pools',
-          roundId
-        });
-        
-        // Wait for the response
-        const response = await tournamentClient.waitForResponse('pools_list', 5000);
-        
-        if (response && Array.isArray(response.pools)) {
-          console.log(`[DataProvider] Received ${response.pools.length} pools from server`);
-          return response.pools;
+        // Request pools from server - RETRY UP TO 2 TIMES
+        for (let attempt = 1; attempt <= 3; attempt++) {
+          try {
+            console.log(`[DataProvider] Attempt ${attempt} to fetch pools for round ${roundId}`);
+            
+            // Request pools from server
+            tournamentClient.requestPools(roundId);
+            
+            // Wait for the response with longer timeout
+            const response = await tournamentClient.waitForResponse('pools_list', 8000);
+            
+            if (response && Array.isArray(response.pools)) {
+              console.log(`[DataProvider] Received ${response.pools.length} pools from server`);
+              return response.pools;
+            }
+            
+            console.log(`[DataProvider] Invalid pools response, retrying...`);
+          } catch (attemptError) {
+            if (attempt < 3) {
+              console.warn(`[DataProvider] Attempt ${attempt} failed, retrying: ${attemptError.message}`);
+              // Wait a moment before retrying
+              await new Promise(resolve => setTimeout(resolve, 1000));
+            } else {
+              throw attemptError; // Re-throw on final attempt
+            }
+          }
         }
         
-        throw new Error('Failed to fetch pools from server');
+        throw new Error('Failed to fetch pools from server after multiple attempts');
       } catch (error) {
         console.error('[DataProvider] Error fetching remote pools:', error);
         return [];
@@ -689,6 +777,42 @@ export class TournamentDataProvider {
   }
   
   /**
+   * Update pool bout scores
+   */
+  async updatePoolBoutScores(boutId: number, scoreA: number, scoreB: number, fencerAId: number, fencerBId: number): Promise<boolean> {
+    console.log(`[DataProvider] Updating pool bout ${boutId} score to ${scoreA}-${scoreB}, remote: ${this.isRemoteConnection()}`);
+    
+    if (this.isRemoteConnection()) {
+      try {
+        // Send update pool bout scores request to server
+        tournamentClient.updatePoolBoutScores(boutId, scoreA, scoreB, fencerAId, fencerBId);
+        
+        // Wait for confirmation
+        const response = await tournamentClient.waitForResponse('bout_scores_updated', 10000); // Increased timeout
+        
+        console.log(`[DataProvider] Received response for updatePoolBoutScores:`, response);
+        return response && response.success === true;
+      } catch (error) {
+        console.error('[DataProvider] Error updating pool bout scores remotely:', error);
+        return false;
+      }
+    }
+    
+    // For local tournaments, update in database
+    try {
+      // Import the database utility dynamically to avoid circular dependencies
+      // Pass all parameters to the database utility
+      await import('../db/TournamentDatabaseUtils')
+        .then(module => module.dbUpdateBoutScores(boutId, scoreA, scoreB, fencerAId, fencerBId));
+      
+      return true;
+    } catch (error) {
+      console.error('[DataProvider] Error updating pool bout scores locally:', error);
+      return false;
+    }
+  }
+  
+  /**
    * Initialize a round (start a round)
    */
   async initializeRound(eventId: number, roundId: number): Promise<boolean> {
@@ -727,6 +851,43 @@ export class TournamentDataProvider {
       return true;
     } catch (error) {
       console.error('[DataProvider] Error initializing round locally:', error);
+      return false;
+    }
+  }
+  
+  /**
+   * Complete a round
+   */
+  async completeRound(roundId: number): Promise<boolean> {
+    console.log(`[DataProvider] Completing round ${roundId}, remote: ${this.isRemoteConnection()}`);
+    
+    if (this.isRemoteConnection()) {
+      try {
+        // Send complete round request to server
+        tournamentClient.sendMessage({
+          type: 'complete_round',
+          roundId
+        });
+        
+        // Wait for confirmation
+        const response = await tournamentClient.waitForResponse('round_completed', 10000);
+        
+        return response && response.success === true;
+      } catch (error) {
+        console.error('[DataProvider] Error completing round remotely:', error);
+        return false;
+      }
+    }
+    
+    // For local tournaments, complete in database
+    try {
+      // Import the database utility dynamically to avoid circular dependencies
+      await import('../db/TournamentDatabaseUtils')
+        .then(module => module.dbMarkRoundAsComplete(roundId));
+      
+      return true;
+    } catch (error) {
+      console.error('[DataProvider] Error completing round locally:', error);
       return false;
     }
   }
