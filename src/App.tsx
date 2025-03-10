@@ -6,7 +6,7 @@ import * as React from 'react';
 import { Navigation } from './navigation';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { setupTournamentSync } from './hooks/useTournamentQueries';
+import { setupTournamentSync } from './data/TournamentDataHooks';
 
 // Create a client
 const queryClient = new QueryClient({

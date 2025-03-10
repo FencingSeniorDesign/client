@@ -1,0 +1,716 @@
+// src/data/TournamentDataProvider.ts
+import { Event, Fencer, Round } from '../navigation/navigation/types';
+import {
+  dbListEvents,
+  dbGetFencersInEventById,
+  dbGetRoundsForEvent,
+  dbCreateEvent,
+  dbDeleteFencerFromEventById,
+  dbCreateFencerByName,
+  dbAddFencerToEventById,
+  dbDeleteEvent,
+  dbAddRound,
+  dbUpdateRound,
+  dbDeleteRound,
+  dbSearchFencers
+} from '../db/TournamentDatabaseUtils';
+import tournamentClient from '../networking/TournamentClient';
+import tournamentServer from '../networking/TournamentServer';
+import { getClientId } from '../networking/NetworkUtils';
+
+/**
+ * A class that abstracts data access for tournament-related operations,
+ * determining whether to fetch data from the local database or remote server.
+ */
+export class TournamentDataProvider {
+  /**
+   * Check if we're currently connected to a remote tournament server
+   */
+  isRemoteConnection(): boolean {
+    return tournamentClient.isConnected();
+  }
+
+  /**
+   * Get events for a tournament
+   */
+  async getEvents(tournamentName: string): Promise<Event[]> {
+    console.log(`[DataProvider] Getting events for ${tournamentName}, remote: ${this.isRemoteConnection()}`);
+    
+    if (this.isRemoteConnection()) {
+      try {
+        // Request events from server
+        tournamentClient.sendMessage({
+          type: 'get_events',
+          tournamentName
+        });
+
+        // Wait for the response from server
+        const response = await tournamentClient.waitForResponse('events_list');
+        
+        // Process the response
+        if (response && response.events) {
+          const events = Array.isArray(response.events) ? response.events : [];
+          console.log(`[DataProvider] Received ${events.length} events from server`);
+          return events;
+        }
+        return [];
+      } catch (error) {
+        console.error('[DataProvider] Error fetching remote events:', error);
+        return []; // Return empty array on error
+      }
+    }
+
+    // For local tournaments, fetch from database
+    try {
+      const events = await dbListEvents(tournamentName);
+      console.log(`[DataProvider] Retrieved ${events.length} events from local database`);
+      return events;
+    } catch (error) {
+      console.error('[DataProvider] Error reading local events:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Get rounds for an event
+   */
+  async getRounds(event: Event | number): Promise<Round[]> {
+    const eventId = typeof event === 'number' ? event : event.id;
+    console.log(`[DataProvider] Getting rounds for event ${eventId}, remote: ${this.isRemoteConnection()}`);
+    
+    if (this.isRemoteConnection()) {
+      try {
+        // First, check if the event already has rounds embedded in it
+        if (typeof event !== 'number' && event.rounds && Array.isArray(event.rounds) && event.rounds.length > 0) {
+          console.log(`[DataProvider] Using ${event.rounds.length} embedded rounds from event`);
+          return event.rounds;
+        }
+        
+        // Request rounds from server
+        tournamentClient.sendMessage({
+          type: 'get_rounds',
+          eventId
+        });
+        
+        // Wait for the response
+        const response = await tournamentClient.waitForResponse('rounds_list', 5000);
+        
+        if (response && Array.isArray(response.rounds)) {
+          console.log(`[DataProvider] Received ${response.rounds.length} rounds from server`);
+          return response.rounds;
+        }
+        
+        throw new Error('Failed to fetch rounds from server');
+      } catch (error) {
+        console.error('[DataProvider] Error fetching remote rounds:', error);
+        
+        // Fall back to local database if we have the data
+        console.log('[DataProvider] Falling back to local database for rounds');
+        return await dbGetRoundsForEvent(eventId);
+      }
+    }
+    
+    // For local tournaments, fetch from database
+    try {
+      const rounds = await dbGetRoundsForEvent(eventId);
+      console.log(`[DataProvider] Retrieved ${rounds.length} rounds from local database`);
+      return rounds;
+    } catch (error) {
+      console.error('[DataProvider] Error reading local rounds:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Get fencers for an event
+   */
+  async getFencers(event: Event): Promise<Fencer[]> {
+    console.log(`[DataProvider] Getting fencers for event ${event.id}, remote: ${this.isRemoteConnection()}`);
+    
+    if (this.isRemoteConnection()) {
+      try {
+        // First, check if the event already has fencers embedded in it
+        if (event.fencers && Array.isArray(event.fencers) && event.fencers.length > 0) {
+          console.log(`[DataProvider] Using ${event.fencers.length} embedded fencers from event`);
+          return event.fencers;
+        }
+        
+        // Request fencers from server
+        tournamentClient.sendMessage({
+          type: 'get_fencers',
+          eventId: event.id
+        });
+        
+        // Wait for the response
+        const response = await tournamentClient.waitForResponse('fencers_list', 5000);
+        
+        if (response && Array.isArray(response.fencers)) {
+          console.log(`[DataProvider] Received ${response.fencers.length} fencers from server`);
+          return response.fencers;
+        }
+        
+        throw new Error('Failed to fetch fencers from server');
+      } catch (error) {
+        console.error('[DataProvider] Error fetching remote fencers:', error);
+        
+        // Fall back to local database
+        console.log('[DataProvider] Falling back to local database for fencers');
+        return await dbGetFencersInEventById(event);
+      }
+    }
+    
+    // For local tournaments, fetch from database
+    try {
+      const fencers = await dbGetFencersInEventById(event);
+      console.log(`[DataProvider] Retrieved ${fencers.length} fencers from local database`);
+      return fencers;
+    } catch (error) {
+      console.error('[DataProvider] Error reading local fencers:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Get status of an event (whether it has started)
+   */
+  async getEventStatus(event: Event | number): Promise<boolean> {
+    const eventId = typeof event === 'number' ? event : event.id;
+    console.log(`[DataProvider] Getting status for event ${eventId}, remote: ${this.isRemoteConnection()}`);
+    
+    // First, check if the event object has status information
+    if (typeof event !== 'number') {
+      // Check for various status fields
+      if (event.isStarted !== undefined) return !!event.isStarted;
+      if (event.has_started !== undefined) return !!event.has_started;
+      if (event.started !== undefined) return !!event.started;
+      if (event.isstarted !== undefined) return !!event.isstarted;
+      
+      // Check embedded rounds
+      if (event.rounds && Array.isArray(event.rounds) && event.rounds.length > 0) {
+        const isStarted = event.rounds[0].isstarted;
+        return isStarted === 1 || isStarted === true || isStarted === "1" || !!isStarted;
+      }
+    }
+    
+    // If we don't have status info in the event object, get rounds to determine status
+    try {
+      const rounds = await this.getRounds(eventId);
+      
+      if (rounds && rounds.length > 0) {
+        const isStarted = rounds[0].isstarted;
+        return isStarted === 1 || isStarted === true || isStarted === "1" || !!isStarted;
+      }
+      
+      return false;
+    } catch (error) {
+      console.error('[DataProvider] Error determining event status:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Search for fencers by name
+   */
+  async searchFencers(query: string): Promise<Fencer[]> {
+    if (this.isRemoteConnection()) {
+      try {
+        // Request fencer search from server
+        tournamentClient.sendMessage({
+          type: 'search_fencers',
+          query
+        });
+        
+        // Wait for the response
+        const response = await tournamentClient.waitForResponse('fencer_search_results', 5000);
+        
+        if (response && Array.isArray(response.fencers)) {
+          return response.fencers;
+        }
+        
+        throw new Error('Failed to fetch fencer search results from server');
+      } catch (error) {
+        console.error('[DataProvider] Error searching remote fencers:', error);
+        
+        // Fall back to local database
+        return await dbSearchFencers(query);
+      }
+    }
+    
+    // For local tournaments, search in database
+    return await dbSearchFencers(query);
+  }
+
+  /**
+   * Add a fencer to an event
+   */
+  async addFencer(fencer: Fencer, event: Event): Promise<boolean> {
+    if (this.isRemoteConnection()) {
+      try {
+        // Send add fencer request to server
+        tournamentClient.sendMessage({
+          type: 'add_fencer',
+          eventId: event.id,
+          fencer
+        });
+        
+        // Wait for confirmation
+        const response = await tournamentClient.waitForResponse('fencer_added', 5000);
+        
+        return response && response.success === true;
+      } catch (error) {
+        console.error('[DataProvider] Error adding fencer remotely:', error);
+        return false;
+      }
+    }
+    
+    // For local tournaments, add to database
+    try {
+      await dbAddFencerToEventById(fencer, event);
+      return true;
+    } catch (error) {
+      console.error('[DataProvider] Error adding fencer locally:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Create a new fencer and optionally add to an event
+   */
+  async createFencer(fencer: Fencer, event: Event, addToEvent: boolean = true): Promise<boolean> {
+    if (this.isRemoteConnection()) {
+      try {
+        // Send create fencer request to server
+        tournamentClient.sendMessage({
+          type: 'create_fencer',
+          fencer,
+          eventId: event.id,
+          addToEvent
+        });
+        
+        // Wait for confirmation
+        const response = await tournamentClient.waitForResponse('fencer_created', 5000);
+        
+        return response && response.success === true;
+      } catch (error) {
+        console.error('[DataProvider] Error creating fencer remotely:', error);
+        return false;
+      }
+    }
+    
+    // For local tournaments, add to database
+    try {
+      await dbCreateFencerByName(fencer, event, addToEvent);
+      return true;
+    } catch (error) {
+      console.error('[DataProvider] Error creating fencer locally:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Remove a fencer from an event
+   */
+  async removeFencer(fencer: Fencer, event: Event): Promise<boolean> {
+    if (this.isRemoteConnection()) {
+      try {
+        // Send remove fencer request to server
+        tournamentClient.sendMessage({
+          type: 'remove_fencer',
+          eventId: event.id,
+          fencerId: fencer.id
+        });
+        
+        // Wait for confirmation
+        const response = await tournamentClient.waitForResponse('fencer_removed', 5000);
+        
+        return response && response.success === true;
+      } catch (error) {
+        console.error('[DataProvider] Error removing fencer remotely:', error);
+        return false;
+      }
+    }
+    
+    // For local tournaments, remove from database
+    try {
+      await dbDeleteFencerFromEventById(fencer, event);
+      return true;
+    } catch (error) {
+      console.error('[DataProvider] Error removing fencer locally:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Create a new event
+   */
+  async createEvent(tournamentName: string, event: Event): Promise<number> {
+    if (this.isRemoteConnection()) {
+      try {
+        // Send create event request to server
+        tournamentClient.sendMessage({
+          type: 'create_event',
+          tournamentName,
+          event
+        });
+        
+        // Wait for confirmation
+        const response = await tournamentClient.waitForResponse('event_created', 5000);
+        
+        return response && response.eventId ? response.eventId : -1;
+      } catch (error) {
+        console.error('[DataProvider] Error creating event remotely:', error);
+        return -1;
+      }
+    }
+    
+    // For local tournaments, create in database
+    try {
+      return await dbCreateEvent(tournamentName, event);
+    } catch (error) {
+      console.error('[DataProvider] Error creating event locally:', error);
+      return -1;
+    }
+  }
+
+  /**
+   * Delete an event
+   */
+  async deleteEvent(eventId: number): Promise<boolean> {
+    if (this.isRemoteConnection()) {
+      try {
+        // Send delete event request to server
+        tournamentClient.sendMessage({
+          type: 'delete_event',
+          eventId
+        });
+        
+        // Wait for confirmation
+        const response = await tournamentClient.waitForResponse('event_deleted', 5000);
+        
+        return response && response.success === true;
+      } catch (error) {
+        console.error('[DataProvider] Error deleting event remotely:', error);
+        return false;
+      }
+    }
+    
+    // For local tournaments, delete from database
+    try {
+      await dbDeleteEvent(eventId);
+      return true;
+    } catch (error) {
+      console.error('[DataProvider] Error deleting event locally:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Add a round to an event
+   */
+  async addRound(round: Partial<Round>): Promise<number> {
+    if (this.isRemoteConnection()) {
+      try {
+        // Send add round request to server
+        tournamentClient.sendMessage({
+          type: 'add_round',
+          round
+        });
+        
+        // Wait for confirmation
+        const response = await tournamentClient.waitForResponse('round_added', 5000);
+        
+        return response && response.roundId ? response.roundId : -1;
+      } catch (error) {
+        console.error('[DataProvider] Error adding round remotely:', error);
+        return -1;
+      }
+    }
+    
+    // For local tournaments, add to database
+    try {
+      return await dbAddRound(round as any);
+    } catch (error) {
+      console.error('[DataProvider] Error adding round locally:', error);
+      return -1;
+    }
+  }
+
+  /**
+   * Update a round
+   */
+  async updateRound(round: Round): Promise<boolean> {
+    if (this.isRemoteConnection()) {
+      try {
+        // Send update round request to server
+        tournamentClient.sendMessage({
+          type: 'update_round',
+          round
+        });
+        
+        // Wait for confirmation
+        const response = await tournamentClient.waitForResponse('round_updated', 5000);
+        
+        return response && response.success === true;
+      } catch (error) {
+        console.error('[DataProvider] Error updating round remotely:', error);
+        return false;
+      }
+    }
+    
+    // For local tournaments, update in database
+    try {
+      await dbUpdateRound(round);
+      return true;
+    } catch (error) {
+      console.error('[DataProvider] Error updating round locally:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Delete a round
+   */
+  async deleteRound(roundId: number): Promise<boolean> {
+    if (this.isRemoteConnection()) {
+      try {
+        // Send delete round request to server
+        tournamentClient.sendMessage({
+          type: 'delete_round',
+          roundId
+        });
+        
+        // Wait for confirmation
+        const response = await tournamentClient.waitForResponse('round_deleted', 5000);
+        
+        return response && response.success === true;
+      } catch (error) {
+        console.error('[DataProvider] Error deleting round remotely:', error);
+        return false;
+      }
+    }
+    
+    // For local tournaments, delete from database
+    try {
+      await dbDeleteRound(roundId);
+      return true;
+    } catch (error) {
+      console.error('[DataProvider] Error deleting round locally:', error);
+      return false;
+    }
+  }
+  
+  /**
+   * Get bouts for a round
+   */
+  async getBouts(roundId: number): Promise<any[]> {
+    console.log(`[DataProvider] Getting bouts for round ${roundId}, remote: ${this.isRemoteConnection()}`);
+    
+    if (this.isRemoteConnection()) {
+      try {
+        // Request bouts from server
+        tournamentClient.sendMessage({
+          type: 'get_bouts',
+          roundId
+        });
+        
+        // Wait for the response
+        const response = await tournamentClient.waitForResponse('bouts_list', 5000);
+        
+        if (response && Array.isArray(response.bouts)) {
+          console.log(`[DataProvider] Received ${response.bouts.length} bouts from server`);
+          return response.bouts;
+        }
+        
+        throw new Error('Failed to fetch bouts from server');
+      } catch (error) {
+        console.error('[DataProvider] Error fetching remote bouts:', error);
+        return [];
+      }
+    }
+    
+    // For local tournaments, fetch from database
+    try {
+      // Import the database utility dynamically to avoid circular dependencies
+      const boutsForRound = await import('../db/TournamentDatabaseUtils')
+        .then(module => module.dbGetBoutsForRound(roundId));
+      
+      console.log(`[DataProvider] Retrieved ${boutsForRound.length} bouts from local database`);
+      return boutsForRound;
+    } catch (error) {
+      console.error('[DataProvider] Error reading local bouts:', error);
+      return [];
+    }
+  }
+  
+  /**
+   * Get pools for a round
+   */
+  async getPools(roundId: number): Promise<any[]> {
+    console.log(`[DataProvider] Getting pools for round ${roundId}, remote: ${this.isRemoteConnection()}`);
+    
+    if (this.isRemoteConnection()) {
+      try {
+        // Request pools from server
+        tournamentClient.sendMessage({
+          type: 'get_pools',
+          roundId
+        });
+        
+        // Wait for the response
+        const response = await tournamentClient.waitForResponse('pools_list', 5000);
+        
+        if (response && Array.isArray(response.pools)) {
+          console.log(`[DataProvider] Received ${response.pools.length} pools from server`);
+          return response.pools;
+        }
+        
+        throw new Error('Failed to fetch pools from server');
+      } catch (error) {
+        console.error('[DataProvider] Error fetching remote pools:', error);
+        return [];
+      }
+    }
+    
+    // For local tournaments, fetch from database
+    try {
+      // Import the database utility dynamically to avoid circular dependencies
+      const poolsForRound = await import('../db/TournamentDatabaseUtils')
+        .then(module => module.dbGetPoolsForRound(roundId));
+      
+      console.log(`[DataProvider] Retrieved ${poolsForRound.length} pools from local database`);
+      return poolsForRound;
+    } catch (error) {
+      console.error('[DataProvider] Error reading local pools:', error);
+      return [];
+    }
+  }
+  
+  /**
+   * Get bracket data for a DE round
+   */
+  async getBracketData(roundId: number): Promise<any> {
+    console.log(`[DataProvider] Getting bracket for round ${roundId}, remote: ${this.isRemoteConnection()}`);
+    
+    if (this.isRemoteConnection()) {
+      try {
+        // Request bracket from server
+        tournamentClient.sendMessage({
+          type: 'get_bracket',
+          roundId
+        });
+        
+        // Wait for the response
+        const response = await tournamentClient.waitForResponse('bracket_data', 5000);
+        
+        if (response && response.bracket) {
+          console.log(`[DataProvider] Received bracket from server`);
+          return response.bracket;
+        }
+        
+        throw new Error('Failed to fetch bracket from server');
+      } catch (error) {
+        console.error('[DataProvider] Error fetching remote bracket:', error);
+        return null;
+      }
+    }
+    
+    // For local tournaments, fetch from database
+    try {
+      // Import the database utility dynamically to avoid circular dependencies
+      const bracketData = await import('../db/TournamentDatabaseUtils')
+        .then(module => module.dbGetBracketForRound(roundId));
+      
+      console.log(`[DataProvider] Retrieved bracket from local database`);
+      return bracketData;
+    } catch (error) {
+      console.error('[DataProvider] Error reading local bracket:', error);
+      return null;
+    }
+  }
+  
+  /**
+   * Update bout score
+   */
+  async updateBoutScore(boutId: number, scoreA: number, scoreB: number): Promise<boolean> {
+    console.log(`[DataProvider] Updating bout ${boutId} score to ${scoreA}-${scoreB}, remote: ${this.isRemoteConnection()}`);
+    
+    if (this.isRemoteConnection()) {
+      try {
+        // Send update score request to server
+        tournamentClient.sendMessage({
+          type: 'update_bout_score',
+          boutId,
+          scoreA,
+          scoreB
+        });
+        
+        // Wait for confirmation
+        const response = await tournamentClient.waitForResponse('bout_score_updated', 5000);
+        
+        return response && response.success === true;
+      } catch (error) {
+        console.error('[DataProvider] Error updating bout score remotely:', error);
+        return false;
+      }
+    }
+    
+    // For local tournaments, update in database
+    try {
+      // Import the database utility dynamically to avoid circular dependencies
+      await import('../db/TournamentDatabaseUtils')
+        .then(module => module.dbUpdateBoutScore(boutId, scoreA, scoreB));
+      
+      return true;
+    } catch (error) {
+      console.error('[DataProvider] Error updating bout score locally:', error);
+      return false;
+    }
+  }
+  
+  /**
+   * Initialize a round (start a round)
+   */
+  async initializeRound(eventId: number, roundId: number): Promise<boolean> {
+    console.log(`[DataProvider] Initializing round ${roundId} for event ${eventId}, remote: ${this.isRemoteConnection()}`);
+    
+    if (this.isRemoteConnection()) {
+      try {
+        // Send initialize round request to server using the proper method
+        tournamentClient.requestInitializeRound(eventId, roundId);
+        
+        // Wait for confirmation
+        const response = await tournamentClient.waitForResponse('round_initialized', 10000);
+        
+        return response && response.success === true;
+      } catch (error) {
+        console.error('[DataProvider] Error initializing round remotely:', error);
+        return false;
+      }
+    }
+    
+    // For local tournaments, initialize in database
+    try {
+      // Get the necessary data to initialize the round
+      const event = await import('../db/TournamentDatabaseUtils')
+        .then(module => module.dbGetEventById(eventId));
+      
+      const round = await import('../db/TournamentDatabaseUtils')
+        .then(module => module.dbGetRoundById(roundId));
+      
+      const fencers = await this.getFencers(event);
+      
+      // Initialize the round
+      await import('../db/TournamentDatabaseUtils')
+        .then(module => module.dbInitializeRound(event, round, fencers));
+      
+      return true;
+    } catch (error) {
+      console.error('[DataProvider] Error initializing round locally:', error);
+      return false;
+    }
+  }
+}
+
+// Create a singleton instance
+const tournamentDataProvider = new TournamentDataProvider();
+export default tournamentDataProvider;

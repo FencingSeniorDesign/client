@@ -16,18 +16,14 @@ import {
 import {useNavigation, RouteProp, useFocusEffect} from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import {RootStackParamList, Event, Round, Fencer} from '../navigation/types';
-import {
-  dbGetFencersInEventById,
-  dbGetRoundsForEvent,
-  dbInitializeRound
-} from '../../db/TournamentDatabaseUtils';
 import {navigateToDEPage} from "../utils/DENavigationUtil";
 import tournamentServer from '../../networking/TournamentServer';
 import tournamentClient from '../../networking/TournamentClient';
 import { getLocalIpAddress, isConnectedToInternet, getNetworkInfo } from '../../networking/NetworkUtils';
 import ConnectionStatusBar from '../../networking/components/ConnectionStatusBar';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useEvents, useCreateEvent, useEventStatuses, useDeleteEvent } from '../../hooks/useTournamentQueries';
+import { useQueryClient } from '@tanstack/react-query';
+import { useEvents, useCreateEvent, useEventStatuses, useDeleteEvent } from '../../data/TournamentDataHooks';
+import dataProvider from '../../data/TournamentDataProvider';
 
 type Props = {
   route: RouteProp<{ params: { tournamentName: string, isRemoteConnection?: boolean } }, 'params'>;
@@ -275,16 +271,6 @@ export const EventManagement = ({ route }: Props) => {
     );
   };
 
-  const initializeRound = async (event: Event, round: Round, fencers: Fencer[]): Promise<boolean> => {
-    try {
-      await dbInitializeRound(event, round, fencers);
-      return true;
-    } catch (error) {
-      console.error('Error initializing event:', error);
-      Alert.alert('Error', 'Failed to initialize the round.');
-      return false;
-    }
-  };
 
   const navigateToRoundPage = (event: Event, round: Round, roundIndex: number) => {
     if (!round || !round.type) {
@@ -298,9 +284,11 @@ export const EventManagement = ({ route }: Props) => {
         event: event,
         currentRoundIndex: roundIndex,
         roundId: round.id,
+        isRemote: isRemote // Pass the isRemote flag to the PoolsPage
       });
     } else if (round.type === 'de') {
-      navigateToDEPage(navigation, event, round, roundIndex);
+      // Pass isRemote flag to the DE navigation utility
+      navigateToDEPage(navigation, event, round, roundIndex, isRemote);
     } else {
       console.error(`Unknown round type: ${round.type}`);
       Alert.alert('Error', `Unknown round type: ${round.type}`);
@@ -312,13 +300,15 @@ export const EventManagement = ({ route }: Props) => {
     if (!eventToStart) return;
 
     try {
-      const fencers = await dbGetFencersInEventById(eventToStart);
+      // Use data provider to get fencers - works for both local and remote
+      const fencers = await dataProvider.getFencers(eventToStart);
       if (!fencers || fencers.length === 0) {
         Alert.alert('Error', 'Cannot start event with no fencers. Please add fencers to this event.');
         return;
       }
 
-      const rounds = await dbGetRoundsForEvent(eventToStart.id);
+      // Use data provider to get rounds - works for both local and remote
+      const rounds = await dataProvider.getRounds(eventToStart);
       if (!rounds || rounds.length === 0) {
         Alert.alert('Error', 'No rounds defined for this event. Please add rounds in the event settings.');
         return;
@@ -349,7 +339,8 @@ export const EventManagement = ({ route }: Props) => {
               {
                 text: 'Continue',
                 onPress: async () => {
-                  const success = await initializeRound(eventToStart, firstRound, fencers);
+                  // Use data provider to initialize round
+                  const success = await dataProvider.initializeRound(eventToStart.id, firstRound.id);
                   if (success) {
                     navigateToRoundPage(eventToStart, firstRound, 0);
                   }
@@ -358,7 +349,8 @@ export const EventManagement = ({ route }: Props) => {
             ]
         );
       } else {
-        const success = await initializeRound(eventToStart, firstRound, fencers);
+        // Use data provider to initialize round
+        const success = await dataProvider.initializeRound(eventToStart.id, firstRound.id);
         if (success) {
           navigateToRoundPage(eventToStart, firstRound, 0);
         }
@@ -377,47 +369,8 @@ export const EventManagement = ({ route }: Props) => {
     try {
       console.log('Event to open:', eventToOpen);
       
-      // Special handling for remote connections
-      if (isRemote) {
-        console.log('Remote connection - requesting rounds for event from server');
-        // First, check if the event already has rounds embedded in it
-        if (eventToOpen.rounds && Array.isArray(eventToOpen.rounds) && eventToOpen.rounds.length > 0) {
-          console.log('Event has embedded rounds:', eventToOpen.rounds);
-          const firstRound = eventToOpen.rounds[0];
-          navigateToRoundPage(eventToOpen, firstRound, 0);
-          return;
-        }
-        
-        // If the event doesn't have embedded rounds, try to request them from server
-        try {
-          if (tournamentClient.isConnected()) {
-            // Request rounds for this event
-            tournamentClient.sendMessage({
-              type: 'get_rounds',
-              eventId: eventToOpen.id
-            });
-            
-            // Wait for the response
-            const response = await tournamentClient.waitForResponse('rounds_list', 5000);
-            
-            if (response && Array.isArray(response.rounds) && response.rounds.length > 0) {
-              console.log('Received rounds from server:', response.rounds);
-              navigateToRoundPage(eventToOpen, response.rounds[0], 0);
-              return;
-            } else {
-              Alert.alert('Error', 'Could not retrieve rounds data from the server.');
-              return;
-            }
-          }
-        } catch (error) {
-          console.error('Error requesting rounds from server:', error);
-          // Fall back to local database as a last resort
-        }
-      }
-      
-      // Standard local database approach
-      console.log('Fetching rounds from local database...');
-      const rounds = await dbGetRoundsForEvent(eventToOpen.id);
+      // Get rounds using our data provider (handles remote/local automatically)
+      const rounds = await dataProvider.getRounds(eventToOpen);
       console.log('Retrieved rounds:', rounds);
 
       if (!rounds || rounds.length === 0) {

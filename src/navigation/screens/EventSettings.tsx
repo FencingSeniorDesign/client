@@ -25,7 +25,7 @@ import {
     useAddRound,
     useUpdateRound,
     useDeleteRound,
-} from "../../hooks/useTournamentQueries";
+} from "../../data/TournamentDataHooks";
 
 // ----- Pool Configuration Helper Types and Functions -----
 interface PoolConfiguration {

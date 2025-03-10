@@ -248,6 +248,65 @@ class TournamentClient extends EventEmitter {
             type: 'request_tournament_data'
         });
     }
+    
+    // Request round data from server
+    requestRoundData(eventId: number): boolean {
+        return this.sendMessage({
+            type: 'get_rounds',
+            eventId
+        });
+    }
+    
+    // Request bout data for a round
+    requestBoutData(roundId: number): boolean {
+        return this.sendMessage({
+            type: 'get_bouts',
+            roundId
+        });
+    }
+    
+    // Request pool data for a round
+    requestPoolData(roundId: number): boolean {
+        return this.sendMessage({
+            type: 'get_pools',
+            roundId
+        });
+    }
+    
+    // Request bracket data for a DE round
+    requestBracketData(roundId: number): boolean {
+        return this.sendMessage({
+            type: 'get_bracket',
+            roundId
+        });
+    }
+    
+    // Update a score for a bout (simulates referee action)
+    updateBoutScore(boutId: number, scoreA: number, scoreB: number): boolean {
+        return this.sendMessage({
+            type: 'update_bout_score',
+            boutId,
+            scoreA,
+            scoreB
+        });
+    }
+    
+    // Request the status of an event (whether it has started)
+    requestEventStatus(eventId: number): boolean {
+        return this.sendMessage({
+            type: 'get_event_status',
+            eventId
+        });
+    }
+    
+    // Request to initialize a round (start it)
+    requestInitializeRound(eventId: number, roundId: number): boolean {
+        return this.sendMessage({
+            type: 'initialize_round',
+            eventId,
+            roundId
+        });
+    }
 
     // Handle a message from the server
     private handleServerMessage(message: string): void {
@@ -304,6 +363,24 @@ class TournamentClient extends EventEmitter {
                 case 'round_updated':
                 case 'round_deleted':
                     console.log(`Received round update: ${data.type}`, data);
+                    break;
+                case 'bouts_list':
+                    console.log(`Received bouts_list for round ${data.roundId} with ${data.bouts?.length || 0} bouts`);
+                    break;
+                case 'pools_list':
+                    console.log(`Received pools_list for round ${data.roundId} with ${data.pools?.length || 0} pools`);
+                    break;
+                case 'bracket_data':
+                    console.log(`Received bracket data for round ${data.roundId}`);
+                    break;
+                case 'bout_score_updated':
+                    console.log(`Received bout score update for bout ${data.boutId}: ${data.scoreA}-${data.scoreB}`);
+                    break;
+                case 'event_status':
+                    console.log(`Received event status for event ${data.eventId}: ${data.isStarted ? 'Started' : 'Not Started'}`);
+                    break;
+                case 'round_initialized':
+                    console.log(`Round ${data.roundId} for event ${data.eventId} has been initialized`);
                     break;
                 default:
                     console.log(`Unknown message type: ${data.type}`);

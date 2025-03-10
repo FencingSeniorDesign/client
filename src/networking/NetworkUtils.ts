@@ -2,6 +2,7 @@
 import { Platform } from 'react-native';
 import * as Network from 'expo-network';
 import DeviceInfo from 'react-native-device-info';
+import tournamentClient from './TournamentClient';
 
 /**
  * Gets the device's local IP address
@@ -54,6 +55,19 @@ export async function isConnectedToInternet(): Promise<boolean> {
     } catch (error) {
         console.error('Error checking internet connection:', error);
         return false;
+    }
+}
+
+/**
+ * Get a unique client identifier for this device
+ */
+export async function getClientId(): Promise<string> {
+    try {
+        return await DeviceInfo.getUniqueId();
+    } catch (error) {
+        console.error('Error getting device ID:', error);
+        // Generate a random fallback ID
+        return `client-${Math.random().toString(36).substring(2, 15)}`;
     }
 }
 
@@ -114,4 +128,37 @@ export async function getNetworkInfo(): Promise<object> {
         console.error('Error getting network info:', error);
         return { error: 'Failed to get network information' };
     }
+}
+
+/**
+ * Helper function to add isRemote parameter to navigation props
+ * @param params The route parameters 
+ * @param isRemote Whether this is a remote connection
+ * @returns The parameters with isRemote added
+ */
+export function withRemoteFlag<T>(params: T, isRemote: boolean): T & { isRemote: boolean } {
+    return {
+        ...params,
+        isRemote
+    };
+}
+
+/**
+ * Get the client ID and connection info - useful for permission checking
+ */
+export async function getClientConnectionInfo(): Promise<{
+    clientId: string;
+    isRemote: boolean;
+    isHost: boolean;
+}> {
+    const clientId = await getClientId();
+    const isRemote = tournamentClient && tournamentClient.isConnected();
+    // For now, assume we're not the host if we're connected remotely
+    const isHost = !isRemote;
+    
+    return {
+        clientId,
+        isRemote,
+        isHost
+    };
 }
