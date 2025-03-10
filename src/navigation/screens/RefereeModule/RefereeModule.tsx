@@ -511,6 +511,7 @@ export function RefereeModule() {
                 }}
                 onRevertLastPoint={revertLastPoint}
                 kawaiiMode={kawaiiMode}
+                canRevertLastPoint={lastScoreChange !== null}
             />
         </View>
     );
