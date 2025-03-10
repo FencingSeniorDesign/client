@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useCallback } from "react";
 import {
     View,
     Text,
@@ -309,12 +309,12 @@ export const EventSettings = ({ route }: Props) => {
         ));
     }, [fencerSuggestions, formatRatingString, handleAddFencerFromSearch, addFencerMutation.isPending]);
 
-    const toggleRoundConfig = React.useCallback((index: number) => {
+    const toggleRoundConfig = useCallback((index: number) => {
         setExpandedConfigIndex((prev) => (prev === index ? null : index));
     }, []);
 
     // Handler for selecting a pool configuration for a specific round
-    const handleSelectPoolConfiguration = React.useCallback((config: PoolConfiguration, roundIndex: number) => {
+    const handleSelectPoolConfiguration = useCallback((config: PoolConfiguration, roundIndex: number) => {
         const round = rounds[roundIndex];
         if (!round) return;
         
@@ -332,7 +332,7 @@ export const EventSettings = ({ route }: Props) => {
     }, [rounds, updateRoundMutation]);
 
 // Handler to add a new round. Creates a new round object with default values.
-    const handleAddRound = React.useCallback((roundType: 'pool' | 'de') => {
+    const handleAddRound = useCallback((roundType: 'pool' | 'de') => {
         const newRound = {
             eventid: event.id,
             rorder: rounds.length + 1, // Append at the end
