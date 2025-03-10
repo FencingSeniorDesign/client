@@ -1797,3 +1797,51 @@ export async function dbGetDETableSize(roundId: number): Promise<number> {
         return 0; // Default to 0 if there's an error
     }
 }
+
+/**
+ * Gets an event by ID
+ * @param eventId ID of the event to retrieve
+ * @returns The event object
+ */
+export async function dbGetEventById(eventId: number): Promise<Event> {
+    try {
+        const db = await openDB();
+        const event = await db.getFirstAsync<Event>(
+            'SELECT * FROM Events WHERE id = ?',
+            [eventId]
+        );
+        
+        if (!event) {
+            throw new Error(`Event with ID ${eventId} not found`);
+        }
+        
+        return event;
+    } catch (error) {
+        console.error('Error fetching event by ID:', error);
+        throw error;
+    }
+}
+
+/**
+ * Gets a round by ID
+ * @param roundId ID of the round to retrieve
+ * @returns The round object
+ */
+export async function dbGetRoundById(roundId: number): Promise<Round> {
+    try {
+        const db = await openDB();
+        const round = await db.getFirstAsync<Round>(
+            'SELECT * FROM Rounds WHERE id = ?',
+            [roundId]
+        );
+        
+        if (!round) {
+            throw new Error(`Round with ID ${roundId} not found`);
+        }
+        
+        return round;
+    } catch (error) {
+        console.error('Error fetching round by ID:', error);
+        throw error;
+    }
+}

@@ -35,6 +35,9 @@ class ServerDiscoveryEmitter extends EventEmitter {
 
     private initializeZeroconf() {
         try {
+            // Log React Native modules for debugging
+            console.log('Available NativeModules:', Object.keys(NativeModules));
+            
             // Check if the NativeModule exists
             if (!NativeModules.RNZeroconf) {
                 console.warn('NativeModules.RNZeroconf is not available - local discovery will be disabled');
@@ -43,56 +46,109 @@ class ServerDiscoveryEmitter extends EventEmitter {
             }
             
             const isPhysicalDevice = !DeviceInfo.isEmulator();
-            console.log(`Initializing Zeroconf on ${isPhysicalDevice ? 'physical device' : 'simulator'}`);
+            console.log(`Initializing Zeroconf on ${isPhysicalDevice ? 'physical device' : 'simulator'}, Platform: ${Platform.OS}`);
             
-            this.zeroconf = new Zeroconf();
+            // Create Zeroconf instance with debug mode enabled - this shows more logs
+            this.zeroconf = new Zeroconf({ debug: true });
+            console.log('Zeroconf instance created with debug enabled');
+            
+            // Log available methods on Zeroconf for debugging
+            console.log('Zeroconf methods:', Object.getOwnPropertyNames(Object.getPrototypeOf(this.zeroconf)));
+            
             this.setupZeroconfListeners();
+            console.log('Zeroconf listeners setup complete');
             
             // Special handling for physical iOS devices
             if (Platform.OS === 'ios' && isPhysicalDevice) {
                 console.log('Physical iOS device detected, adding special handling');
                 
+                // Check if Bonjour services are authorized
+                if (this.zeroconf.isServiceBrowserActive) {
+                    console.log('Service browser is active');
+                } else {
+                    console.log('Service browser is NOT active');
+                }
+                
                 // Listen for errors that might indicate initialization issues
                 const errorHandler = (error: any) => {
                     console.warn('Zeroconf initialization error on physical device:', error);
-                    this.isZeroconfAvailable = false;
+                    console.warn('Error details:', JSON.stringify(error));
+                    
+                    // Only disable if it's a critical error
+                    if (error.message && (
+                        error.message.includes('permission') || 
+                        error.message.includes('NSNetService') ||
+                        error.message.includes('denied'))) {
+                        console.error('Critical permission error - disabling Zeroconf');
+                        this.isZeroconfAvailable = false;
+                    }
                 };
                 
                 this.zeroconf.on('error', errorHandler);
                 
-                // If publishing is attempted on a physical device, we may need
-                // to adapt our approach since it may not have all permissions
+                // For iOS 14+, ensure we have permission to use local network
+                console.log('iOS device Info.plist should contain NSLocalNetworkUsageDescription and NSBonjourServices');
+                console.log('Triggering a quick scan to prompt for permission if needed');
+                
+                // Try a quick scan to trigger the permission dialog
+                try {
+                    setTimeout(() => {
+                        try {
+                            // Perform a quick scan to trigger the permission dialog
+                            this.zeroconf.scan('', 'tcp', 'local.');
+                            setTimeout(() => this.zeroconf.stop(), 1000);
+                        } catch (innerError) {
+                            console.warn('Error during permission prompt scan:', innerError);
+                        }
+                    }, 500);
+                } catch (permissionError) {
+                    console.warn('Error setting up permission prompt:', permissionError);
+                }
             }
             
             console.log('Zeroconf initialized successfully');
         } catch (error) {
             console.error('Failed to initialize Zeroconf:', error);
+            console.error('Error details:', JSON.stringify(error));
             this.isZeroconfAvailable = false;
         }
     }
 
     private setupZeroconfListeners() {
-        if (!this.zeroconf) return;
+        if (!this.zeroconf) {
+            console.warn('Cannot setup listeners - Zeroconf instance is null');
+            return;
+        }
+
+        // Listen for service found - this is when a service is discovered but not yet resolved
+        this.zeroconf.on('found', service => {
+            console.log('Zeroconf service found:', service);
+        });
 
         // Handle service resolution
         this.zeroconf.on('resolved', service => {
             try {
-                console.log('Zeroconf service resolved:', service);
+                console.log('Zeroconf service resolved:', JSON.stringify(service, null, 2));
                 
                 // Check if this is our service type - library adds underscores and .tcp
                 // So we check for _tournafence._tcp
                 if (service.type && service.type.includes(`_${SERVICE_TYPE}._tcp`)) {
+                    console.log('Service type matches our target service');
+                    
                     // Get the tournament name from the TXT record if available
                     let tournamentName = 'Unknown Tournament';
                     
                     // Extract the real tournament name from the TXT record if available
                     if (service.txt && service.txt.name) {
                         tournamentName = service.txt.name;
+                        console.log('Using tournament name from TXT record:', tournamentName);
                     } else if (service.name && service.name.startsWith('TournaFence-')) {
                         // If no TXT record, still show a friendly name by removing the random ID
                         tournamentName = 'Tournament';
+                        console.log('Using generic tournament name for TournaFence service');
                     } else {
                         tournamentName = service.name || 'Unknown Tournament';
+                        console.log('Using service name as tournament name:', tournamentName);
                     }
                     
                     const server: DiscoveredServer = {
@@ -105,25 +161,41 @@ class ServerDiscoveryEmitter extends EventEmitter {
                     console.log(`Discovered tournament server: ${server.tournamentName} at ${server.hostIp}:${server.port}`);
                     this.addServer(server);
                 } else {
-                    console.log(`Ignoring service of type: ${service.type}`);
+                    console.log(`Ignoring service of type: ${service.type} (not _${SERVICE_TYPE}._tcp)`);
                 }
             } catch (error) {
                 console.error('Error handling resolved service:', error);
+                console.error('Error details:', JSON.stringify(error));
             }
         });
 
         // Handle errors
         this.zeroconf.on('error', error => {
             console.error('Zeroconf error:', error);
-            // If we get critical errors, disable Zeroconf
-            if (error.message && error.message.includes('registerService')) {
-                this.isZeroconfAvailable = false;
+            console.error('Error details:', JSON.stringify(error));
+            
+            // Check for permissions-related errors
+            if (error.message) {
+                if (error.message.includes('permission') || error.message.includes('Permission')) {
+                    console.error('Likely permissions issue with Zeroconf');
+                }
+                
+                // If we get critical errors, disable Zeroconf
+                if (error.message.includes('registerService')) {
+                    console.error('Critical error with registerService, disabling Zeroconf');
+                    this.isZeroconfAvailable = false;
+                }
             }
+        });
+
+        // Listen for start events
+        this.zeroconf.on('start', () => {
+            console.log('Zeroconf scan started');
         });
 
         // Handle scan timeout
         this.zeroconf.on('timeout', () => {
-            console.log('Zeroconf scan timeout');
+            console.log('Zeroconf scan timeout - no more services will be discovered');
             this.setScanning(false);
         });
 
@@ -132,6 +204,8 @@ class ServerDiscoveryEmitter extends EventEmitter {
             console.log('Zeroconf scanning stopped');
             this.setScanning(false);
         });
+        
+        console.log('All Zeroconf event listeners registered');
     }
 
     clearServers() {
@@ -177,9 +251,11 @@ class ServerDiscoveryEmitter extends EventEmitter {
 
     startScan() {
         if (this.isScanning) {
+            console.log('Already scanning, ignoring startScan request');
             return;
         }
 
+        console.log('Starting server discovery scan...');
         this.clearServers();
         this.setScanning(true);
         
@@ -190,17 +266,30 @@ class ServerDiscoveryEmitter extends EventEmitter {
             // Set a timer to end the "scan" after a reasonable time
             setTimeout(() => {
                 this.setScanning(false);
+                console.log('Simulated scan completed - no servers found');
             }, DISCOVERY_TIMEOUT);
             
             return;
         }
         
         try {
-            console.log(`Starting Zeroconf scan for service type: ${SERVICE_TYPE}`);
+            // Check if we're on a physical iOS device and log accordingly
+            const isPhysicalDevice = !DeviceInfo.isEmulator();
+            if (Platform.OS === 'ios' && isPhysicalDevice) {
+                console.log('Starting real device scan - checking for Local Network permissions');
+                
+                // Check permission state if possible
+                if (this.zeroconf.isServiceBrowserActive !== undefined) {
+                    console.log('Service browser active state:', this.zeroconf.isServiceBrowserActive);
+                }
+            }
+            
+            console.log(`Starting Zeroconf scan for service type: ${SERVICE_TYPE}, protocol: tcp, domain: ${SERVICE_DOMAIN}`);
             
             // Start scanning for our service type using the library's expected format
             // The service type is passed without underscores - the library adds them
             this.zeroconf.scan(SERVICE_TYPE, 'tcp', SERVICE_DOMAIN);
+            console.log('Scan initiated - waiting for services to be discovered...');
             
             // Set a timeout to stop scanning after DISCOVERY_TIMEOUT
             if (this.discoveryTimer) {
@@ -208,10 +297,12 @@ class ServerDiscoveryEmitter extends EventEmitter {
             }
             
             this.discoveryTimer = setTimeout(() => {
+                console.log(`Scan timeout after ${DISCOVERY_TIMEOUT}ms`);
                 this.stopScan();
             }, DISCOVERY_TIMEOUT);
         } catch (error) {
             console.error('Error starting Zeroconf scan:', error);
+            console.error('Error details:', JSON.stringify(error));
             this.setScanning(false);
             this.isZeroconfAvailable = false;
         }
@@ -457,27 +548,44 @@ export async function getClientConnectionInfo(): Promise<{
  * Start scanning for tournament servers on the local network
  * Returns a promise that resolves with discovered servers
  */
+// Tracks whether we've initialized Zeroconf with a first scan
+// This helps trigger the iOS permissions prompt on first use
+let hasTriggeredInitialScan = false;
+
 export function startServerDiscovery(): Promise<DiscoveredServer[]> {
     return new Promise((resolve, reject) => {
         try {
+            // For physical iOS devices, we might need to trigger the permissions dialog
+            if (!hasTriggeredInitialScan && Platform.OS === 'ios' && !DeviceInfo.isEmulator()) {
+                console.log('First scan on physical iOS device - should trigger permissions dialog');
+                hasTriggeredInitialScan = true;
+            }
+            
             if (serverDiscovery.isCurrentlyScanning()) {
                 console.log('Already scanning for servers, returning current list');
                 return resolve(serverDiscovery.getServersList());
             }
             
+            console.log('Starting server discovery with promise...');
             serverDiscovery.clearServers();
             
             // Set up listener for servers update
             const onServersUpdated = (servers: DiscoveredServer[]) => {
                 // Don't resolve yet, keep collecting discoveries until timeout
+                console.log(`Server updates during scan: ${servers.length} servers found`);
             };
             
             const onScanningChanged = (isScanning: boolean) => {
                 if (!isScanning) {
                     // Scanning finished, resolve with the collected servers
+                    console.log('Scan completed, resolving promise');
                     serverDiscovery.removeListener('serversUpdated', onServersUpdated);
                     serverDiscovery.removeListener('scanningChanged', onScanningChanged);
-                    resolve(serverDiscovery.getServersList());
+                    
+                    const servers = serverDiscovery.getServersList();
+                    console.log(`Discovered ${servers.length} servers in total`);
+                    
+                    resolve(servers);
                 }
             };
             
@@ -489,6 +597,7 @@ export function startServerDiscovery(): Promise<DiscoveredServer[]> {
             
         } catch (error) {
             console.error('Error in server discovery:', error);
+            console.error('Error details:', JSON.stringify(error));
             serverDiscovery.setScanning(false);
             reject(error);
         }

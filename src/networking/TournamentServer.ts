@@ -280,6 +280,9 @@ class TournamentServer {
                 case 'get_events':
                     this.handleGetEvents(clientId, data);
                     break;
+                case 'get_rounds':
+                    this.handleGetRounds(clientId, data);
+                    break;
                 default:
                     console.log(`Unknown message type: ${data.type}`);
             }
@@ -392,6 +395,76 @@ class TournamentServer {
                         tournamentName,
                         events: [], // Always an array
                         error: 'Failed to fetch events'
+                    }));
+                } catch (error) {
+                    console.error(`Error sending error response to client ${clientId}:`, error);
+                }
+            }
+        }
+    }
+    
+    /**
+     * Handles a request for rounds data for a specific event
+     */
+    private async handleGetRounds(clientId: string, data: any): Promise<void> {
+        if (!this.serverInfo) {
+            console.error('No server info available');
+            return;
+        }
+        
+        const eventId = data.eventId;
+        if (!eventId) {
+            console.error('No eventId provided in get_rounds request');
+            
+            // Send error response
+            const client = this.clients.get(clientId);
+            if (client) {
+                try {
+                    client.write(JSON.stringify({
+                        type: 'rounds_list',
+                        eventId: eventId,
+                        rounds: [],
+                        error: 'No eventId provided'
+                    }));
+                } catch (error) {
+                    console.error(`Error sending error response to client ${clientId}:`, error);
+                }
+            }
+            return;
+        }
+        
+        try {
+            // Fetch rounds from database directly rather than using cached data
+            // This ensures we have the most up-to-date rounds information
+            const rounds = await dbGetRoundsForEvent(eventId);
+            console.log(`Fetched ${rounds.length} rounds for event ${eventId}`);
+            
+            // Send rounds to the requesting client
+            const client = this.clients.get(clientId);
+            if (client) {
+                try {
+                    client.write(JSON.stringify({
+                        type: 'rounds_list',
+                        eventId: eventId,
+                        rounds: rounds
+                    }));
+                    console.log(`Rounds list sent to client ${clientId}: ${rounds.length} rounds for event ${eventId}`);
+                } catch (error) {
+                    console.error(`Error sending rounds to client ${clientId}:`, error);
+                }
+            }
+        } catch (error) {
+            console.error(`Error handling get_rounds request for event ${eventId}:`, error);
+            
+            // Send error response with empty array
+            const client = this.clients.get(clientId);
+            if (client) {
+                try {
+                    client.write(JSON.stringify({
+                        type: 'rounds_list',
+                        eventId: eventId,
+                        rounds: [], // Always an array
+                        error: 'Failed to fetch rounds'
                     }));
                 } catch (error) {
                     console.error(`Error sending error response to client ${clientId}:`, error);
