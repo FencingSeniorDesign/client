@@ -33,8 +33,22 @@ export class TournamentDataProvider {
   /**
    * Get events for a tournament
    */
+  // Cache to avoid multiple requests for the same event list
+  private eventsCache: {[key: string]: {timestamp: number, events: Event[]}} = {};
+  private EVENT_CACHE_TTL = 10000; // 10 seconds
+  
   async getEvents(tournamentName: string): Promise<Event[]> {
     console.log(`[DataProvider] Getting events for ${tournamentName}, remote: ${this.isRemoteConnection()}`);
+    
+    // Check cache first
+    const cacheKey = `events_${tournamentName}`;
+    const cached = this.eventsCache[cacheKey];
+    const now = Date.now();
+    
+    if (cached && (now - cached.timestamp < this.EVENT_CACHE_TTL)) {
+      console.log(`[DataProvider] Using cached events (age: ${now - cached.timestamp}ms)`);
+      return cached.events;
+    }
     
     if (this.isRemoteConnection()) {
       try {
@@ -51,6 +65,13 @@ export class TournamentDataProvider {
         if (response && response.events) {
           const events = Array.isArray(response.events) ? response.events : [];
           console.log(`[DataProvider] Received ${events.length} events from server`);
+          
+          // Cache the results
+          this.eventsCache[cacheKey] = {
+            timestamp: now,
+            events: events
+          };
+          
           return events;
         }
         return [];

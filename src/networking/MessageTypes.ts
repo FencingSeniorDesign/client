@@ -167,6 +167,17 @@ export interface TournamentUpdateMessage extends BaseMessage {
 }
 
 /**
+ * Tournament broadcast message for local discovery
+ */
+export interface TournamentBroadcastMessage extends BaseMessage {
+  type: 'tournament_broadcast';
+  tournamentName: string;
+  hostIp: string;
+  port: number;
+  timestamp: number;
+}
+
+/**
  * Network connection configuration
  */
 export interface ConnectionConfig {
@@ -195,7 +206,8 @@ export type TournamentMessage =
   | TournamentDataMessage
   | ScoreUpdateMessage
   | ServerClosingMessage
-  | TournamentUpdateMessage;
+  | TournamentUpdateMessage
+  | TournamentBroadcastMessage;
 
 /**
  * Type guard functions
@@ -221,3 +233,9 @@ export const isTournamentDataMessage = (msg: any): msg is TournamentDataMessage 
 
 export const isServerClosingMessage = (msg: any): msg is ServerClosingMessage => 
   validateMessage(msg) && msg.type === 'server_closing';
+
+export const isTournamentBroadcastMessage = (msg: any): msg is TournamentBroadcastMessage =>
+  validateMessage(msg) && msg.type === 'tournament_broadcast' && 
+  typeof msg.tournamentName === 'string' && 
+  typeof msg.hostIp === 'string' &&
+  typeof msg.port === 'number';

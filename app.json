@@ -10,7 +10,11 @@
     "scheme": "tournafence",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.anonymous.TournaFence"
+      "bundleIdentifier": "com.anonymous.TournaFence",
+      "infoPlist": {
+        "NSLocalNetworkUsageDescription": "TournaFence needs to discover and connect to tournament servers on your local network",
+        "NSBonjourServices": ["_tournafence._tcp", "_tournafence._udp"]
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -32,7 +36,16 @@
         }
       ],
       "react-native-edge-to-edge",
-      "expo-sqlite"
+      "expo-sqlite",
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "useFrameworks": "static"
+          }
+        }
+      ],
+      "./plugins/withZeroconfConfig.js"
     ]
   }
 }

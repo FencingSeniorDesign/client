@@ -1,9 +1,13 @@
-// src/networking/TournamentServer.ts - With data broadcasting
+// src/networking/TournamentServer.ts - With Zeroconf service discovery
 import TcpSocket from 'react-native-tcp-socket';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 import { Tournament, Event } from '../navigation/navigation/types';
-import { getLocalIpAddress } from './NetworkUtils';
+import { 
+    getLocalIpAddress, 
+    publishTournamentService, 
+    unpublishTournamentService 
+} from './NetworkUtils';
 import { dbListEvents, dbGetRoundsForEvent } from '../db/TournamentDatabaseUtils';
 
 // Constants
@@ -110,6 +114,9 @@ class TournamentServer {
             // Start listening without specifying a host
             this.server.listen(options, () => {
                 console.log(`Tournament server started for ${tournament.name} on port ${DEFAULT_PORT}`);
+                
+                // Register the service with Zeroconf
+                this.publishService(tournament.name);
             });
 
             // Save server info to AsyncStorage
@@ -122,9 +129,49 @@ class TournamentServer {
         }
     }
 
+    // Publish service using Zeroconf for local discovery
+    private publishService(tournamentName: string): void {
+        try {
+            // Create a unique service name by appending a random suffix to avoid name collisions
+            const uniqueId = Math.floor(Math.random() * 10000);
+            const uniqueServiceName = `${tournamentName}-${uniqueId}`;
+            
+            const success = publishTournamentService(uniqueServiceName, DEFAULT_PORT);
+            
+            if (success) {
+                console.log(`Published Zeroconf service for tournament: ${uniqueServiceName}`);
+            } else {
+                console.warn(`Zeroconf service publishing failed for tournament: ${uniqueServiceName}`);
+                console.log('Local network discovery may be limited, but direct IP connections will still work');
+                
+                // Since Zeroconf failed, we should show the IP address prominently
+                this.logServerConnectionInfo();
+            }
+        } catch (error) {
+            console.error('Error publishing service:', error);
+            this.logServerConnectionInfo();
+        }
+    }
+    
+    // Log information about how to connect to this server
+    private async logServerConnectionInfo(): Promise<void> {
+        if (this.serverInfo) {
+            console.log('=================================================');
+            console.log('SERVER CONNECTION INFORMATION:');
+            console.log(`Tournament: ${this.serverInfo.tournamentName}`);
+            console.log(`IP Address: ${this.serverInfo.hostIp}`);
+            console.log(`Port: ${this.serverInfo.port}`);
+            console.log('Share this information with fencers who want to connect');
+            console.log('=================================================');
+        }
+    }
+
     // Stop the server
     async stopServer(): Promise<boolean> {
         try {
+            // Unpublish the service from Zeroconf
+            unpublishTournamentService();
+
             if (this.server) {
                 // Notify all clients that the server is shutting down
                 this.broadcastMessage({

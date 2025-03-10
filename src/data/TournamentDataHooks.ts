@@ -29,8 +29,8 @@ export function useEvents(tournamentName: string) {
     queryFn: () => dataProvider.getEvents(tournamentName),
     enabled: !!tournamentName,
     // Set appropriate caching and refetch strategies
-    staleTime: dataProvider.isRemoteConnection() ? 10000 : 60000, // 10 seconds for remote, 1 minute for local
-    refetchInterval: dataProvider.isRemoteConnection() ? 10000 : false, // Poll for remote connections
+    staleTime: dataProvider.isRemoteConnection() ? 30000 : 60000, // 30 seconds for remote, 1 minute for local
+    refetchInterval: dataProvider.isRemoteConnection() ? 30000 : false, // Less frequent polling for remote connections
   });
 }
 

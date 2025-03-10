@@ -199,14 +199,6 @@ class TournamentClient extends EventEmitter {
         }
     }
 
-    async getEvents(tournamentName: string): Promise<any> {
-        this.sendMessage({
-            type: 'get_events',
-            tournamentName
-        });
-
-        return this.waitForResponse('events_list');
-    }
 
     // Check if client is connected
     isConnected(): boolean {
@@ -242,60 +234,10 @@ class TournamentClient extends EventEmitter {
         }
     }
 
-    // Request tournament data from server
+    // Request tournament data from server - called automatically on connection
     requestTournamentData(): boolean {
         return this.sendMessage({
             type: 'request_tournament_data'
-        });
-    }
-    
-    // Request round data from server
-    requestRoundData(eventId: number): boolean {
-        return this.sendMessage({
-            type: 'get_rounds',
-            eventId
-        });
-    }
-    
-    // Request bout data for a round
-    requestBoutData(roundId: number): boolean {
-        return this.sendMessage({
-            type: 'get_bouts',
-            roundId
-        });
-    }
-    
-    // Request pool data for a round
-    requestPoolData(roundId: number): boolean {
-        return this.sendMessage({
-            type: 'get_pools',
-            roundId
-        });
-    }
-    
-    // Request bracket data for a DE round
-    requestBracketData(roundId: number): boolean {
-        return this.sendMessage({
-            type: 'get_bracket',
-            roundId
-        });
-    }
-    
-    // Update a score for a bout (simulates referee action)
-    updateBoutScore(boutId: number, scoreA: number, scoreB: number): boolean {
-        return this.sendMessage({
-            type: 'update_bout_score',
-            boutId,
-            scoreA,
-            scoreB
-        });
-    }
-    
-    // Request the status of an event (whether it has started)
-    requestEventStatus(eventId: number): boolean {
-        return this.sendMessage({
-            type: 'get_event_status',
-            eventId
         });
     }
     

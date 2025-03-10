@@ -250,8 +250,8 @@ export function useEventStatuses(events: Event[]) {
         enabled: Array.isArray(events) && events.length > 0,
         // Reduce stale time for remote connections to refresh status more frequently
         staleTime: isRemoteConnection() ? 10000 : 60000, // 10 seconds for remote, 1 minute for local
-        // Also poll for updates regularly in remote mode
-        refetchInterval: isRemoteConnection() ? 5000 : false, // 5 seconds for remote, disabled for local
+        // Also poll for updates regularly in remote mode, but less frequently to reduce spam
+        refetchInterval: isRemoteConnection() ? 30000 : false, // 30 seconds for remote, disabled for local
     });
 }
 
