@@ -97,27 +97,34 @@ const styles = StyleSheet.create({
     },
     tournamentContainer: {
         flexDirection: 'row',
-        backgroundColor: '#f2f4fb', // Lighter navy blue interior
-        borderRadius: 8,
+        backgroundColor: '#ffffff',
+        borderRadius: 12,
         borderWidth: 1,
-        borderColor: '#ddd',
-        marginVertical: 4, // Increased vertical spacing between items
+        borderColor: '#e0e0e0',
+        marginVertical: 6,
+        elevation: 2,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 2,
+        overflow: 'hidden',
     },
     tournamentItem: {
         flex: 1,
-        marginLeft: 16,
         padding: 16,
     },
     tournamentName: {
         fontSize: 16,
-        fontWeight: '500',
-        textAlign: 'center', // Center the tournament name
+        fontWeight: '600',
+        textAlign: 'left',
+        color: '#333333',
     },
     deleteButton: {
         padding: 16,
-        backgroundColor: '#5a0b0b',
-        borderTopRightRadius: 8,
-        borderBottomRightRadius: 8,
+        backgroundColor: '#ff3b30',
+        justifyContent: 'center',
+        alignItems: 'center',
+        width: 50,
     },
     deleteButtonText: {
         color: '#fff',
@@ -126,22 +133,18 @@ const styles = StyleSheet.create({
     },
     emptyText: {
         textAlign: 'center',
-        color: '#666',
+        color: '#888888',
         fontSize: 16,
+        fontStyle: 'italic',
+        padding: 20,
     },
     tournamentHistoryButton: {
-        backgroundColor: '#4F4F4F', // Dark grey inside
-        borderColor: '#001f3f', // Navy blue border
-        borderWidth: 2,
-        borderRadius: 8,
-        paddingVertical: 10,
-        paddingHorizontal: 20,
-        width: '80%',
-        alignItems: 'center',
-        marginVertical: 5,
+        backgroundColor: '#f5f5f5',
+        borderLeftWidth: 4,
+        borderLeftColor: '#888888',
     },
     tournamentHistoryButtonText: {
-        color: '#fff', // White text
+        color: '#555555',
         fontSize: 16,
     },
 });

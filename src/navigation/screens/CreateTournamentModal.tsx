@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   Alert,
 } from 'react-native';
+import { MaterialIcons } from '@expo/vector-icons';
 import { dbCreateTournament } from '../../db/TournamentDatabaseUtils';
 
 interface CreateTournamentButtonProps {
@@ -41,6 +42,7 @@ export const CreateTournamentButton: React.FC<CreateTournamentButtonProps> = ({ 
             style={styles.button}
             onPress={() => setModalVisible(true)}
         >
+          <MaterialIcons name="add-circle" size={24} color="#fff" style={styles.buttonIcon} />
           <Text style={styles.buttonText}>Create Tournament</Text>
         </TouchableOpacity>
 
@@ -89,52 +91,77 @@ export const CreateTournamentButton: React.FC<CreateTournamentButtonProps> = ({ 
 
 const styles = StyleSheet.create({
   button: {
-      backgroundColor: '#001f3f', // Navy blue
-      borderRadius: 25,
-      paddingVertical: 12,
-      paddingHorizontal: 20,
-      alignItems: 'center',
-      marginVertical: 10,
+    backgroundColor: '#001f3f',
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+    height: 50, // Fixed height
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  buttonIcon: {
+    marginRight: 8,
   },
   buttonText: {
     color: '#fff',
     fontSize: 16,
+    fontWeight: '600',
     textAlign: 'center',
   },
   modalContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
   },
   modalContent: {
     backgroundColor: '#fff',
-    padding: 20,
-    borderRadius: 12,
-    width: '80%',
+    padding: 24,
+    borderRadius: 16,
+    width: '85%',
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
   },
   modalTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 15,
+    fontSize: 22,
+    fontWeight: '700',
+    marginBottom: 20,
     textAlign: 'center',
+    color: '#333',
   },
   input: {
     borderWidth: 1,
-    borderColor: '#ddd',
-    padding: 10,
-    borderRadius: 6,
-    marginBottom: 20,
+    borderColor: '#e0e0e0',
+    backgroundColor: '#f9f9f9',
+    padding: 12,
+    borderRadius: 10,
+    marginBottom: 24,
+    fontSize: 16,
   },
   buttonContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
   },
   modalButton: {
-    padding: 10,
-    borderRadius: 6,
+    padding: 12,
+    borderRadius: 10,
     flex: 1,
-    marginHorizontal: 5,
+    marginHorizontal: 6,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
   },
   cancelButton: {
     backgroundColor: '#ff3b30',
