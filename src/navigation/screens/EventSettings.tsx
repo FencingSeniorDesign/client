@@ -7,23 +7,25 @@ import {
     TouchableOpacity,
     ScrollView,
     Alert,
+    ActivityIndicator,
 } from "react-native";
 import { RouteProp, useNavigation } from "@react-navigation/native";
 import { Event, Fencer, Round } from "../navigation/types";
 import * as DocumentPicker from "expo-document-picker";
 import * as FileSystem from "expo-file-system";
-import {
-    dbAddFencerToEventById,
-    dbCreateFencerByName,
-    dbDeleteFencerFromEventById,
-    dbDeleteRound,
-    dbGetFencersInEventById,
-    dbSearchFencers,
-    dbUpdateRound,
-    dbGetRoundsForEvent,
-    dbAddRound,
-} from "../../db/TournamentDatabaseUtils";
 import { Picker } from "@react-native-picker/picker";
+import { useQueryClient } from "@tanstack/react-query";
+import {
+    useFencers,
+    useRounds,
+    useSearchFencers,
+    useAddFencer,
+    useRemoveFencer,
+    useCreateFencer,
+    useAddRound,
+    useUpdateRound,
+    useDeleteRound,
+} from "../../hooks/useTournamentQueries";
 
 // ----- Pool Configuration Helper Types and Functions -----
 interface PoolConfiguration {
@@ -69,7 +71,7 @@ function formatPoolLabel(config: PoolConfiguration): string {
 // ----- End Pool Configuration Helpers -----
 
 type EventSettingsRouteProp = RouteProp<
-    { params: { event: Event; onSave: (updatedEvent: Event) => void } },
+    { params: { event: Event; onSave: (updatedEvent: Event) => void; isRemote?: boolean } },
     "params"
 >;
 
@@ -78,7 +80,7 @@ type Props = {
 };
 
 export const EventSettings = ({ route }: Props) => {
-    const { event: initialEvent, onSave } = route.params || {};
+    const { event: initialEvent, onSave, isRemote = false } = route.params || {};
 
     if (!initialEvent) {
         return (
@@ -89,14 +91,32 @@ export const EventSettings = ({ route }: Props) => {
     }
 
     const navigation = useNavigation();
+    const queryClient = useQueryClient();
 
-    const [event, setEvent] = useState<Event>({ ...initialEvent });
-    const [fencers, setFencers] = useState<Fencer[]>([]);
-    const [rounds, setRounds] = useState<any[]>([]);
+    const [event] = useState<Event>({ ...initialEvent });
     const initialWeapon = initialEvent.weapon.toLowerCase();
     const [selectedWeapon, setSelectedWeapon] = useState<string>(initialWeapon);
     const [fencerFirstName, setFencerFirstName] = useState<string>("");
     const [fencerLastName, setFencerLastName] = useState<string>("");
+
+    // TanStack Query hooks
+    const { 
+        data: fencers = [], 
+        isLoading: fencersLoading 
+    } = useFencers(event);
+    
+    const { 
+        data: rounds = [], 
+        isLoading: roundsLoading 
+    } = useRounds(event.id);
+    
+    // Mutations
+    const addFencerMutation = useAddFencer();
+    const removeFencerMutation = useRemoveFencer();
+    const createFencerMutation = useCreateFencer();
+    const addRoundMutation = useAddRound();
+    const updateRoundMutation = useUpdateRound();
+    const deleteRoundMutation = useDeleteRound();
 
     // States for ratings and years
     const [epeeRating, setEpeeRating] = useState<string>("U");
@@ -108,7 +128,7 @@ export const EventSettings = ({ route }: Props) => {
 
     // Search state for fencers
     const [searchQuery, setSearchQuery] = useState<string>("");
-    const [fencerSuggestions, setFencerSuggestions] = useState<Fencer[]>([]);
+    const { data: fencerSuggestions = [], isLoading: searchLoading } = useSearchFencers(searchQuery);
 
     // Round management states
     const [showRoundTypeOptions, setShowRoundTypeOptions] = useState<boolean>(false);
@@ -118,12 +138,11 @@ export const EventSettings = ({ route }: Props) => {
     const [fencingDropdownOpen, setFencingDropdownOpen] = useState<boolean>(false);
     const [roundDropdownOpen, setRoundDropdownOpen] = useState<boolean>(false);
 
-    // Pool configurations state (refreshed when fencers change)
-    const [poolConfigurations, setPoolConfigurations] = useState<PoolConfiguration[]>([]);
-
-    useEffect(() => {
-        setPoolConfigurations(calculatePoolConfigurations(fencers.length));
-    }, [fencers]);
+    // Pool configurations - using React.useMemo to avoid unnecessary recalculations
+    const poolConfigurations = React.useMemo(() => 
+        calculatePoolConfigurations(fencers?.length || 0),
+        [fencers?.length]
+    );
 
     const currentRating =
         selectedWeapon === "epee"
@@ -139,7 +158,7 @@ export const EventSettings = ({ route }: Props) => {
                 : saberYear;
 
     // Fencer functions
-    const handleAddFencer = () => {
+    const handleAddFencer = React.useCallback(() => {
         let newFencer: Fencer = {
             fname: fencerFirstName.trim(),
             lname: fencerLastName.trim(),
@@ -151,25 +170,43 @@ export const EventSettings = ({ route }: Props) => {
             syear: saberYear,
         };
 
-        dbCreateFencerByName(newFencer, event, true).then(fetchFencers);
+        createFencerMutation.mutate({ 
+            fencer: newFencer, 
+            event, 
+            addToEvent: true 
+        });
+        
         setFencerFirstName("");
         setFencerLastName("");
-    };
+    }, [
+        fencerFirstName, 
+        fencerLastName, 
+        epeeRating, 
+        epeeYear, 
+        foilRating, 
+        foilYear, 
+        saberRating, 
+        saberYear, 
+        createFencerMutation, 
+        event
+    ]);
 
-    const handleUploadCSV = async () => {
+    const handleUploadCSV = React.useCallback(async () => {
         try {
             const result = await DocumentPicker.getDocumentAsync({ type: "text/csv" });
             if ("uri" in result && result.uri) {
                 //@ts-ignore
                 const csvString = await FileSystem.readAsStringAsync(result.uri);
                 const lines = csvString.split("\n");
-                const newFencers: Fencer[] = [];
-                lines.forEach((line) => {
+                
+                // Process CSV data
+                for (const line of lines) {
                     const trimmedLine = line.trim();
-                    if (!trimmedLine) return;
+                    if (!trimmedLine) continue;
+                    
                     const parts = trimmedLine.split(",").map((p) => p.trim());
-                    if (parts.length >= 3 && parts[0] && parts[1] && parts[2]) {
-                        newFencers.push({
+                    if (parts.length >= 2 && parts[0] && parts[1]) {
+                        const newFencer: Fencer = {
                             fname: parts[0],
                             lname: parts[1],
                             erating: "U",
@@ -178,43 +215,29 @@ export const EventSettings = ({ route }: Props) => {
                             fyear: 0,
                             srating: "U",
                             syear: 0,
+                        };
+                        
+                        // Create fencer sequentially
+                        await createFencerMutation.mutateAsync({ 
+                            fencer: newFencer, 
+                            event, 
+                            addToEvent: true 
                         });
                     }
-                });
-                setFencers([...newFencers, ...fencers]);
+                }
+                
+                Alert.alert("Success", "Fencers imported successfully");
             }
         } catch (error) {
             console.error("Error reading CSV file:", error);
+            Alert.alert("Error", "Failed to import fencers from CSV");
         }
-    };
+    }, [createFencerMutation, event]);
 
-    const fetchFencers = async () => {
-        const fetchedFencers: Fencer[] = await dbGetFencersInEventById(event);
-        setFencers(fetchedFencers);
-    };
-
-    useEffect(() => {
-        const searchFencers = async () => {
-            if (searchQuery.trim()) {
-                const results = await dbSearchFencers(searchQuery);
-                setFencerSuggestions(results);
-            } else {
-                setFencerSuggestions([]);
-            }
-        };
-        searchFencers();
-    }, [searchQuery]);
-
-    useEffect(() => {
-        fetchFencers();
-    }, []);
-
-    function handleRemoveFencer(fencer: Fencer, event: Event) {
-        dbDeleteFencerFromEventById(fencer, event);
-        fetchFencers();
-    }
-
-    function formatRatingString(fencer: Fencer): string {
+    // Define formatRatingString first
+    const formatRatingString = React.useCallback((fencer: Fencer): string => {
+        if (!fencer) return '';
+        
         let rating = "";
         let year = 0;
         switch (event.weapon.toLowerCase()) {
@@ -235,9 +258,23 @@ export const EventSettings = ({ route }: Props) => {
         }
         const yearStr = rating !== "U" ? year.toString().slice(2) : "";
         return `${rating}${yearStr}`;
-    }
-
-    const renderFencers = () => {
+    }, [event.weapon]);
+    
+    // Then define handleRemoveFencer
+    const handleRemoveFencer = React.useCallback((fencer: Fencer, event: Event) => {
+        removeFencerMutation.mutate({ fencer, event });
+    }, [removeFencerMutation]);
+    
+    // Define handleAddFencerFromSearch first
+    const handleAddFencerFromSearch = React.useCallback((fencer: Fencer) => {
+        addFencerMutation.mutate({ fencer, event });
+        setSearchQuery("");
+    }, [addFencerMutation, event, setSearchQuery]);
+    
+    // Then define renderFencers
+    const renderFencers = React.useCallback(() => {
+        if (!fencers || !Array.isArray(fencers)) return null;
+        
         return fencers.map((fencer) => (
             <View key={fencer.id} style={styles.fencerRow}>
                 <Text style={styles.fencerItem}>
@@ -246,65 +283,56 @@ export const EventSettings = ({ route }: Props) => {
                 <TouchableOpacity
                     onPress={() => handleRemoveFencer(fencer, event)}
                     style={styles.removeFencerButton}
+                    disabled={removeFencerMutation.isPending}
                 >
                     <Text style={styles.removeFencerText}>x</Text>
                 </TouchableOpacity>
             </View>
         ));
-    };
+    }, [fencers, formatRatingString, handleRemoveFencer, event, removeFencerMutation.isPending]);
 
-    const renderFencerSuggestions = () => {
+    // And finally define renderFencerSuggestions
+    const renderFencerSuggestions = React.useCallback(() => {
+        if (!fencerSuggestions || !Array.isArray(fencerSuggestions)) return null;
+        
         return fencerSuggestions.map((fencer) => (
             <TouchableOpacity
                 key={fencer.id}
                 onPress={() => handleAddFencerFromSearch(fencer)}
                 style={styles.fencerRow}
+                disabled={addFencerMutation.isPending}
             >
                 <Text style={styles.fencerItem}>
                     {fencer.lname}, {fencer.fname} ({formatRatingString(fencer)})
                 </Text>
             </TouchableOpacity>
         ));
-    };
+    }, [fencerSuggestions, formatRatingString, handleAddFencerFromSearch, addFencerMutation.isPending]);
 
-    const handleAddFencerFromSearch = (fencer: Fencer) => {
-        dbAddFencerToEventById(fencer, event);
-        fetchFencers();
-        setSearchQuery("");
-        setFencerSuggestions([]);
-    };
-
-    const toggleRoundConfig = (index: number) => {
+    const toggleRoundConfig = React.useCallback((index: number) => {
         setExpandedConfigIndex((prev) => (prev === index ? null : index));
-    };
-
-
+    }, []);
 
     // Handler for selecting a pool configuration for a specific round
-    const handleSelectPoolConfiguration = (config: PoolConfiguration, roundIndex: number) => {
-        const updatedRounds = [...rounds];
-        updatedRounds[roundIndex] = { ...updatedRounds[roundIndex], poolConfiguration: config };
-        setRounds(updatedRounds);
-        console.log("Selected pool configuration for round", roundIndex, ":", config);
-    };
-
-    const fetchRounds = async () => {
-        try {
-            const roundsData = await dbGetRoundsForEvent(event.id);
-            setRounds(roundsData);
-        } catch (error) {
-            console.error("Failed to fetch rounds", error);
-        }
-    };
-
-    useEffect(() => {
-        fetchRounds();
-    }, [event]);
-
-// Inside your EventSettings component, after your state declarations
+    const handleSelectPoolConfiguration = React.useCallback((config: PoolConfiguration, roundIndex: number) => {
+        const round = rounds[roundIndex];
+        if (!round) return;
+        
+        // Get pool size based on the configuration
+        const expectedPoolSize = config.extraPools > 0 ? config.baseSize + 1 : config.baseSize;
+        
+        // Update the round with the new pool configuration
+        const updatedRound = {
+            ...round,
+            poolcount: config.pools,
+            poolsize: expectedPoolSize
+        };
+        
+        updateRoundMutation.mutate(updatedRound);
+    }, [rounds, updateRoundMutation]);
 
 // Handler to add a new round. Creates a new round object with default values.
-    const handleAddRound = async (roundType: 'pool' | 'de') => {
+    const handleAddRound = React.useCallback((roundType: 'pool' | 'de') => {
         const newRound = {
             eventid: event.id,
             rorder: rounds.length + 1, // Append at the end
@@ -318,38 +346,21 @@ export const EventSettings = ({ route }: Props) => {
             poolcount: roundType === 'pool' ? 0 : null,
             poolsize: roundType === 'pool' ? 0 : null,
             poolsoption: roundType === 'pool' ? 'promotion' : undefined,
+            isstarted: 0
         };
-        try {
-            await dbAddRound(newRound);
-            const updatedRounds = await dbGetRoundsForEvent(event.id);
-            setRounds(updatedRounds);
-        } catch (error) {
-            console.error("Failed to add round", error);
-        }
-    };
+        
+        addRoundMutation.mutate(newRound);
+    }, [event.id, rounds.length, addRoundMutation]);
 
+    // Handler to update a round immediately after a change
+    const handleUpdateRound = React.useCallback((updatedRound: Round) => {
+        updateRoundMutation.mutate(updatedRound);
+    }, [updateRoundMutation]);
 
-// Handler to update a round immediately after a change
-    const handleUpdateRound = async (updatedRound: Round) => {
-        try {
-            await dbUpdateRound(updatedRound);
-            const updatedRounds = await dbGetRoundsForEvent(event.id);
-            setRounds(updatedRounds);
-        } catch (error) {
-            console.error("Failed to update round", error);
-        }
-    };
-
-// Handler to delete a round
-    const handleDeleteRound = async (roundId: number) => {
-        try {
-            await dbDeleteRound(roundId);
-            const updatedRounds = await dbGetRoundsForEvent(event.id);
-            setRounds(updatedRounds);
-        } catch (error) {
-            console.error("Failed to delete round", error);
-        }
-    };
+    // Handler to delete a round
+    const handleDeleteRound = React.useCallback((roundId: number) => {
+        deleteRoundMutation.mutate({ roundId, eventId: event.id });
+    }, [deleteRoundMutation, event.id]);
 
     return (
         <ScrollView style={styles.container} contentContainerStyle={styles.content}>
@@ -372,7 +383,16 @@ export const EventSettings = ({ route }: Props) => {
                             value={searchQuery}
                             onChangeText={setSearchQuery}
                         />
-                        {fencerSuggestions.length > 0 && renderFencerSuggestions()}
+                        {searchLoading ? (
+                            <View style={styles.loadingContainer}>
+                                <ActivityIndicator size="small" color="#001f3f" />
+                                <Text style={styles.loadingText}>Searching...</Text>
+                            </View>
+                        ) : fencerSuggestions.length > 0 ? (
+                            renderFencerSuggestions()
+                        ) : searchQuery.trim().length > 0 ? (
+                            <Text style={styles.note}>No matching fencers found</Text>
+                        ) : null}
                     </View>
                     <View style={styles.section}>
                         <Text style={styles.sectionTitle}>Add Fencer</Text>
@@ -458,8 +478,19 @@ export const EventSettings = ({ route }: Props) => {
                                 </View>
                             )}
                         </View>
-                        <TouchableOpacity onPress={handleAddFencer} style={styles.addFencerButton}>
-                            <Text style={styles.addFencerButtonText}>Add Fencer</Text>
+                        <TouchableOpacity 
+                            onPress={handleAddFencer} 
+                            style={styles.addFencerButton}
+                            disabled={createFencerMutation.isPending}
+                        >
+                            {createFencerMutation.isPending ? (
+                                <View style={styles.buttonLoadingContainer}>
+                                    <ActivityIndicator size="small" color="#fff" />
+                                    <Text style={styles.addFencerButtonText}>Adding...</Text>
+                                </View>
+                            ) : (
+                                <Text style={styles.addFencerButtonText}>Add Fencer</Text>
+                            )}
                         </TouchableOpacity>
                         <View style={{ marginTop: 10 }}>
                             <TouchableOpacity onPress={handleUploadCSV}>
@@ -469,10 +500,21 @@ export const EventSettings = ({ route }: Props) => {
                     </View>
                     <View style={styles.fencerListContainer}>
                         <Text style={styles.fencerListHeader}>Current Fencers: {fencers.length}</Text>
-                        {fencers.length === 0 ? (
+                        {fencersLoading ? (
+                            <View style={styles.loadingContainer}>
+                                <ActivityIndicator size="small" color="#001f3f" />
+                                <Text style={styles.loadingText}>Loading fencers...</Text>
+                            </View>
+                        ) : fencers.length === 0 ? (
                             <Text style={styles.note}>No fencers added yet.</Text>
                         ) : (
                             renderFencers()
+                        )}
+                        {createFencerMutation.isPending && (
+                            <View style={styles.pendingActionContainer}>
+                                <ActivityIndicator size="small" color="#001f3f" />
+                                <Text style={styles.pendingActionText}>Adding fencer...</Text>
+                            </View>
                         )}
                     </View>
                 </View>
@@ -487,7 +529,12 @@ export const EventSettings = ({ route }: Props) => {
             </TouchableOpacity>
             {roundDropdownOpen && (
                 <View style={styles.dropdownContent}>
-                    {rounds.length > 0 && (
+                    {roundsLoading ? (
+                        <View style={styles.loadingContainer}>
+                            <ActivityIndicator size="medium" color="#001f3f" />
+                            <Text style={styles.loadingText}>Loading rounds...</Text>
+                        </View>
+                    ) : rounds.length > 0 ? (
                         <View style={styles.roundsList}>
                             {rounds.map((round, idx) => (
                                 <View key={round.id} style={styles.roundItem}>
@@ -531,11 +578,6 @@ export const EventSettings = ({ route }: Props) => {
                                                             ]}
                                                             onPress={() => {
                                                                 const updatedRound = { ...round, poolsoption: "promotion" };
-                                                                setRounds(prev => {
-                                                                    const newRounds = [...prev];
-                                                                    newRounds[idx] = updatedRound;
-                                                                    return newRounds;
-                                                                });
                                                                 handleUpdateRound(updatedRound);
                                                             }}
                                                         >
@@ -548,11 +590,6 @@ export const EventSettings = ({ route }: Props) => {
                                                             ]}
                                                             onPress={() => {
                                                                 const updatedRound = { ...round, poolsoption: "target" };
-                                                                setRounds(prev => {
-                                                                    const newRounds = [...prev];
-                                                                    newRounds[idx] = updatedRound;
-                                                                    return newRounds;
-                                                                });
                                                                 handleUpdateRound(updatedRound);
                                                             }}
                                                         >
@@ -563,17 +600,20 @@ export const EventSettings = ({ route }: Props) => {
                                                         <TextInput
                                                             style={styles.configInput}
                                                             keyboardType="numeric"
-                                                            value={round.promotionpercent?.toString() || ""}
+                                                            defaultValue={round.promotionpercent?.toString() || ""}
                                                             placeholder="Enter Promotion %"
                                                             onChangeText={(text) => {
-                                                                const updatedRound = { ...round, promotionpercent: parseInt(text) || 0 };
-                                                                setRounds(prev => {
-                                                                    const newRounds = [...prev];
-                                                                    newRounds[idx] = updatedRound;
-                                                                    return newRounds;
-                                                                });
+                                                                // Store text locally
+                                                                round._tempPromotionPercent = parseInt(text) || 0;
                                                             }}
-                                                            onEndEditing={() => handleUpdateRound(round)}
+                                                            onEndEditing={() => {
+                                                                // When done editing, update the round with the temp value
+                                                                const updatedRound = { 
+                                                                    ...round,
+                                                                    promotionpercent: round._tempPromotionPercent || round.promotionpercent || 0
+                                                                };
+                                                                handleUpdateRound(updatedRound);
+                                                            }}
                                                         />
                                                     ) : (
                                                         <View style={styles.targetSelector}>
@@ -586,11 +626,6 @@ export const EventSettings = ({ route }: Props) => {
                                                                     ]}
                                                                     onPress={() => {
                                                                         const updatedRound = { ...round, targetbracket: size };
-                                                                        setRounds(prev => {
-                                                                            const newRounds = [...prev];
-                                                                            newRounds[idx] = updatedRound;
-                                                                            return newRounds;
-                                                                        });
                                                                         handleUpdateRound(updatedRound);
                                                                     }}
                                                                 >
@@ -620,11 +655,6 @@ export const EventSettings = ({ route }: Props) => {
                                                                             poolcount: config.pools,
                                                                             poolsize: expectedPoolSize,
                                                                         };
-                                                                        setRounds((prev) => {
-                                                                            const newRounds = [...prev];
-                                                                            newRounds[idx] = updatedRound;
-                                                                            return newRounds;
-                                                                        });
                                                                         handleUpdateRound(updatedRound);
                                                                     }}
                                                                 >
@@ -648,11 +678,6 @@ export const EventSettings = ({ route }: Props) => {
                                                                 ]}
                                                                 onPress={() => {
                                                                     const updatedRound = { ...round, deformat: format };
-                                                                    setRounds(prev => {
-                                                                        const newRounds = [...prev];
-                                                                        newRounds[idx] = updatedRound;
-                                                                        return newRounds;
-                                                                    });
                                                                     handleUpdateRound(updatedRound);
                                                                 }}
                                                             >
@@ -696,7 +721,10 @@ export const EventSettings = ({ route }: Props) => {
                                 </View>
                             ))}
                         </View>
+                    ) : (
+                        <Text style={styles.note}>No rounds configured yet.</Text>
                     )}
+                    
                     <TouchableOpacity
                         style={styles.addRoundButton}
                         onPress={() => setShowRoundTypeOptions(!showRoundTypeOptions)}
@@ -725,6 +753,17 @@ export const EventSettings = ({ route }: Props) => {
                             </TouchableOpacity>
                         </View>
                     )}
+                    
+                    {(addRoundMutation.isPending || updateRoundMutation.isPending || deleteRoundMutation.isPending) && (
+                        <View style={styles.pendingActionContainer}>
+                            <ActivityIndicator size="small" color="#001f3f" />
+                            <Text style={styles.pendingActionText}>
+                                {addRoundMutation.isPending ? "Adding round..." : 
+                                 updateRoundMutation.isPending ? "Updating round..." : 
+                                 "Deleting round..."}
+                            </Text>
+                        </View>
+                    )}
                 </View>
             )}
         </ScrollView>
@@ -745,6 +784,36 @@ const styles = StyleSheet.create({
     },
     content: {
         padding: 20,
+    },
+    loadingContainer: {
+        padding: 20,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    loadingText: {
+        marginTop: 10,
+        color: '#666',
+        fontSize: 14,
+    },
+    pendingActionContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 8,
+        margin: 8,
+        backgroundColor: '#f0f0f0',
+        borderRadius: 4,
+    },
+    pendingActionText: {
+        marginLeft: 8,
+        color: '#666',
+        fontSize: 14,
+    },
+    buttonLoadingContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 10,
     },
     roundsList: {
         marginBottom: 10,

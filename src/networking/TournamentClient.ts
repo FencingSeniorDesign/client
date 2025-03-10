@@ -294,6 +294,17 @@ class TournamentClient extends EventEmitter {
                 case 'events_list':
                     console.log(`Received events_list with ${data.events.length} events`);
                     break;
+                case 'event_statuses':
+                    console.log(`Received event_statuses update`);
+                    break;
+                case 'rounds_list':
+                    console.log(`Received rounds_list for event ${data.eventId} with ${data.rounds?.length || 0} rounds`);
+                    break;
+                case 'round_added':
+                case 'round_updated':
+                case 'round_deleted':
+                    console.log(`Received round update: ${data.type}`, data);
+                    break;
                 default:
                     console.log(`Unknown message type: ${data.type}`);
             }
@@ -327,11 +338,13 @@ class TournamentClient extends EventEmitter {
             // Store the promise handlers
             this.responsePromises.set(type, {
                 resolve: (data) => {
+                    console.log(`Resolving response for ${type}:`, JSON.stringify(data));
                     clearTimeout(timeoutId);
                     this.responsePromises.delete(type);
                     resolve(data);
                 },
                 reject: (error) => {
+                    console.error(`Error in response for ${type}:`, error);
                     clearTimeout(timeoutId);
                     this.responsePromises.delete(type);
                     reject(error);

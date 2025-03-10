@@ -24,6 +24,7 @@
     "expo-asset": "~11.0.1",
     "expo-dev-client": "~5.0.12",
     "expo-document-picker": "^13.0.3",
+    "expo-network": "~7.0.5",
     "expo-splash-screen": "~0.29.13",
     "expo-sqlite": "~15.1.2",
     "expo-system-ui": "~4.0.8",
@@ -44,6 +45,7 @@
     "@babel/core": "^7.20.0",
     "@types/react": "~18.3.12",
     "@types/react-native-sqlite-storage": "^6.0.5",
+    "@types/websocket": "^1.0.10",
     "typescript": "^5.7.2"
   },
   "private": true

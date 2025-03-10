@@ -18,19 +18,16 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import {RootStackParamList, Event, Round, Fencer} from '../navigation/types';
 import {
   dbGetFencersInEventById,
-  dbListEvents,
-  dbCreateEvent,
-  dbDeleteEvent,
   dbGetRoundsForEvent,
   dbInitializeRound
 } from '../../db/TournamentDatabaseUtils';
 import {navigateToDEPage} from "../utils/DENavigationUtil";
 import tournamentServer from '../../networking/TournamentServer';
 import tournamentClient from '../../networking/TournamentClient';
-import { getLocalIpAddress } from '../../networking/NetworkUtils';
+import { getLocalIpAddress, isConnectedToInternet, getNetworkInfo } from '../../networking/NetworkUtils';
 import ConnectionStatusBar from '../../networking/components/ConnectionStatusBar';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useEvents, useCreateEvent } from '../../hooks/useTournamentQueries';
+import { useEvents, useCreateEvent, useEventStatuses, useDeleteEvent } from '../../hooks/useTournamentQueries';
 
 type Props = {
   route: RouteProp<{ params: { tournamentName: string, isRemoteConnection?: boolean } }, 'params'>;
@@ -47,8 +44,7 @@ export const EventManagement = ({ route }: Props) => {
     isError: eventsError
   } = useEvents(tournamentName);
   
-  // State for event status tracking
-  const [eventStatuses, setEventStatuses] = useState<{ [key: number]: boolean }>({});
+  // We'll use TanStack Query for event statuses instead of local state
   const [modalVisible, setModalVisible] = useState<boolean>(false);
   const [editingEventId, setEditingEventId] = useState<number | null>(null);
 
@@ -62,6 +58,10 @@ export const EventManagement = ({ route }: Props) => {
   const [serverInfo, setServerInfo] = useState<{ip: string | null, port: number} | null>(null);
   const [localIpAddress, setLocalIpAddress] = useState<string | null>(null);
   const [serverOperationPending, setServerOperationPending] = useState(false);
+  
+  // Network connectivity state
+  const [isNetworkConnected, setIsNetworkConnected] = useState(true);
+  const [networkInfo, setNetworkInfo] = useState<any>(null);
 
   // Remote connection state
   const [isRemote, setIsRemote] = useState(isRemoteConnection);
@@ -133,44 +133,11 @@ export const EventManagement = ({ route }: Props) => {
     }
   }, [isRemote, navigation]);
 
-  // Load event statuses when events data changes
-  useEffect(() => {
-    const loadEventStatuses = async () => {
-      // Make sure events is an array with elements
-      if (!events || !Array.isArray(events) || events.length === 0) {
-        setEventStatuses({});
-        return;
-      }
-      
-      const statuses: { [key: number]: boolean } = {};
-      try {
-        await Promise.all(
-          events.map(async (evt) => {
-            if (!evt || typeof evt.id !== 'number') {
-              console.warn('Invalid event object:', evt);
-              return;
-            }
-            
-            const rounds: Round[] = await dbGetRoundsForEvent(evt.id);
-            
-            // An event is considered started if it has at least one round AND the first round has isstarted=1
-            if (rounds && rounds.length > 0) {
-              statuses[evt.id] = rounds[0].isstarted;
-            } else {
-              statuses[evt.id] = false;
-            }
-          })
-        );
-        
-        setEventStatuses(statuses);
-      } catch (error) {
-        console.error('Error loading event statuses:', error);
-        setEventStatuses({});
-      }
-    };
-    
-    loadEventStatuses();
-  }, [events]);
+  // Use TanStack Query to get event statuses
+  const { 
+    data: eventStatuses = {}, 
+    isLoading: eventStatusesLoading 
+  } = useEventStatuses(events);
 
   // Function to check actual server status
   const checkServerStatus = useCallback(async () => {
@@ -192,26 +159,55 @@ export const EventManagement = ({ route }: Props) => {
     
     return isRunning;
   }, [localIpAddress]);
+  
+  // Function to check network connectivity
+  const checkNetworkConnectivity = useCallback(async () => {
+    try {
+      const connected = await isConnectedToInternet();
+      setIsNetworkConnected(connected);
+      
+      // Get detailed network info if needed
+      if (serverEnabled || !connected) {
+        const info = await getNetworkInfo();
+        setNetworkInfo(info);
+      }
+      
+      return connected;
+    } catch (error) {
+      console.error('Error checking network connectivity:', error);
+      setIsNetworkConnected(false);
+      return false;
+    }
+  }, [serverEnabled]);
 
   // This effect runs when component mounts
   useEffect(() => {
-    // Get the local IP address
-    const fetchIpAddress = async () => {
+    // Get the local IP address and check connectivity
+    const initializeNetworking = async () => {
       const ip = await getLocalIpAddress();
       setLocalIpAddress(ip);
+      
+      await checkNetworkConnectivity();
+      await checkServerStatus();
     };
 
-    fetchIpAddress();
-    checkServerStatus();
+    initializeNetworking();
     
-    // Set up periodic check for server status (every 5 seconds)
-    const intervalId = setInterval(() => {
+    // Set up periodic checks (every 5 seconds)
+    const serverStatusInterval = setInterval(() => {
       checkServerStatus();
     }, 5000);
     
-    // Clean up interval on unmount
-    return () => clearInterval(intervalId);
-  }, [checkServerStatus]);
+    const networkCheckInterval = setInterval(() => {
+      checkNetworkConnectivity();
+    }, 10000); // Check network less frequently
+    
+    // Clean up intervals on unmount
+    return () => {
+      clearInterval(serverStatusInterval);
+      clearInterval(networkCheckInterval);
+    };
+  }, [checkServerStatus, checkNetworkConnectivity]);
 
   const openCreateModal = () => {
     setEditingEventId(null);
@@ -221,20 +217,8 @@ export const EventManagement = ({ route }: Props) => {
     setModalVisible(true);
   };
 
-  // TanStack Query mutation for deleting events
-  const deleteEventMutation = useMutation({
-    mutationFn: (eventId: number) => dbDeleteEvent(eventId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['events', tournamentName] });
-      // If we're hosting a server, broadcast the update
-      if (tournamentServer.isServerRunning()) {
-        tournamentServer.broadcastTournamentUpdate({
-          type: 'event_deleted',
-          tournamentName
-        });
-      }
-    }
-  });
+  // Use TanStack Query hook for deleting events
+  const deleteEventMutation = useDeleteEvent();
 
   // When submitting an event creation, include the rounds and pool settings
   const handleSubmitEvent = async () => {
@@ -386,11 +370,55 @@ export const EventManagement = ({ route }: Props) => {
   };
 
   const handleOpenEvent = async (eventId: number) => {
+    console.log('Opening event:', eventId);
     const eventToOpen = events.find((evt) => evt.id === eventId);
     if (!eventToOpen) return;
 
     try {
+      console.log('Event to open:', eventToOpen);
+      
+      // Special handling for remote connections
+      if (isRemote) {
+        console.log('Remote connection - requesting rounds for event from server');
+        // First, check if the event already has rounds embedded in it
+        if (eventToOpen.rounds && Array.isArray(eventToOpen.rounds) && eventToOpen.rounds.length > 0) {
+          console.log('Event has embedded rounds:', eventToOpen.rounds);
+          const firstRound = eventToOpen.rounds[0];
+          navigateToRoundPage(eventToOpen, firstRound, 0);
+          return;
+        }
+        
+        // If the event doesn't have embedded rounds, try to request them from server
+        try {
+          if (tournamentClient.isConnected()) {
+            // Request rounds for this event
+            tournamentClient.sendMessage({
+              type: 'get_rounds',
+              eventId: eventToOpen.id
+            });
+            
+            // Wait for the response
+            const response = await tournamentClient.waitForResponse('rounds_list', 5000);
+            
+            if (response && Array.isArray(response.rounds) && response.rounds.length > 0) {
+              console.log('Received rounds from server:', response.rounds);
+              navigateToRoundPage(eventToOpen, response.rounds[0], 0);
+              return;
+            } else {
+              Alert.alert('Error', 'Could not retrieve rounds data from the server.');
+              return;
+            }
+          }
+        } catch (error) {
+          console.error('Error requesting rounds from server:', error);
+          // Fall back to local database as a last resort
+        }
+      }
+      
+      // Standard local database approach
+      console.log('Fetching rounds from local database...');
       const rounds = await dbGetRoundsForEvent(eventToOpen.id);
+      console.log('Retrieved rounds:', rounds);
 
       if (!rounds || rounds.length === 0) {
         Alert.alert('Error', 'No rounds defined for this event. Please add rounds in the event settings.');
@@ -468,34 +496,75 @@ export const EventManagement = ({ route }: Props) => {
           );
         }
       } else {
-        // Start the server
-        const tournament = { name: tournamentName };
-        const success = await tournamentServer.startServer(tournament);
-        
-        // Verify server actually started
-        const isRunning = await checkServerStatus();
-        
-        if (isRunning) {
-          const info = tournamentServer.getServerInfo();
-          if (info) {
-            setServerInfo({
-              ip: info.hostIp === '0.0.0.0' ? localIpAddress : info.hostIp,
-              port: info.port
-            });
-            Alert.alert('Server Started', 'Tournament server is now running');
-          }
-        } else {
+        // Check internet connectivity first
+        const isConnected = await isConnectedToInternet();
+        if (!isConnected) {
           Alert.alert(
-            'Error', 
-            'Failed to start the tournament server. Please check your network connection and try again.'
+            'Network Issue',
+            'No network connection detected. Other devices may not be able to connect to your tournament server.',
+            [
+              { text: 'Cancel', style: 'cancel' },
+              { 
+                text: 'Start Anyway', 
+                onPress: async () => {
+                  await startTournamentServer();
+                }
+              }
+            ]
           );
+          setServerOperationPending(false);
+          return;
         }
+        
+        await startTournamentServer();
       }
     } catch (error) {
       console.error('Error toggling server:', error);
       Alert.alert('Error', 'An unexpected error occurred while managing the server');
     } finally {
       setServerOperationPending(false);
+    }
+  };
+  
+  // Extracted method to start the tournament server
+  const startTournamentServer = async () => {
+    try {
+      // Get latest network information for better diagnostics
+      const networkInfo = await getNetworkInfo();
+      console.log('Network info before starting server:', networkInfo);
+      
+      // Start the server
+      const tournament = { name: tournamentName };
+      const success = await tournamentServer.startServer(tournament);
+      
+      // Verify server actually started
+      const isRunning = await checkServerStatus();
+      
+      if (isRunning) {
+        const info = tournamentServer.getServerInfo();
+        if (info) {
+          // Get fresh IP address
+          const currentIp = await getLocalIpAddress();
+          
+          setServerInfo({
+            ip: info.hostIp === '0.0.0.0' ? currentIp : info.hostIp,
+            port: info.port
+          });
+          
+          Alert.alert(
+            'Server Started', 
+            `Tournament server is now running at ${currentIp}:${info.port}\n\nShare this information with participants who want to join.`
+          );
+        }
+      } else {
+        Alert.alert(
+          'Error', 
+          'Failed to start the tournament server. Please check your network connection and try again.'
+        );
+      }
+    } catch (error) {
+      console.error('Error starting tournament server:', error);
+      Alert.alert('Error', 'An unexpected error occurred while starting the server');
     }
   };
 
@@ -551,6 +620,13 @@ export const EventManagement = ({ route }: Props) => {
               <View style={styles.ipBanner}>
                 <Text style={styles.ipText}>Tournament IP: {localIpAddress}</Text>
                 <Text style={styles.ipTextSmall}>Port: {serverInfo?.port || 9001}</Text>
+                <View style={styles.networkStatusContainer}>
+                  <View style={[styles.networkStatusIndicator, 
+                    isNetworkConnected ? styles.networkConnected : styles.networkDisconnected]} />
+                  <Text style={styles.networkStatusText}>
+                    {isNetworkConnected ? 'Network Connected' : 'Network Disconnected'}
+                  </Text>
+                </View>
               </View>
           )}
         </View>
@@ -620,29 +696,29 @@ export const EventManagement = ({ route }: Props) => {
                     {event.age} {event.gender} {event.weapon}
                   </Text>
                   <View style={styles.eventActions}>
-                    {!isRemote && (
-                        <TouchableOpacity
-                            style={[styles.actionButton, styles.flexAction]}
-                            onPress={() =>
-                                navigation.navigate('EventSettings', {
-                                  event: event,
-                                  onSave: handleSaveEventSettings,
-                                })
-                            }
-                        >
-                          <Text style={styles.buttonText}>Edit</Text>
-                        </TouchableOpacity>
-                    )}
                     <TouchableOpacity
                         style={[styles.actionButton, styles.flexAction]}
                         onPress={() =>
-                            eventStatuses[event.id]
-                                ? handleOpenEvent(event.id)
-                                : confirmStartEvent(event.id)
+                            navigation.navigate('EventSettings', {
+                              event: event,
+                              onSave: handleSaveEventSettings,
+                              isRemote: isRemote
+                            })
                         }
                     >
+                      <Text style={styles.buttonText}>Edit</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                        style={[styles.actionButton, styles.flexAction]}
+                        onPress={() => {
+                            console.log('Event status for', event.id, ':', eventStatuses?.[event.id]);
+                            return (eventStatuses && eventStatuses[event.id] === true)
+                                ? handleOpenEvent(event.id)
+                                : confirmStartEvent(event.id);
+                        }}
+                    >
                       <Text style={styles.buttonText}>
-                        {eventStatuses[event.id] ? 'Open' : 'Start'}
+                        {eventStatuses && (eventStatuses[event.id] === true) ? 'Open' : 'Start'}
                       </Text>
                     </TouchableOpacity>
                     {!isRemote && (
@@ -804,6 +880,28 @@ const styles = StyleSheet.create({
     fontSize: 14,
     textAlign: 'center',
     marginTop: 2,
+  },
+  networkStatusContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 8,
+  },
+  networkStatusIndicator: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    marginRight: 6,
+  },
+  networkConnected: {
+    backgroundColor: '#4ade80', // Green
+  },
+  networkDisconnected: {
+    backgroundColor: '#f87171', // Red
+  },
+  networkStatusText: {
+    color: white,
+    fontSize: 12,
   },
   remoteConnectionBanner: {
     backgroundColor: '#007AFF',
