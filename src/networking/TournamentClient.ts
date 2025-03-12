@@ -60,12 +60,21 @@ class TournamentClient extends EventEmitter {
 
                 // Create TCP client
                 try {
-                    this.socket = TcpSocket.createConnection(options, () => {
+                    this.socket = TcpSocket.createConnection(options, async () => {
                         console.log(`Connected to server at ${hostIp}:${port}`);
 
-                        // Send join request
+                        // Import the function to get the device ID
+                        const { getDeviceId, getClientId } = require('./NetworkUtils');
+                        const deviceId = await getDeviceId();
+                        const clientId = await getClientId();
+
+                        console.log(`Sending join request with device ID: ${deviceId}`);
+                        
+                        // Send join request with device ID
                         this.sendMessageRaw(JSON.stringify({
-                            type: 'join_request'
+                            type: 'join_request',
+                            deviceId,
+                            clientId: clientId
                         }));
 
                         this.clientInfo = {
@@ -584,6 +593,14 @@ class TournamentClient extends EventEmitter {
     // Handle join response from server
     private handleJoinResponse(data: any): void {
         if (data.success) {
+            // Store the assigned role if provided
+            if (data.role) {
+                console.log(`Server assigned role: ${data.role}`);
+                // Store role in AsyncStorage for future reference
+                AsyncStorage.setItem('tournament_user_role', data.role)
+                    .catch(error => console.error('Error storing user role:', error));
+            }
+            
             this.emit('joined', data.message);
 
             // Send any queued messages

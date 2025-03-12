@@ -1,7 +1,7 @@
 // src/data/TournamentDataHooks.ts
 import React, { useState, useEffect, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Event, Fencer, Round } from '../navigation/navigation/types';
+import { Event, Fencer, Round, Official } from '../navigation/navigation/types';
 import dataProvider from './TournamentDataProvider';
 import tournamentClient from '../networking/TournamentClient';
 
@@ -19,6 +19,9 @@ export const queryKeys = {
   boutsForPool: (roundId: number, poolId: number) => ['bouts', 'pool', roundId, poolId] as const,
   bouts: (roundId: number) => ['bouts', roundId] as const,
   fencerSearch: (query: string) => ['fencerSearch', query] as const,
+  officials: (tournamentName: string) => ['officials', tournamentName] as const,
+  referees: (tournamentName: string) => ['referees', tournamentName] as const,
+  userRole: (deviceId: string, eventId: number) => ['userRole', deviceId, eventId] as const,
 };
 
 // ===== READ HOOKS =====
@@ -847,6 +850,142 @@ export function setupTournamentSync(queryClient: any) {
         queryKey: queryKeys.rounds(data.eventId)
       });
       queryClient.invalidateQueries(queryKeys.eventStatuses);
+    }
+  });
+}
+
+/**
+ * Hook to get officials for a tournament
+ */
+export function useOfficials(tournamentName: string) {
+  return useQuery({
+    queryKey: queryKeys.officials(tournamentName),
+    queryFn: () => dataProvider.getOfficials(tournamentName),
+    enabled: !!tournamentName,
+    staleTime: 60000,
+  });
+}
+
+/**
+ * Hook to get referees for a tournament
+ */
+export function useReferees(tournamentName: string) {
+  return useQuery({
+    queryKey: queryKeys.referees(tournamentName),
+    queryFn: () => dataProvider.getReferees(tournamentName),
+    enabled: !!tournamentName,
+    staleTime: 60000,
+  });
+}
+
+/**
+ * Hook to check user role by device ID
+ */
+export function useUserRole(deviceId: string, eventId: number) {
+  return useQuery({
+    queryKey: queryKeys.userRole(deviceId, eventId),
+    queryFn: () => dataProvider.checkUserRole(deviceId, eventId),
+    enabled: !!deviceId && !!eventId,
+    staleTime: 300000, // Roles don't change often
+  });
+}
+
+/**
+ * Hook to add an official
+ */
+export function useAddOfficial() {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: ({ 
+      official, 
+      tournamentName 
+    }: { 
+      official: Official, 
+      tournamentName: string 
+    }) => {
+      return dataProvider.addOfficial(official);
+    },
+    onSuccess: (result, variables) => {
+      const { tournamentName } = variables;
+      queryClient.invalidateQueries({ 
+        queryKey: queryKeys.officials(tournamentName) 
+      });
+    }
+  });
+}
+
+/**
+ * Hook to add a referee
+ */
+export function useAddReferee() {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: ({ 
+      referee, 
+      tournamentName 
+    }: { 
+      referee: Official, 
+      tournamentName: string 
+    }) => {
+      return dataProvider.addReferee(referee);
+    },
+    onSuccess: (result, variables) => {
+      const { tournamentName } = variables;
+      queryClient.invalidateQueries({ 
+        queryKey: queryKeys.referees(tournamentName) 
+      });
+    }
+  });
+}
+
+/**
+ * Hook to remove a referee
+ */
+export function useRemoveReferee() {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: ({ 
+      refereeId, 
+      tournamentName 
+    }: { 
+      refereeId: number, 
+      tournamentName: string 
+    }) => {
+      return dataProvider.removeReferee(refereeId);
+    },
+    onSuccess: (result, variables) => {
+      const { tournamentName } = variables;
+      queryClient.invalidateQueries({ 
+        queryKey: queryKeys.referees(tournamentName) 
+      });
+    }
+  });
+}
+
+/**
+ * Hook to remove an official
+ */
+export function useRemoveOfficial() {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: ({ 
+      officialId, 
+      tournamentName 
+    }: { 
+      officialId: number, 
+      tournamentName: string 
+    }) => {
+      return dataProvider.removeOfficial(officialId);
+    },
+    onSuccess: (result, variables) => {
+      const { tournamentName } = variables;
+      queryClient.invalidateQueries({ 
+        queryKey: queryKeys.officials(tournamentName) 
+      });
     }
   });
 }

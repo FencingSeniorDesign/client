@@ -658,6 +658,20 @@ export const EventManagement = ({ route }: Props) => {
         )}
 
         {!isRemote && (
+            <TouchableOpacity
+                style={styles.manageOfficialsButton}
+                onPress={() => 
+                    navigation.navigate('ManageOfficials', {
+                        tournamentName: tournamentName,
+                        isRemote: isRemote
+                    })
+                }
+            >
+                <Text style={styles.manageOfficialsText}>Manage Officials</Text>
+            </TouchableOpacity>
+        )}
+
+        {!isRemote && (
             <Button 
               title="Create Event" 
               onPress={openCreateModal}
@@ -1068,6 +1082,18 @@ const styles = StyleSheet.create({
     fontSize: 14,
     textAlign: 'center',
     marginBottom: 5,
+  },
+  manageOfficialsButton: {
+    backgroundColor: '#4CAF50',
+    padding: 12,
+    borderRadius: 6,
+    marginBottom: 16,
+    alignItems: 'center',
+  },
+  manageOfficialsText: {
+    color: 'white',
+    fontWeight: 'bold',
+    fontSize: 16,
   },
   loadingContainer: {
     marginTop: 30,

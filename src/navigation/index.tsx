@@ -12,6 +12,7 @@ import RoundResults from "./screens/RoundResults";
 import DEBracketPage from './screens/DEBracketPage';
 import DoubleEliminationPage from './screens/DoubleEliminationPage';
 import CompassDrawPage from './screens/CompassDrawPage';
+import ManageOfficials from './screens/ManageOfficials';
 
 const RootStack = createNativeStackNavigator({
   screens: {
@@ -71,6 +72,12 @@ const RootStack = createNativeStackNavigator({
       screen: CompassDrawPage,
       options: {
         title: 'Compass Draw',
+      },
+    },
+    ManageOfficials: {
+      screen: ManageOfficials,
+      options: {
+        title: 'Manage Officials',
       },
     }
   },

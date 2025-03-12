@@ -64,10 +64,60 @@ export async function initDB(): Promise<void> {
                 id       integer PRIMARY KEY,
                 fname    text,
                 lname    text,
-                nickname text default null
+                nickname text default null,
+                device_id text default null
             );
         `);
         console.log("Referee table initialized");
+    } catch (error) {
+        console.log(error);
+    }
+
+    // Officials
+    try {
+        await db.execAsync(`
+            create table if not exists Officials
+            (
+                id       integer PRIMARY KEY,
+                fname    text,
+                lname    text,
+                nickname text default null,
+                device_id text default null
+            );
+        `);
+        console.log("Officials table initialized");
+    } catch (error) {
+        console.log(error);
+    }
+
+    // OfficialEvents
+    try {
+        await db.execAsync(`
+            create table if not exists OfficialEvents
+            (
+                officialid integer,
+                eventid    integer,
+                FOREIGN KEY (officialid) REFERENCES Officials (id),
+                FOREIGN KEY (eventid) REFERENCES Events (id)
+            );
+        `);
+        console.log("OfficialEvents table initialized");
+    } catch (error) {
+        console.log(error);
+    }
+
+    // RefereeEvents
+    try {
+        await db.execAsync(`
+            create table if not exists RefereeEvents
+            (
+                refereeid integer,
+                eventid   integer,
+                FOREIGN KEY (refereeid) REFERENCES Referees (id),
+                FOREIGN KEY (eventid) REFERENCES Events (id)
+            );
+        `);
+        console.log("RefereeEvents table initialized");
     } catch (error) {
         console.log(error);
     }
@@ -1740,6 +1790,162 @@ export async function dbIsDERoundComplete(roundId: number): Promise<boolean> {
     } catch (error) {
         console.error('Error checking if DE round is complete:', error);
         return false;
+    }
+}
+
+// Official Functions
+export async function dbCreateOfficial(official: {
+    fname: string;
+    lname: string;
+    nickname?: string;
+    device_id?: string;
+}): Promise<number> {
+    try {
+        const db = await openDB();
+        const result: SQLite.SQLiteRunResult = await db.runAsync(
+            'INSERT INTO Officials (fname, lname, nickname, device_id) VALUES (?, ?, ?, ?)',
+            [official.fname, official.lname, official.nickname || null, official.device_id || null]
+        );
+        const newOfficialId = result.lastInsertRowId;
+        console.log(`Official "${official.fname} ${official.lname}" created with id ${newOfficialId}.`);
+        return newOfficialId;
+    } catch (error) {
+        console.error('Error creating official:', error);
+        throw error;
+    }
+}
+
+export async function dbGetOfficialByDeviceId(deviceId: string): Promise<any | null> {
+    try {
+        const db = await openDB();
+        const official = await db.getFirstAsync(
+            'SELECT * FROM Officials WHERE device_id = ?',
+            [deviceId]
+        );
+        return official;
+    } catch (error) {
+        console.error('Error getting official by device ID:', error);
+        return null;
+    }
+}
+
+export async function dbAddOfficialToEvent(officialId: number, eventId: number): Promise<void> {
+    try {
+        const db = await openDB();
+        await db.runAsync(
+            'INSERT INTO OfficialEvents (officialid, eventid) VALUES (?, ?)',
+            [officialId, eventId]
+        );
+        console.log(`Official ID ${officialId} added to event ID ${eventId}`);
+    } catch (error) {
+        console.error('Error adding official to event:', error);
+        throw error;
+    }
+}
+
+export async function dbGetOfficialsForEvent(eventId: number): Promise<any[]> {
+    try {
+        const db = await openDB();
+        const officials = await db.getAllAsync(
+            `SELECT o.* 
+             FROM Officials o
+             JOIN OfficialEvents oe ON o.id = oe.officialid
+             WHERE oe.eventid = ?`,
+            [eventId]
+        );
+        return officials;
+    } catch (error) {
+        console.error('Error getting officials for event:', error);
+        return [];
+    }
+}
+
+export async function dbListOfficials(): Promise<any[]> {
+    try {
+        const db = await openDB();
+        const officials = await db.getAllAsync('SELECT * FROM Officials');
+        return officials;
+    } catch (error) {
+        console.error('Error listing officials:', error);
+        return [];
+    }
+}
+
+// Referee Functions with device_id support
+export async function dbCreateReferee(referee: {
+    fname: string;
+    lname: string;
+    nickname?: string;
+    device_id?: string;
+}): Promise<number> {
+    try {
+        const db = await openDB();
+        const result: SQLite.SQLiteRunResult = await db.runAsync(
+            'INSERT INTO Referees (fname, lname, nickname, device_id) VALUES (?, ?, ?, ?)',
+            [referee.fname, referee.lname, referee.nickname || null, referee.device_id || null]
+        );
+        const newRefereeId = result.lastInsertRowId;
+        console.log(`Referee "${referee.fname} ${referee.lname}" created with id ${newRefereeId}.`);
+        return newRefereeId;
+    } catch (error) {
+        console.error('Error creating referee:', error);
+        throw error;
+    }
+}
+
+export async function dbGetRefereeByDeviceId(deviceId: string): Promise<any | null> {
+    try {
+        const db = await openDB();
+        const referee = await db.getFirstAsync(
+            'SELECT * FROM Referees WHERE device_id = ?',
+            [deviceId]
+        );
+        return referee;
+    } catch (error) {
+        console.error('Error getting referee by device ID:', error);
+        return null;
+    }
+}
+
+export async function dbAddRefereeToEvent(refereeId: number, eventId: number): Promise<void> {
+    try {
+        const db = await openDB();
+        await db.runAsync(
+            'INSERT INTO RefereeEvents (refereeid, eventid) VALUES (?, ?)',
+            [refereeId, eventId]
+        );
+        console.log(`Referee ID ${refereeId} added to event ID ${eventId}`);
+    } catch (error) {
+        console.error('Error adding referee to event:', error);
+        throw error;
+    }
+}
+
+export async function dbGetRefereesForEvent(eventId: number): Promise<any[]> {
+    try {
+        const db = await openDB();
+        const referees = await db.getAllAsync(
+            `SELECT r.* 
+             FROM Referees r
+             JOIN RefereeEvents re ON r.id = re.refereeid
+             WHERE re.eventid = ?`,
+            [eventId]
+        );
+        return referees;
+    } catch (error) {
+        console.error('Error getting referees for event:', error);
+        return [];
+    }
+}
+
+export async function dbListReferees(): Promise<any[]> {
+    try {
+        const db = await openDB();
+        const referees = await db.getAllAsync('SELECT * FROM Referees');
+        return referees;
+    } catch (error) {
+        console.error('Error listing referees:', error);
+        return [];
     }
 }
 

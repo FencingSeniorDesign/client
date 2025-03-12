@@ -24,12 +24,23 @@ export function validateMessage(message: any): message is BaseMessage {
  */
 
 /**
+ * User role type for permission control
+ */
+export enum UserRole {
+  TOURNAMENT_OFFICIAL = 'tournament_official',
+  REFEREE = 'referee',
+  SPECTATOR = 'spectator'
+}
+
+/**
  * Join request sent by client to connect to a tournament
  */
 export interface JoinRequestMessage extends BaseMessage {
   type: 'join_request';
   clientId?: string;
+  deviceId?: string;  // The 5-character device ID for role assignment
   tournamentName?: string;
+  role?: UserRole;
 }
 
 /**
@@ -140,6 +151,8 @@ export interface JoinResponseMessage extends BaseMessage {
   success: boolean;
   message: string;
   tournamentName?: string;
+  role?: UserRole;   // The assigned role based on device ID lookup
+  permissions?: string[];
 }
 
 /**

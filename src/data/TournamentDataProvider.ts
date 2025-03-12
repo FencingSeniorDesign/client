@@ -1,5 +1,5 @@
 // src/data/TournamentDataProvider.ts
-import { Event, Fencer, Round } from '../navigation/navigation/types';
+import { Event, Fencer, Round, Official } from '../navigation/navigation/types';
 import {
   dbListEvents,
   dbGetFencersInEventById,
@@ -12,7 +12,17 @@ import {
   dbAddRound,
   dbUpdateRound,
   dbDeleteRound,
-  dbSearchFencers
+  dbSearchFencers,
+  dbGetOfficialsForEvent,
+  dbGetRefereesForEvent,
+  dbCreateOfficial,
+  dbCreateReferee,
+  dbAddOfficialToEvent,
+  dbListOfficials,
+  dbListReferees,
+  dbAddRefereeToEvent,
+  dbGetOfficialByDeviceId,
+  dbGetRefereeByDeviceId
 } from '../db/TournamentDatabaseUtils';
 import tournamentClient from '../networking/TournamentClient';
 import tournamentServer from '../networking/TournamentServer';
@@ -889,6 +899,281 @@ export class TournamentDataProvider {
     } catch (error) {
       console.error('[DataProvider] Error completing round locally:', error);
       return false;
+    }
+  }
+  /**
+   * Get officials for a tournament
+   */
+  async getOfficials(tournamentName: string): Promise<Official[]> {
+    console.log(`[DataProvider] Getting officials for tournament ${tournamentName}, remote: ${this.isRemoteConnection()}`);
+    
+    if (this.isRemoteConnection()) {
+      try {
+        // Request officials from server
+        tournamentClient.sendMessage({
+          type: 'get_officials',
+          tournamentName
+        });
+        
+        // Wait for the response
+        const response = await tournamentClient.waitForResponse('officials_list', 5000);
+        
+        if (response && Array.isArray(response.officials)) {
+          console.log(`[DataProvider] Received ${response.officials.length} officials from server`);
+          return response.officials;
+        }
+        
+        throw new Error('Failed to fetch officials from server');
+      } catch (error) {
+        console.error('[DataProvider] Error fetching remote officials:', error);
+        return [];
+      }
+    }
+    
+    // For local tournaments, fetch from database
+    try {
+      // Get all officials for the tournament
+      // Note: We'll need to update the DB functions to support tournament-wide officials
+      const officials = await dbListOfficials();
+      console.log(`[DataProvider] Retrieved ${officials.length} officials from local database`);
+      return officials;
+    } catch (error) {
+      console.error('[DataProvider] Error reading local officials:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Get referees for a tournament
+   */
+  async getReferees(tournamentName: string): Promise<Official[]> {
+    console.log(`[DataProvider] Getting referees for tournament ${tournamentName}, remote: ${this.isRemoteConnection()}`);
+    
+    if (this.isRemoteConnection()) {
+      try {
+        // Request referees from server
+        tournamentClient.sendMessage({
+          type: 'get_referees',
+          tournamentName
+        });
+        
+        // Wait for the response
+        const response = await tournamentClient.waitForResponse('referees_list', 5000);
+        
+        if (response && Array.isArray(response.referees)) {
+          console.log(`[DataProvider] Received ${response.referees.length} referees from server`);
+          return response.referees;
+        }
+        
+        throw new Error('Failed to fetch referees from server');
+      } catch (error) {
+        console.error('[DataProvider] Error fetching remote referees:', error);
+        return [];
+      }
+    }
+    
+    // For local tournaments, fetch from database
+    try {
+      // Get all referees for the tournament
+      // Note: We'll need to update the DB functions to support tournament-wide referees
+      const referees = await dbListReferees();
+      console.log(`[DataProvider] Retrieved ${referees.length} referees from local database`);
+      return referees;
+    } catch (error) {
+      console.error('[DataProvider] Error reading local referees:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Add an official to the tournament
+   */
+  async addOfficial(official: Official): Promise<boolean> {
+    console.log(`[DataProvider] Adding official to tournament, remote: ${this.isRemoteConnection()}`);
+    
+    if (this.isRemoteConnection()) {
+      try {
+        // Send add official request to server
+        tournamentClient.sendMessage({
+          type: 'add_official',
+          official
+        });
+        
+        // Wait for confirmation
+        const response = await tournamentClient.waitForResponse('official_added', 5000);
+        
+        return response && response.success === true;
+      } catch (error) {
+        console.error('[DataProvider] Error adding official remotely:', error);
+        return false;
+      }
+    }
+    
+    // For local tournaments, add to database
+    try {
+      await dbCreateOfficial(official);
+      return true;
+    } catch (error) {
+      console.error('[DataProvider] Error adding official locally:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Add a referee to the tournament
+   */
+  async addReferee(referee: Official): Promise<boolean> {
+    console.log(`[DataProvider] Adding referee to tournament, remote: ${this.isRemoteConnection()}`);
+    
+    if (this.isRemoteConnection()) {
+      try {
+        // Send add referee request to server
+        tournamentClient.sendMessage({
+          type: 'add_referee',
+          referee
+        });
+        
+        // Wait for confirmation
+        const response = await tournamentClient.waitForResponse('referee_added', 5000);
+        
+        return response && response.success === true;
+      } catch (error) {
+        console.error('[DataProvider] Error adding referee remotely:', error);
+        return false;
+      }
+    }
+    
+    // For local tournaments, add to database
+    try {
+      await dbCreateReferee(referee);
+      return true;
+    } catch (error) {
+      console.error('[DataProvider] Error adding referee locally:', error);
+      return false;
+    }
+  }
+  
+  /**
+   * Remove a referee from the tournament
+   */
+  async removeReferee(refereeId: number): Promise<boolean> {
+    console.log(`[DataProvider] Removing referee ${refereeId} from tournament, remote: ${this.isRemoteConnection()}`);
+    
+    if (this.isRemoteConnection()) {
+      try {
+        // Send remove referee request to server
+        tournamentClient.sendMessage({
+          type: 'remove_referee',
+          refereeId
+        });
+        
+        // Wait for confirmation
+        const response = await tournamentClient.waitForResponse('referee_removed', 5000);
+        
+        return response && response.success === true;
+      } catch (error) {
+        console.error('[DataProvider] Error removing referee remotely:', error);
+        return false;
+      }
+    }
+    
+    // For local tournaments, remove from database
+    try {
+      // Import the database utility dynamically 
+      await import('../db/TournamentDatabaseUtils')
+        .then(module => module.dbDeleteReferee(refereeId));
+      return true;
+    } catch (error) {
+      console.error('[DataProvider] Error removing referee locally:', error);
+      return false;
+    }
+  }
+  
+  /**
+   * Remove an official from the tournament
+   */
+  async removeOfficial(officialId: number): Promise<boolean> {
+    console.log(`[DataProvider] Removing official ${officialId} from tournament, remote: ${this.isRemoteConnection()}`);
+    
+    if (this.isRemoteConnection()) {
+      try {
+        // Send remove official request to server
+        tournamentClient.sendMessage({
+          type: 'remove_official',
+          officialId
+        });
+        
+        // Wait for confirmation
+        const response = await tournamentClient.waitForResponse('official_removed', 5000);
+        
+        return response && response.success === true;
+      } catch (error) {
+        console.error('[DataProvider] Error removing official remotely:', error);
+        return false;
+      }
+    }
+    
+    // For local tournaments, remove from database
+    try {
+      // Import the database utility dynamically
+      await import('../db/TournamentDatabaseUtils')
+        .then(module => module.dbDeleteOfficial(officialId));
+      return true;
+    } catch (error) {
+      console.error('[DataProvider] Error removing official locally:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Check user role by device ID
+   */
+  async checkUserRole(deviceId: string, eventId: number): Promise<string> {
+    console.log(`[DataProvider] Checking role for device ID ${deviceId} in event ${eventId}`);
+    
+    if (this.isRemoteConnection()) {
+      try {
+        // Request role check from server
+        tournamentClient.sendMessage({
+          type: 'check_role',
+          deviceId,
+          eventId
+        });
+        
+        // Wait for the response
+        const response = await tournamentClient.waitForResponse('role_check_result', 5000);
+        
+        if (response && response.role) {
+          console.log(`[DataProvider] Received role from server: ${response.role}`);
+          return response.role;
+        }
+        
+        throw new Error('Failed to get role from server');
+      } catch (error) {
+        console.error('[DataProvider] Error checking role remotely:', error);
+        return 'spectator';
+      }
+    }
+    
+    // For local tournaments, check in database
+    try {
+      // Check if device ID is in officials table
+      const official = await dbGetOfficialByDeviceId(deviceId);
+      if (official) {
+        return 'tournament_official';
+      }
+      
+      // Check if device ID is in referees table
+      const referee = await dbGetRefereeByDeviceId(deviceId);
+      if (referee) {
+        return 'referee';
+      }
+      
+      // Default to spectator
+      return 'spectator';
+    } catch (error) {
+      console.error('[DataProvider] Error checking role locally:', error);
+      return 'spectator';
     }
   }
 }

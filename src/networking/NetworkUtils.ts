@@ -2,6 +2,7 @@
 import { Platform, NativeModules } from 'react-native';
 import * as Network from 'expo-network';
 import DeviceInfo from 'react-native-device-info';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import tournamentClient from './TournamentClient';
 import { EventEmitter } from 'events';
 import Zeroconf from 'react-native-zeroconf';
@@ -525,20 +526,67 @@ export function withRemoteFlag<T>(params: T, isRemote: boolean): T & { isRemote:
 }
 
 /**
+ * Get device ID for role-based permissions
+ * Generates a 5-character ID that persists across app installs
+ */
+export async function getDeviceId(): Promise<string> {
+    try {
+        // Try to get the stored short ID first
+        const storedId = await AsyncStorage.getItem('tournament_device_id');
+        if (storedId) {
+            return storedId;
+        }
+        
+        // Generate a new 5-character device ID if none exists
+        const uniqueId = await DeviceInfo.getUniqueId();
+        
+        // Generate a 5-character alphanumeric ID that's derived from the device's unique ID
+        // Use a combination of letters and numbers, avoiding confusing characters like 0/O and 1/I
+        const alphabet = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
+        let shortId = '';
+        
+        // Use hash of the uniqueId to generate more random distribution
+        const hash = uniqueId.split('').reduce((a, b) => {
+            a = ((a << 5) - a) + b.charCodeAt(0);
+            return a & a;
+        }, 0);
+        
+        // Generate 5 characters for the ID
+        for (let i = 0; i < 5; i++) {
+            const index = Math.abs(hash + i * 13) % alphabet.length;
+            shortId += alphabet[index];
+        }
+        
+        // Store the ID for future use
+        await AsyncStorage.setItem('tournament_device_id', shortId);
+        
+        return shortId;
+    } catch (error) {
+        console.error('Error getting device ID:', error);
+        // Fall back to a random 5-character ID if device ID can't be obtained
+        const randomId = Math.random().toString(36).substring(2, 7).toUpperCase();
+        return randomId;
+    }
+}
+
+/**
  * Get the client ID and connection info - useful for permission checking
  */
 export async function getClientConnectionInfo(): Promise<{
     clientId: string;
+    deviceId: string;
     isRemote: boolean;
     isHost: boolean;
 }> {
     const clientId = await getClientId();
+    const deviceId = await getDeviceId();
     const isRemote = tournamentClient && tournamentClient.isConnected();
     // For now, assume we're not the host if we're connected remotely
     const isHost = !isRemote;
     
     return {
         clientId,
+        deviceId,
         isRemote,
         isHost
     };
