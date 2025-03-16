@@ -2051,3 +2051,57 @@ export async function dbGetRoundById(roundId: number): Promise<Round> {
         throw error;
     }
 }
+
+/**
+ * Delete a referee from the database
+ * @param refereeId ID of the referee to delete
+ */
+export async function dbDeleteReferee(refereeId: number): Promise<void> {
+    try {
+        const db = await openDB();
+        
+        // First, remove the referee from all events they may be associated with
+        await db.runAsync(
+            'DELETE FROM RefereeEvents WHERE refereeid = ?',
+            [refereeId]
+        );
+        
+        // Then, delete the referee record
+        await db.runAsync(
+            'DELETE FROM Referees WHERE id = ?',
+            [refereeId]
+        );
+        
+        console.log(`Deleted referee with ID: ${refereeId}`);
+    } catch (error) {
+        console.error(`Error deleting referee: ${error}`);
+        throw error;
+    }
+}
+
+/**
+ * Delete an official from the database
+ * @param officialId ID of the official to delete
+ */
+export async function dbDeleteOfficial(officialId: number): Promise<void> {
+    try {
+        const db = await openDB();
+        
+        // First, remove the official from all events they may be associated with
+        await db.runAsync(
+            'DELETE FROM OfficialEvents WHERE officialid = ?',
+            [officialId]
+        );
+        
+        // Then, delete the official record
+        await db.runAsync(
+            'DELETE FROM Officials WHERE id = ?',
+            [officialId]
+        );
+        
+        console.log(`Deleted official with ID: ${officialId}`);
+    } catch (error) {
+        console.error(`Error deleting official: ${error}`);
+        throw error;
+    }
+}
