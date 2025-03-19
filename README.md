@@ -1,81 +1,121 @@
-# Getting Started
+# Tournament Management Application
 
-### Prerequisites
-* A code editor of your choice. I've tested this guide with VSCode and JetBrains Webstorm
-* [NodeJS 22 (LTS)](https://nodejs.org/en/download)
-* [OpenJDK 21.0.6 LTS](https://learn.microsoft.com/en-us/java/openjdk/download#openjdk-21). If you are on MacOS and using Homebrew, you can also run `brew install openjdk@21` in your terminal
-* [Android Studio](https://developer.android.com/studio/install). You can also install just the SDK, but this lets us easily manage devices and OS versions
+## Domain-Based Directory Structure
 
-* [Windows Only] Open the Enviroment Variables editor (typing "enviroment") into the search box should bring it up. Under `System Variables` click new, set `Variable Name` to `ANDROID_HOME` and `Variable Value` to the location your Android SDK was installed. It's most likely `C:\Users\YOUR_USER_NAME\AppData\Local\Android\Sdk`
+This codebase has been reorganized to follow a domain-driven design approach, making it easier to work on specific features and understand the application architecture.
 
-* [MacOS Only] [Xcode and simulators](https://developer.apple.com/documentation/safari-developer-tools/installing-xcode-and-simulators)
+## Directory Structure
 
-* [MacOS Only] run the following command to add the Android SDK to your path
-```sh
-export ANDROID_HOME=~/Library/Android/sdk
-export PATH=$PATH:$ANDROID_HOME/tools:$ANDROID_HOME/tools/bin:$ANDROID_HOME/platform-tools
+```
+src/
+  assets/                     # Images, fonts, and other static assets
+    icons/
+    fonts/
+  
+  core/                       # Core utilities, types, and shared functionality
+    types.ts                  # Shared type definitions
+    components/               # Shared UI components
+    hooks/                    # Shared hooks like usePersistentState
+    utils/                    # Utility functions
+  
+  infrastructure/             # Cross-cutting infrastructure concerns
+    database/
+      init.ts                 # Database initialization
+      base-repository.ts      # Base repository patterns/classes
+      types.ts                # Common database types
+    
+    networking/
+      client.ts               # Base API client setup
+      server.ts               # Server implementation
+      types.ts                # Common network types
+      components/             # Shared networking components
+  
+  features/                   # Feature modules
+    tournaments/              # Tournament management
+      components/             # Tournament-specific components
+      screens/                # Tournament screens
+      hooks.ts                # Tournament data hooks
+      services/               # Tournament-specific business logic
+      api/                    # Tournament-specific API calls
+      repository.ts           # Tournament-specific database operations
+    
+    events/                   # Event management
+      components/             
+      screens/                
+      hooks.ts                
+      services/               # Event-specific business logic
+      api/                    # Event-specific API calls
+      repository.ts           # Event-specific database operations
+    
+    fencers/                  # Fencer management
+      components/             
+      screens/                
+      hooks.ts                
+      services/               # Fencer-specific business logic
+      api/                    # Fencer-specific API calls
+      repository.ts           # Fencer-specific database operations
+    
+    rounds/                   # Round management
+      pool/                   # Pool rounds
+        components/  
+        screens/
+        services/             # Pool-specific business logic
+        api/                  # Pool-specific API calls
+        repository.ts         # Pool-specific database operations
+      
+      de/                     # Direct elimination
+        components/
+        screens/
+        utils/                # DE algorithm utilities
+        services/             # DE-specific business logic
+        api/                  # DE-specific API calls
+        repository.ts         # DE-specific database operations
+        single/               # Single elimination
+        double/               # Double elimination 
+        compass/              # Compass draw
+    
+    officials/                # Officials management
+      components/
+      screens/
+      services/               # Officials-specific business logic
+      api/                    # Officials-specific API calls
+      repository.ts           # Officials-specific database operations
+    
+    referee/                  # Referee module
+      components/
+      screens/
+      services/               # Referee-specific business logic
+      api/                    # Referee-specific API calls
+      repository.ts           # Referee-specific database operations
+  
+  navigation/                 # App navigation configuration
+  
+  App.tsx                     # Root component
 ```
 
+## Benefits of Domain-Based Structure
 
-### Setting up the project
-1. In Android Studio, [create a new device](https://developer.android.com/studio/run/managing-avds) if one is not already created. I've been using the Pixel 9 so far
-2. Clone the repository and open it in your editor of choice
-3. `npm i` to install the NodeJS packages
-4. run `npm run android` to start the Android emulator, and `npm run ios` to run the ios emulator (only works on Apple devices unfortunatly)
-5. To refresh the app in the emulator without restarting it, press R in the terminal. This should be faster than fully restarting it 
+1. **Feature Cohesion**: Files related to the same business domain are grouped together
+2. **Improved Developer Experience**: Focus on specific domains without navigating through unrelated code  
+3. **Better Onboarding**: New developers can quickly understand the application structure
+4. **Isolated Testing**: Domains can be tested more independently
+5. **Scalability**: New features can be added as new domains without affecting existing code
+6. **Clear Boundaries**: Domain responsibilities are more clearly defined
 
+## Migration Path
 
-# Starter Template with React Navigation
+This structure is set up as a skeleton for migrating the existing codebase. The migration process would involve:
 
-This is a minimal starter template for React Native apps using Expo and React Navigation.
+1. Moving components, screens, and logic from the old structure to their new domain-specific locations
+2. Updating imports to match the new structure
+3. Adapting API calls and database operations to use the new domain-based organization
+4. Updating the navigation to reference the new component locations
 
-It includes the following:
+## Development Guidelines
 
-- Example [Native Stack](https://reactnavigation.org/docs/native-stack-navigator) with a nested [Bottom Tab](https://reactnavigation.org/docs/bottom-tab-navigator)
-- Web support with [React Native for Web](https://necolas.github.io/react-native-web/)
-- TypeScript support and configured for React Navigation
-- Automatic deep link and URL handling configuration
-- Expo [Development Build](https://docs.expo.dev/develop/development-builds/introduction/) with [Continuous Native Generation](https://docs.expo.dev/workflow/continuous-native-generation/)
-- Edge-to-edge configured on Android with [`react-native-edge-to-edge`](https://www.npmjs.com/package/react-native-edge-to-edge)
+When developing with this structure:
 
-
-## Running the app
-
-- Install the dependencies:
-
-  ```sh
-  npm install
-  ```
-
-- Start the development server:
-
-  ```sh
-  npm start
-  ```
-
-- Build and run iOS and Android development builds:
-
-  ```sh
-  npm run ios
-  # or
-  npm run android
-  ```
-
-- In the terminal running the development server, press `i` to open the iOS simulator, `a` to open the Android device or emulator, or `w` to open the web browser.
-
-## Notes
-
-This project uses a [development build](https://docs.expo.dev/develop/development-builds/introduction/) and cannot be run with [Expo Go](https://expo.dev/go). To run the app with Expo Go, edit the `package.json` file, remove the `expo-dev-client` package and `--dev-client` flag from the `start` script. However, Edge-to-edge won't work on Expo Go.
-
-We highly recommend using the development builds for normal development and testing.
-
-The `ios` and `android` folder are gitignored in the project by default as they are automatically generated during the build process ([Continuous Native Generation](https://docs.expo.dev/workflow/continuous-native-generation/)). This means that you should not edit these folders directly and use [config plugins](https://docs.expo.dev/config-plugins/) instead. However, if you need to edit these folders, you can remove them from the `.gitignore` file so that they are tracked by git.
-
-## Resources
-
-- [React Navigation documentation](https://reactnavigation.org/)
-- [Expo documentation](https://docs.expo.dev/)
-
----
-
-Demo assets are from [lucide.dev](https://lucide.dev/)
+1. **Add new features as domains**: Create a new feature folder with all related components, screens, and logic
+2. **Keep infrastructure clean**: Only add infrastructure code that's truly shared; move domain-specific code to feature folders
+3. **Use index.ts files**: Export public APIs from each domain through index.ts files
+4. **Respect domain boundaries**: Avoid cross-domain imports; go through public APIs instead

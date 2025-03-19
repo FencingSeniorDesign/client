@@ -1,50 +1,27 @@
-// src/App.tsx
-import { Assets as NavigationAssets } from '@react-navigation/elements';
-import { Asset } from 'expo-asset';
-import * as SplashScreen from 'expo-splash-screen';
-import * as React from 'react';
-import { Navigation } from './navigation';
+import React from 'react';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { setupTournamentSync } from './data/TournamentDataHooks';
 
-// Create a client
-const queryClient = new QueryClient({
-    defaultOptions: {
-        queries: {
-            staleTime: 1000 * 60, // 1 minute
-            retry: 1,
-        },
-    },
-});
+// Navigation will be imported from the new structure
+// import Navigation from './navigation';
 
-// Set up tournament sync with real-time updates
-setupTournamentSync(queryClient);
+// Example of importing from the new structure
+// import { TournamentDataProvider } from './infrastructure/state/providers/TournamentDataProvider';
+// import { ConnectionStatusBar } from './infrastructure/networking/components/ConnectionStatusBar';
 
-Asset.loadAsync([
-    ...NavigationAssets,
-    require('./assets/logo.png'),
-]);
-
-SplashScreen.preventAutoHideAsync();
-
-export function App() {
-    return (
-        <QueryClientProvider client={queryClient}>
-            <GestureHandlerRootView style={{ flex: 1 }}>
-                <Navigation
-                    linking={{
-                        enabled: 'auto',
-                        prefixes: [
-                            // Change the scheme to match your app's scheme defined in app.json
-                            'helloworld://',
-                        ],
-                    }}
-                    onReady={() => {
-                        SplashScreen.hideAsync();
-                    }}
-                />
-            </GestureHandlerRootView>
-        </QueryClientProvider>
-    );
+export default function App() {
+  return (
+    <SafeAreaProvider>
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        {/* Example of how the app would be structured with the new organization */}
+        {/* <TournamentDataProvider> */}
+          <React.Fragment>
+            {/* <Navigation /> */}
+            {/* <ConnectionStatusBar /> */}
+            <Text>New domain-based structure</Text>
+          </React.Fragment>
+        {/* </TournamentDataProvider> */}
+      </GestureHandlerRootView>
+    </SafeAreaProvider>
+  );
 }
