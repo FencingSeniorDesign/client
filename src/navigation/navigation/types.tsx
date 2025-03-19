@@ -70,6 +70,14 @@ export type Bout = {
 };
 
 
+export type Official = {
+    id?: number;
+    fname: string;
+    lname: string;
+    nickname?: string;
+    device_id?: string;
+};
+
 export type RootStackParamList = {
     HomeTabs: undefined;
     EventManagment: { tournamentName: string };
@@ -86,29 +94,39 @@ export type RootStackParamList = {
         event: Event;
         currentRoundIndex: number;
         roundId: number;
+        isRemote?: boolean;
     };
     BoutOrderPage: {
         roundId: number;
-        poolId: number
+        poolId: number;
+        isRemote?: boolean;
     };
     RoundResults: {
         roundId: number;
         eventId: number;
         currentRoundIndex: number;
+        isRemote?: boolean;
     };
     DEBracketPage: {
         event: Event;
         currentRoundIndex: number;
         roundId: number;
+        isRemote?: boolean;
     };
     DoubleEliminationPage: {
         event: Event;
         currentRoundIndex: number;
         roundId: number;
+        isRemote?: boolean;
     };
     CompassDrawPage: {
         event: Event;
         currentRoundIndex: number;
         roundId: number;
+        isRemote?: boolean;
+    };
+    ManageOfficials: {
+        tournamentName: string;
+        isRemote?: boolean;
     };
 };

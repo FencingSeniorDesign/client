@@ -12,7 +12,8 @@ export function navigateToDEPage(
     navigation: NativeStackNavigationProp<RootStackParamList>,
     event: Event,
     round: Round,
-    currentRoundIndex: number
+    currentRoundIndex: number,
+    isRemote: boolean = false
 ): void {
     // Validate inputs
     if (!round) {
@@ -37,6 +38,7 @@ export function navigateToDEPage(
                 event,
                 currentRoundIndex,
                 roundId: round.id,
+                isRemote
             });
             break;
         case 'double':
@@ -44,6 +46,7 @@ export function navigateToDEPage(
                 event,
                 currentRoundIndex,
                 roundId: round.id,
+                isRemote
             });
             break;
         case 'compass':
@@ -51,6 +54,7 @@ export function navigateToDEPage(
                 event,
                 currentRoundIndex,
                 roundId: round.id,
+                isRemote
             });
             break;
         default:
@@ -60,6 +64,7 @@ export function navigateToDEPage(
                 event,
                 currentRoundIndex,
                 roundId: round.id,
+                isRemote
             });
     }
 }

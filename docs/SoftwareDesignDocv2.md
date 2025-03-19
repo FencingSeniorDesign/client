@@ -39,11 +39,13 @@
 
 ## 1. Document History
 
-| Version | Date       | Description                      | Author     |
-|---------|------------|----------------------------------|------------|
-| 0.1     | 2025-03-08 | Initial Draft                    | Claude     |
-| 1.0     | 2025-03-08 | First Complete Version           | Claude     |
-| 2.0     | 2025-03-10 | Reorganized Structure with Updated Diagrams | Claude |
+| Version | Date       | Description                            | Author                 |
+|---------|------------|----------------------------------------|------------------------|
+| 1.0     | 2024-11-21 | Added intro section                    | Ben Neeman             |
+| 1.1     | 2024-11-24 | Revise Design Goals                    | Luka Specter           |
+| 1.2     | 2025-03-09 | Swap to markdown for MermaidJS support | Luka Specter |
+| 1.3     | 2025-03-10 | Add diagrams                           | Luka Specter, Ruchika Mehta |
+| 1.4     | 2025-03-16 | Final revisions                        | Luka Specter, Ruchika Mehta |
 
 ## 2. Introduction
 
@@ -51,7 +53,16 @@
 
 This Software Design Document (SDD) describes the architectural and detailed design for TournaFence, a React Native application for managing fencing tournaments. It provides a comprehensive view of the system's architecture, component interactions, data flow, and behavior to guide implementation and maintenance activities.
 
-### 2.2 Scope
+### 2.2 Overview
+
+This project involves the development of a comprehensive software solution for fencing tournament management. It supports multiple tournament formats such as pool bouts and direct elimination tables, and integrates features for fencer seeding, score tracking, and referee actions. Key functionalities include:
+* Tournament Creation: Auto-generation or user-defined naming of tournaments, adding fencers, seeding, and tournament structure setup.
+* Tournament Viewing: Real-time viewing of pool results, bout order, direct elimination tables, and fencer rankings.
+* Bout Refereeing: A user-friendly module allowing referees to track bout scores, assign penalties, control timers, and enforce rules.
+* Scoring Box: A modular scoring box that adheres to USA Fencing rules, providing visual and auditory feedback for scored touches and optional Bluetooth connectivity for automatic score and time synchronization.
+
+
+### 2.3 Scope
 
 TournaFence is designed to handle all aspects of fencing tournament management, including:
 - Tournament creation and configuration
@@ -61,17 +72,6 @@ TournaFence is designed to handle all aspects of fencing tournament management, 
 - Direct elimination bracket generation (single elimination, double elimination, compass draw)
 - Bout scoring and timing
 - Results calculation and tournament progression
-
-### 2.3 Design Goals
-
-The primary design goals for the TournaFence application are:
-
-1. **Reliability**: The system must maintain data integrity throughout tournament operations
-2. **Usability**: The interface must be intuitive for tournament organizers, referees, and participants
-3. **Flexibility**: The system must support various tournament formats and configurations
-4. **Performance**: The application must handle concurrent operations efficiently
-5. **Modularity**: Components must be designed for reuse and independent testing
-6. **Maintainability**: The codebase must follow consistent patterns and best practices
 
 ### 2.4 Definitions
 
@@ -115,13 +115,52 @@ The TournaFence application is built using modern cross-platform mobile developm
 | Expo SQLite | 15.1.2 | SQLite database for local data storage |
 | React Navigation | 7.0.12 | Routing and navigation for React Native apps |
 | Async Storage | 1.23.1 | AsyncStorage implementation for React Native |
-| React Native Gesture Handler | 2.20.2 | Declarative API for gesture handling in React Native |
-| React Native Reanimated | 3.16.1 | React Native's Animated library reimplementation |
-| React Native Draggable FlatList | 4.0.1 | FlatList with draggable and sortable items |
 
 ### 3.2 Architecture Diagram
 
 The TournaFence application follows a three-tier architecture with clear separation between the presentation layer, business logic layer, and data persistence layer.
+
+[//]: # (```mermaid)
+
+[//]: # (graph TD)
+
+[//]: # (    A[User Interface Layer] --> B[Business Logic Layer])
+
+[//]: # (    B --> C[Data Persistence Layer])
+
+[//]: # (    )
+[//]: # (    subgraph "User Interface Layer")
+
+[//]: # (        A1[Screen Components])
+
+[//]: # (        A2[Navigation Components])
+
+[//]: # (        A3[Reusable UI Components])
+
+[//]: # (    end)
+
+[//]: # (    )
+[//]: # (    subgraph "Business Logic Layer")
+
+[//]: # (        B1[Tournament Format Utils])
+
+[//]: # (        B2[Bracket Generation])
+
+[//]: # (        B3[Scoring Algorithms])
+
+[//]: # (        B4[Round Management])
+
+[//]: # (    end)
+
+[//]: # (    )
+[//]: # (    subgraph "Data Persistence Layer")
+
+[//]: # (        C1[SQLite Database])
+
+[//]: # (        C2[Database Utilities])
+
+[//]: # (    end)
+[//]: # (```)
 
 ```mermaid
 graph TD
@@ -133,6 +172,12 @@ graph TD
         A2[Navigation Components]
         A3[Reusable UI Components]
     end
+
+```
+```mermaid
+graph TD
+    A[User Interface Layer] --> B[Business Logic Layer]
+    B --> C[Data Persistence Layer]
     
     subgraph "Business Logic Layer"
         B1[Tournament Format Utils]
@@ -140,6 +185,12 @@ graph TD
         B3[Scoring Algorithms]
         B4[Round Management]
     end
+
+```
+```mermaid
+graph TD
+    A[User Interface Layer] --> B[Business Logic Layer]
+    B --> C[Data Persistence Layer]
     
     subgraph "Data Persistence Layer"
         C1[SQLite Database]
@@ -147,14 +198,14 @@ graph TD
     end
 ```
 
+
 The application employs several design principles and patterns:
 
 1. **Component-Based Architecture**: UI is composed of reusable React components
 2. **Container/Presenter Pattern**: Separation of data management from presentation
 3. **Single Responsibility Principle**: Each component has a focused responsibility
 4. **Repository Pattern**: Database access is abstracted through utilities
-5. **Factory Pattern**: Creation of tournament formats and brackets
-6. **Hooks Pattern**: Functional components with state and effects
+5. **Hooks Pattern**: Functional components with state and effects
 
 ### 3.3 Sequence Diagrams
 

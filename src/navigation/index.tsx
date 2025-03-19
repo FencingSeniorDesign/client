@@ -1,6 +1,7 @@
 // src/navigation/index.tsx
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createStaticNavigation } from '@react-navigation/native';
+import React from 'react';
 import { Home } from './screens/Home';
 import { EventManagement } from './screens/EventManagement';
 import { EventSettings } from './screens/EventSettings';
@@ -11,6 +12,7 @@ import RoundResults from "./screens/RoundResults";
 import DEBracketPage from './screens/DEBracketPage';
 import DoubleEliminationPage from './screens/DoubleEliminationPage';
 import CompassDrawPage from './screens/CompassDrawPage';
+import ManageOfficials from './screens/ManageOfficials';
 
 const RootStack = createNativeStackNavigator({
   screens: {
@@ -71,8 +73,15 @@ const RootStack = createNativeStackNavigator({
       options: {
         title: 'Compass Draw',
       },
+    },
+    ManageOfficials: {
+      screen: ManageOfficials,
+      options: {
+        title: 'Manage Officials',
+      },
     }
   },
 });
 
+// Create the static navigation with the stack
 export const Navigation = createStaticNavigation(RootStack);

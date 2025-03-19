@@ -1,3 +1,4 @@
+// src/navigation/screens/EventManagement.tsx - Updated for remote connections
 import React, {useState, useEffect, useCallback} from 'react';
 import {
   View,
@@ -9,29 +10,37 @@ import {
   Alert,
   ScrollView,
   TextInput,
+  BackHandler,
+  ActivityIndicator,
 } from 'react-native';
 import {useNavigation, RouteProp, useFocusEffect} from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import {RootStackParamList, Event, Round, Fencer} from '../navigation/types';
-import {
-  dbGetFencersInEventById,
-  dbListEvents,
-  dbCreateEvent,
-  dbDeleteEvent,
-  dbGetRoundsForEvent,
-  dbInitializeRound
-} from '../../db/TournamentDatabaseUtils';
 import {navigateToDEPage} from "../utils/DENavigationUtil";
+import tournamentServer from '../../networking/TournamentServer';
+import tournamentClient from '../../networking/TournamentClient';
+import { getLocalIpAddress, isConnectedToInternet, getNetworkInfo } from '../../networking/NetworkUtils';
+import ConnectionStatusBar from '../../networking/components/ConnectionStatusBar';
+import { useQueryClient } from '@tanstack/react-query';
+import { useEvents, useCreateEvent, useEventStatuses, useDeleteEvent, useRounds, useFencers, useInitializeRound, queryKeys } from '../../data/TournamentDataHooks';
+import dataProvider from '../../data/TournamentDataProvider';
 
 type Props = {
-  route: RouteProp<{ params: { tournamentName: string } }, 'params'>;
+  route: RouteProp<{ params: { tournamentName: string, isRemoteConnection?: boolean } }, 'params'>;
 };
 
 export const EventManagement = ({ route }: Props) => {
-  const { tournamentName } = route.params;
-  const [events, setEvents] = useState<Event[]>([]);
-  // Map event id -> boolean (true if already started)
-  const [eventStatuses, setEventStatuses] = useState<{ [key: number]: boolean }>({});
+  const { tournamentName, isRemoteConnection = false } = route.params;
+  const queryClient = useQueryClient();
+  
+  // Use TanStack Query for fetching events
+  const { 
+    data: events = [], 
+    isLoading: eventsLoading,
+    isError: eventsError
+  } = useEvents(tournamentName);
+  
+  // We'll use TanStack Query for event statuses instead of local state
   const [modalVisible, setModalVisible] = useState<boolean>(false);
   const [editingEventId, setEditingEventId] = useState<number | null>(null);
 
@@ -40,82 +49,154 @@ export const EventManagement = ({ route }: Props) => {
   const [selectedWeapon, setSelectedWeapon] = useState<string>('Foil');
   const [selectedAge, setSelectedAge] = useState<string>('Senior');
 
+  // Server hosting state
+  const [serverEnabled, setServerEnabled] = useState(false);
+  const [serverInfo, setServerInfo] = useState<{ip: string | null, port: number} | null>(null);
+  const [localIpAddress, setLocalIpAddress] = useState<string | null>(null);
+  const [serverOperationPending, setServerOperationPending] = useState(false);
+  
+  // Network connectivity state
+  const [isNetworkConnected, setIsNetworkConnected] = useState(true);
+  const [networkInfo, setNetworkInfo] = useState<any>(null);
+
+  // Remote connection state
+  const [isRemote, setIsRemote] = useState(isRemoteConnection);
+  const [remoteConnectionInfo, setRemoteConnectionInfo] = useState<{
+    tournamentName: string;
+    hostIp: string;
+    port: number;
+  } | null>(null);
+  
+  // Use TanStack Query mutation for creating events
+  const createEventMutation = useCreateEvent();
+
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
-  // // Load events and determine if they have already been started (rounds exist AND first round is initialized)
-  // const loadEvents = async () => {
-  //   try {
-  //     const eventsList = await dbListEvents(tournamentName);
-  //     setEvents(eventsList);
-  //     const statuses: { [key: number]: boolean } = {};
-  //
-  //     await Promise.all(
-  //         eventsList.map(async (evt) => {
-  //           const rounds: Round[] = await dbGetRoundsForEvent(evt.id);
-  //
-  //           // An event is considered started if it has at least one round AND the first round has isstarted=1
-  //           if (rounds && rounds.length > 0) {
-  //             statuses[evt.id] = rounds[0].isstarted;
-  //           } else {
-  //             statuses[evt.id] = false;
-  //           }
-  //         })
-  //     );
-  //
-  //     setEventStatuses(statuses);
-  //   } catch (error) {
-  //     console.error('Error loading events from DB:', error);
-  //   }
-  // };
-  //
-  // useEffect(() => {
-  //   loadEvents();
-  // }, []);
+  // Custom back button handling for remote connections
+  useEffect(() => {
+    if (isRemote) {
+      const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
+        // Show a confirmation dialog before disconnecting
+        Alert.alert(
+            'Disconnect from Tournament',
+            'Are you sure you want to disconnect from this tournament?',
+            [
+              { text: 'Cancel', style: 'cancel', onPress: () => {} },
+              {
+                text: 'Disconnect',
+                style: 'destructive',
+                onPress: () => {
+                  // Set flag to true to prevent disconnect alert
+                  tournamentClient.isShowingDisconnectAlert = true;
+                  tournamentClient.disconnect();
+                  // Reset the flag after navigation
+                  setTimeout(() => {
+                    tournamentClient.isShowingDisconnectAlert = false;
+                  }, 500);
+                  navigation.goBack();
+                }
+              },
+            ]
+        );
+        return true; // prevents default back button behavior
+      });
 
-  const loadEvents = useCallback(async () => {
-    try {
-      console.log("Loading events and their statuses...");
-      const eventsList = await dbListEvents(tournamentName);
-      setEvents(eventsList);
-      const statuses: { [key: number]: boolean } = {};
-
-      await Promise.all(
-          eventsList.map(async (evt) => {
-            const rounds: Round[] = await dbGetRoundsForEvent(evt.id);
-
-            // An event is considered started if it has at least one round AND the first round has isstarted=1
-            if (rounds && rounds.length > 0) {
-              statuses[evt.id] = rounds[0].isstarted;
-            } else {
-              statuses[evt.id] = false;
-            }
-          })
-      );
-
-      setEventStatuses(statuses);
-      console.log("Loaded event statuses:", statuses);
-    } catch (error) {
-      console.error('Error loading events from DB:', error);
+      return () => backHandler.remove();
     }
-  }, [tournamentName]);
+    return undefined;
+  }, [isRemote, navigation]);
+
+  // Get connection info when in remote mode
+  useEffect(() => {
+    if (isRemote) {
+      const clientInfo = tournamentClient.getClientInfo();
+      if (clientInfo) {
+        setRemoteConnectionInfo({
+          tournamentName: clientInfo.tournamentName,
+          hostIp: clientInfo.hostIp,
+          port: clientInfo.port
+        });
+      }
+    }
+  }, [isRemote]);
+  
+  // Connection alerts are now handled by the ConnectionAlertProvider in App.tsx
+
+  // Use TanStack Query to get event statuses
+  const { 
+    data: eventStatuses = {}, 
+    isLoading: eventStatusesLoading 
+  } = useEventStatuses(events);
+
+  // Function to check actual server status
+  const checkServerStatus = useCallback(async () => {
+    await tournamentServer.loadServerInfo();
+    const info = tournamentServer.getServerInfo();
+    const isRunning = tournamentServer.isServerRunning();
+    
+    // Update UI state based on actual server status
+    setServerEnabled(isRunning);
+    
+    if (isRunning && info) {
+      setServerInfo({
+        ip: info.hostIp === '0.0.0.0' ? localIpAddress : info.hostIp,
+        port: info.port
+      });
+    } else if (!isRunning) {
+      setServerInfo(null);
+    }
+    
+    return isRunning;
+  }, [localIpAddress]);
+  
+  // Function to check network connectivity
+  const checkNetworkConnectivity = useCallback(async () => {
+    try {
+      const connected = await isConnectedToInternet();
+      setIsNetworkConnected(connected);
+      
+      // Get detailed network info if needed
+      if (serverEnabled || !connected) {
+        const info = await getNetworkInfo();
+        setNetworkInfo(info);
+      }
+      
+      return connected;
+    } catch (error) {
+      console.error('Error checking network connectivity:', error);
+      setIsNetworkConnected(false);
+      return false;
+    }
+  }, [serverEnabled]);
 
   // This effect runs when component mounts
   useEffect(() => {
-    loadEvents();
-  }, [loadEvents]);
+    // Get the local IP address and check connectivity
+    const initializeNetworking = async () => {
+      const ip = await getLocalIpAddress();
+      setLocalIpAddress(ip);
+      
+      await checkNetworkConnectivity();
+      await checkServerStatus();
+    };
 
-  // This effect runs when the screen comes into focus
-  useFocusEffect(
-      useCallback(() => {
-        console.log("EventManagement screen is now focused, refreshing data...");
-        loadEvents();
-
-        // Return a cleanup function (optional)
-        return () => {
-          console.log("EventManagement screen is losing focus");
-        };
-      }, [loadEvents])
-  );
+    initializeNetworking();
+    
+    // Set up periodic checks (every 5 seconds)
+    const serverStatusInterval = setInterval(() => {
+      checkServerStatus();
+    }, 5000);
+    
+    const networkCheckInterval = setInterval(() => {
+      checkNetworkConnectivity();
+    }, 10000); // Check network less frequently
+    
+    // Clean up intervals on unmount
+    return () => {
+      clearInterval(serverStatusInterval);
+      clearInterval(networkCheckInterval);
+    };
+  }, [checkServerStatus, checkNetworkConnectivity]);
 
   const openCreateModal = () => {
     setEditingEventId(null);
@@ -125,6 +206,9 @@ export const EventManagement = ({ route }: Props) => {
     setModalVisible(true);
   };
 
+  // Use TanStack Query hook for deleting events
+  const deleteEventMutation = useDeleteEvent();
+
   // When submitting an event creation, include the rounds and pool settings
   const handleSubmitEvent = async () => {
     try {
@@ -132,16 +216,16 @@ export const EventManagement = ({ route }: Props) => {
         weapon: selectedWeapon,
         gender: selectedGender,
         age: selectedAge
-        // class: string;
-        // seeding: string;
       };
 
       if (editingEventId === null) {
-        //@ts-ignore TODO - once classification and seeding options are added, fix this
-        await dbCreateEvent(tournamentName, event);
+        // Use the mutation from useTournamentQueries
+        await createEventMutation.mutate({ 
+          tournamentName, 
+          event: event as any // ts-ignore via casting
+        });
       }
       setModalVisible(false);
-      loadEvents();
     } catch (error) {
       Alert.alert('Error', 'Failed to save event.');
       console.error(error);
@@ -150,8 +234,7 @@ export const EventManagement = ({ route }: Props) => {
 
   const handleRemoveEvent = async (id: number) => {
     try {
-      await dbDeleteEvent(id);
-      loadEvents();
+      deleteEventMutation.mutate(id);
     } catch (error) {
       console.error('Error deleting event:', error);
     }
@@ -169,7 +252,6 @@ export const EventManagement = ({ route }: Props) => {
     );
   };
 
-  // For new (unstarted) events, confirm start before initializing rounds
   const confirmStartEvent = (id: number) => {
     Alert.alert(
         'Confirm Start',
@@ -182,67 +264,93 @@ export const EventManagement = ({ route }: Props) => {
     );
   };
 
-// Helper function that ONLY handles initialization
-  const initializeRound = async (event: Event, round: Round, fencers: Fencer[]): Promise<boolean> => {
-    try {
-      // Initialize the round (creates assignments, bouts, etc.)
-      await dbInitializeRound(event, round, fencers);
-      return true;
-    } catch (error) {
-      console.error('Error initializing event:', error);
-      Alert.alert('Error', 'Failed to initialize the round.');
-      return false;
-    }
-  };
 
-// Centralized navigation function for any round type
   const navigateToRoundPage = (event: Event, round: Round, roundIndex: number) => {
     if (!round || !round.type) {
       console.error('Cannot navigate: round or round.type is undefined');
       Alert.alert('Error', 'Failed to navigate to round: invalid round data');
       return;
     }
-    
+
     if (round.type === 'pool') {
       navigation.navigate('PoolsPage', {
         event: event,
         currentRoundIndex: roundIndex,
         roundId: round.id,
+        isRemote: isRemote // Pass the isRemote flag to the PoolsPage
       });
     } else if (round.type === 'de') {
-      // Use the utility function for DE navigation
-      navigateToDEPage(navigation, event, round, roundIndex);
+      // Pass isRemote flag to the DE navigation utility
+      navigateToDEPage(navigation, event, round, roundIndex, isRemote);
     } else {
       console.error(`Unknown round type: ${round.type}`);
       Alert.alert('Error', `Unknown round type: ${round.type}`);
     }
   };
 
-// The handleStartEvent now uses the separate functions
+  // Use the initialize round mutation hook
+  const initializeRoundMutation = useInitializeRound();
+  
+  // Create a function to initialize a round and handle navigation
+  const initializeAndNavigate = async (eventId: number, roundId: number, event: Event, round: Round, roundIndex: number) => {
+    try {
+      console.log(`Initializing round ${roundId} for event ${eventId}`);
+      const success = await initializeRoundMutation.mutateAsync({ eventId, roundId });
+      
+      if (success) {
+        console.log(`Round initialization successful. EventID: ${eventId}, Status now: true`);
+        
+        // Log to verify the event status update in the cache
+        const statuses = queryClient.getQueryData(queryKeys.eventStatuses);
+        console.log('Current event statuses after init:', statuses);
+        
+        navigateToRoundPage(event, round, roundIndex);
+      } else {
+        console.log(`Round initialization failed for event ${eventId}`);
+        Alert.alert('Error', 'Failed to initialize round.');
+      }
+    } catch (error) {
+      console.error('Error initializing round:', error);
+      Alert.alert('Error', 'Failed to initialize round.');
+    }
+  };
+
   const handleStartEvent = async (eventId: number) => {
     const eventToStart = events.find((evt) => evt.id === eventId);
     if (!eventToStart) return;
 
     try {
-      const fencers = await dbGetFencersInEventById(eventToStart);
-      // Check if there are fencers in the event
+      // Explicitly fetch fencers and rounds to ensure we have the latest data
+      // We're not using the hooks' direct return values because this is a function,
+      // not a component, so we need to ensure the data is fetched before continuing
+      await queryClient.fetchQuery({
+        queryKey: queryKeys.fencers(eventId),
+        queryFn: () => dataProvider.getFencers(eventToStart)  // This is what useFencers calls internally
+      });
+      
+      await queryClient.fetchQuery({
+        queryKey: queryKeys.rounds(eventId),
+        queryFn: () => dataProvider.getRounds(eventToStart)  // This is what useRounds calls internally
+      });
+      
+      // Get the freshly fetched data from the cache
+      const fencers = queryClient.getQueryData(queryKeys.fencers(eventId));
+      const rounds = queryClient.getQueryData(queryKeys.rounds(eventId));
+      
       if (!fencers || fencers.length === 0) {
         Alert.alert('Error', 'Cannot start event with no fencers. Please add fencers to this event.');
         return;
       }
-
-      const rounds = await dbGetRoundsForEvent(eventToStart.id);
-      // Check if there are rounds defined for the event
+      
       if (!rounds || rounds.length === 0) {
         Alert.alert('Error', 'No rounds defined for this event. Please add rounds in the event settings.');
         return;
       }
-      
-      // Check if any pool rounds don't have pool configurations
-      const poolRoundsWithoutConfig = rounds.filter(round => 
-        round.type === 'pool' && (!round.poolcount || !round.poolsize)
+
+      const poolRoundsWithoutConfig = rounds.filter(round =>
+          round.type === 'pool' && (!round.poolcount || !round.poolsize)
       );
-      
+
       if (poolRoundsWithoutConfig.length > 0) {
         Alert.alert('Error', 'Some pool rounds do not have a pool configuration selected. Please set pool configurations in the event settings.');
         return;
@@ -250,7 +358,6 @@ export const EventManagement = ({ route }: Props) => {
 
       const firstRound = rounds[0];
 
-      // For DE rounds, show the auto-sizing confirmation
       if (firstRound.type === 'de') {
         let tableSize = 2;
         while (tableSize < fencers.length) {
@@ -264,21 +371,12 @@ export const EventManagement = ({ route }: Props) => {
               { text: 'Cancel', style: 'cancel' },
               {
                 text: 'Continue',
-                onPress: async () => {
-                  const success = await initializeRound(eventToStart, firstRound, fencers);
-                  if (success) {
-                    navigateToRoundPage(eventToStart, firstRound, 0);
-                  }
-                }
+                onPress: () => initializeAndNavigate(eventToStart.id, firstRound.id, eventToStart, firstRound, 0)
               }
             ]
         );
       } else {
-        // For pool rounds, just initialize without confirmation
-        const success = await initializeRound(eventToStart, firstRound, fencers);
-        if (success) {
-          navigateToRoundPage(eventToStart, firstRound, 0);
-        }
+        await initializeAndNavigate(eventToStart.id, firstRound.id, eventToStart, firstRound, 0);
       }
     } catch (error) {
       console.error('Error starting event:', error);
@@ -286,25 +384,33 @@ export const EventManagement = ({ route }: Props) => {
     }
   };
 
-  // handleOpenEvent also uses the common navigation function
   const handleOpenEvent = async (eventId: number) => {
+    console.log('Opening event:', eventId);
     const eventToOpen = events.find((evt) => evt.id === eventId);
     if (!eventToOpen) return;
 
     try {
-      const rounds = await dbGetRoundsForEvent(eventToOpen.id);
+      console.log('Event to open:', eventToOpen);
       
-      // Check if there are rounds defined for the event
+      // Fetch the latest rounds data using the proper query key
+      await queryClient.fetchQuery({
+        queryKey: queryKeys.rounds(eventId),
+        queryFn: () => dataProvider.getRounds(eventToOpen)  // This is what useRounds calls internally
+      });
+      
+      // Get the rounds from the query cache
+      const rounds = queryClient.getQueryData(queryKeys.rounds(eventId));
+      console.log('Retrieved rounds:', rounds);
+
       if (!rounds || rounds.length === 0) {
         Alert.alert('Error', 'No rounds defined for this event. Please add rounds in the event settings.');
         return;
       }
-      
-      // Check if any pool rounds don't have pool configurations
-      const poolRoundsWithoutConfig = rounds.filter(round => 
-        round.type === 'pool' && (!round.poolcount || !round.poolsize)
+
+      const poolRoundsWithoutConfig = rounds.filter(round =>
+          round.type === 'pool' && (!round.poolcount || !round.poolsize)
       );
-      
+
       if (poolRoundsWithoutConfig.length > 0) {
         Alert.alert('Error', 'Some pool rounds do not have a pool configuration selected. Please set pool configurations in the event settings.');
         return;
@@ -312,7 +418,6 @@ export const EventManagement = ({ route }: Props) => {
 
       const firstRound = rounds[0];
 
-      // Check if already started
       if (!firstRound.isstarted) {
         Alert.alert(
             "Round Not Started",
@@ -325,7 +430,6 @@ export const EventManagement = ({ route }: Props) => {
         return;
       }
 
-      // If it's already started, simply navigate to the appropriate page
       navigateToRoundPage(eventToOpen, firstRound, 0);
     } catch (error) {
       console.error('Error opening event:', error);
@@ -333,62 +437,312 @@ export const EventManagement = ({ route }: Props) => {
     }
   };
 
-  // This callback is passed to EventSettings so that updates made there (e.g. rounds, pool settings) are saved.
   const handleSaveEventSettings = async (updatedEvent: Event) => {
     try {
-      // await dbUpdateEvent(updatedEvent.id, updatedEvent);
-      loadEvents();
+      // Invalidate events query to refresh the data
+      queryClient.invalidateQueries({ queryKey: queryKeys.events(tournamentName) });
     } catch (error) {
       console.error('Error updating event settings:', error);
     }
   };
 
+  const handleToggleServer = async () => {
+    // Don't allow multiple operations in progress
+    if (serverOperationPending) return;
+    
+    setServerOperationPending(true);
+    
+    try {
+      if (serverEnabled) {
+        // Verify server is actually running before trying to stop it
+        const isRunning = await checkServerStatus();
+        if (!isRunning) {
+          // Server isn't actually running - reset UI and return
+          setServerEnabled(false);
+          setServerInfo(null);
+          setServerOperationPending(false);
+          return;
+        }
+        
+        // Stop the server
+        const success = await tournamentServer.stopServer();
+        
+        // Check actual server status after stop attempt
+        const stillRunning = await checkServerStatus();
+        
+        if (!stillRunning) {
+          Alert.alert('Server Stopped', 'Tournament server has been shut down');
+        } else {
+          Alert.alert(
+            'Error', 
+            'Failed to stop the tournament server. The server process may still be running in the background.'
+          );
+        }
+      } else {
+        // Check internet connectivity first
+        const isConnected = await isConnectedToInternet();
+        if (!isConnected) {
+          Alert.alert(
+            'Network Issue',
+            'No network connection detected. Other devices may not be able to connect to your tournament server.',
+            [
+              { text: 'Cancel', style: 'cancel' },
+              { 
+                text: 'Start Anyway', 
+                onPress: async () => {
+                  await startTournamentServer();
+                }
+              }
+            ]
+          );
+          setServerOperationPending(false);
+          return;
+        }
+        
+        await startTournamentServer();
+      }
+    } catch (error) {
+      console.error('Error toggling server:', error);
+      Alert.alert('Error', 'An unexpected error occurred while managing the server');
+    } finally {
+      setServerOperationPending(false);
+    }
+  };
+  
+  // Extracted method to start the tournament server
+  const startTournamentServer = async () => {
+    try {
+      // Get latest network information for better diagnostics
+      const networkInfo = await getNetworkInfo();
+      console.log('Network info before starting server:', networkInfo);
+      
+      // Start the server
+      const tournament = { name: tournamentName };
+      const success = await tournamentServer.startServer(tournament);
+      
+      // Verify server actually started
+      const isRunning = await checkServerStatus();
+      
+      if (isRunning) {
+        const info = tournamentServer.getServerInfo();
+        if (info) {
+          // Get fresh IP address
+          const currentIp = await getLocalIpAddress();
+          
+          setServerInfo({
+            ip: info.hostIp === '0.0.0.0' ? currentIp : info.hostIp,
+            port: info.port
+          });
+          
+          Alert.alert(
+            'Server Started', 
+            `Tournament server is now running at ${currentIp}:${info.port}\n\nShare this information with participants who want to join.`
+          );
+        }
+      } else {
+        Alert.alert(
+          'Error', 
+          'Failed to start the tournament server. Please check your network connection and try again.'
+        );
+      }
+    } catch (error) {
+      console.error('Error starting tournament server:', error);
+      Alert.alert('Error', 'An unexpected error occurred while starting the server');
+    }
+  };
+
+  const handleDisconnect = async () => {
+    if (isRemote) {
+      Alert.alert(
+          'Disconnect from Tournament',
+          'Are you sure you want to disconnect from this tournament?',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            {
+              text: 'Disconnect',
+              style: 'destructive',
+              onPress: async () => {
+                // Set flag to true to prevent disconnect alert
+                tournamentClient.isShowingDisconnectAlert = true;
+                await tournamentClient.disconnect();
+                // Reset the flag after navigation
+                setTimeout(() => {
+                  tournamentClient.isShowingDisconnectAlert = false;
+                }, 500);
+                navigation.goBack();
+              }
+            },
+          ]
+      );
+    }
+  };
+
   return (
       <ScrollView contentContainerStyle={styles.container}>
-        <Text style={styles.title}>Edit Tournament</Text>
-        <Text style={styles.tournamentName}>{tournamentName}</Text>
-        <Button title="Create Event" onPress={openCreateModal} />
+        <Text style={styles.title}>
+          {isRemote ? 'Remote Tournament' : 'Edit Tournament'}
+        </Text>
 
-        <View style={styles.eventList}>
-          {events.map((event) => (
-              <View key={event.id} style={styles.eventItem}>
-                <Text style={styles.eventText}>
-                  {event.age} {event.gender} {event.weapon}
+        <View style={styles.headerContainer}>
+          <Text style={styles.tournamentName}>{tournamentName}</Text>
+
+          {/* Connection Status (for remote connection only) */}
+          {isRemote && (
+              <View style={styles.remoteConnectionBanner}>
+                <Text style={styles.remoteConnectionText}>
+                  Connected to remote tournament
                 </Text>
-                <View style={styles.eventActions}>
-                  <TouchableOpacity
-                      style={[styles.actionButton, styles.flexAction]}
-                      onPress={() =>
-                          navigation.navigate('EventSettings', {
-                            event: event,
-                            onSave: handleSaveEventSettings,
-                          })
-                      }
-                  >
-                    <Text style={styles.buttonText}>Edit</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                      style={[styles.actionButton, styles.flexAction]}
-                      onPress={() =>
-                          eventStatuses[event.id]
-                              ? handleOpenEvent(event.id)
-                              : confirmStartEvent(event.id)
-                      }
-                  >
-                    <Text style={styles.buttonText}>
-                      {eventStatuses[event.id] ? 'Open' : 'Start'}
-                    </Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                      onPress={() => confirmRemoveEvent(event.id)}
-                      style={styles.removeIconContainer}
-                  >
-                    <Text style={styles.removeIcon}>✖</Text>
-                  </TouchableOpacity>
+                <Text style={styles.remoteConnectionText}>
+                  Host: {remoteConnectionInfo?.hostIp || 'Unknown'}
+                </Text>
+                <TouchableOpacity
+                    style={styles.disconnectButton}
+                    onPress={handleDisconnect}
+                >
+                  <Text style={styles.disconnectButtonText}>Disconnect</Text>
+                </TouchableOpacity>
+              </View>
+          )}
+
+          {/* IP Address Banner (for server mode only) */}
+          {serverEnabled && localIpAddress && !isRemote && (
+              <View style={styles.ipBanner}>
+                <Text style={styles.ipText}>Tournament IP: {localIpAddress}</Text>
+                <Text style={styles.ipTextSmall}>Port: {serverInfo?.port || 9001}</Text>
+                <View style={styles.networkStatusContainer}>
+                  <View style={[styles.networkStatusIndicator, 
+                    isNetworkConnected ? styles.networkConnected : styles.networkDisconnected]} />
+                  <Text style={styles.networkStatusText}>
+                    {isNetworkConnected ? 'Network Connected' : 'Network Disconnected'}
+                  </Text>
                 </View>
               </View>
-          ))}
+          )}
         </View>
+
+        {/* Server Control Button (only for local tournaments) */}
+        {!isRemote && (
+            <TouchableOpacity
+                style={[
+                  styles.serverButton, 
+                  serverEnabled ? styles.serverEnabledButton : styles.serverDisabledButton,
+                  serverOperationPending && styles.serverPendingButton
+                ]}
+                onPress={handleToggleServer}
+                disabled={serverOperationPending}
+            >
+              {serverOperationPending ? (
+                <View style={styles.buttonLoadingContainer}>
+                  <ActivityIndicator size="small" color="#fff" />
+                  <Text style={styles.serverButtonText}>
+                    {serverEnabled ? 'Stopping...' : 'Starting...'}
+                  </Text>
+                </View>
+              ) : (
+                <Text style={styles.serverButtonText}>
+                  {serverEnabled ? 'Disable Server' : 'Enable Server'}
+                </Text>
+              )}
+            </TouchableOpacity>
+        )}
+
+        {serverEnabled && serverInfo && !isRemote && (
+            <View style={styles.serverInfoContainer}>
+              <Text style={styles.serverInfoText}>
+                Server running on port: {serverInfo.port}
+              </Text>
+              <Text style={styles.serverInfoText}>
+                Share this info with players who want to join.
+              </Text>
+            </View>
+        )}
+
+        {!isRemote && (
+            <TouchableOpacity
+                style={styles.manageOfficialsButton}
+                onPress={() => 
+                    navigation.navigate('ManageOfficials', {
+                        tournamentName: tournamentName,
+                        isRemote: isRemote
+                    })
+                }
+            >
+                <Text style={styles.manageOfficialsText}>Manage Officials</Text>
+            </TouchableOpacity>
+        )}
+
+        {!isRemote && (
+            <Button 
+              title="Create Event" 
+              onPress={openCreateModal}
+              disabled={createEventMutation.isPending} 
+            />
+        )}
+
+        {eventsLoading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#001f3f" />
+            <Text style={styles.loadingText}>Loading events...</Text>
+          </View>
+        ) : eventsError ? (
+          <View style={styles.errorContainer}>
+            <Text style={styles.errorText}>Error loading events. Please try again.</Text>
+          </View>
+        ) : (
+          <View style={styles.eventList}>
+            {events.length === 0 ? (
+              <Text style={styles.noEventsText}>No events created yet</Text>
+            ) : (
+              events.map((event) => (
+                <View key={event.id} style={styles.eventItem}>
+                  <Text style={styles.eventText}>
+                    {event.age} {event.gender} {event.weapon}
+                  </Text>
+                  <View style={styles.eventActions}>
+                    <TouchableOpacity
+                        style={[styles.actionButton, styles.flexAction]}
+                        onPress={() =>
+                            navigation.navigate('EventSettings', {
+                              event: event,
+                              onSave: handleSaveEventSettings,
+                              isRemote: isRemote
+                            })
+                        }
+                    >
+                      <Text style={styles.buttonText}>Edit</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                        style={[styles.actionButton, styles.flexAction]}
+                        onPress={() => {
+                            console.log('Event status for', event.id, ':', eventStatuses?.[event.id]);
+                            console.log('All current event statuses:', eventStatuses);
+                            const isStarted = eventStatuses && eventStatuses[event.id] === true;
+                            console.log(`Event ${event.id} isStarted: ${isStarted}`);
+                            
+                            return isStarted
+                                ? handleOpenEvent(event.id)
+                                : confirmStartEvent(event.id);
+                        }}
+                    >
+                      <Text style={styles.buttonText}>
+                        {eventStatuses && (eventStatuses[event.id] === true) ? 'Open' : 'Start'}
+                      </Text>
+                    </TouchableOpacity>
+                    {!isRemote && (
+                        <TouchableOpacity
+                            onPress={() => confirmRemoveEvent(event.id)}
+                            style={styles.removeIconContainer}
+                            disabled={deleteEventMutation.isPending}
+                        >
+                          <Text style={styles.removeIcon}>✖</Text>
+                        </TouchableOpacity>
+                    )}
+                  </View>
+                </View>
+              ))
+            )}
+          </View>
+        )}
 
         <Modal
             visible={modalVisible}
@@ -506,10 +860,80 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     color: navyBlue,
   },
+  headerContainer: {
+    width: '100%',
+    marginBottom: 20,
+  },
   tournamentName: {
     fontSize: 18,
-    marginBottom: 20,
+    marginBottom: 5,
     color: navyBlue,
+  },
+  ipBanner: {
+    backgroundColor: '#4CAF50',
+    padding: 10,
+    borderRadius: 5,
+    marginTop: 5,
+    marginBottom: 10,
+  },
+  ipText: {
+    color: white,
+    fontSize: 16,
+    fontWeight: 'bold',
+    textAlign: 'center',
+  },
+  ipTextSmall: {
+    color: white,
+    fontSize: 14,
+    textAlign: 'center',
+    marginTop: 2,
+  },
+  networkStatusContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 8,
+  },
+  networkStatusIndicator: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    marginRight: 6,
+  },
+  networkConnected: {
+    backgroundColor: '#4ade80', // Green
+  },
+  networkDisconnected: {
+    backgroundColor: '#f87171', // Red
+  },
+  networkStatusText: {
+    color: white,
+    fontSize: 12,
+  },
+  remoteConnectionBanner: {
+    backgroundColor: '#007AFF',
+    padding: 10,
+    borderRadius: 5,
+    marginTop: 5,
+    marginBottom: 10,
+  },
+  remoteConnectionText: {
+    color: white,
+    fontSize: 14,
+    textAlign: 'center',
+    marginBottom: 5,
+  },
+  disconnectButton: {
+    backgroundColor: '#FF3B30',
+    padding: 6,
+    borderRadius: 5,
+    alignSelf: 'center',
+    marginTop: 5,
+  },
+  disconnectButtonText: {
+    color: white,
+    fontSize: 14,
+    fontWeight: 'bold',
   },
   eventList: {
     marginTop: 20,
@@ -600,132 +1024,6 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     backgroundColor: white,
   },
-  roundsList: {
-    marginBottom: 10,
-  },
-  roundItem: {
-    borderWidth: 1,
-    borderColor: greyAccent,
-    borderRadius: 5,
-    padding: 8,
-    marginBottom: 8,
-    backgroundColor: white,
-  },
-  roundItemRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  dragHandle: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  dragIcon: {
-    fontSize: 20,
-    marginRight: 4,
-  },
-  moveButton: {
-    paddingHorizontal: 4,
-  },
-  moveButtonText: {
-    fontSize: 16,
-  },
-  roundLabelText: {
-    flex: 1,
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  roundItemActions: {
-    flexDirection: 'row',
-  },
-  removeRoundButton: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-  },
-  removeRoundButtonText: {
-    fontSize: 18,
-    color: 'red',
-  },
-  configButton: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-  },
-  configButtonText: {
-    fontSize: 18,
-    color: navyBlue,
-  },
-  roundConfig: {
-    marginTop: 8,
-    padding: 8,
-    borderTopWidth: 1,
-    borderColor: greyAccent,
-  },
-  deConfig: {
-    marginTop: 8,
-    padding: 8,
-    borderTopWidth: 1,
-    borderColor: greyAccent,
-  },
-  configToggle: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginBottom: 8,
-  },
-  configOptionButton: {
-    flex: 1,
-    backgroundColor: greyAccent,
-    paddingVertical: 8,
-    marginHorizontal: 4,
-    borderRadius: 4,
-    alignItems: 'center',
-  },
-  configOptionSelected: {
-    backgroundColor: navyBlue,
-  },
-  configOptionText: {
-    fontSize: 14,
-    color: '#000',
-  },
-  configInput: {
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 4,
-    padding: 8,
-    fontSize: 14,
-  },
-  targetSelector: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-  },
-  targetButton: {
-    padding: 8,
-    borderWidth: 1,
-    borderColor: greyAccent,
-    borderRadius: 4,
-    marginHorizontal: 4,
-  },
-  targetButtonSelected: {
-    backgroundColor: navyBlue,
-  },
-  targetButtonText: {
-    fontSize: 14,
-    color: '#000',
-  },
-  addRoundButton: {
-    width: '100%',
-    borderWidth: 2,
-    borderColor: navyBlue,
-    paddingVertical: 14,
-    borderRadius: 5,
-    alignItems: 'center',
-    marginBottom: 15,
-    marginTop: 5,
-  },
-  addRoundButtonText: {
-    color: navyBlue,
-    fontSize: 16,
-    fontWeight: '600',
-  },
   modalActions: {
     flexDirection: 'row',
     justifyContent: 'space-around',
@@ -745,6 +1043,87 @@ const styles = StyleSheet.create({
   modalActionText: {
     color: white,
     fontSize: 16,
+  },
+  serverButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 15,
+    borderRadius: 8,
+    marginVertical: 10,
+    alignItems: 'center',
+  },
+  serverEnabledButton: {
+    backgroundColor: '#ff3b30', // Red (to stop server)
+  },
+  serverDisabledButton: {
+    backgroundColor: '#34c759', // Green (to start server)
+  },
+  serverPendingButton: {
+    backgroundColor: '#6c757d', // Gray for pending operations
+    opacity: 0.8,
+  },
+  serverButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  buttonLoadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+  },
+  serverInfoContainer: {
+    backgroundColor: '#f0f0f0',
+    padding: 10,
+    borderRadius: 8,
+    marginBottom: 15,
+  },
+  serverInfoText: {
+    fontSize: 14,
+    textAlign: 'center',
+    marginBottom: 5,
+  },
+  manageOfficialsButton: {
+    backgroundColor: '#4CAF50',
+    padding: 12,
+    borderRadius: 6,
+    marginBottom: 16,
+    alignItems: 'center',
+  },
+  manageOfficialsText: {
+    color: 'white',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  loadingContainer: {
+    marginTop: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 16,
+    color: navyBlue,
+  },
+  errorContainer: {
+    marginTop: 30,
+    padding: 15,
+    backgroundColor: '#ffeeee',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#ff3b30',
+  },
+  errorText: {
+    color: '#ff3b30',
+    fontSize: 16,
+    textAlign: 'center',
+  },
+  noEventsText: {
+    fontSize: 16,
+    textAlign: 'center',
+    marginTop: 20,
+    color: '#666',
+    fontStyle: 'italic',
   },
 });
 

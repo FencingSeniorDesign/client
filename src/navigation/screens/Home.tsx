@@ -1,68 +1,144 @@
+// src/navigation/screens/Home.tsx with Join Tournament functionality
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, View, Text, Image, TouchableOpacity } from 'react-native';
+import { StyleSheet, View, Text, Image, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import { CreateTournamentButton } from './CreateTournamentModal';
 import { TournamentList } from './TournamentListComponent';
-import {dbListCompletedTournaments, dbListOngoingTournaments} from '../../db/TournamentDatabaseUtils';
+import { dbListCompletedTournaments, dbListOngoingTournaments } from '../../db/TournamentDatabaseUtils';
 import { useNavigation } from '@react-navigation/native';
 import { Tournament } from "../navigation/types";
+import { JoinTournamentModal } from './JoinTournamentModal';
+import tournamentClient from '../../networking/TournamentClient';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { MaterialIcons } from '@expo/vector-icons';
 
-// Import the logo image.
-// (Do not change the background color or sizing of the logo)
+// Import the logo image
 import logo from '../../assets/logo.png';
 
 export function Home() {
   const navigation = useNavigation();
-  const [ongoingTournaments, setOngoingTournaments] = useState<Tournament[]>([]);
-  const [completedTournaments, setCompletedTournaments] = useState<Tournament[]>([]);
+  const queryClient = useQueryClient();
+  
+  // State for join tournament modal
+  const [joinModalVisible, setJoinModalVisible] = useState(false);
+  const [connectedTournament, setConnectedTournament] = useState<string | null>(null);
 
-  // Function to load tournaments into the state
-  const loadOngoingTournaments = async () => {
-    try {
-      const tournamentsList = await dbListOngoingTournaments();
-      setOngoingTournaments(tournamentsList);
-    } catch (error) {
-      console.error('Failed to load tournaments:', error);
-    }
+  // Use TanStack Query for ongoing tournaments
+  const ongoingTournamentsQuery = useQuery({
+    queryKey: ['tournaments', 'ongoing'],
+    queryFn: dbListOngoingTournaments,
+    staleTime: 1000 * 60, // 1 minute
+  });
+
+  // Use TanStack Query for completed tournaments
+  const completedTournamentsQuery = useQuery({
+    queryKey: ['tournaments', 'completed'],
+    queryFn: dbListCompletedTournaments,
+    staleTime: 1000 * 60, // 1 minute
+  });
+
+  // Check if we're connected to a tournament on load
+  useEffect(() => {
+    const checkConnection = async () => {
+      await tournamentClient.loadClientInfo();
+      const clientInfo = tournamentClient.getClientInfo();
+      if (clientInfo && clientInfo.isConnected) {
+        setConnectedTournament(clientInfo.tournamentName);
+      }
+    };
+
+    checkConnection();
+  }, []);
+
+  const handleJoinSuccess = (tournamentName: string) => {
+    setConnectedTournament(tournamentName);
+    Alert.alert('Success', `Connected to tournament: ${tournamentName}`);
   };
 
-  const loadCompletedTournaments = async () => {
-    try {
-      const tournamentsList = await dbListCompletedTournaments();
-      setCompletedTournaments(tournamentsList);
-    } catch (error) {
-      console.error('Failed to load tournaments:', error);
-    }
-  }
-
-  // Load tournaments initially
-  useEffect(() => {
-    loadOngoingTournaments();
-    loadCompletedTournaments();
-  }, []);
+  const handleDisconnect = async () => {
+    await tournamentClient.disconnect();
+    setConnectedTournament(null);
+    Alert.alert('Disconnected', 'You have disconnected from the tournament');
+  };
+  
+  const refreshTournaments = () => {
+    queryClient.invalidateQueries({ queryKey: ['tournaments'] });
+  };
 
   return (
       <View style={styles.container}>
         <Image source={logo} style={styles.logo} resizeMode="contain" />
 
-        {/* Create Tournament Button (functionality preserved) */}
-        <CreateTournamentButton onTournamentCreated={loadOngoingTournaments} />
+        <View style={styles.buttonContainer}>
+          {/* Create Tournament Button */}
+          <CreateTournamentButton onTournamentCreated={refreshTournaments} />
 
-        {/* Ongoing Tournaments */}
-        <Text style={styles.tournamentHistoryTitle}>Ongoing Tournaments</Text>
-        <View style={styles.ongoingTournamentsContainer}>
-          <TournamentList tournaments={ongoingTournaments} onTournamentDeleted={loadOngoingTournaments} isComplete={false} />
+          {/* Join Tournament Button or Connection Status */}
+          {connectedTournament ? (
+              <View style={styles.connectedContainer}>
+                <Text style={styles.connectedText}>
+                  Connected to: {connectedTournament}
+                </Text>
+                <TouchableOpacity style={styles.disconnectButton} onPress={handleDisconnect}>
+                  <Text style={styles.disconnectButtonText}>Disconnect</Text>
+                </TouchableOpacity>
+              </View>
+          ) : (
+              <TouchableOpacity
+                  style={styles.joinButton}
+                  onPress={() => setJoinModalVisible(true)}
+              >
+                <MaterialIcons name="people" size={24} color="#fff" style={styles.buttonIcon} />
+                <Text style={styles.buttonText}>Join Tournament</Text>
+              </TouchableOpacity>
+          )}
         </View>
 
-        {/* Tournament History Section */}
-        <Text style={styles.tournamentHistoryTitle}>Tournament History</Text>
+        <View style={styles.contentContainer}>
+          {/* Ongoing Tournaments */}
+          <Text style={styles.tournamentHistoryTitle}>Ongoing Tournaments</Text>
+          <View style={styles.ongoingTournamentsContainer}>
+            {ongoingTournamentsQuery.isLoading ? (
+              <ActivityIndicator size="large" color="#001f3f" />
+            ) : ongoingTournamentsQuery.isError ? (
+              <Text style={styles.errorText}>Error loading tournaments</Text>
+            ) : (
+              <TournamentList 
+                tournaments={ongoingTournamentsQuery.data || []} 
+                onTournamentDeleted={refreshTournaments} 
+                isComplete={false} 
+              />
+            )}
+          </View>
 
-        <TournamentList tournaments={completedTournaments} onTournamentDeleted={loadCompletedTournaments} isComplete={true} />
+          {/* Tournament History Section */}
+          <Text style={styles.tournamentHistoryTitle}>Tournament History</Text>
+          <View style={styles.historyContainer}>
+            {completedTournamentsQuery.isLoading ? (
+              <ActivityIndicator size="large" color="#001f3f" />
+            ) : completedTournamentsQuery.isError ? (
+              <Text style={styles.errorText}>Error loading tournament history</Text>
+            ) : (
+              <TournamentList 
+                tournaments={completedTournamentsQuery.data || []} 
+                onTournamentDeleted={refreshTournaments} 
+                isComplete={true} 
+              />
+            )}
+          </View>
+        </View>
 
         {/* Referee Module Button */}
-        <TouchableOpacity style={styles.customButton} onPress={() => navigation.navigate('RefereeModule')}>
-          <Text style={styles.customButtonText}>Referee Module</Text>
+        <TouchableOpacity style={styles.refereeButton} onPress={() => navigation.navigate('RefereeModule')}>
+          <MaterialIcons name="timer" size={24} color="#fff" style={styles.buttonIcon} />
+          <Text style={styles.buttonText}>Referee Module</Text>
         </TouchableOpacity>
 
+        {/* Join Tournament Modal */}
+        <JoinTournamentModal
+            visible={joinModalVisible}
+            onClose={() => setJoinModalVisible(false)}
+            onJoinSuccess={handleJoinSuccess}
+        />
       </View>
   );
 }
@@ -70,62 +146,163 @@ export function Home() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'flex-start', // Align items at the top
+    justifyContent: 'flex-start',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingTop: 50, // Reduce top padding so the logo sits closer to the
-    gap: 10,
+    paddingHorizontal: 20,
+    paddingTop: 60,
+    backgroundColor: '#f8f9fa',
   },
   logo: {
-    width: 400,
-    height: 200,
-    paddingBottom : 0,
+    width: 280,
+    height: 140,
+    marginBottom: 20,
+  },
+  buttonContainer: {
+    width: '100%',
+    flexDirection: 'column',
+    marginBottom: 15,
+    gap: 10,
+  },
+  contentContainer: {
+    width: '100%',
+    flex: 1,
   },
   customButton: {
-    backgroundColor: '#001f3f', // Navy blue
-    borderRadius: 15,
-    paddingVertical: 10,
-    paddingHorizontal: 10,
+    backgroundColor: '#001f3f',
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    flexDirection: 'row',
     alignItems: 'center',
-    width: '80%',
-    marginVertical: 10,
+    justifyContent: 'center',
+    width: '48%',
+    height: 50, // Fixed height
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
   },
-  customButtonText: {
-    color: '#fff', // White text
+  buttonIcon: {
+    marginRight: 8,
+  },
+  refereeButton: {
+    backgroundColor: '#001f3f',
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '90%',
+    height: 50, // Match other buttons
+    marginVertical: 15,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  buttonText: {
+    color: '#fff',
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: '600',
+    letterSpacing: 0.5,
   },
   ongoingTournamentsContainer: {
     width: '100%',
-    backgroundColor: '#001f3f', // Navy blue background
-    padding: 10,
-    borderRadius: 10,
+    backgroundColor: '#ffffff',
+    padding: 15,
+    borderRadius: 16,
     alignItems: 'center',
-    justifyContent: 'flex-start', // Ensure items are aligned at the top
-    minHeight: 100, // Set a minimum height so it's always visible
+    justifyContent: 'flex-start',
+    minHeight: 100,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+  },
+  historyContainer: {
+    width: '100%',
+    backgroundColor: '#ffffff',
+    padding: 15,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    minHeight: 100,
+    marginBottom: 15,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
   },
   tournamentHistoryTitle: {
     fontSize: 20,
-    fontWeight: 'bold',
-    color: '#4F4F4F', // Dark grey text
-    marginTop: 5,
+    fontWeight: '700',
+    color: '#333333',
+    marginTop: 10,
     marginBottom: 10,
+    alignSelf: 'flex-start',
+    paddingLeft: 5,
   },
-  tournamentHistoryButton: {
-    backgroundColor: '#4F4F4F', // Dark grey inside
-    borderColor: '#001f3f', // Navy blue border
-    borderWidth: 2,
-    borderRadius: 8,
-    paddingVertical: 10,
+  joinButton: {
+    backgroundColor: '#228B22',
+    borderRadius: 12,
+    paddingVertical: 12,
     paddingHorizontal: 20,
-    width: '80%',
+    flexDirection: 'row',
     alignItems: 'center',
-    marginVertical: 5,
+    justifyContent: 'center',
+    width: '100%',
+    height: 50, // Match the Create Tournament button height
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
   },
-  tournamentHistoryButtonText: {
-    color: '#fff', // White text
+  connectedContainer: {
+    backgroundColor: '#e1f5fe',
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+    width: '100%',
+    height: 50, // Match button height
+    borderWidth: 1,
+    borderColor: '#b3e5fc',
+  },
+  connectedText: {
+    color: '#0277bd',
     fontSize: 16,
+    fontWeight: '500',
+    marginBottom: 8,
+  },
+  disconnectButton: {
+    backgroundColor: '#ff3b30',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    marginTop: 5,
+    elevation: 2,
+  },
+  disconnectButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  errorText: {
+    color: '#ff3b30',
+    fontSize: 16,
+    textAlign: 'center',
+    padding: 10,
+    fontWeight: '500',
   },
 });
-
-export default Home;

@@ -20,6 +20,7 @@ interface CustomTimeModalProps {
     onKawaiiMode?: () => void;
     onRevertLastPoint?: () => void; // New prop for reverting the last point
     kawaiiMode?: boolean; // Indicates if kawaii mode is active
+    canRevertLastPoint?: boolean; // Whether there is a point to revert
 }
 
 export function CustomTimeModal({
@@ -34,6 +35,7 @@ export function CustomTimeModal({
                                     onKawaiiMode,
                                     onRevertLastPoint,
                                     kawaiiMode = false,
+                                    canRevertLastPoint = false,
                                 }: CustomTimeModalProps) {
     const handleCustomTime = () => {
         const minutes = parseInt(customMinutes) || 0;
@@ -143,10 +145,16 @@ export function CustomTimeModal({
                                 styles.modalButton,
                                 { backgroundColor: "#CCAA00" }, // Darker yellow for revert
                                 pressed && { opacity: 0.6 },
+                                !canRevertLastPoint && styles.disabledButton
                             ]}
                             onPress={onRevertLastPoint}
+                            disabled={!canRevertLastPoint}
                         >
-                            <Text style={[styles.modalButtonText, { color: 'black' }]}>
+                            <Text style={[
+                                styles.modalButtonText, 
+                                { color: 'black' },
+                                !canRevertLastPoint && styles.disabledButtonText
+                            ]}>
                                 Revert Last Point
                             </Text>
                         </Pressable>
@@ -229,5 +237,12 @@ const styles = StyleSheet.create({
         width: 60,
         marginHorizontal: 5,
         textAlign: 'center',
+    },
+    disabledButton: {
+        backgroundColor: '#d3d3d3', // Light gray for disabled state
+        opacity: 0.7,
+    },
+    disabledButtonText: {
+        color: '#666', // Darker gray for disabled text
     },
 });
