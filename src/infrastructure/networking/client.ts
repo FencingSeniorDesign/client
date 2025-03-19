@@ -1,72 +1,116 @@
 /**
- * Base API Client
+ * Base networking client
  * 
- * Provides centralized network request handling.
- * Feature-specific API calls will extend this with domain-specific methods.
+ * This is a simplified version of the TournamentClient that will be replaced
+ * with the actual implementation once we migrate all networking components.
  */
+import { EventEmitter } from 'events';
+import { Alert } from 'react-native';
+import { ConnectionConfig } from './types';
 
-type RequestMethod = 'GET' | 'POST' | 'PUT' | 'DELETE';
-
-interface RequestOptions {
-  method: RequestMethod;
-  headers?: Record<string, string>;
-  body?: any;
-  timeout?: number;
+/**
+ * Client information
+ */
+interface ClientInfo {
+  tournamentName: string;
+  hostIp: string;
+  port: number;
+  isConnected: boolean;
+  tournamentData?: any;
 }
 
-export class ApiClient {
-  private baseUrl: string;
-  
-  constructor(baseUrl: string) {
-    this.baseUrl = baseUrl;
+/**
+ * Base networking client
+ */
+class NetworkClient extends EventEmitter {
+  private socket: any = null;
+  private clientInfo: ClientInfo | null = null;
+  private reconnectTimer: any = null;
+  private messageQueue: string[] = [];
+  private connectionAttempts: number = 0;
+  private maxReconnectAttempts: number = 5;
+  public isShowingDisconnectAlert: boolean = false;
+
+  constructor() {
+    super();
   }
-  
-  async request<T>(endpoint: string, options: RequestOptions): Promise<T> {
-    const url = `${this.baseUrl}/${endpoint}`;
+
+  /**
+   * Connect to a server
+   */
+  async connect(config: ConnectionConfig): Promise<boolean> {
+    console.log(`[NetworkClient] Connecting to ${config.hostIp}:${config.port}`);
     
-    const headers = {
-      'Content-Type': 'application/json',
-      ...options.headers,
+    // Simulate connection
+    this.clientInfo = {
+      tournamentName: 'Test Tournament',
+      hostIp: config.hostIp,
+      port: config.port,
+      isConnected: true
     };
     
-    const body = options.body ? JSON.stringify(options.body) : undefined;
+    this.emit('connected', 'Test Tournament');
+    return true;
+  }
+
+  /**
+   * Disconnect from the server
+   */
+  async disconnect(): Promise<boolean> {
+    console.log('[NetworkClient] Disconnecting');
     
-    try {
-      // This would be implemented with fetch or your preferred HTTP client
-      // const response = await fetch(url, {
-      //   method: options.method,
-      //   headers,
-      //   body,
-      // });
-      
-      // if (!response.ok) {
-      //   throw new Error(`API error: ${response.status}`);
-      // }
-      
-      // return await response.json();
-      
-      // Placeholder implementation
-      throw new Error('Not implemented');
-    } catch (error) {
-      console.error('API request failed:', error);
-      throw error;
+    if (this.clientInfo) {
+      this.clientInfo.isConnected = false;
+      this.clientInfo = null;
     }
+    
+    this.socket = null;
+    this.messageQueue = [];
+    
+    this.emit('disconnected');
+    return true;
   }
-  
-  // Convenience methods
-  async get<T>(endpoint: string, headers?: Record<string, string>): Promise<T> {
-    return this.request<T>(endpoint, { method: 'GET', headers });
+
+  /**
+   * Check if connected
+   */
+  isConnected(): boolean {
+    return this.clientInfo?.isConnected || false;
   }
-  
-  async post<T>(endpoint: string, body: any, headers?: Record<string, string>): Promise<T> {
-    return this.request<T>(endpoint, { method: 'POST', body, headers });
+
+  /**
+   * Get client info
+   */
+  getClientInfo(): ClientInfo | null {
+    return this.clientInfo;
   }
-  
-  async put<T>(endpoint: string, body: any, headers?: Record<string, string>): Promise<T> {
-    return this.request<T>(endpoint, { method: 'PUT', body, headers });
-  }
-  
-  async delete<T>(endpoint: string, headers?: Record<string, string>): Promise<T> {
-    return this.request<T>(endpoint, { method: 'DELETE', headers });
+
+  /**
+   * Send a message to the server
+   */
+  sendMessage(message: any): boolean {
+    console.log('[NetworkClient] Sending message:', message);
+    
+    if (!this.isConnected()) {
+      this.messageQueue.push(JSON.stringify(message));
+      return false;
+    }
+    
+    // Simulate message processing
+    setTimeout(() => {
+      if (message.type === 'request_tournament_data') {
+        this.emit('tournamentData', {
+          tournamentName: 'Test Tournament',
+          events: [],
+          lastUpdated: Date.now()
+        });
+      }
+    }, 100);
+    
+    return true;
   }
 }
+
+// Create a singleton instance
+const networkClient = new NetworkClient();
+export default networkClient;
