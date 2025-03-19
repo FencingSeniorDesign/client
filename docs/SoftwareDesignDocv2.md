@@ -1,5 +1,30 @@
-# Software Design Document
-# TournaFence Tournament Management Application
+<div align="center" style="display: flex; flex-direction: column; justify-content: center; align-items: center; height: 70vh;">
+
+## TournaFence
+
+### Software Design Document
+
+### Version: 1.4
+
+</div>
+
+<div style="position: absolute; bottom: 100px; left: 50px;">
+
+Team Members:
+Luka Specter
+Ben Neeman
+Henry Shannon 
+Tasnim Rahman
+Ruchika Mehta 
+Luke Ricciardi
+Max Iticovici
+
+Advisor:
+Jeffrey Segall
+
+</div>
+
+<div style="page-break-after: always;"></div>
 
 ## Table of Contents
 
@@ -2313,7 +2338,7 @@ erDiagram
 | 3.1.3 - Create Events Within Tournaments    | EventManagement.tsx                                               |
 | 3.2 - Tournament Management                 | Home.tsx, TournamentListComponent.tsx                             |
 | 3.2.1 - Complete All Events Before Ending   | TournamentDatabaseUtils.ts                                        |
-| 3.2.2 - Delete Tournament                   | TournamentListComponent.tsx, TournamentDatabaseUtils.ts           |_
+| 3.2.2 - Delete Tournament                   | TournamentListComponent.tsx, TournamentDatabaseUtils.ts           |
 | 3.2.3 - View Tournaments in Progress        | Home.tsx, TournamentListComponent.tsx                             |
 | 3.2.4 - Invite Referees                     | Home.tsx                                                          |
 | 3.2.5 - Tournament History                  | Home.tsx, TournamentListComponent.tsx                             |

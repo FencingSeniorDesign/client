@@ -441,7 +441,7 @@ export function useRoundResultsData(roundId: number, eventId: number, currentRou
     if (!poolsData || isBoutsLoading || poolsError || isBoutsError) {
       return [];
     }
-    
+
     interface FencerStats {
       fencer: any;
       boutsCount: number;
@@ -456,7 +456,7 @@ export function useRoundResultsData(roundId: number, eventId: number, currentRou
       poolid: number;
       stats: FencerStats[];
     }
-    
+
     const results: PoolResult[] = [];
     
     // Process each pool
@@ -525,7 +525,7 @@ export function useRoundResultsData(roundId: number, eventId: number, currentRou
     }
     
     return results;
-  }, [poolsData, boutQueries, isBoutsLoading, poolsError, isBoutsError]);
+  }, [poolsData, boutsData, isBoutsLoading, poolsError, isBoutsError]);
   
   // Process round data to determine next round information
   const nextRoundInfo = React.useMemo(() => {
