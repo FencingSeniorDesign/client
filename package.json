@@ -49,6 +49,7 @@
     "@babel/core": "^7.20.0",
     "@types/react": "~18.3.12",
     "@types/react-native-sqlite-storage": "^6.0.5",
+    "@react-native-community/cli": "latest",
     "@types/websocket": "^1.0.10",
     "typescript": "^5.7.2"
   },

@@ -218,6 +218,87 @@ export class TournamentDataProvider {
     }
   }
 
+  async getEventById(eventId: number): Promise<Event> {
+    console.log(`[DataProvider] Getting event with ID ${eventId}, remote: ${this.isRemoteConnection()}`);
+
+    if (this.isRemoteConnection()) {
+      try {
+        // Request event from server
+        tournamentClient.sendMessage({
+          type: 'get_event',
+          eventId
+        });
+
+        // Wait for the response from server
+        const response = await tournamentClient.waitForResponse('event_data');
+
+        // Process the response
+        if (response && response.event) {
+          console.log(`[DataProvider] Received event from server`);
+          return response.event;
+        }
+        throw new Error('Failed to fetch event from server');
+      } catch (error) {
+        console.error('[DataProvider] Error fetching remote event:', error);
+        throw error;
+      }
+    }
+
+    // For local tournaments, fetch from database
+    try {
+      const event = await import('../db/TournamentDatabaseUtils')
+          .then(module => module.dbGetEventById(eventId));
+
+      console.log(`[DataProvider] Retrieved event from local database`);
+      return event;
+    } catch (error) {
+      console.error('[DataProvider] Error reading local event:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get seeding data for a specific round
+   */
+  async getSeedingForRound(roundId: number): Promise<any[]> {
+    console.log(`[DataProvider] Getting seeding for round ${roundId}, remote: ${this.isRemoteConnection()}`);
+
+    if (this.isRemoteConnection()) {
+      try {
+        // Request seeding data from server
+        tournamentClient.sendMessage({
+          type: 'get_seeding',
+          roundId
+        });
+
+        // Wait for the response
+        const response = await tournamentClient.waitForResponse('seeding_data', 5000);
+
+        if (response && Array.isArray(response.seeding)) {
+          console.log(`[DataProvider] Received ${response.seeding.length} seeding entries from server`);
+          return response.seeding;
+        }
+
+        throw new Error('Failed to fetch seeding data from server');
+      } catch (error) {
+        console.error('[DataProvider] Error fetching remote seeding:', error);
+        return [];
+      }
+    }
+
+    // For local tournaments, fetch from database
+    try {
+      const seeding = await import('../db/TournamentDatabaseUtils')
+          .then(module => module.dbGetSeedingForRound(roundId));
+
+      console.log(`[DataProvider] Retrieved ${seeding.length} seeding entries from local database`);
+      return seeding;
+    } catch (error) {
+      console.error('[DataProvider] Error reading local seeding:', error);
+      return [];
+    }
+  }
+
   /**
    * Get status of an event (whether it has started)
    */
@@ -553,7 +634,7 @@ export class TournamentDataProvider {
    */
   async getBouts(roundId: number): Promise<any[]> {
     console.log(`[DataProvider] Getting bouts for round ${roundId}, remote: ${this.isRemoteConnection()}`);
-    
+
     if (this.isRemoteConnection()) {
       try {
         // Request bouts from server
@@ -561,30 +642,29 @@ export class TournamentDataProvider {
           type: 'get_bouts',
           roundId
         });
-        
+
         // Wait for the response
         const response = await tournamentClient.waitForResponse('bouts_list', 5000);
-        
+
         if (response && Array.isArray(response.bouts)) {
           console.log(`[DataProvider] Received ${response.bouts.length} bouts from server`);
           return response.bouts;
         }
-        
+
         throw new Error('Failed to fetch bouts from server');
       } catch (error) {
         console.error('[DataProvider] Error fetching remote bouts:', error);
         return [];
       }
     }
-    
+
     // For local tournaments, fetch from database
     try {
-      // Import the database utility dynamically to avoid circular dependencies
-      const boutsForRound = await import('../db/TournamentDatabaseUtils')
-        .then(module => module.dbGetBoutsForRound(roundId));
-      
-      console.log(`[DataProvider] Retrieved ${boutsForRound.length} bouts from local database`);
-      return boutsForRound;
+      const bouts = await import('../db/TournamentDatabaseUtils')
+          .then(module => module.dbGetBoutsForRound(roundId));
+
+      console.log(`[DataProvider] Retrieved ${bouts.length} bouts from local database`);
+      return bouts;
     } catch (error) {
       console.error('[DataProvider] Error reading local bouts:', error);
       return [];

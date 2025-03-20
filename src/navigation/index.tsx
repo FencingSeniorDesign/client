@@ -1,4 +1,3 @@
-// src/navigation/index.tsx
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createStaticNavigation } from '@react-navigation/native';
 import React from 'react';
@@ -13,6 +12,7 @@ import DEBracketPage from './screens/DEBracketPage';
 import DoubleEliminationPage from './screens/DoubleEliminationPage';
 import CompassDrawPage from './screens/CompassDrawPage';
 import ManageOfficials from './screens/ManageOfficials';
+import TournamentResultsPage from './screens/TournamentResultsPage'; // Add this import
 
 const RootStack = createNativeStackNavigator({
   screens: {
@@ -78,6 +78,12 @@ const RootStack = createNativeStackNavigator({
       screen: ManageOfficials,
       options: {
         title: 'Manage Officials',
+      },
+    },
+    TournamentResultsPage: { // Add this new screen
+      screen: TournamentResultsPage,
+      options: {
+        title: 'Tournament Results',
       },
     }
   },
