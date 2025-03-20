@@ -1,5 +1,5 @@
 // src/navigation/screens/BoutOrderPage.tsx
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
     View,
     Text,
@@ -11,7 +11,7 @@ import {
     Alert,
     ActivityIndicator,
 } from 'react-native';
-import { useRoute, RouteProp, useNavigation, useFocusEffect } from '@react-navigation/native';
+import { useRoute, RouteProp, useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList, Fencer, Bout } from '../navigation/types';
 import { useBoutsForPool, useUpdatePoolBoutScores } from '../../data/TournamentDataHooks';
@@ -57,7 +57,6 @@ const BoutOrderPage: React.FC = () => {
                     fyear: 0,
                     srating: 'U',
                     syear: 0,
-                    // Use the alias from the query:
                     poolNumber: row.left_poolposition,
                 };
                 const fencerB: Fencer = {
@@ -100,8 +99,8 @@ const BoutOrderPage: React.FC = () => {
         try {
             console.log(`Submitting scores for bout ${bout.id}: ${bout.scoreA}-${bout.scoreB}`);
             const result = await updateBoutScoresMutation.mutateAsync({
-                boutId: bout.id, 
-                scoreA: bout.scoreA, 
+                boutId: bout.id,
+                scoreA: bout.scoreA,
                 scoreB: bout.scoreB,
                 fencerAId: bout.fencerA.id!,
                 fencerBId: bout.fencerB.id!,
@@ -144,8 +143,8 @@ const BoutOrderPage: React.FC = () => {
         try {
             console.log(`Altering scores for bout ${bout.id} to ${newScoreA}-${newScoreB}`);
             const result = await updateBoutScoresMutation.mutateAsync({
-                boutId: bout.id, 
-                scoreA: newScoreA, 
+                boutId: bout.id,
+                scoreA: newScoreA,
                 scoreB: newScoreB,
                 fencerAId: bout.fencerA.id!,
                 fencerBId: bout.fencerB.id!,
@@ -173,8 +172,8 @@ const BoutOrderPage: React.FC = () => {
                 try {
                     console.log(`Saving scores from ref module for bout ${bout.id}: ${score1}-${score2}`);
                     const result = await updateBoutScoresMutation.mutateAsync({
-                        boutId: bout.id, 
-                        scoreA: score1, 
+                        boutId: bout.id,
+                        scoreA: score1,
                         scoreB: score2,
                         fencerAId: bout.fencerA.id!,
                         fencerBId: bout.fencerB.id!,
@@ -187,6 +186,34 @@ const BoutOrderPage: React.FC = () => {
                 }
             },
         });
+    };
+
+    // Function to update every bout with random scores (0-5) and send the update to the database.
+    const handleRandomScores = async () => {
+        // Update each bout with random scores.
+        const updatedBouts = await Promise.all(bouts.map(async (bout) => {
+            const randomScoreA = Math.floor(Math.random() * 6); // generates 0-5
+            const randomScoreB = Math.floor(Math.random() * 6);
+            try {
+                console.log(`Updating bout ${bout.id} with random scores: ${randomScoreA}-${randomScoreB}`);
+                const result = await updateBoutScoresMutation.mutateAsync({
+                    boutId: bout.id,
+                    scoreA: randomScoreA,
+                    scoreB: randomScoreB,
+                    fencerAId: bout.fencerA.id!,
+                    fencerBId: bout.fencerB.id!,
+                    roundId,
+                    poolId
+                });
+                console.log(`Random score update for bout ${bout.id} completed with result:`, result);
+                return { ...bout, scoreA: randomScoreA, scoreB: randomScoreB, status: 'completed' };
+            } catch (error) {
+                console.error(`Error updating bout ${bout.id} with random scores:`, error);
+                Alert.alert("Error", `Failed to update bout ${bout.id} with random scores.`);
+                return bout;
+            }
+        }));
+        setBouts(updatedBouts);
     };
 
     // Show loading state
@@ -297,7 +324,7 @@ const BoutOrderPage: React.FC = () => {
         <View style={{ flex: 1 }}>
             {/* Show connection status if in remote mode */}
             {isRemote && <ConnectionStatusBar compact={true} />}
-            
+
             {/* Header with double stripping toggle */}
             <View style={styles.header}>
                 <Text style={styles.headerTitle}>Bout Order</Text>
@@ -322,6 +349,12 @@ const BoutOrderPage: React.FC = () => {
                 <Text style={styles.title}>Bout Order</Text>
                 {bouts.map((bout, index) => renderBoutWithRank(bout, index))}
             </ScrollView>
+
+            {/* Random Scores Button */}
+            <TouchableOpacity style={styles.randomScoresButton} onPress={handleRandomScores}>
+                <Text style={styles.randomScoresButtonText}>Random Scores</Text>
+            </TouchableOpacity>
+
             {/* Alter Scores Modal */}
             <Modal visible={alterModalVisible} transparent animationType="fade">
                 <View style={styles.modalOverlay}>
@@ -356,7 +389,7 @@ const BoutOrderPage: React.FC = () => {
                     </View>
                 </View>
             </Modal>
-            
+
             {/* Loading overlay for mutations */}
             {updateBoutScoresMutation.isPending && (
                 <View style={styles.modalOverlay}>
@@ -551,6 +584,18 @@ const styles = StyleSheet.create({
         color: red,
         fontSize: 16,
         textAlign: 'center',
+    },
+    randomScoresButton: {
+        backgroundColor: green,
+        padding: 12,
+        borderRadius: 6,
+        margin: 16,
+        alignItems: 'center',
+    },
+    randomScoresButtonText: {
+        color: '#fff',
+        fontSize: 16,
+        fontWeight: '600',
     },
 });
 

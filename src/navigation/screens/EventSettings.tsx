@@ -8,6 +8,7 @@ import {
     ScrollView,
     Alert,
     ActivityIndicator,
+    Platform,
 } from "react-native";
 import { RouteProp, useNavigation } from "@react-navigation/native";
 import { Event, Fencer, Round } from "../navigation/types";
@@ -100,16 +101,16 @@ export const EventSettings = ({ route }: Props) => {
     const [fencerLastName, setFencerLastName] = useState<string>("");
 
     // TanStack Query hooks
-    const { 
-        data: fencers = [], 
-        isLoading: fencersLoading 
+    const {
+        data: fencers = [],
+        isLoading: fencersLoading
     } = useFencers(event);
-    
-    const { 
-        data: rounds = [], 
-        isLoading: roundsLoading 
+
+    const {
+        data: rounds = [],
+        isLoading: roundsLoading
     } = useRounds(event.id);
-    
+
     // Mutations
     const addFencerMutation = useAddFencer();
     const removeFencerMutation = useRemoveFencer();
@@ -139,8 +140,8 @@ export const EventSettings = ({ route }: Props) => {
     const [roundDropdownOpen, setRoundDropdownOpen] = useState<boolean>(false);
 
     // Pool configurations - using React.useMemo to avoid unnecessary recalculations
-    const poolConfigurations = React.useMemo(() => 
-        calculatePoolConfigurations(fencers?.length || 0),
+    const poolConfigurations = React.useMemo(() =>
+            calculatePoolConfigurations(fencers?.length || 0),
         [fencers?.length]
     );
 
@@ -170,24 +171,24 @@ export const EventSettings = ({ route }: Props) => {
             syear: saberYear,
         };
 
-        createFencerMutation.mutate({ 
-            fencer: newFencer, 
-            event, 
-            addToEvent: true 
+        createFencerMutation.mutate({
+            fencer: newFencer,
+            event,
+            addToEvent: true
         });
-        
+
         setFencerFirstName("");
         setFencerLastName("");
     }, [
-        fencerFirstName, 
-        fencerLastName, 
-        epeeRating, 
-        epeeYear, 
-        foilRating, 
-        foilYear, 
-        saberRating, 
-        saberYear, 
-        createFencerMutation, 
+        fencerFirstName,
+        fencerLastName,
+        epeeRating,
+        epeeYear,
+        foilRating,
+        foilYear,
+        saberRating,
+        saberYear,
+        createFencerMutation,
         event
     ]);
 
@@ -198,12 +199,12 @@ export const EventSettings = ({ route }: Props) => {
                 //@ts-ignore
                 const csvString = await FileSystem.readAsStringAsync(result.uri);
                 const lines = csvString.split("\n");
-                
+
                 // Process CSV data
                 for (const line of lines) {
                     const trimmedLine = line.trim();
                     if (!trimmedLine) continue;
-                    
+
                     const parts = trimmedLine.split(",").map((p) => p.trim());
                     if (parts.length >= 2 && parts[0] && parts[1]) {
                         const newFencer: Fencer = {
@@ -216,16 +217,16 @@ export const EventSettings = ({ route }: Props) => {
                             srating: "U",
                             syear: 0,
                         };
-                        
+
                         // Create fencer sequentially
-                        await createFencerMutation.mutateAsync({ 
-                            fencer: newFencer, 
-                            event, 
-                            addToEvent: true 
+                        await createFencerMutation.mutateAsync({
+                            fencer: newFencer,
+                            event,
+                            addToEvent: true
                         });
                     }
                 }
-                
+
                 Alert.alert("Success", "Fencers imported successfully");
             }
         } catch (error) {
@@ -234,10 +235,98 @@ export const EventSettings = ({ route }: Props) => {
         }
     }, [createFencerMutation, event]);
 
+    // Function to add random fencers
+    const addRandomFencers = async (count: number) => {
+        const firstNames = [
+            "Alice", "Bob", "Charlie", "David", "Eve", "Faythe", "Grace",
+            "Heidi", "Ivan", "Judy", "Mallory", "Niaj", "Olivia", "Peggy", "Trent"
+        ];
+        const lastNames = [
+            "Anderson", "Brown", "Clark", "Davis", "Evans", "Franklin", "Garcia",
+            "Harris", "Iverson", "Johnson", "King", "Lewis", "Martinez", "Nelson", "Olsen"
+        ];
+        const ratings = ["A", "B", "C", "D", "E", "U"];
+        const currentYear = new Date().getFullYear();
+
+        // Create a set of full names from existing fencers (using lowercase for consistency)
+        const existingNames = new Set(fencers.map(f => `${f.fname.toLowerCase()} ${f.lname.toLowerCase()}`));
+        let addedCount = 0;
+        let attempts = 0;
+        const maxAttempts = count * 10; // Limit attempts to avoid infinite loops
+
+        while (addedCount < count && attempts < maxAttempts) {
+            attempts++;
+            const randomFirstName = firstNames[Math.floor(Math.random() * firstNames.length)];
+            const randomLastName = lastNames[Math.floor(Math.random() * lastNames.length)];
+            const fullName = `${randomFirstName.toLowerCase()} ${randomLastName.toLowerCase()}`;
+
+            // Skip if the name already exists
+            if (existingNames.has(fullName)) {
+                continue;
+            }
+            // Mark the new name as used
+            existingNames.add(fullName);
+
+            const randomEpeeRating = ratings[Math.floor(Math.random() * ratings.length)];
+            const randomFoilRating = ratings[Math.floor(Math.random() * ratings.length)];
+            const randomSaberRating = ratings[Math.floor(Math.random() * ratings.length)];
+
+            const newFencer: Fencer = {
+                fname: randomFirstName,
+                lname: randomLastName,
+                erating: randomEpeeRating,
+                eyear: randomEpeeRating === "U" ? 0 : currentYear,
+                frating: randomFoilRating,
+                fyear: randomFoilRating === "U" ? 0 : currentYear,
+                srating: randomSaberRating,
+                syear: randomSaberRating === "U" ? 0 : currentYear,
+            };
+
+            await createFencerMutation.mutateAsync({
+                fencer: newFencer,
+                event,
+                addToEvent: true,
+            });
+            addedCount++;
+        }
+
+        if (addedCount < count) {
+            Alert.alert("Warning", "Not enough unique fencer names available to add all requested random fencers.");
+        }
+    };
+
+
+    // Handler for Random Fill button
+    // Add these state variables near the other state declarations:
+    const [showRandomFillInput, setShowRandomFillInput] = useState(false);
+    const [randomFillInput, setRandomFillInput] = useState("");
+
+// Replace the previous handleRandomFill with the following:
+    const handleRandomFill = () => {
+        // Toggle the dropdown input view
+        setShowRandomFillInput(!showRandomFillInput);
+    };
+
+    const handleRandomFillGo = async () => {
+        const count = parseInt(randomFillInput, 10);
+        if (isNaN(count) || count <= 0) {
+            Alert.alert("Invalid input", "Please enter a valid number greater than 0.");
+            return;
+        }
+        try {
+            await addRandomFencers(count);
+            Alert.alert("Success", `${count} random fencers added.`);
+            setRandomFillInput("");
+            setShowRandomFillInput(false);
+        } catch (error) {
+            Alert.alert("Error", "Failed to add random fencers.");
+        }
+    };
+
     // Define formatRatingString first
     const formatRatingString = React.useCallback((fencer: Fencer): string => {
         if (!fencer) return '';
-        
+
         let rating = "";
         let year = 0;
         switch (event.weapon.toLowerCase()) {
@@ -259,22 +348,22 @@ export const EventSettings = ({ route }: Props) => {
         const yearStr = rating !== "U" ? year.toString().slice(2) : "";
         return `${rating}${yearStr}`;
     }, [event.weapon]);
-    
+
     // Then define handleRemoveFencer
     const handleRemoveFencer = React.useCallback((fencer: Fencer, event: Event) => {
         removeFencerMutation.mutate({ fencer, event });
     }, [removeFencerMutation]);
-    
+
     // Define handleAddFencerFromSearch first
     const handleAddFencerFromSearch = React.useCallback((fencer: Fencer) => {
         addFencerMutation.mutate({ fencer, event });
         setSearchQuery("");
     }, [addFencerMutation, event, setSearchQuery]);
-    
+
     // Then define renderFencers
     const renderFencers = React.useCallback(() => {
         if (!fencers || !Array.isArray(fencers)) return null;
-        
+
         return fencers.map((fencer) => (
             <View key={fencer.id} style={styles.fencerRow}>
                 <Text style={styles.fencerItem}>
@@ -294,7 +383,7 @@ export const EventSettings = ({ route }: Props) => {
     // And finally define renderFencerSuggestions
     const renderFencerSuggestions = React.useCallback(() => {
         if (!fencerSuggestions || !Array.isArray(fencerSuggestions)) return null;
-        
+
         return fencerSuggestions.map((fencer) => (
             <TouchableOpacity
                 key={fencer.id}
@@ -317,21 +406,21 @@ export const EventSettings = ({ route }: Props) => {
     const handleSelectPoolConfiguration = useCallback((config: PoolConfiguration, roundIndex: number) => {
         const round = rounds[roundIndex];
         if (!round) return;
-        
+
         // Get pool size based on the configuration
         const expectedPoolSize = config.extraPools > 0 ? config.baseSize + 1 : config.baseSize;
-        
+
         // Update the round with the new pool configuration
         const updatedRound = {
             ...round,
             poolcount: config.pools,
             poolsize: expectedPoolSize
         };
-        
+
         updateRoundMutation.mutate(updatedRound);
     }, [rounds, updateRoundMutation]);
 
-// Handler to add a new round. Creates a new round object with default values.
+    // Handler to add a new round. Creates a new round object with default values.
     const handleAddRound = useCallback((roundType: 'pool' | 'de') => {
         const newRound = {
             eventid: event.id,
@@ -348,7 +437,7 @@ export const EventSettings = ({ route }: Props) => {
             poolsoption: roundType === 'pool' ? 'promotion' : undefined,
             isstarted: 0
         };
-        
+
         addRoundMutation.mutate(newRound);
     }, [event.id, rounds.length, addRoundMutation]);
 
@@ -408,22 +497,25 @@ export const EventSettings = ({ route }: Props) => {
                             value={fencerLastName}
                             onChangeText={setFencerLastName}
                         />
-                        <View style={styles.input}>
-                            <Text style={styles.inputLabel}>Weapon</Text>
-                            <Picker
-                                selectedValue={selectedWeapon}
-                                onValueChange={(itemValue) => setSelectedWeapon(itemValue)}
-                            >
-                                <Picker.Item label="Epee" value="epee" />
-                                <Picker.Item label="Foil" value="foil" />
-                                <Picker.Item label="Saber" value="saber" />
-                            </Picker>
-                        </View>
-                        <View style={styles.row}>
-                            <View style={[styles.input, styles.pickerLeft]}>
-                                <Text style={styles.inputLabel}>
-                                    {selectedWeapon.charAt(0).toUpperCase() + selectedWeapon.slice(1)} Rating
-                                </Text>
+                        {/* Optimized Horizontal Layout for Weapon and Rating */}
+                        <View style={styles.horizontalFormRow}>
+                            {/* Weapon Selection */}
+                            <View style={styles.weaponPickerContainer}>
+                                <Text style={styles.compactInputLabel}>Weapon</Text>
+                                <Picker
+                                    selectedValue={selectedWeapon}
+                                    onValueChange={(itemValue) => setSelectedWeapon(itemValue)}
+                                    style={styles.compactPicker}
+                                >
+                                    <Picker.Item label="Epee" value="epee" />
+                                    <Picker.Item label="Foil" value="foil" />
+                                    <Picker.Item label="Saber" value="saber" />
+                                </Picker>
+                            </View>
+
+                            {/* Rating Selection */}
+                            <View style={styles.ratingPickerContainer}>
+                                <Text style={styles.compactInputLabel}>Rating</Text>
                                 <Picker
                                     selectedValue={currentRating}
                                     onValueChange={(itemValue) => {
@@ -444,6 +536,7 @@ export const EventSettings = ({ route }: Props) => {
                                             );
                                         }
                                     }}
+                                    style={styles.compactPicker}
                                 >
                                     <Picker.Item label="A" value="A" />
                                     <Picker.Item label="B" value="B" />
@@ -453,9 +546,11 @@ export const EventSettings = ({ route }: Props) => {
                                     <Picker.Item label="U" value="U" />
                                 </Picker>
                             </View>
+
+                            {/* Year Selection - Only shown when rating isn't "U" */}
                             {currentRating !== "U" && (
-                                <View style={[styles.input, styles.pickerRight]}>
-                                    <Text style={styles.inputLabel}>Year</Text>
+                                <View style={styles.yearPickerContainer}>
+                                    <Text style={styles.compactInputLabel}>Year</Text>
                                     <Picker
                                         selectedValue={currentYear}
                                         onValueChange={(itemValue) => {
@@ -467,6 +562,7 @@ export const EventSettings = ({ route }: Props) => {
                                                 setSaberYear(itemValue);
                                             }
                                         }}
+                                        style={styles.compactPicker}
                                     >
                                         {Array.from({ length: 10 }, (_, i) => {
                                             const year = new Date().getFullYear() - i;
@@ -478,8 +574,8 @@ export const EventSettings = ({ route }: Props) => {
                                 </View>
                             )}
                         </View>
-                        <TouchableOpacity 
-                            onPress={handleAddFencer} 
+                        <TouchableOpacity
+                            onPress={handleAddFencer}
                             style={styles.addFencerButton}
                             disabled={createFencerMutation.isPending}
                         >
@@ -492,11 +588,31 @@ export const EventSettings = ({ route }: Props) => {
                                 <Text style={styles.addFencerButtonText}>Add Fencer</Text>
                             )}
                         </TouchableOpacity>
-                        <View style={{ marginTop: 10 }}>
-                            <TouchableOpacity onPress={handleUploadCSV}>
-                                <Text style={styles.uploadCSVText}>Upload CSV</Text>
-                            </TouchableOpacity>
-                        </View>
+                        {/* New Random Fill Button */}
+                        <TouchableOpacity
+                            onPress={handleRandomFill}
+                            style={styles.randomFillButton}
+                        >
+                            <Text style={styles.randomFillButtonText}>Random fill</Text>
+                        </TouchableOpacity>
+                        {showRandomFillInput && (
+                            <View style={styles.randomFillDropdown}>
+                                <TextInput
+                                    style={styles.randomFillInput}
+                                    placeholder="Enter number of fencers"
+                                    value={randomFillInput}
+                                    onChangeText={setRandomFillInput}
+                                    keyboardType="numeric"
+                                />
+                                <TouchableOpacity
+                                    onPress={handleRandomFillGo}
+                                    style={styles.randomFillGoButton}
+                                >
+                                    <Text style={styles.randomFillGoButtonText}>Go</Text>
+                                </TouchableOpacity>
+                            </View>
+                        )}
+
                     </View>
                     <View style={styles.fencerListContainer}>
                         <Text style={styles.fencerListHeader}>Current Fencers: {fencers.length}</Text>
@@ -574,7 +690,7 @@ export const EventSettings = ({ route }: Props) => {
                                                         <TouchableOpacity
                                                             style={[
                                                                 styles.configOptionButton,
-                                                                round.poolsption === "promotion" && styles.configOptionSelected,
+                                                                round.poolsoption === "promotion" && styles.configOptionSelected,
                                                             ]}
                                                             onPress={() => {
                                                                 const updatedRound = { ...round, poolsoption: "promotion" };
@@ -608,7 +724,7 @@ export const EventSettings = ({ route }: Props) => {
                                                             }}
                                                             onEndEditing={() => {
                                                                 // When done editing, update the round with the temp value
-                                                                const updatedRound = { 
+                                                                const updatedRound = {
                                                                     ...round,
                                                                     promotionpercent: round._tempPromotionPercent || round.promotionpercent || 0
                                                                 };
@@ -724,7 +840,7 @@ export const EventSettings = ({ route }: Props) => {
                     ) : (
                         <Text style={styles.note}>No rounds configured yet.</Text>
                     )}
-                    
+
                     <TouchableOpacity
                         style={styles.addRoundButton}
                         onPress={() => setShowRoundTypeOptions(!showRoundTypeOptions)}
@@ -753,14 +869,14 @@ export const EventSettings = ({ route }: Props) => {
                             </TouchableOpacity>
                         </View>
                     )}
-                    
+
                     {(addRoundMutation.isPending || updateRoundMutation.isPending || deleteRoundMutation.isPending) && (
                         <View style={styles.pendingActionContainer}>
                             <ActivityIndicator size="small" color="#001f3f" />
                             <Text style={styles.pendingActionText}>
-                                {addRoundMutation.isPending ? "Adding round..." : 
-                                 updateRoundMutation.isPending ? "Updating round..." : 
-                                 "Deleting round..."}
+                                {addRoundMutation.isPending ? "Adding round..." :
+                                    updateRoundMutation.isPending ? "Updating round..." :
+                                        "Deleting round..."}
                             </Text>
                         </View>
                     )}
@@ -1173,4 +1289,90 @@ const styles = StyleSheet.create({
         color: '#666',
         marginTop: 10,
     },
+    // New styles for the optimized horizontal form layout
+    horizontalFormRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        marginBottom: 10,
+        borderWidth: 1,
+        borderColor: '#ccc',
+        borderRadius: 6,
+        backgroundColor: '#fff',
+        overflow: 'hidden',
+    },
+    weaponPickerContainer: {
+        flex: 1.2,
+        paddingVertical: 2,
+        paddingHorizontal: 6,
+        borderRightWidth: 1,
+        borderRightColor: '#ccc',
+    },
+    ratingPickerContainer: {
+        flex: 0.8,
+        paddingVertical: 2,
+        paddingHorizontal: 6,
+        borderRightWidth: 1,
+        borderRightColor: '#ccc',
+    },
+    yearPickerContainer: {
+        flex: 1,
+        paddingVertical: 2,
+        paddingHorizontal: 6,
+    },
+    compactInputLabel: {
+        fontSize: 12,
+        color: '#001f3f',
+        marginBottom: 0,
+        paddingTop: 2,
+    },
+    compactPicker: {
+        height: 36,
+        marginBottom: -8, // Reduce extra bottom space in the picker
+    },
+    // New styles for the Random Fill button
+    randomFillButton: {
+        backgroundColor: "#28a745",
+        paddingVertical: 10,
+        paddingHorizontal: 15,
+        borderRadius: 6,
+        alignItems: "center",
+        marginVertical: 5,
+    },
+    randomFillButtonText: {
+        color: "#fff",
+        fontSize: 16,
+        fontWeight: "600",
+    },
+    // Styles for the Random Fill dropdown input
+    randomFillDropdown: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginTop: 10,
+        marginBottom: 10,
+        borderWidth: 1,
+        borderColor: '#ccc',
+        borderRadius: 6,
+        backgroundColor: '#fff',
+        paddingHorizontal: 10,
+        paddingVertical: 5,
+    },
+    randomFillInput: {
+        flex: 1,
+        height: 40,
+        fontSize: 16,
+        paddingHorizontal: 8,
+    },
+    randomFillGoButton: {
+        backgroundColor: "#28a745",
+        paddingVertical: 10,
+        paddingHorizontal: 15,
+        borderRadius: 6,
+        marginLeft: 10,
+    },
+    randomFillGoButtonText: {
+        color: "#fff",
+        fontSize: 16,
+        fontWeight: "600",
+    },
+
 });
