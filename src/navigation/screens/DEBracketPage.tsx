@@ -18,6 +18,8 @@ import {
     dbUpdateBoutScores,
     dbUpdateDEBoutAndAdvanceWinner,
     dbGetDETableSize,
+    dbIsDERoundComplete, // Add this import
+
 } from '../../db/TournamentDatabaseUtils';
 
 type DEBracketPageParams = {
@@ -56,13 +58,15 @@ interface DEBracketData {
 const DEBracketPage: React.FC = () => {
     const route = useRoute<DEBracketPageRouteProp>();
     const navigation = useNavigation<DEBracketPageNavProp>();
-    const { event, currentRoundIndex, roundId } = route.params;
+    const { event, currentRoundIndex, roundId, isRemote = false } = route.params;
 
     const [round, setRound] = useState<Round | null>(null);
     const [bracketData, setBracketData] = useState<DEBracketData | null>(null);
     const [loading, setLoading] = useState<boolean>(true);
     const [refreshKey, setRefreshKey] = useState<number>(0); // Used to force re-render
     const [bracketFormat, setBracketFormat] = useState<'single' | 'double' | 'compass'>('single');
+    const [isRoundComplete, setIsRoundComplete] = useState<boolean>(false); // Add this state
+    const [isFinalRound, setIsFinalRound] = useState<boolean>(false); // Add this state
 
     useEffect(() => {
         async function fetchRoundAndBracket() {
@@ -79,6 +83,9 @@ const DEBracketPage: React.FC = () => {
 
                 setRound(currentRound);
 
+                // Check if this is the final round
+                setIsFinalRound(currentRoundIndex === rounds.length - 1);
+
                 if (currentRound.type !== 'de') {
                     Alert.alert('Error', 'This is not a DE round.');
                     navigation.goBack();
@@ -94,7 +101,11 @@ const DEBracketPage: React.FC = () => {
                 // 3. Get all bouts for this round
                 const bouts = await dbGetDEBouts(roundId);
 
-                // 4. Organize bouts into bracket rounds
+                // 4. Check if the round is complete
+                const roundComplete = await dbIsDERoundComplete(roundId);
+                setIsRoundComplete(roundComplete);
+
+                // 5. Organize bouts into bracket rounds
                 const processedBracket = processBoutsIntoBracket(bouts, tableSize);
                 setBracketData(processedBracket);
             } catch (error) {
@@ -210,6 +221,13 @@ const DEBracketPage: React.FC = () => {
         });
     };
 
+    const handleViewResults = () => {
+        navigation.navigate('TournamentResultsPage', {
+            eventId: event.id,
+            isRemote
+        });
+    };
+
     const renderBout = (bout: DEBout) => {
         const fencerAName = bout.fencerA
             ? `${bout.fencerA.lname}, ${bout.fencerA.fname}`
@@ -308,6 +326,16 @@ const DEBracketPage: React.FC = () => {
                 Format: {bracketFormat.charAt(0).toUpperCase() + bracketFormat.slice(1)} Elimination
             </Text>
 
+            {/* Add View Results button if this is the final round and it's complete */}
+            {isRoundComplete && isFinalRound && (
+                <TouchableOpacity
+                    style={styles.viewResultsButton}
+                    onPress={handleViewResults}
+                >
+                    <Text style={styles.viewResultsButtonText}>View Tournament Results</Text>
+                </TouchableOpacity>
+            )}
+
             {bracketData.rounds.map((round, index) => (
                 <View key={index} style={styles.roundContainer}>
                     <Text style={styles.roundTitle}>
@@ -346,6 +374,20 @@ const styles = StyleSheet.create({
         flex: 1,
         padding: 10,
         backgroundColor: '#fff',
+    },
+    viewResultsButton: {
+        backgroundColor: '#007AFF',
+        paddingVertical: 15,
+        marginHorizontal: 20,
+        borderRadius: 10,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginVertical: 20,
+    },
+    viewResultsButtonText: {
+        color: '#fff',
+        fontSize: 18,
+        fontWeight: 'bold',
     },
     loadingContainer: {
         flex: 1,

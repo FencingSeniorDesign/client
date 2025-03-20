@@ -525,7 +525,7 @@ export function useRoundResultsData(roundId: number, eventId: number, currentRou
     }
     
     return results;
-  }, [poolsData, boutQueries, isBoutsLoading, poolsError, isBoutsError]);
+  }, [poolsData, boutsData, isBoutsLoading, poolsError, isBoutsError]);
   
   // Process round data to determine next round information
   const nextRoundInfo = React.useMemo(() => {

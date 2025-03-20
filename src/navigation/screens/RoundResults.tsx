@@ -1,5 +1,4 @@
-// src/navigation/screens/RoundResults.tsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     View,
     Text,
@@ -12,7 +11,7 @@ import {
 import { useRoute, RouteProp, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList, Fencer } from '../navigation/types';
-import { useInitializeRound, useRoundResultsData } from '../../data/TournamentDataHooks';
+import { useInitializeRound, useRoundResultsData, useRounds } from '../../data/TournamentDataHooks';
 import { navigateToDEPage } from '../utils/DENavigationUtil';
 
 type RoundResultsRouteProp = RouteProp<RootStackParamList, 'RoundResults'>;
@@ -39,20 +38,31 @@ interface PoolResult {
 const RoundResults: React.FC = () => {
     const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
     const route = useRoute<RoundResultsRouteProp>();
-    const { roundId, eventId, currentRoundIndex } = route.params;
-    
+    const { roundId, eventId, currentRoundIndex, isRemote = false } = route.params;
+
     // Handle user initiated loading states
     const [isInitializingNextRound, setIsInitializingNextRound] = useState(false);
-    
+
     // Use custom hook to handle data fetching and processing
-    const { 
-        poolResults, 
-        event, 
+    const {
+        poolResults,
+        event,
         nextRoundInfo: { nextRound, hasNextRound, nextRoundStarted },
         isLoading,
         isError
     } = useRoundResultsData(roundId, eventId, currentRoundIndex);
-    
+
+    // Get all rounds to determine if this is the final round
+    const { data: rounds = [] } = useRounds(eventId);
+    const [isFinalRound, setIsFinalRound] = useState(false);
+
+    // Check if this is the final round
+    useEffect(() => {
+        if (rounds.length > 0) {
+            setIsFinalRound(currentRoundIndex === rounds.length - 1);
+        }
+    }, [rounds, currentRoundIndex]);
+
     // Initialize round mutation
     const initializeRoundMutation = useInitializeRound();
 
@@ -61,28 +71,29 @@ const RoundResults: React.FC = () => {
         if (!hasNextRound || !nextRound || !event) {
             return;
         }
-        
+
         try {
             if (!nextRoundStarted) {
                 setIsInitializingNextRound(true);
-                
+
                 // Use the mutation hook to initialize the round
                 await initializeRoundMutation.mutateAsync({
                     eventId: eventId,
                     roundId: nextRound.id
                 });
-                
+
                 Alert.alert("Success", "Next round initialized successfully!");
             }
-            
+
             // Navigate to the appropriate screen based on round type
             if (nextRound.type === 'de') {
-                navigateToDEPage(navigation, event, nextRound, currentRoundIndex + 1);
+                navigateToDEPage(navigation, event, nextRound, currentRoundIndex + 1, isRemote);
             } else {
                 navigation.navigate('PoolsPage', {
                     event: event,
                     currentRoundIndex: currentRoundIndex + 1,
-                    roundId: nextRound.id
+                    roundId: nextRound.id,
+                    isRemote
                 });
             }
         } catch (error) {
@@ -91,6 +102,14 @@ const RoundResults: React.FC = () => {
         } finally {
             setIsInitializingNextRound(false);
         }
+    };
+
+    // Handle viewing tournament results
+    const handleViewResults = () => {
+        navigation.navigate('TournamentResultsPage', {
+            eventId: eventId,
+            isRemote
+        });
     };
 
     // Show loading state
@@ -102,7 +121,7 @@ const RoundResults: React.FC = () => {
             </View>
         );
     }
-    
+
     // Show error state
     if (isError) {
         return (
@@ -115,7 +134,7 @@ const RoundResults: React.FC = () => {
     return (
         <ScrollView contentContainerStyle={styles.container}>
             <Text style={styles.title}>Round Results</Text>
-            
+
             {poolResults.map(poolResult => (
                 <View key={poolResult.poolid} style={styles.poolContainer}>
                     <Text style={styles.poolTitle}>Pool {poolResult.poolid + 1}</Text>
@@ -140,9 +159,20 @@ const RoundResults: React.FC = () => {
                 </View>
             ))}
 
+            {/* If this is the final round, show the "View Tournament Results" button */}
+            {isFinalRound && (
+                <TouchableOpacity
+                    style={styles.viewResultsButton}
+                    onPress={handleViewResults}
+                >
+                    <Text style={styles.viewResultsButtonText}>View Tournament Results</Text>
+                </TouchableOpacity>
+            )}
+
+            {/* Only show the "Next Round" button if there is a next round */}
             {hasNextRound && (
-                <TouchableOpacity 
-                    style={[styles.nextRoundButton, isInitializingNextRound && styles.disabledButton]} 
+                <TouchableOpacity
+                    style={[styles.nextRoundButton, isInitializingNextRound && styles.disabledButton]}
                     onPress={handleNextRound}
                     disabled={isInitializingNextRound}
                 >
@@ -215,6 +245,19 @@ const styles = StyleSheet.create({
         marginBottom: 10,
     },
     nextRoundButtonText: {
+        color: '#fff',
+        fontSize: 18,
+        fontWeight: '600',
+    },
+    viewResultsButton: {
+        backgroundColor: '#007AFF',
+        paddingVertical: 15,
+        borderRadius: 6,
+        alignItems: 'center',
+        marginTop: 20,
+        marginBottom: 10,
+    },
+    viewResultsButtonText: {
         color: '#fff',
         fontSize: 18,
         fontWeight: '600',

@@ -799,6 +799,99 @@ export async function dbGetPoolsForRound(roundId: number): Promise<{ poolid: num
     return pools;
 }
 
+/**
+ * Gets all bouts for a round
+ */
+export async function dbGetBoutsForRound(roundId: number): Promise<any[]> {
+    try {
+        const db = await openDB();
+
+        // Get round type to determine query approach
+        const round = await db.getFirstAsync<{ type: string, deformat: string }>(
+            'SELECT type, deformat FROM Rounds WHERE id = ?',
+            [roundId]
+        );
+
+        if (!round) {
+            console.error(`Round with ID ${roundId} not found`);
+            return [];
+        }
+
+        if (round.type === 'pool') {
+            // For pool rounds, get all bouts with pool info
+            return await db.getAllAsync(`
+                SELECT 
+                    B.id, B.lfencer, B.rfencer, B.victor, B.eventid, B.roundid,
+                    leftF.fname AS left_fname, leftF.lname AS left_lname,
+                    rightF.fname AS right_fname, rightF.lname AS right_lname,
+                    fb1.score AS left_score, fb2.score AS right_score,
+                    FPA1.poolid AS poolid
+                FROM Bouts B
+                JOIN FencerPoolAssignment FPA1 ON B.lfencer = FPA1.fencerid AND B.roundid = FPA1.roundid
+                JOIN FencerPoolAssignment FPA2 ON B.rfencer = FPA2.fencerid AND B.roundid = FPA2.roundid
+                LEFT JOIN Fencers AS leftF ON B.lfencer = leftF.id
+                LEFT JOIN Fencers AS rightF ON B.rfencer = rightF.id
+                LEFT JOIN FencerBouts AS fb1 ON fb1.boutid = B.id AND fb1.fencerid = B.lfencer
+                LEFT JOIN FencerBouts AS fb2 ON fb2.boutid = B.id AND fb2.fencerid = B.rfencer
+                WHERE B.roundid = ? AND FPA1.poolid = FPA2.poolid
+                ORDER BY FPA1.poolid, B.id
+            `, [roundId]);
+        } else if (round.type === 'de') {
+            // For DE rounds, choose the appropriate query based on format
+            if (round.deformat === 'single') {
+                return await db.getAllAsync(`
+                    SELECT 
+                        B.id, B.lfencer, B.rfencer, B.victor, B.eventid, B.roundid, B.tableof,
+                        leftF.fname AS left_fname, leftF.lname AS left_lname,
+                        rightF.fname AS right_fname, rightF.lname AS right_lname,
+                        fb1.score AS left_score, fb2.score AS right_score,
+                        LEFT_SEEDING.seed AS seed_left, RIGHT_SEEDING.seed AS seed_right
+                    FROM Bouts AS B
+                    LEFT JOIN Fencers AS leftF ON B.lfencer = leftF.id
+                    LEFT JOIN Fencers AS rightF ON B.rfencer = rightF.id
+                    LEFT JOIN FencerBouts AS fb1 ON fb1.boutid = B.id AND fb1.fencerid = B.lfencer
+                    LEFT JOIN FencerBouts AS fb2 ON fb2.boutid = B.id AND fb2.fencerid = B.rfencer
+                    LEFT JOIN SeedingFromRoundResults AS LEFT_SEEDING 
+                            ON LEFT_SEEDING.fencerid = B.lfencer AND LEFT_SEEDING.roundid = B.roundid
+                    LEFT JOIN SeedingFromRoundResults AS RIGHT_SEEDING 
+                            ON RIGHT_SEEDING.fencerid = B.rfencer AND RIGHT_SEEDING.roundid = B.roundid
+                    WHERE B.roundid = ?
+                    ORDER BY B.tableof DESC, B.id
+                `, [roundId]);
+            } else {
+                // For double elimination or compass draw, include bracket info
+                return await db.getAllAsync(`
+                    SELECT 
+                        B.id, B.lfencer, B.rfencer, B.victor, B.tableof, B.eventid, B.roundid,
+                        leftF.fname AS left_fname, leftF.lname AS left_lname,
+                        rightF.fname AS right_fname, rightF.lname AS right_lname,
+                        fb1.score AS left_score, fb2.score AS right_score,
+                        DEB.bracket_type, DEB.bracket_round, DEB.bout_order,
+                        LEFT_SEEDING.seed AS seed_left, RIGHT_SEEDING.seed AS seed_right
+                    FROM Bouts B
+                    JOIN DEBracketBouts DEB ON B.id = DEB.bout_id
+                    LEFT JOIN Fencers leftF ON B.lfencer = leftF.id
+                    LEFT JOIN Fencers rightF ON B.rfencer = rightF.id
+                    LEFT JOIN FencerBouts fb1 ON fb1.boutid = B.id AND fb1.fencerid = B.lfencer
+                    LEFT JOIN FencerBouts fb2 ON fb2.boutid = B.id AND fb2.fencerid = B.rfencer
+                    LEFT JOIN SeedingFromRoundResults LEFT_SEEDING 
+                            ON LEFT_SEEDING.fencerid = B.lfencer AND LEFT_SEEDING.roundid = B.roundid
+                    LEFT JOIN SeedingFromRoundResults RIGHT_SEEDING 
+                            ON RIGHT_SEEDING.fencerid = B.rfencer AND RIGHT_SEEDING.roundid = B.roundid
+                    WHERE B.roundid = ?
+                    ORDER BY DEB.bracket_type, DEB.bracket_round, DEB.bout_order
+                `, [roundId]);
+            }
+        }
+
+        // Default empty array if round type is unrecognized
+        return [];
+    } catch (error) {
+        console.error('Error getting bouts for round:', error);
+        throw error;
+    }
+}
+
 export async function dbGetBoutsForPool(roundId: number, poolId: number): Promise<Bout[]> {
     const db = await openDB();
     const rows = (await db.getAllAsync(
@@ -1776,17 +1869,59 @@ export async function dbIsDERoundComplete(roundId: number): Promise<boolean> {
     try {
         const db = await openDB();
 
-        // For single elimination, check if the finals bout has a winner
-        const finalBoutResult = await db.getFirstAsync<{ has_victor: number }>(
-            `SELECT COUNT(*) as has_victor 
-             FROM Bouts
-             WHERE roundid = ? AND
-                   id IN (SELECT bout_id FROM DEBracketBouts WHERE roundid = ? AND bracket_round = 1 AND bracket_type = 'finals')
-             AND victor IS NOT NULL`,
-            [roundId, roundId]
+        // Get information about the round format first
+        const round = await db.getFirstAsync<{ deformat: string, type: string }>(
+            'SELECT deformat, type FROM Rounds WHERE id = ?',
+            [roundId]
         );
 
-        return finalBoutResult?.has_victor > 0;
+        // If it's not a DE round, return false
+        if (!round || round.type !== 'de') return false;
+
+        let isComplete = false;
+
+        // Check completion based on the DE format
+        if (round.deformat === 'single') {
+            // For single elimination, check if the finals bout has a winner
+            const finalBoutResult = await db.getFirstAsync<{ has_victor: number }>(
+                `SELECT COUNT(*) as has_victor 
+                 FROM Bouts
+                 WHERE roundid = ? AND tableof = 2 AND victor IS NOT NULL`,
+                [roundId]
+            );
+
+            isComplete = finalBoutResult?.has_victor > 0;
+        }
+        else if (round.deformat === 'double') {
+            // For double elimination, check if the finals bracket has a winner
+            const finalBoutResult = await db.getFirstAsync<{ has_victor: number }>(
+                `SELECT COUNT(*) as has_victor 
+                 FROM Bouts B
+                 JOIN DEBracketBouts DBB ON B.id = DBB.bout_id
+                 WHERE B.roundid = ? AND DBB.bracket_type = 'finals' 
+                       AND B.victor IS NOT NULL`,
+                [roundId]
+            );
+
+            isComplete = finalBoutResult?.has_victor > 0;
+        }
+        else if (round.deformat === 'compass') {
+            // For compass draw, check if all four finals have winners
+            // We'll consider it complete if the east bracket final is complete
+            const eastFinalResult = await db.getFirstAsync<{ has_victor: number }>(
+                `SELECT COUNT(*) as has_victor 
+                 FROM Bouts B
+                 JOIN DEBracketBouts DBB ON B.id = DBB.bout_id
+                 WHERE B.roundid = ? AND DBB.bracket_type = 'east' 
+                       AND DBB.bracket_round = 1
+                       AND B.victor IS NOT NULL`,
+                [roundId]
+            );
+
+            isComplete = eastFinalResult?.has_victor > 0;
+        }
+
+        return isComplete;
     } catch (error) {
         console.error('Error checking if DE round is complete:', error);
         return false;

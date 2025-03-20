@@ -129,4 +129,8 @@ export type RootStackParamList = {
         tournamentName: string;
         isRemote?: boolean;
     };
+    TournamentResultsPage: {
+        eventId: number;
+        isRemote?: boolean;
+    };
 };

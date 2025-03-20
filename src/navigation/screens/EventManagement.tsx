@@ -718,7 +718,7 @@ export const EventManagement = ({ route }: Props) => {
                             console.log('All current event statuses:', eventStatuses);
                             const isStarted = eventStatuses && eventStatuses[event.id] === true;
                             console.log(`Event ${event.id} isStarted: ${isStarted}`);
-                            
+
                             return isStarted
                                 ? handleOpenEvent(event.id)
                                 : confirmStartEvent(event.id);
@@ -728,6 +728,15 @@ export const EventManagement = ({ route }: Props) => {
                         {eventStatuses && (eventStatuses[event.id] === true) ? 'Open' : 'Start'}
                       </Text>
                     </TouchableOpacity>
+                    <TouchableOpacity
+                        style={[styles.actionButton, styles.viewResultsButton]}
+                        onPress={() => navigation.navigate('TournamentResultsPage', {
+                          eventId: event.id,
+                          isRemote: isRemote
+                        })}
+                    >
+                    </TouchableOpacity>
+
                     {!isRemote && (
                         <TouchableOpacity
                             onPress={() => confirmRemoveEvent(event.id)}
@@ -1124,6 +1133,9 @@ const styles = StyleSheet.create({
     marginTop: 20,
     color: '#666',
     fontStyle: 'italic',
+  },
+  viewResultsButton: {
+    backgroundColor: '#007AFF',
   },
 });
 
