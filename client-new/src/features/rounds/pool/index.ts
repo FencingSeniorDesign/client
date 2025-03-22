@@ -2,17 +2,14 @@
  * Pool rounds management
  */
 
-// Export query hooks
-export { default as usePoolQueries } from './hooks/usePoolQueries';
-export { default as usePoolBoutQueries } from './hooks/usePoolBoutQueries';
+// Export services
+export * from './services/poolService';
+export * from './services/poolBoutService';
 
-// Export repositories
-export { default as usePoolRepository } from './hooks/usePoolRepository';
-export { default as usePoolBoutRepository } from './hooks/usePoolBoutRepository';
+// Export hooks
+export * from './hooks/usePools';
+export * from './hooks/usePoolBouts';
 
-// Export screens (will be implemented later)
-// export * from './screens';
-
-// Export component types
-export type { Pool } from './hooks/usePoolRepository';
-export type { PoolBout } from './hooks/usePoolBoutRepository';
+// Export screens
+export { default as PoolsPage } from './screens/PoolsPage';
+export { default as BoutOrderPage } from './screens/BoutOrderPage';

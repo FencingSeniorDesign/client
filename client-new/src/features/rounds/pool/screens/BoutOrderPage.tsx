@@ -1,5 +1,5 @@
-// src/navigation/screens/BoutOrderPage.tsx
-import React, { useEffect, useState } from 'react';
+// src/features/rounds/pool/screens/BoutOrderPage.tsx
+import React, { useEffect, useState, useMemo } from 'react';
 import {
     View,
     Text,
@@ -12,25 +12,27 @@ import {
     ActivityIndicator,
 } from 'react-native';
 import { useRoute, RouteProp, useNavigation } from '@react-navigation/native';
-import { StackNavigationProp } from '@react-navigation/stack';
-import { RootStackParamList, Fencer, Bout } from '../navigation/types';
-import { useBoutsForPool, useUpdatePoolBoutScores } from '../../data/TournamentDataHooks';
-import tournamentClient from '../../networking/TournamentClient';
-import ConnectionStatusBar from '../../networking/components/ConnectionStatusBar';
+import { MainStackNavigationProp, RootStackParamList, BoutWithFencers } from '../../../../navigation/types';
+import { 
+    useGetBoutsForPool, 
+    useUpdateBoutScores 
+} from '../hooks/usePoolBouts';
+import { PoolBout } from '../services/poolBoutService';
+import ConnectionStatusBar from '../../../../infrastructure/networking/components/ConnectionStatusBar';
 
 type BoutOrderPageRouteProps = RouteProp<RootStackParamList, 'BoutOrderPage'>;
-type BoutOrderPageNavProp = StackNavigationProp<RootStackParamList, 'BoutOrderPage'>;
 
 const BoutOrderPage: React.FC = () => {
     const route = useRoute<BoutOrderPageRouteProps>();
-    const navigation = useNavigation<BoutOrderPageNavProp>();
+    const navigation = useNavigation<MainStackNavigationProp>();
     const { roundId, poolId, isRemote = false } = route.params;
 
-    // Use React Query hooks
-    const { data: boutsData, isLoading, error } = useBoutsForPool(roundId, poolId);
-    const updateBoutScoresMutation = useUpdatePoolBoutScores();
+    // Use the hooks from our service + hooks pattern
+    const { data: poolBoutsData, isLoading, error } = useGetBoutsForPool(roundId, poolId);
+    const updateBoutScoresMutation = useUpdateBoutScores();
 
-    const [bouts, setBouts] = useState<Bout[]>([]);
+    // Local state
+    const [bouts, setBouts] = useState<BoutWithFencers[]>([]);
     const [expandedBoutIndex, setExpandedBoutIndex] = useState<number | null>(null);
     const [protectedScores, setProtectedScores] = useState<boolean>(false);
     const [alterModalVisible, setAlterModalVisible] = useState<boolean>(false);
@@ -38,19 +40,19 @@ const BoutOrderPage: React.FC = () => {
     const [alterScoreA, setAlterScoreA] = useState<string>('0');
     const [alterScoreB, setAlterScoreB] = useState<string>('0');
 
-    // Toggle for double stripping mode.
+    // Toggle for double stripping mode
     const [doubleStripping, setDoubleStripping] = useState<boolean>(false);
     const activeCount = doubleStripping ? 2 : 1;
     const onDeckCount = doubleStripping ? 2 : 1;
 
-    // Process the bouts data when it loads from the hook
+    // Transform pool bouts data to BoutWithFencers format
     useEffect(() => {
-        if (boutsData) {
-            const fetchedBouts: Bout[] = boutsData.map((row: any) => {
-                const fencerA: Fencer = {
-                    id: row.left_fencerid,
-                    fname: row.left_fname,
-                    lname: row.left_lname,
+        if (poolBoutsData) {
+            const formattedBouts: BoutWithFencers[] = poolBoutsData.map((row: PoolBout) => {
+                const fencerA = {
+                    id: row.leftFencerId,
+                    fname: row.left_fname || '',
+                    lname: row.left_lname || '',
                     erating: 'U',
                     eyear: 0,
                     frating: 'U',
@@ -59,10 +61,10 @@ const BoutOrderPage: React.FC = () => {
                     syear: 0,
                     poolNumber: row.left_poolposition,
                 };
-                const fencerB: Fencer = {
-                    id: row.right_fencerid,
-                    fname: row.right_fname,
-                    lname: row.right_lname,
+                const fencerB = {
+                    id: row.rightFencerId,
+                    fname: row.right_fname || '',
+                    lname: row.right_lname || '',
                     erating: 'U',
                     eyear: 0,
                     frating: 'U',
@@ -71,25 +73,28 @@ const BoutOrderPage: React.FC = () => {
                     syear: 0,
                     poolNumber: row.right_poolposition,
                 };
-                const scoreA = row.left_score ?? 0;
-                const scoreB = row.right_score ?? 0;
+                const scoreA = row.leftScore ?? 0;
+                const scoreB = row.rightScore ?? 0;
                 const status = (scoreA !== 0 || scoreB !== 0) ? 'completed' : 'pending';
                 return { id: row.id, fencerA, fencerB, scoreA, scoreB, status };
             });
-            setBouts(fetchedBouts);
+            setBouts(formattedBouts);
         }
-    }, [boutsData]);
+    }, [poolBoutsData]);
 
-    // For pending bouts, compute a pendingRank based on order in the list.
-    let pendingCounter = 0;
-    const getPendingRank = (bout: Bout): number | null => {
+    // For pending bouts, compute a pendingRank based on order in the list
+    const pendingCounter = useMemo(() => {
+        return { value: 0 };
+    }, [bouts]);
+
+    const getPendingRank = (bout: BoutWithFencers): number | null => {
         if (bout.status === 'pending') {
-            return pendingCounter++;
+            return pendingCounter.value++;
         }
         return null;
     };
 
-    // All bouts (active or not) are interactive for altering scores when protectedScores is off.
+    // Bout interaction handlers
     const handleBoutPress = (index: number) => {
         setExpandedBoutIndex(prev => (prev === index ? null : index));
     };
@@ -102,8 +107,8 @@ const BoutOrderPage: React.FC = () => {
                 boutId: bout.id,
                 scoreA: bout.scoreA,
                 scoreB: bout.scoreB,
-                fencerAId: bout.fencerA.id!,
-                fencerBId: bout.fencerB.id!,
+                fencerAId: bout.fencerA.id,
+                fencerBId: bout.fencerB.id,
                 roundId,
                 poolId
             });
@@ -126,7 +131,7 @@ const BoutOrderPage: React.FC = () => {
         setBouts(updatedBouts);
     };
 
-    // Allow altering scores regardless of bout status if protectedScores is off.
+    // Allow altering scores regardless of bout status if protectedScores is off
     const handleBoutLongPress = (index: number) => {
         if (protectedScores) return;
         setAlterIndex(index);
@@ -146,8 +151,8 @@ const BoutOrderPage: React.FC = () => {
                 boutId: bout.id,
                 scoreA: newScoreA,
                 scoreB: newScoreB,
-                fencerAId: bout.fencerA.id!,
-                fencerBId: bout.fencerB.id!,
+                fencerAId: bout.fencerA.id,
+                fencerBId: bout.fencerB.id,
                 roundId,
                 poolId
             });
@@ -175,8 +180,8 @@ const BoutOrderPage: React.FC = () => {
                         boutId: bout.id,
                         scoreA: score1,
                         scoreB: score2,
-                        fencerAId: bout.fencerA.id!,
-                        fencerBId: bout.fencerB.id!,
+                        fencerAId: bout.fencerA.id,
+                        fencerBId: bout.fencerB.id,
                         roundId,
                         poolId
                     });
@@ -200,8 +205,8 @@ const BoutOrderPage: React.FC = () => {
                     boutId: bout.id,
                     scoreA: randomScoreA,
                     scoreB: randomScoreB,
-                    fencerAId: bout.fencerA.id!,
-                    fencerBId: bout.fencerB.id!,
+                    fencerAId: bout.fencerA.id,
+                    fencerBId: bout.fencerB.id,
                     roundId,
                     poolId
                 });
@@ -236,8 +241,13 @@ const BoutOrderPage: React.FC = () => {
     }
 
     // Render each bout using the original order.
-    const renderBoutWithRank = (bout: Bout, index: number) => {
-        const pendingRank = bout.status === 'pending' ? getPendingRank(bout) : null;
+    const renderBoutWithRank = (bout: BoutWithFencers, index: number) => {
+        // Reset the counter for each render cycle
+        if (index === 0) {
+            pendingCounter.value = 0;
+        }
+        
+        const pendingRank = getPendingRank(bout);
 
         // Determine winner for completed bouts.
         let winnerId: number | null = null;

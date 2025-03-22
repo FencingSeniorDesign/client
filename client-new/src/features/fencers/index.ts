@@ -2,10 +2,12 @@
  * Fencers management feature
  */
 
-// Export repository functionality
-export * from './repository';
+// Export service functionality (new service + hooks pattern)
+export * from './services/fencerService';
+export * from './hooks/useFencers';
 
-// Export hooks for accessing fencer data
+// Export legacy repository functionality (for backward compatibility during migration)
+export * from './repository';
 export * from './hooks/useFencerRepository';
 export * from './hooks/useFencerQueries';
 export { default as useFencerEventQueries } from './hooks/useFencerEventQueries';
@@ -15,5 +17,4 @@ export { default as FencerSelector } from './components/FencerSelector';
 
 // These exports will be added as they are implemented
 // export * from './screens';
-// export * from './services';
 // export * from './api';
