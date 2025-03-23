@@ -1,4 +1,5 @@
-import { useQuery, useMutation, useQueryClient, UseMutationOptions, UseQueryOptions } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, UseMutationOptions, UseQueryOptions, QueryKey } from '@tanstack/react-query';
+import { createInvalidationMap, createOptimisticUpdate } from './advanced';
 
 /**
  * Generic hook for querying data using Tanstack Query
@@ -40,6 +41,7 @@ export function useGenericMutation<TData, TVariables, TError = unknown, TContext
  */
 export function useInvalidateQueries() {
   const queryClient = useQueryClient();
+  const { invalidateEntity } = createInvalidationMap(queryClient);
   
   return {
     /**
@@ -83,6 +85,21 @@ export function useInvalidateQueries() {
      */
     getQueryData: <T>(queryKey: unknown[]): T | undefined => {
       return queryClient.getQueryData<T>(queryKey);
+    },
+
+    /**
+     * Invalidate an entity and all related entities
+     * Uses the cascading invalidation map defined in advanced.ts
+     * @param entityType The type of entity to invalidate (e.g., 'tournaments', 'events')
+     * @param id Optional ID of the specific entity to invalidate
+     * @param tournamentName Optional tournament name for context
+     */
+    invalidateEntity: (
+      entityType: string, 
+      id?: number | string,
+      tournamentName?: string
+    ) => {
+      return invalidateEntity(entityType, id, tournamentName);
     }
   };
 }
@@ -111,3 +128,30 @@ export type RepositoryQueryHooks<T, I> = {
   useUpdate: (options?: Omit<UseMutationOptions<T | undefined, unknown, { id: string | number, data: Partial<T> }, unknown>, 'mutationFn'>) => ReturnType<typeof useMutation>;
   useDelete: (options?: Omit<UseMutationOptions<boolean, unknown, string | number, unknown>, 'mutationFn'>) => ReturnType<typeof useMutation>;
 };
+
+/**
+ * Utility function for creating optimistic update configurations
+ * Use this when you want to update the UI immediately before the server confirms
+ * 
+ * @param queryKey The query key that will be updated optimistically
+ * @param updateFn Function that takes the old data and variables and returns updated data
+ * @param options Additional mutation options
+ */
+export function useOptimisticMutation<TData, TError, TVariables, TContext, TResult = unknown>(
+  queryKey: QueryKey,
+  updateFn: (oldData: TData | undefined, variables: TVariables) => TData,
+  mutationFn: (variables: TVariables) => Promise<TResult>,
+  options?: Omit<UseMutationOptions<TResult, TError, TVariables, TContext>, 'onMutate' | 'onError' | 'onSettled' | 'mutationFn'>
+) {
+  const queryClient = useQueryClient();
+  const mutationOptions = createOptimisticUpdate<TData, TError, TVariables, TContext, TResult>(
+    queryKey,
+    updateFn,
+    options
+  );
+  
+  return useMutation({
+    ...mutationOptions,
+    mutationFn
+  });
+}

@@ -55,7 +55,7 @@ The migration involves moving from a technology-centric structure to a domain-ba
   - ✅ Create example RoundManagement screen using the new pattern
   - ✅ Create DE bout service with optimized data access and prepared statements
   - ✅ Create DE bout hooks with live queries and optimistic updates
-  - ✅ Create optimized DEBracketPage using the new pattern
+  - ✅ Create optimized DEBracketPageOptimized using the new pattern
   - ⬜ Test round creation and management
 - ✅ Migrate official-related screens and components
   - ✅ Create official services with optimized data access and prepared statements
@@ -322,8 +322,8 @@ We are also enhancing our use of Drizzle ORM with the following features:
 1. Update UI screens to use new hooks and services pattern:
    - ✅ Update ManageOfficials screen to use useOfficials hooks
    - ✅ Create RefereeModuleOptimized using useReferees hooks
-   - Update DEBracketPage to use useDEBouts hooks
-   - Create example screens for testing the new functionality
+   - ✅ Create DEBracketPageOptimized using useDEBouts hooks
+   - ⬜ Create example screens for testing the new functionality
 
 2. Implement remaining high-priority Tanstack Query features:
    - ✅ Query Invalidation Strategies

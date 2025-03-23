@@ -2,7 +2,7 @@ import React from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { PersistentQueryProvider } from './persist';
-import { configureSilentUpdates } from './advanced';
+import { configureSilentUpdates, setQueryClient } from './advanced';
 
 // Create a client with optimized default options
 const queryClient = new QueryClient({
@@ -28,6 +28,9 @@ const queryClient = new QueryClient({
 
 // Configure silent background updates
 configureSilentUpdates(queryClient);
+
+// Set the global query client for advanced utilities
+setQueryClient(queryClient);
 
 interface QueryProviderProps {
   children: React.ReactNode;
