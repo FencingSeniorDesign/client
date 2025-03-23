@@ -1,6 +1,6 @@
 /**
  * Database infrastructure
- * Exports all database-related components
+ * Exports all database-related components and utilities
  */
 
 // Export the Drizzle schema
@@ -15,3 +15,14 @@ export * from './base-repository';
 
 // Export live query hooks
 export * from './live-query';
+
+// Export database persistence utilities
+export {
+  exportDatabaseState,
+  importDatabaseState,
+  getBackupInfo,
+  clearBackup,
+  scheduleBackups,
+  optimizeDatabase,
+  analyzeDatabase
+} from './persist';

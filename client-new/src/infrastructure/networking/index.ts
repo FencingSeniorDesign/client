@@ -28,5 +28,16 @@ export {
   type DiscoveredServer
 } from './utils';
 
+// Export network status utilities
+export {
+  getNetworkStatus,
+  useNetworkStatus,
+  subscribeToNetworkStatus,
+  initNetworkMonitoring,
+  configureQueryForNetworkStatus,
+  initializeNetworkStatusInfrastructure,
+  type NetworkStatus
+} from './status';
+
 // Re-export components
 export { default as ConnectionStatusBar } from './components/ConnectionStatusBar';
