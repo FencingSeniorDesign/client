@@ -319,36 +319,40 @@ We are also enhancing our use of Drizzle ORM with the following features:
 
 ## Next Steps
 
-1. Implement the highest priority Tanstack Query features:
-   - Query Invalidation Strategies
-   - Optimistic Updates
-   - Background Fetching with Silent UI
-   - Persistent Storage
+1. Update UI screens to use new hooks and services pattern:
+   - Update ManageOfficials screen to use useOfficials hooks
+   - Update RefereeModule screen to use useReferees hooks
+   - Update DEBracketPage to use useDEBouts hooks
+   - Create example screens for testing the new functionality
 
-2. Enhance Drizzle ORM usage:
-   - Replace remaining raw SQL with the query builder
-   - Implement transactions for multi-step operations
-   - Optimize joins and relations
-   - Add strategic indexes on frequently queried fields
-   - Create SQL views for common complex queries
-   - Implement proper database migrations
-   - Use prepared statements for common operations
-   - Fix COUNT queries implementation
-   - Add batch operations support
+2. Implement remaining high-priority Tanstack Query features:
+   - ✅ Query Invalidation Strategies
+   - ✅ Optimistic Updates
+   - ✅ Background Fetching with Silent UI
+   - ✅ Persistent Storage
+   - ⬜ Hydration and Dehydration
+   - ⬜ Query Data Transformations with select
 
-3. Continue migrating round-related screens and components:
-   - ✅ Create pool services and hooks
-   - ✅ Update PoolsPage to use the new service + hooks approach
-   - ✅ Update BoutOrderPage to use the pool bout service + hooks
-   - ⬜ Update DE bracket pages to use the service + hooks approach
-   - ⬜ Test round creation and management
+3. Enhance Drizzle ORM usage further:
+   - ✅ Replace raw SQL with the query builder
+   - ✅ Implement transactions for multi-step operations
+   - ✅ Optimize joins and relations
+   - ✅ Use prepared statements for common operations
+   - ✅ Add batch operations support
+   - ✅ Fix COUNT queries implementation
+   - ⬜ Add strategic indexes on frequently queried fields
+   - ⬜ Create SQL views for complex queries
+   - ⬜ Implement proper database migrations
 
-4. Complete the referee module:
-   - Migrate to the service + hooks approach
-   - Implement the advanced query features for real-time updates
-   - Test the live updates on multiple devices
-
-5. Testing:
-   - Test database operations with enhanced Drizzle ORM features
+4. Testing:
+   - Test database operations with the enhanced Drizzle ORM features
    - Validate that Tanstack Query features are working correctly
    - Test offline functionality with persistent storage
+   - Test synchronization between devices
+   - Verify performance improvements with profiling
+   
+5. Documentation:
+   - Create a comprehensive README with the new architecture
+   - Document the service/hook pattern with examples
+   - Create a migration guide for remaining components
+   - Document best practices for querying and mutations
