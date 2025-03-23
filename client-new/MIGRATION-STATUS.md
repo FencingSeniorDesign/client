@@ -60,7 +60,7 @@ The migration involves moving from a technology-centric structure to a domain-ba
 - ✅ Migrate official-related screens and components
   - ✅ Create official services with optimized data access and prepared statements
   - ✅ Create official hooks using Tanstack Query with optimistic updates
-  - ⬜ Update ManageOfficials screen to use the new pattern
+  - ✅ Update ManageOfficials screen to use the new pattern
 - ✅ Migrate referee module
   - ✅ Create referee services with optimized data access and prepared statements
   - ✅ Create referee hooks using Tanstack Query with optimistic updates
@@ -320,7 +320,7 @@ We are also enhancing our use of Drizzle ORM with the following features:
 ## Next Steps
 
 1. Update UI screens to use new hooks and services pattern:
-   - Update ManageOfficials screen to use useOfficials hooks
+   - ✅ Update ManageOfficials screen to use useOfficials hooks
    - Update RefereeModule screen to use useReferees hooks
    - Update DEBracketPage to use useDEBouts hooks
    - Create example screens for testing the new functionality

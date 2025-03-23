@@ -8,20 +8,30 @@ import {
   Modal,
   TextInput,
   Alert,
-  ScrollView
+  ScrollView,
+  ActivityIndicator
 } from 'react-native';
 import { RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { RootStackParamList, Official } from '../navigation/types';
+import { Official } from '../../../core/types';
 import { 
-  useOfficials, 
-  useReferees, 
-  useAddOfficial, 
-  useAddReferee,
-  useRemoveOfficial,
-  useRemoveReferee 
-} from '../../data/TournamentDataHooks';
-import { getDeviceId } from '../../networking/NetworkUtils';
+  useGetOfficialsByEvent,
+  useCreateOfficial,
+  useAssignOfficialToEvent,
+  useRemoveOfficialFromEvent,
+  useLiveOfficialsByEvent
+} from '../hooks/useOfficials';
+import { getDeviceId } from '../../../infrastructure/networking/utils';
+import { useNetworkStatus } from '../../../infrastructure/networking';
+
+// These would be defined in your navigation types
+interface RootStackParamList {
+  ManageOfficials: {
+    eventId: number;
+    eventName: string;
+    isRemote?: boolean;
+  };
+}
 
 interface ManageOfficialsProps {
   navigation: NativeStackNavigationProp<RootStackParamList, 'ManageOfficials'>;
@@ -29,31 +39,27 @@ interface ManageOfficialsProps {
 }
 
 const ManageOfficials: React.FC<ManageOfficialsProps> = ({ route, navigation }) => {
-  const { tournamentName, isRemote } = route.params;
+  const { eventId, eventName, isRemote = false } = route.params;
+  const networkStatus = useNetworkStatus();
   
-  // Use TanStack Query hooks for data fetching
+  // Use our new live query hook for officials by event
   const { 
     data: officials = [], 
-    isLoading: officialsLoading 
-  } = useOfficials(tournamentName);
+    isLoading: officialsLoading,
+    error: officialsError
+  } = useLiveOfficialsByEvent(eventId);
   
-  const { 
-    data: referees = [], 
-    isLoading: refereesLoading 
-  } = useReferees(tournamentName);
-  
-  // Mutations for adding and removing officials and referees
-  const addOfficialMutation = useAddOfficial();
-  const addRefereeMutation = useAddReferee();
-  const removeOfficialMutation = useRemoveOfficial();
-  const removeRefereeMutation = useRemoveReferee();
+  // Mutation hooks for creating and managing officials
+  const createOfficialMutation = useCreateOfficial();
+  const assignOfficialMutation = useAssignOfficialToEvent();
+  const removeOfficialMutation = useRemoveOfficialFromEvent();
   
   // State for add person modal
   const [modalVisible, setModalVisible] = useState(false);
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
+  const [nickName, setNickName] = useState('');
   const [deviceId, setDeviceId] = useState('');
-  const [isAddingReferee, setIsAddingReferee] = useState(true);
   const [currentDeviceId, setCurrentDeviceId] = useState<string | null>(null);
 
   // Get current device ID
@@ -71,74 +77,44 @@ const ManageOfficials: React.FC<ManageOfficialsProps> = ({ route, navigation }) 
     fetchDeviceId();
   }, []);
 
-  const handleAddPerson = () => {
+  const handleAddOfficial = async () => {
     if (!firstName.trim()) {
       Alert.alert('Error', 'First name is required');
       return;
     }
 
-    // Validate device ID if provided
-    if (deviceId && deviceId.length !== 5) {
-      Alert.alert('Error', 'Device ID must be exactly 5 characters');
-      return;
-    }
-
-    if (isAddingReferee) {
-      addReferee();
-    } else {
-      addOfficial();
-    }
-  };
-
-  const addReferee = async () => {
     try {
-      const newReferee: Official = {
+      // First create the official
+      const newOfficial = await createOfficialMutation.mutateAsync({
         fname: firstName,
-        lname: lastName,
-        device_id: deviceId || ""
-      };
-      
-      // Use the mutation to add referee
-      await addRefereeMutation.mutateAsync({
-        referee: newReferee,
-        tournamentName
+        lname: lastName || '',
+        nickname: nickName || undefined,
+        deviceId: deviceId || undefined
       });
       
-      setModalVisible(false);
-      resetFormFields();
-    } catch (error) {
-      console.error('Error adding referee:', error);
-      Alert.alert('Error', 'Failed to add referee');
-    }
-  };
-
-  const addOfficial = async () => {
-    try {
-      const newOfficial: Official = {
-        fname: firstName,
-        lname: lastName,
-        device_id: deviceId || null
-      };
-      
-      // Use the mutation to add official
-      await addOfficialMutation.mutateAsync({
-        official: newOfficial,
-        tournamentName
+      // Then assign them to the event
+      await assignOfficialMutation.mutateAsync({
+        officialId: newOfficial.id,
+        eventId
       });
       
+      // Close modal and reset form
       setModalVisible(false);
       resetFormFields();
+      
+      // Show success message
+      Alert.alert('Success', `${firstName} ${lastName} has been added as an official`);
     } catch (error) {
-      console.error('Error adding tournament official:', error);
-      Alert.alert('Error', 'Failed to add tournament official');
+      console.error('Error adding official:', error);
+      Alert.alert('Error', 'Failed to add official');
     }
   };
 
   const resetFormFields = () => {
     setFirstName('');
     setLastName('');
+    setNickName('');
     setDeviceId('');
-    setIsAddingReferee(true);
   };
 
   const copyDeviceId = () => {
@@ -148,14 +124,9 @@ const ManageOfficials: React.FC<ManageOfficialsProps> = ({ route, navigation }) 
   };
 
   const handleRemoveOfficial = (official: Official) => {
-    if (!official.id) {
-      Alert.alert('Error', 'Official ID not found');
-      return;
-    }
-
     Alert.alert(
       'Confirm Removal',
-      `Are you sure you want to remove ${official.fname} ${official.lname} from tournament officials?`,
+      `Are you sure you want to remove ${official.fname} ${official.lname || ''} from this event?`,
       [
         { text: 'Cancel', style: 'cancel' },
         { 
@@ -164,8 +135,8 @@ const ManageOfficials: React.FC<ManageOfficialsProps> = ({ route, navigation }) 
           onPress: async () => {
             try {
               await removeOfficialMutation.mutateAsync({
-                officialId: official.id!,
-                tournamentName
+                officialId: official.id,
+                eventId
               });
             } catch (error) {
               console.error('Error removing official:', error);
@@ -177,61 +148,16 @@ const ManageOfficials: React.FC<ManageOfficialsProps> = ({ route, navigation }) 
     );
   };
 
-  const handleRemoveReferee = (referee: Official) => {
-    if (!referee.id) {
-      Alert.alert('Error', 'Referee ID not found');
-      return;
-    }
-
-    Alert.alert(
-      'Confirm Removal',
-      `Are you sure you want to remove ${referee.fname} ${referee.lname} from referees?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Remove', 
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await removeRefereeMutation.mutateAsync({
-                refereeId: referee.id!,
-                tournamentName
-              });
-            } catch (error) {
-              console.error('Error removing referee:', error);
-              Alert.alert('Error', 'Failed to remove referee');
-            }
-          }
-        }
-      ]
-    );
-  };
-
-  const renderRefereeItem = ({ item }: { item: Official }) => (
-    <View style={styles.listItem}>
-      <View style={styles.personInfo}>
-        <Text style={styles.name}>{item.fname} {item.lname}</Text>
-        <Text style={styles.deviceId}>Device ID: {item.device_id || 'Not set'}</Text>
-      </View>
-      {!isRemote && (
-        <TouchableOpacity
-          style={styles.removeButton}
-          onPress={() => handleRemoveReferee(item)}
-          disabled={removeRefereeMutation.isPending}
-        >
-          <Text style={styles.removeButtonText}>✕</Text>
-        </TouchableOpacity>
-      )}
-    </View>
-  );
-
   const renderOfficialItem = ({ item }: { item: Official }) => (
     <View style={styles.listItem}>
       <View style={styles.personInfo}>
         <Text style={styles.name}>{item.fname} {item.lname}</Text>
-        <Text style={styles.deviceId}>Device ID: {item.device_id || 'Not set'}</Text>
+        {item.nickname && (
+          <Text style={styles.nickname}>"{item.nickname}"</Text>
+        )}
+        <Text style={styles.deviceId}>Device ID: {item.deviceId || 'Not set'}</Text>
       </View>
-      {!isRemote && (
+      {!isRemote && !networkStatus.isConnected && (
         <TouchableOpacity
           style={styles.removeButton}
           onPress={() => handleRemoveOfficial(item)}
@@ -243,30 +169,24 @@ const ManageOfficials: React.FC<ManageOfficialsProps> = ({ route, navigation }) 
     </View>
   );
 
-  const isLoading = officialsLoading || refereesLoading;
-
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Manage Officials - {tournamentName}</Text>
+      <Text style={styles.title}>Officials - {eventName}</Text>
+      
+      {/* Network status warning */}
+      {!networkStatus.isConnected && (
+        <View style={styles.offlineWarning}>
+          <Text style={styles.offlineWarningText}>
+            You are currently offline. Changes will sync when you're back online.
+          </Text>
+        </View>
+      )}
       
       {!isRemote && (
         <View style={styles.actionButtons}>
           <TouchableOpacity 
             style={styles.addButton}
-            onPress={() => {
-              setIsAddingReferee(true);
-              setModalVisible(true);
-            }}
-          >
-            <Text style={styles.buttonText}>Add Referee</Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity 
-            style={[styles.addButton, { backgroundColor: '#4CAF50' }]}
-            onPress={() => {
-              setIsAddingReferee(false);
-              setModalVisible(true);
-            }}
+            onPress={() => setModalVisible(true)}
           >
             <Text style={styles.buttonText}>Add Official</Text>
           </TouchableOpacity>
@@ -275,34 +195,25 @@ const ManageOfficials: React.FC<ManageOfficialsProps> = ({ route, navigation }) 
       
       <ScrollView style={styles.scrollView}>
         <View style={styles.section}>
-          <Text style={styles.sectionHeader}>Referees</Text>
-          {isLoading ? (
-            <Text style={styles.loadingText}>Loading referees...</Text>
-          ) : referees.length > 0 ? (
-            <FlatList
-              data={referees}
-              renderItem={renderRefereeItem}
-              keyExtractor={(item) => item.id?.toString() || Math.random().toString()}
-              scrollEnabled={false}
-            />
-          ) : (
-            <Text style={styles.emptyText}>No referees assigned</Text>
-          )}
-        </View>
-        
-        <View style={styles.section}>
-          <Text style={styles.sectionHeader}>Tournament Officials</Text>
-          {isLoading ? (
-            <Text style={styles.loadingText}>Loading officials...</Text>
+          <Text style={styles.sectionHeader}>Event Officials</Text>
+          {officialsLoading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color="#001f3f" />
+              <Text style={styles.loadingText}>Loading officials...</Text>
+            </View>
+          ) : officialsError ? (
+            <Text style={styles.errorText}>
+              Error loading officials: {officialsError.message}
+            </Text>
           ) : officials.length > 0 ? (
             <FlatList
               data={officials}
               renderItem={renderOfficialItem}
-              keyExtractor={(item) => item.id?.toString() || Math.random().toString()}
+              keyExtractor={(item) => item.id.toString()}
               scrollEnabled={false}
             />
           ) : (
-            <Text style={styles.emptyText}>No tournament officials assigned</Text>
+            <Text style={styles.emptyText}>No officials assigned to this event</Text>
           )}
         </View>
         
@@ -310,12 +221,12 @@ const ManageOfficials: React.FC<ManageOfficialsProps> = ({ route, navigation }) 
           <Text style={styles.deviceInfoHeader}>This Device</Text>
           <Text style={styles.deviceInfoText}>Device ID: {currentDeviceId || 'Loading...'}</Text>
           <Text style={styles.helpText}>
-            When adding officials or referees, you can assign a device ID to allow automatic role assignment when joining from that device.
+            When adding officials, you can assign a device ID to allow automatic role assignment when joining from that device.
           </Text>
         </View>
       </ScrollView>
       
-      {/* Add Person Modal */}
+      {/* Add Official Modal */}
       <Modal
         visible={modalVisible}
         animationType="slide"
@@ -325,7 +236,7 @@ const ManageOfficials: React.FC<ManageOfficialsProps> = ({ route, navigation }) 
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>
-              {isAddingReferee ? 'Add Referee' : 'Add Tournament Official'}
+              Add Event Official
             </Text>
             
             <TextInput
@@ -340,6 +251,13 @@ const ManageOfficials: React.FC<ManageOfficialsProps> = ({ route, navigation }) 
               placeholder="Last Name"
               value={lastName}
               onChangeText={setLastName}
+            />
+            
+            <TextInput
+              style={styles.input}
+              placeholder="Nickname"
+              value={nickName}
+              onChangeText={setNickName}
             />
             
             <View style={styles.deviceIdInputContainer}>
@@ -368,11 +286,11 @@ const ManageOfficials: React.FC<ManageOfficialsProps> = ({ route, navigation }) 
             <View style={styles.modalActions}>
               <TouchableOpacity
                 style={styles.modalActionButton}
-                onPress={handleAddPerson}
-                disabled={addOfficialMutation.isPending || addRefereeMutation.isPending}
+                onPress={handleAddOfficial}
+                disabled={createOfficialMutation.isPending || assignOfficialMutation.isPending}
               >
                 <Text style={styles.modalActionText}>
-                  {(addOfficialMutation.isPending || addRefereeMutation.isPending) ? 'Adding...' : 'Add'}
+                  {(createOfficialMutation.isPending || assignOfficialMutation.isPending) ? 'Adding...' : 'Add'}
                 </Text>
               </TouchableOpacity>
               
@@ -382,7 +300,7 @@ const ManageOfficials: React.FC<ManageOfficialsProps> = ({ route, navigation }) 
                   setModalVisible(false);
                   resetFormFields();
                 }}
-                disabled={addOfficialMutation.isPending || addRefereeMutation.isPending}
+                disabled={createOfficialMutation.isPending || assignOfficialMutation.isPending}
               >
                 <Text style={styles.modalActionText}>Cancel</Text>
               </TouchableOpacity>
@@ -436,6 +354,11 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '500',
   },
+  nickname: {
+    fontSize: 14,
+    fontStyle: 'italic',
+    color: '#555',
+  },
   deviceId: {
     fontSize: 12,
     color: '#666',
@@ -447,8 +370,17 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     padding: 20,
   },
+  loadingContainer: {
+    padding: 20,
+    alignItems: 'center',
+  },
   loadingText: {
     color: '#666',
+    textAlign: 'center',
+    marginTop: 10,
+  },
+  errorText: {
+    color: 'red',
     textAlign: 'center',
     padding: 20,
   },
@@ -577,6 +509,18 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  offlineWarning: {
+    backgroundColor: '#FFF3CD',
+    padding: 10,
+    borderRadius: 6,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#FFEEBA',
+  },
+  offlineWarningText: {
+    color: '#856404',
+    textAlign: 'center',
   },
 });
 
