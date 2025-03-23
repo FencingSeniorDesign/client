@@ -50,10 +50,21 @@ The migration involves moving from a technology-centric structure to a domain-ba
   - ✅ Create pool hooks layer using Tanstack Query with the service functions
   - ✅ Update PoolsPage to use the new service + hooks approach
   - ✅ Update BoutOrderPage to use the pool bout service + hooks
-  - ⬜ Update DE bracket pages to use the service + hooks approach
+  - ✅ Create round services with prepared statements and optimized queries
+  - ✅ Create round hooks layer with live queries and optimistic updates
+  - ✅ Create example RoundManagement screen using the new pattern
+  - ✅ Create DE bout service with optimized data access and prepared statements
+  - ✅ Create DE bout hooks with live queries and optimistic updates
+  - ✅ Create optimized DEBracketPage using the new pattern
   - ⬜ Test round creation and management
-- ⬜ Migrate official-related screens and components
-- ⬜ Migrate referee module
+- ✅ Migrate official-related screens and components
+  - ✅ Create official services with optimized data access and prepared statements
+  - ✅ Create official hooks using Tanstack Query with optimistic updates
+  - ⬜ Update ManageOfficials screen to use the new pattern
+- ✅ Migrate referee module
+  - ✅ Create referee services with optimized data access and prepared statements
+  - ✅ Create referee hooks using Tanstack Query with optimistic updates
+  - ⬜ Update RefereeModule screen to use the new pattern
 - ⬜ Migrate networking infrastructure fully
 - ⬜ Update all imports to use new structure
 - ⬜ Add unit tests for domain-specific functionality
@@ -77,16 +88,21 @@ src/
       base-repository.ts      # Base repository implementation (legacy)
       live-query.ts           # Live query hooks for real-time updates
       migrations/             # Database migration files
+      persist.ts              # New: Database persistence configuration
+      advanced/               # New: Advanced Drizzle ORM features
     
     query/
       provider.tsx            # Tanstack Query provider setup
       utils.ts                # Query utilities
+      persist.ts              # New: Query client persistence configuration
+      advanced.ts             # New: Advanced query features and utilities
     
     networking/
       client.ts               # Base API client setup
       server.ts               # Server implementation
       types.ts                # Common network types
       components/             # Shared networking components
+      status.ts               # New: Network status management
   
   features/                   # Feature modules
     tournaments/              # Tournament management
@@ -158,35 +174,181 @@ This approach provides several benefits:
 - Easier testing of pure service functions
 - Simpler mental model for developers
 
+## Tanstack Query Advanced Features
+
+We are implementing the following Tanstack Query features to enhance our application:
+
+1. **Query Invalidation Strategies**
+   - ✅ Implement precise cache updates after mutations
+   - ✅ Set up cascade invalidation for related data
+   - ✅ Configure targeted refetching to minimize network requests
+
+2. **Optimistic Updates**
+   - ✅ Add optimistic UI updates for scoring
+   - ✅ Implement rollback for failed mutations
+   - ✅ Create optimistic update patterns for common operations
+
+3. **Background Fetching with Silent UI**
+   - ✅ Configure stale-while-revalidate pattern
+   - ✅ Set up silent background refetching
+   - ✅ Implement unobtrusive data refresh strategies
+
+4. **Persistent Storage**
+   - ⬜ Set up AsyncStorage persister
+   - ⬜ Configure persistent query client
+   - ⬜ Implement persistence for offline support
+
+5. **Hydration and Dehydration**
+   - ⬜ Create hydration utilities for state transfer
+   - ⬜ Set up dehydration for efficient storage
+   - ⬜ Configure preloaded state handling
+
+6. **Query Data Transformations with select**
+   - ⬜ Add data transformation to query hooks
+   - ⬜ Implement memoization for transformed results
+   - ⬜ Create reusable selector patterns
+
+7. **Network Status Management Integration**
+   - ⬜ Connect network status to query behavior
+   - ⬜ Configure automatic query pausing when offline
+   - ⬜ Set up intelligent refetching on reconnect
+
+8. **Dependent Queries**
+   - ⬜ Implement sequential data loading for related entities
+   - ⬜ Configure conditional query execution
+   - ⬜ Create cascading data fetch patterns
+
+9. **Parallel Queries with useQueries**
+   - ⬜ Set up batch data fetching
+   - ⬜ Implement combined loading states
+   - ⬜ Create hooks for related data fetching
+
+10. **Query Cancelation**
+    - ⬜ Add abort signal support to services
+    - ⬜ Implement automatic query cancelation on navigation
+    - ⬜ Configure timeout-based cancelation
+
+11. **App State and Focus Management**
+    - ⬜ Connect app state to query refetching
+    - ⬜ Implement focus-based data refresh
+    - ⬜ Configure background behavior for queries
+
+12. **Enhanced TypeScript Type Safety**
+    - ⬜ Create typed query key factories
+    - ⬜ Implement typed error handling
+    - ⬜ Set up type-safe query results
+
+13. **Screen-Specific Query Control**
+    - ⬜ Add navigation-aware query refreshing
+    - ⬜ Implement screen focus detection
+    - ⬜ Configure query behavior based on screen visibility
+
+14. **Query Suspense Mode**
+    - ⬜ Set up suspense-enabled queries
+    - ⬜ Create fallback UI components
+    - ⬜ Implement coordinated loading states
+
+15. **Infinite Queries for Larger Datasets**
+    - ⬜ Configure pagination for large lists
+    - ⬜ Implement cursor-based infinite loading
+    - ⬜ Create load-more UI patterns
+
+## Drizzle ORM Advanced Features
+
+We are also enhancing our use of Drizzle ORM with the following features:
+
+1. **Optimized Query Building**
+   - ✅ Replace raw SQL with Drizzle query builder
+   - ✅ Implement join optimization strategies
+   - ✅ Create reusable query patterns
+
+2. **Transaction Support**
+   - ✅ Implement atomic operations with transactions
+   - ✅ Set up rollback handling for complex mutations
+   - ✅ Create transaction wrappers for multi-step operations
+
+3. **Prepared Statements**
+   - ✅ Use prepared statements for common queries
+   - ✅ Implement parameterized queries for security
+   - ✅ Create prepared query utilities
+
+4. **Relational Query Enhancements**
+   - ✅ Improve joins with table aliases
+   - ✅ Implement relation-based querying using Drizzle's relations API
+   - ✅ Create utilities for working with relations
+
+5. **Advanced Filtering**
+   - ✅ Implement complex filter conditions
+   - ✅ Create query composers for dynamic filters
+   - ✅ Set up filter utilities for common patterns
+
+6. **Bulk Operations**
+   - ✅ Optimize batch inserts and updates
+   - ✅ Implement efficient batch operations in repositories
+   - ✅ Create utilities for working with data sets
+
+7. **Custom Migrations**
+   - ⬜ Set up versioned schema migrations
+   - ⬜ Replace auto-create tables with proper migration system
+   - ⬜ Create utilities for managing migrations
+
+8. **Query Performance Profiling**
+   - ⬜ Add query execution timing
+   - ⬜ Set up performance logging
+   - ⬜ Create utilities for identifying slow queries
+
+9. **Indexing Strategy**
+   - ⬜ Add strategic indexes on frequently queried fields
+   - ⬜ Implement composite indexes for query patterns
+   - ⬜ Monitor and tune index performance
+
+10. **SQL Views**
+   - ⬜ Create SQL views for common complex queries
+   - ⬜ Implement views for reporting and analytics
+   - ⬜ Use views for read-optimization
+
+11. **COUNT Optimization**
+   - ✅ Fix and optimize COUNT queries
+   - ✅ Implement efficient counting strategies
+   - ⬜ Add pagination with proper count methods
+
+12. **Live Query Efficiency**
+   - ✅ Improve live query configuration
+   - ✅ Optimize change detection sensitivity
+   - ✅ Implement targeted refreshing for live queries
+
 ## Next Steps
 
-1. Complete migration of tournament screens and components:
-   - Test tournament creation, deletion, and list refreshing
-   - Fix any remaining issues with the tournament components
+1. Implement the highest priority Tanstack Query features:
+   - Query Invalidation Strategies
+   - Optimistic Updates
+   - Background Fetching with Silent UI
+   - Persistent Storage
 
-2. Complete tests for event-related screens:
-   - Test EventManagement and EventSettings with live data
-   - Verify that fencer search, add, and remove functionality works correctly
-   - Test round creation and configuration with various tournament sizes
-   - Ensure all DB operations are atomic and properly cached
+2. Enhance Drizzle ORM usage:
+   - Replace remaining raw SQL with the query builder
+   - Implement transactions for multi-step operations
+   - Optimize joins and relations
+   - Add strategic indexes on frequently queried fields
+   - Create SQL views for common complex queries
+   - Implement proper database migrations
+   - Use prepared statements for common operations
+   - Fix COUNT queries implementation
+   - Add batch operations support
 
-3. ✅ Create a reusable fencer selection component:
-   - ✅ Extract fencer selection functionality from EventSettings into a reusable component
-   - ✅ Add search functionality and improved UI for large fencer lists
-   - ✅ Support multiple selection modes with configuration options
-
-4. Continue migrating round-related screens and components:
+3. Continue migrating round-related screens and components:
    - ✅ Create pool services and hooks
    - ✅ Update PoolsPage to use the new service + hooks approach
    - ✅ Update BoutOrderPage to use the pool bout service + hooks
    - ⬜ Update DE bracket pages to use the service + hooks approach
    - ⬜ Test round creation and management
 
-5. Complete the referee module:
+4. Complete the referee module:
    - Migrate to the service + hooks approach
-   - Finish implementing the bout scoring with real-time updates
+   - Implement the advanced query features for real-time updates
    - Test the live updates on multiple devices
 
-6. Testing:
-   - Test database operations with Drizzle ORM
-   - Validate that live queries are properly updating the UI
+5. Testing:
+   - Test database operations with enhanced Drizzle ORM features
+   - Validate that Tanstack Query features are working correctly
+   - Test offline functionality with persistent storage
