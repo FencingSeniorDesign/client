@@ -18,3 +18,32 @@ export {
   clearPersistedQueries,
   createPersister
 } from './persist';
+
+// Export hydration utilities
+export { 
+  saveQueryState,
+  loadQueryState,
+  saveQuerySubset,
+  loadQuerySubset,
+  saveDomainState,
+  loadDomainState,
+  clearSavedQueryState,
+  hydrationUtils
+} from './hydration';
+
+// Export transformation utilities
+export {
+  createSelector,
+  useTransformedQuery,
+  createPickSelector,
+  createArraySelector,
+  createFilterSelector,
+  createSortSelector,
+  createFindSelector,
+  createGroupSelector,
+  createPipeSelector,
+  useCombinedQueries,
+  useDerivedQueryState,
+  transformUtils,
+  type Selector
+} from './transform';
