@@ -1,4 +1,4 @@
-// src/navigation/screens/DEBracketPage.tsx
+// src/features/rounds/de/screens/DEBracketPage.tsx
 import React, { useState, useEffect } from 'react';
 import {
     View,
@@ -11,16 +11,10 @@ import {
 } from 'react-native';
 import { useRoute, RouteProp, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { RootStackParamList, Event, Fencer, Round } from '../navigation/types';
-import {
-    dbGetDEBouts,
-    dbGetRoundsForEvent,
-    dbUpdateBoutScores,
-    dbUpdateDEBoutAndAdvanceWinner,
-    dbGetDETableSize,
-    dbIsDERoundComplete, // Add this import
-
-} from '../../db/TournamentDatabaseUtils';
+import { RootStackParamList } from '../../../../navigation/types';
+import { Event, Fencer, Round } from '../../../../core/types';
+import { useDEBouts } from '../hooks/useDEBouts';
+import { useRoundQueries } from '../../hooks/useRoundQueries';
 
 type DEBracketPageParams = {
     event: Event;
@@ -68,56 +62,61 @@ const DEBracketPage: React.FC = () => {
     const [isRoundComplete, setIsRoundComplete] = useState<boolean>(false); // Add this state
     const [isFinalRound, setIsFinalRound] = useState<boolean>(false); // Add this state
 
+    // Use hooks for data fetching
+    const { data: rounds, isLoading: isRoundsLoading } = useRoundQueries.useGetRoundsForEvent(event.id);
+    const { data: deBouts, isLoading: isDeboutsLoading } = useDEBouts.useGetDEBouts(roundId);
+    const { data: roundInfo } = useRoundQueries.useGetRound(roundId);
+    
     useEffect(() => {
-        async function fetchRoundAndBracket() {
+        async function processData() {
             try {
-                setLoading(true);
-
-                // 1. Get the current round
-                const rounds = await dbGetRoundsForEvent(event.id);
+                // Only proceed when we have the data
+                if (!rounds || !deBouts || !roundInfo) return;
+                
                 const currentRound = rounds.find(r => r.id === roundId);
-
+                
                 if (!currentRound) {
                     throw new Error('Round not found');
                 }
-
+                
                 setRound(currentRound);
-
+                
                 // Check if this is the final round
                 setIsFinalRound(currentRoundIndex === rounds.length - 1);
-
+                
                 if (currentRound.type !== 'de') {
                     Alert.alert('Error', 'This is not a DE round.');
                     navigation.goBack();
                     return;
                 }
-
+                
                 // Set bracket format based on round data
                 setBracketFormat(currentRound.deformat as 'single' | 'double' | 'compass');
-
-                // 2. Get the DE table size
+                
+                // Get the DE table size
                 const tableSize = currentRound.detablesize || 0;
-
-                // 3. Get all bouts for this round
-                const bouts = await dbGetDEBouts(roundId);
-
-                // 4. Check if the round is complete
-                const roundComplete = await dbIsDERoundComplete(roundId);
-                setIsRoundComplete(roundComplete);
-
-                // 5. Organize bouts into bracket rounds
-                const processedBracket = processBoutsIntoBracket(bouts, tableSize);
+                
+                // Check if the round is complete
+                setIsRoundComplete(roundInfo.isComplete || false);
+                
+                // Organize bouts into bracket rounds
+                const processedBracket = processBoutsIntoBracket(deBouts, tableSize);
                 setBracketData(processedBracket);
             } catch (error) {
-                console.error('Error loading DE bracket:', error);
-                Alert.alert('Error', 'Failed to load the bracket.');
+                console.error('Error processing DE bracket data:', error);
+                Alert.alert('Error', 'Failed to process the bracket data.');
             } finally {
                 setLoading(false);
             }
         }
-
-        fetchRoundAndBracket();
-    }, [event, currentRoundIndex, roundId, refreshKey]);
+        
+        // Set loading state based on query states
+        setLoading(isRoundsLoading || isDeboutsLoading);
+        
+        if (!isRoundsLoading && !isDeboutsLoading) {
+            processData();
+        }
+    }, [rounds, deBouts, roundInfo, event, currentRoundIndex, roundId, refreshKey, isRoundsLoading, isDeboutsLoading]);
 
     const processBoutsIntoBracket = (bouts: any[], tableSize: number): DEBracketData => {
         // Calculate number of rounds based on table size
@@ -180,6 +179,9 @@ const DEBracketPage: React.FC = () => {
         return { rounds };
     };
 
+    // Get the mutation function from the hook
+    const updateDEBoutMutation = useDEBouts.useUpdateDEBout();
+    
     const handleBoutPress = (bout: DEBout) => {
         // Skip if it's a BYE
         if (bout.isBye) {
@@ -202,14 +204,14 @@ const DEBracketPage: React.FC = () => {
             currentScore2: bout.scoreB || 0,
             onSaveScores: async (score1: number, score2: number) => {
                 try {
-                    // Update bout scores and advance winner
-                    await dbUpdateDEBoutAndAdvanceWinner(
-                        bout.id,
-                        score1,
-                        score2,
-                        bout.fencerA.id!,
-                        bout.fencerB.id!
-                    );
+                    // Update bout scores using the mutation hook
+                    await updateDEBoutMutation.mutateAsync({
+                        boutId: bout.id,
+                        scoreA: score1,
+                        scoreB: score2,
+                        fencerAId: bout.fencerA.id!,
+                        fencerBId: bout.fencerB.id!
+                    });
 
                     // Refresh to show updated scores and advancement
                     setRefreshKey(prev => prev + 1);

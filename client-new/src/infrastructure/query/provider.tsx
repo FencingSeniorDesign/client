@@ -1,6 +1,6 @@
 import React from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
+// Remove DevTools import to fix bundling
 import { PersistentQueryProvider } from './persist';
 import { configureSilentUpdates, setQueryClient } from './advanced';
 
@@ -64,7 +64,7 @@ export const QueryProvider: React.FC<QueryProviderProps> = ({
   return (
     <QueryClientProvider client={queryClient}>
       {children}
-      {enableDevtools && <ReactQueryDevtools initialIsOpen={false} />}
+      {/* Removed DevTools to fix bundling */}
     </QueryClientProvider>
   );
 };

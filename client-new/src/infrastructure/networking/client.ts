@@ -65,8 +65,8 @@ class TournamentClient extends EventEmitter {
                     this.socket = TcpSocket.createConnection(options, async () => {
                         console.log(`Connected to server at ${hostIp}:${port}`);
 
-                        // Import the function to get the device ID
-                        const { getDeviceId, getClientId } = require('./NetworkUtils');
+                        // Use the functions imported at the top of the file 
+                        // (getDeviceId and getClientId are already imported from './utils')
                         const deviceId = await getDeviceId();
                         const clientId = await getClientId();
 
@@ -713,39 +713,7 @@ class TournamentClient extends EventEmitter {
 // Create singleton instance
 const tournamentClient = new TournamentClient();
 
-// Hook to use network connection status
-import { useState, useEffect } from 'react';
-
-export const useNetworkStatus = () => {
-  const [isConnected, setIsConnected] = useState(tournamentClient.isConnected());
-  
-  useEffect(() => {
-    const handleConnected = () => {
-      setIsConnected(true);
-    };
-    
-    const handleDisconnected = () => {
-      setIsConnected(false);
-    };
-    
-    // Subscribe to connection status changes
-    tournamentClient.on('connected', handleConnected);
-    tournamentClient.on('disconnected', handleDisconnected);
-    
-    // Initial check
-    setIsConnected(tournamentClient.isConnected());
-    
-    // Cleanup
-    return () => {
-      tournamentClient.removeListener('connected', handleConnected);
-      tournamentClient.removeListener('disconnected', handleDisconnected);
-    };
-  }, []);
-  
-  return {
-    isConnected,
-    client: tournamentClient
-  };
-};
+// Re-export the network status hook from status.ts
+export { useNetworkStatus } from './status';
 
 export default tournamentClient;

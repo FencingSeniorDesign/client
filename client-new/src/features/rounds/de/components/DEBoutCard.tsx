@@ -1,7 +1,7 @@
-// src/navigation/components/DEBoutCard.tsx
+// src/features/rounds/de/components/DEBoutCard.tsx
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { Fencer } from '../navigation/types';
+import { Fencer } from '../../../../core/types';
 
 interface DEBoutCardProps {
     id: number;

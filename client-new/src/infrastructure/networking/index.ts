@@ -41,3 +41,4 @@ export {
 
 // Re-export components
 export { default as ConnectionStatusBar } from './components/ConnectionStatusBar';
+export { default as NetworkStatusBar } from './components/NetworkStatusBar';

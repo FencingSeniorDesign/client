@@ -1,37 +1,48 @@
 /**
  * Round query hooks
  * React Query hooks for round data with live query support
+ * Migrated to use service functions instead of repository pattern
  */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Round, RoundType, PoolsOption, DEFormat } from '../../../core/types';
+import { Round, RoundType, PoolsOption, DEFormat, Event } from '../../../core/types';
 import { createQueryKeys } from '../../../infrastructure/query/utils';
-import roundRepository, { RoundInsert } from '../repository';
-import { useRoundRepository } from './useRoundRepository';
+import * as roundService from '../services/roundService';
+import { RoundInsert, BatchRoundUpdate } from '../services/roundService';
+import { useLiveQuery } from '../../../infrastructure/database/live-query';
+import { rounds } from '../../../infrastructure/database/schema';
+import db from '../../../infrastructure/database/client';
+import { eq, and } from 'drizzle-orm';
 
 // Query key factory for rounds
 export const roundKeys = createQueryKeys('rounds');
 
 /**
  * Hook for round queries and mutations
+ * Uses the service pattern with pure functions instead of repositories
  */
 export const useRoundQueries = () => {
   const queryClient = useQueryClient();
-  const roundRepo = useRoundRepository();
 
   /**
    * Query for getting all rounds
+   * Uses the direct service function instead of repository
    */
   const useGetAll = () => {
     return useQuery({
       queryKey: roundKeys.lists(),
-      queryFn: async () => {
-        const result = await roundRepo.getAll();
-        if (!result.success) {
-          throw new Error(result.error);
-        }
-        return result.rounds;
-      },
+      queryFn: () => roundService.getAllRounds(),
     });
+  };
+  
+  /**
+   * Live query for getting all rounds with real-time updates
+   */
+  const useLiveAllRounds = () => {
+    return useLiveQuery(
+      db.select().from(rounds),
+      [],
+      { refetchInterval: false }
+    );
   };
 
   /**
@@ -44,16 +55,56 @@ export const useRoundQueries = () => {
         if (!id) {
           throw new Error('Round ID is required');
         }
-        const result = await roundRepo.getById(id);
-        if (!result.success) {
-          throw new Error(result.error);
+        const round = await roundService.getRoundById(id);
+        if (!round) {
+          throw new Error(`Round with ID ${id} not found`);
         }
-        return result.round;
+        return round;
       },
       enabled: !!id,
     });
   };
+  
+  /**
+   * Live query for getting a round by ID with real-time updates
+   */
+  const useLiveRoundById = (id: number | undefined) => {
+    return useLiveQuery(
+      id ? db.select().from(rounds).where(eq(rounds.id, id)) : null,
+      [id],
+      { enabled: !!id }
+    );
+  };
+  
+  /**
+   * Alias for useGetById to match old API
+   */
+  const useGetRound = useGetById;
 
+  /**
+   * Query for getting an event by ID using service pattern
+   */
+  const useGetEventById = (eventId: number | undefined) => {
+    return useQuery({
+      queryKey: ['events', 'detail', eventId],
+      queryFn: async () => {
+        if (!eventId) {
+          throw new Error('Event ID is required');
+        }
+        // This would typically call the event service
+        // Import from the events service directly
+        const event = await import('../../events/services/eventService')
+          .then(module => module.getEventById(eventId));
+        
+        if (!event) {
+          throw new Error(`Event with ID ${eventId} not found`);
+        }
+        return event;
+      },
+      enabled: !!eventId,
+    });
+  };
+  
   /**
    * Query for getting rounds by event ID
    */
@@ -64,14 +115,21 @@ export const useRoundQueries = () => {
         if (!eventId) {
           throw new Error('Event ID is required');
         }
-        const result = await roundRepo.getByEventId(eventId);
-        if (!result.success) {
-          throw new Error(result.error);
-        }
-        return result.rounds;
+        return roundService.getRoundsByEventId(eventId);
       },
       enabled: !!eventId,
     });
+  };
+  
+  /**
+   * Live query for getting rounds by event ID with real-time updates
+   */
+  const useLiveRoundsByEventId = (eventId: number | undefined) => {
+    return useLiveQuery(
+      eventId ? db.select().from(rounds).where(eq(rounds.eventId, eventId)) : null,
+      [eventId],
+      { enabled: !!eventId }
+    );
   };
 
   /**
@@ -87,14 +145,27 @@ export const useRoundQueries = () => {
         if (!type) {
           throw new Error('Round type is required');
         }
-        const result = await roundRepo.getByEventIdAndType(eventId, type);
-        if (!result.success) {
-          throw new Error(result.error);
-        }
-        return result.rounds;
+        return roundService.getRoundsByEventIdAndType(eventId, type);
       },
       enabled: !!eventId && !!type,
     });
+  };
+  
+  /**
+   * Live query for getting rounds by event ID and type with real-time updates
+   */
+  const useLiveRoundsByEventIdAndType = (eventId: number | undefined, type: RoundType | undefined) => {
+    return useLiveQuery(
+      eventId && type ? 
+        db.select().from(rounds).where(
+          and(
+            eq(rounds.eventId, eventId),
+            eq(rounds.type, type)
+          )
+        ) : null,
+      [eventId, type],
+      { enabled: !!eventId && !!type }
+    );
   };
 
   /**
@@ -107,11 +178,7 @@ export const useRoundQueries = () => {
         if (!eventId) {
           throw new Error('Event ID is required');
         }
-        const result = await roundRepo.getCurrentRound(eventId);
-        if (!result.success) {
-          return null; // It's OK to not have a current round
-        }
-        return result.round;
+        return roundService.getCurrentRound(eventId);
       },
       enabled: !!eventId,
     });
@@ -135,11 +202,7 @@ export const useRoundQueries = () => {
         };
       }) => {
         const { eventId, rorder, poolCount, poolSize, options } = params;
-        const result = await roundRepo.createPoolRound(eventId, rorder, poolCount, poolSize, options);
-        if (!result.success) {
-          throw new Error(result.error);
-        }
-        return result.round;
+        return roundService.createPoolRound(eventId, rorder, poolCount, poolSize, options);
       },
       onSuccess: (round) => {
         // Invalidate relevant queries
@@ -163,11 +226,7 @@ export const useRoundQueries = () => {
         deTableSize: number;
       }) => {
         const { eventId, rorder, deFormat, deTableSize } = params;
-        const result = await roundRepo.createDERound(eventId, rorder, deFormat, deTableSize);
-        if (!result.success) {
-          throw new Error(result.error);
-        }
-        return result.round;
+        return roundService.createDERound(eventId, rorder, deFormat, deTableSize);
       },
       onSuccess: (round) => {
         // Invalidate relevant queries
@@ -185,11 +244,7 @@ export const useRoundQueries = () => {
   const useCreate = () => {
     return useMutation({
       mutationFn: async (data: RoundInsert) => {
-        const result = await roundRepo.createRound(data);
-        if (!result.success) {
-          throw new Error(result.error);
-        }
-        return result.round;
+        return roundService.createRound(data);
       },
       onSuccess: (round) => {
         // Invalidate relevant queries
@@ -207,11 +262,11 @@ export const useRoundQueries = () => {
   const useUpdate = () => {
     return useMutation({
       mutationFn: async ({ id, data }: { id: number; data: Partial<Round> }) => {
-        const result = await roundRepo.updateRound(id, data);
-        if (!result.success) {
-          throw new Error(result.error);
+        const updatedRound = await roundService.updateRound(id, data);
+        if (!updatedRound) {
+          throw new Error(`Round with ID ${id} not found`);
         }
-        return result.round;
+        return updatedRound;
       },
       onSuccess: (round) => {
         // Invalidate relevant queries
@@ -231,12 +286,17 @@ export const useRoundQueries = () => {
     return useMutation({
       mutationFn: async (id: number) => {
         // Get the round first to capture eventId before deletion
-        const round = await roundRepository.findById(id);
-        const result = await roundRepo.deleteRound(id);
-        if (!result.success) {
-          throw new Error(result.error);
+        const round = await roundService.getRoundById(id);
+        if (!round) {
+          throw new Error(`Round with ID ${id} not found`);
         }
-        return { id, eventId: round?.eventId };
+        
+        const success = await roundService.deleteRound(id);
+        if (!success) {
+          throw new Error(`Failed to delete round with ID ${id}`);
+        }
+        
+        return { id, eventId: round.eventId };
       },
       onSuccess: (data) => {
         // Invalidate relevant queries
@@ -256,11 +316,11 @@ export const useRoundQueries = () => {
   const useMarkAsStarted = () => {
     return useMutation({
       mutationFn: async (id: number) => {
-        const result = await roundRepo.markAsStarted(id);
-        if (!result.success) {
-          throw new Error(result.error);
+        const updatedRound = await roundService.markRoundAsStarted(id);
+        if (!updatedRound) {
+          throw new Error(`Round with ID ${id} not found or could not be updated`);
         }
-        return result.round;
+        return updatedRound;
       },
       onSuccess: (round) => {
         // Invalidate relevant queries
@@ -276,11 +336,11 @@ export const useRoundQueries = () => {
   const useMarkAsComplete = () => {
     return useMutation({
       mutationFn: async (id: number) => {
-        const result = await roundRepo.markAsComplete(id);
-        if (!result.success) {
-          throw new Error(result.error);
+        const updatedRound = await roundService.markRoundAsComplete(id);
+        if (!updatedRound) {
+          throw new Error(`Round with ID ${id} not found or could not be updated`);
         }
-        return result.round;
+        return updatedRound;
       },
       onSuccess: (round) => {
         // Invalidate relevant queries
@@ -290,13 +350,48 @@ export const useRoundQueries = () => {
     });
   };
 
+  /**
+   * Mutation for initializing a round
+   */
+  const useInitializeRound = () => {
+    return useMutation({
+      mutationFn: async ({ roundId, eventId }: { roundId: number; eventId: number }) => {
+        // This would call markAsStarted and any other initialization needed
+        const updatedRound = await roundService.markRoundAsStarted(roundId);
+        if (!updatedRound) {
+          throw new Error(`Round with ID ${roundId} not found or could not be updated`);
+        }
+        return updatedRound;
+      },
+      onSuccess: (round) => {
+        // Invalidate relevant queries
+        queryClient.invalidateQueries({ queryKey: roundKeys.detail(round.id) });
+        queryClient.invalidateQueries({ queryKey: roundKeys.filter({ eventId: round.eventId, current: true }) });
+      },
+    });
+  };
+
+  /**
+   * Alias for getting rounds by event ID to match old API
+   */
+  const useGetRoundsForEvent = useGetByEventId;
+
   return {
     // Queries
     useGetAll,
     useGetById,
+    useGetRound,
+    useGetEventById,
     useGetByEventId,
+    useGetRoundsForEvent,
     useGetByEventIdAndType,
     useGetCurrentRound,
+    
+    // Live Queries
+    useLiveAllRounds,
+    useLiveRoundById,
+    useLiveRoundsByEventId,
+    useLiveRoundsByEventIdAndType,
     
     // Mutations
     useCreatePoolRound,
@@ -306,6 +401,7 @@ export const useRoundQueries = () => {
     useDelete,
     useMarkAsStarted,
     useMarkAsComplete,
+    useInitializeRound,
   };
 };
 

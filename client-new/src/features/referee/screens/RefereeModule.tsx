@@ -1,4 +1,4 @@
-// src/navigation/screens/RefereeModule/RefereeModule.tsx with networking support
+// src/features/referee/screens/RefereeModule.tsx with networking support
 import React, { useState, useRef, useEffect } from 'react';
 import {
     View,
@@ -9,13 +9,13 @@ import {
     Modal,
     Alert,
 } from 'react-native';
-import { CustomTimeModal } from './CustomTimeModal';
-import { usePersistentState } from '../../../hooks/usePersistentStateHook';
+import { CustomTimeModal } from '../components/CustomTimeModal';
+import { usePersistentState } from '../../../core/hooks/usePersistentStateHook';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
-import { RootStackParamList } from '../../navigation/types';
-import tournamentClient from '../../../networking/TournamentClient';
-import tournamentServer from '../../../networking/TournamentServer';
-import ConnectionStatusBar from '../../../networking/components/ConnectionStatusBar';
+import { RootStackParamList } from '../../../navigation/types';
+import { client as tournamentClient } from '../../../infrastructure/networking/client';
+import { server as tournamentServer } from '../../../infrastructure/networking/server';
+import ConnectionStatusBar from '../../../infrastructure/networking/components/ConnectionStatusBar';
 
 type CardColor = 'yellow' | 'red' | 'black' | null;
 type FencerCard = { color: CardColor };

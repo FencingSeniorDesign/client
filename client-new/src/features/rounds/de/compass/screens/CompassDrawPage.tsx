@@ -1,4 +1,4 @@
-// src/navigation/screens/CompassDrawPage.tsx
+// src/features/rounds/de/compass/screens/CompassDrawPage.tsx
 import React, { useState, useEffect } from 'react';
 import {
     View,
@@ -11,14 +11,13 @@ import {
 } from 'react-native';
 import { useRoute, RouteProp, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { RootStackParamList, Event, Round } from '../navigation/types';
-import DEBoutCard from '../components/DEBoutCard';
-import {
-    dbGetRoundsForEvent,
-    dbUpdateDEBoutAndAdvanceWinner,
-    dbGetCompassBracketBouts,
-} from '../../db/TournamentDatabaseUtils';
+import { RootStackParamList } from '../../../../../navigation/types';
+import { Event, Round } from '../../../../../core/types';
+import DEBoutCard from '../../components/DEBoutCard';
 import { getCompassDirectionName } from '../utils/CompassDrawUtils';
+
+// Use new hook-based API instead of old database utils
+import { useDEBouts } from '../../hooks/useDEBouts';
 
 type CompassDrawPageParams = {
     event: Event;

@@ -3,11 +3,11 @@
  * Exports all event-related components, hooks, and services
  */
 
-// Export the event repository and types
-export * from './repository';
+// Export the event types and service functions
+export * from './services/eventService';
 
-// Export the event query hooks
-export { default as useEventQueries } from './hooks/useEventQueries';
+// Export the event hooks with optimized implementation
+export { default as useEvents } from './hooks/useEvents';
 
 // Export event screens
 export { default as EventManagement } from './screens/EventManagement';

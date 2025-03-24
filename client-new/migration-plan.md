@@ -162,6 +162,14 @@ The existing database implementation will be replaced with Drizzle ORM and Tanst
 3. Set up live query functionality with Drizzle
 4. Integrate Tanstack Query for React data fetching
 5. Create repository pattern that leverages Drizzle ORM
+6. Implement proper database migrations instead of auto-create tables
+7. Add strategic indexes on frequently queried fields
+8. Create SQL views for common complex queries
+9. Implement proper relation queries using Drizzle's relation API
+10. Add batch operation support in repositories
+11. Use prepared statements for frequently executed queries
+12. Fix and optimize COUNT queries
+13. Improve live query efficiency with optimized configurations
 
 ### Splitting TournamentDatabaseUtils.ts
 

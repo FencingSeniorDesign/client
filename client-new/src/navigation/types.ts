@@ -109,35 +109,35 @@ export type RootStackParamList = {
   
   // Tournament section
   TournamentStack: undefined;
-  ...TournamentStackParamList,
+} & TournamentStackParamList & {
   
   // Event section
   EventStack: undefined;
-  ...EventStackParamList,
+} & EventStackParamList & {
   
   // Round section
   RoundStack: undefined;
-  ...RoundStackParamList,
+} & RoundStackParamList & {
   
   // Pool section
   PoolStack: undefined;
-  ...PoolStackParamList,
+} & PoolStackParamList & {
   
   // DE section
   DEStack: undefined;
-  ...DEStackParamList,
+} & DEStackParamList & {
   
   // Referee section
   RefereeStack: undefined;
-  ...RefereeStackParamList,
+} & RefereeStackParamList & {
   
   // Official section
   OfficialStack: undefined;
-  ...OfficialStackParamList,
+} & OfficialStackParamList & {
   
   // Fencer section
   FencerStack: undefined;
-  ...FencerStackParamList,
+} & FencerStackParamList & {
   
   // Legacy routes (to be migrated)
   EventManagment: { tournamentName: string }; // Typo preserved for backward compatibility

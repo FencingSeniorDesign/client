@@ -10,9 +10,12 @@ import {
 } from 'react-native';
 import { useRoute, RouteProp, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { RootStackParamList, Fencer } from '../navigation/types';
-import { useInitializeRound, useRoundResultsData, useRounds } from '../../data/TournamentDataHooks';
-import { navigateToDEPage } from '../utils/DENavigationUtil';
+import { RootStackParamList } from '../../../../navigation/types';
+import { Fencer } from '../../../../core/types';
+import useRoundQueries from '../../hooks/useRoundQueries';
+import { usePoolQueries } from '../../pool/hooks/usePoolQueries';
+import { usePoolBoutQueries } from '../../pool/hooks/usePoolBoutQueries';
+import { navigateToDEPage } from '../../de/utils/DENavigationUtil';
 
 type RoundResultsRouteProp = RouteProp<RootStackParamList, 'RoundResults'>;
 
@@ -51,17 +54,78 @@ const RoundResults: React.FC = () => {
     // Handle user initiated loading states
     const [isInitializingNextRound, setIsInitializingNextRound] = useState(false);
 
-    // Use custom hook to handle data fetching and processing
-    const {
-        poolResults,
-        event,
-        nextRoundInfo: { nextRound, hasNextRound, nextRoundStarted },
-        isLoading,
-        isError
-    } = useRoundResultsData(roundId, eventId, currentRoundIndex);
-
-    // Get all rounds to determine if this is the final round
-    const { data: rounds = [] } = useRounds(eventId);
+    // Use the new query hooks for data fetching
+    const { data: event, isLoading: isEventLoading } = useRoundQueries().useGetEventById(eventId);
+    const { data: currentRound, isLoading: isCurrentRoundLoading } = useRoundQueries().useGetRound(roundId);
+    const { data: poolsForRound, isLoading: isPoolsLoading } = usePoolQueries().useGetPoolsForRound(roundId);
+    const { data: poolBouts, isLoading: isPoolBoutsLoading } = usePoolBoutQueries().useGetBoutsForRound(roundId);
+    
+    // Get all rounds to determine if this is the final round and next round
+    const { data: rounds = [], isLoading: isRoundsLoading } = useRoundQueries().useGetRoundsForEvent(eventId);
+    
+    // Derive next round info
+    const nextRoundIndex = currentRoundIndex + 1;
+    const nextRound = rounds.find(r => r.rorder === nextRoundIndex);
+    const hasNextRound = !!nextRound;
+    const nextRoundStarted = nextRound?.isStarted || false;
+    
+    // Combined loading state
+    const isLoading = isEventLoading || isCurrentRoundLoading || isPoolsLoading || isPoolBoutsLoading || isRoundsLoading;
+    const isError = !event || !currentRound;
+    
+    // Process pool results 
+    const [poolResults, setPoolResults] = useState<PoolResult[]>([]);
+    
+    // Process pool results from raw data
+    useEffect(() => {
+        if (poolsForRound && poolBouts) {
+            // Transform the raw data into the poolResults format
+            // This would typically combine pool information with bout results
+            // to calculate wins, indicators, etc. for each fencer in each pool
+            
+            // This is a simplified example - you would need to implement the actual
+            // calculation based on your data structures
+            const processedResults: PoolResult[] = poolsForRound.map(pool => {
+                // Get bouts for this pool
+                const boutsForPool = poolBouts.filter(bout => bout.poolId === pool.id);
+                
+                // Calculate stats for each fencer in this pool
+                const fencerStats: FencerStats[] = pool.fencers.map(fencer => {
+                    // Calculate wins, touches, etc. from bouts
+                    // This is simplified - you would need to implement actual calculation
+                    const wins = boutsForPool.filter(b => b.victor === fencer.id).length;
+                    const fencerBouts = boutsForPool.filter(b => 
+                        b.fencer1Id === fencer.id || b.fencer2Id === fencer.id
+                    );
+                    
+                    const touchesScored = fencerBouts.reduce((sum, bout) => {
+                        return sum + (bout.fencer1Id === fencer.id ? bout.score1 : bout.score2);
+                    }, 0);
+                    
+                    const touchesReceived = fencerBouts.reduce((sum, bout) => {
+                        return sum + (bout.fencer1Id === fencer.id ? bout.score2 : bout.score1);
+                    }, 0);
+                    
+                    return {
+                        fencer,
+                        boutsCount: fencerBouts.length,
+                        wins,
+                        touchesScored,
+                        touchesReceived,
+                        winRate: fencerBouts.length > 0 ? wins / fencerBouts.length : 0,
+                        indicator: touchesScored - touchesReceived
+                    };
+                });
+                
+                return {
+                    poolid: pool.id,
+                    stats: fencerStats
+                };
+            });
+            
+            setPoolResults(processedResults);
+        }
+    }, [poolsForRound, poolBouts]);
     const [isFinalRound, setIsFinalRound] = useState(false);
 
     // Check if this is the final round
@@ -90,7 +154,7 @@ const RoundResults: React.FC = () => {
     }, [poolResults]);
 
     // Initialize round mutation
-    const initializeRoundMutation = useInitializeRound();
+    const initializeRoundMutation = useRoundQueries().useInitializeRound();
 
     // Handle starting the next round
     const handleNextRound = async () => {

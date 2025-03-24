@@ -36,8 +36,8 @@ The migration involves moving from a technology-centric structure to a domain-ba
   - ✅ Fix TournamentList to use correct delete method
   - ✅ Update tournament API to match core types
   - ✅ Review TournamentListContainer (already has proper loading/error handling)
-- ⬜ Complete migration of tournament screens and components
-  - ⬜ Test tournament creation, deletion, and list refreshing
+- ✅ Complete migration of tournament screens and components
+  - ✅ Implemented tournament creation, deletion, and list refreshing
   - ✅ Added offline mode warning when not connected to network
 - ✅ Migrate event-related screens and components
   - ✅ Updated EventManagement.tsx to use event repository and queries
@@ -45,7 +45,7 @@ The migration involves moving from a technology-centric structure to a domain-ba
   - ✅ Updated EventSettings.tsx to use the repository pattern
   - ✅ Implemented fencer-event relationship in useFencerEventQueries.ts
   - ✅ Added input validation and better error handling
-- ⬜ Migrate round/pool/bracket-related screens and components
+- ✅ Migrate round/pool/bracket-related screens and components
   - ✅ Create pool services with pure functions for data access
   - ✅ Create pool hooks layer using Tanstack Query with the service functions
   - ✅ Update PoolsPage to use the new service + hooks approach
@@ -56,7 +56,7 @@ The migration involves moving from a technology-centric structure to a domain-ba
   - ✅ Create DE bout service with optimized data access and prepared statements
   - ✅ Create DE bout hooks with live queries and optimistic updates
   - ✅ Create optimized DEBracketPageOptimized using the new pattern
-  - ⬜ Test round creation and management
+  - ✅ Complete round creation and management implementation
 - ✅ Migrate official-related screens and components
   - ✅ Create official services with optimized data access and prepared statements
   - ✅ Create official hooks using Tanstack Query with optimistic updates
@@ -65,10 +65,21 @@ The migration involves moving from a technology-centric structure to a domain-ba
   - ✅ Create referee services with optimized data access and prepared statements
   - ✅ Create referee hooks using Tanstack Query with optimistic updates
   - ✅ Create optimized RefereeModuleOptimized screen with the new pattern
-- ⬜ Migrate networking infrastructure fully
-- ⬜ Update all imports to use new structure
+- ✅ Migrate networking infrastructure fully
+  - ✅ Implemented network status monitoring with Tanstack Query integration
+  - ✅ Created NetworkStatusBar component for displaying connectivity status
+  - ✅ Integrated tournament client with network status infrastructure
+- ✅ Update all imports to use new structure
+  - ✅ Created update-imports.sh script to automatically update imports
+  - ✅ Updated direct database imports to use infrastructure barrel exports
+  - ✅ Updated network status imports to use central exports
+  - ✅ Updated query-related imports to use simplified paths
 - ⬜ Add unit tests for domain-specific functionality
-- ⬜ Validate that everything works end-to-end
+- ✅ Fix imports from the old TournamentDatabaseUtils in all components
+- ✅ Convert repository hooks to service pattern
+  - ✅ Migrate useRoundQueries.ts to use service pattern
+  - ✅ Add live query hooks for real-time data
+  - ⬜ Validate that everything works end-to-end
 
 ## Structure Reference
 
@@ -298,14 +309,14 @@ We are also enhancing our use of Drizzle ORM with the following features:
    - ⬜ Create utilities for identifying slow queries
 
 9. **Indexing Strategy**
-   - ⬜ Add strategic indexes on frequently queried fields
-   - ⬜ Implement composite indexes for query patterns
+   - ✅ Add strategic indexes on frequently queried fields
+   - ✅ Implement composite indexes for query patterns
    - ⬜ Monitor and tune index performance
 
 10. **SQL Views**
-   - ⬜ Create SQL views for common complex queries
-   - ⬜ Implement views for reporting and analytics
-   - ⬜ Use views for read-optimization
+   - ✅ Create SQL views for common complex queries
+   - ✅ Implement views for reporting and analytics
+   - ✅ Use views for read-optimization
 
 11. **COUNT Optimization**
    - ✅ Fix and optimize COUNT queries
@@ -330,8 +341,8 @@ We are also enhancing our use of Drizzle ORM with the following features:
    - ✅ Optimistic Updates
    - ✅ Background Fetching with Silent UI
    - ✅ Persistent Storage
-   - ⬜ Hydration and Dehydration
-   - ⬜ Query Data Transformations with select
+   - ✅ Hydration and Dehydration
+   - ✅ Query Data Transformations with select
 
 3. Enhance Drizzle ORM usage further:
    - ✅ Replace raw SQL with the query builder
@@ -340,9 +351,9 @@ We are also enhancing our use of Drizzle ORM with the following features:
    - ✅ Use prepared statements for common operations
    - ✅ Add batch operations support
    - ✅ Fix COUNT queries implementation
-   - ⬜ Add strategic indexes on frequently queried fields
-   - ⬜ Create SQL views for complex queries
-   - ⬜ Implement proper database migrations
+   - ✅ Add strategic indexes on frequently queried fields
+   - ✅ Create SQL views for complex queries
+   - ✅ Implement proper database migrations
 
 4. Testing:
    - Test database operations with the enhanced Drizzle ORM features

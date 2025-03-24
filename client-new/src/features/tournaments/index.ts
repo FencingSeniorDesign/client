@@ -12,22 +12,11 @@ export { default as TournamentListContainer } from './components/TournamentListC
 export { default as CreateTournamentModal } from './components/CreateTournamentModal';
 export { default as JoinTournamentModal } from './components/JoinTournamentModal';
 
-// Export hooks
-export { useTournamentQueries } from './hooks/useTournamentQueries';
-export { useTournamentRepository } from './hooks/useTournamentRepository';
+// Export hooks with optimized implementation
+export { default as useTournaments } from './hooks/useTournaments';
 
-// Export repository and types
-export { 
-  tournamentRepository,
-  type TournamentInsert,
-  type ITournamentRepository,
-  getAllTournaments,
-  getTournamentByName,
-  createTournament,
-  deleteTournament,
-  getActiveTournaments,
-  getCompletedTournaments
-} from './repository';
+// Export the tournament types and service functions
+export * from './services/tournamentService';
 
 // Export API
 export { default as tournamentApi } from './api';

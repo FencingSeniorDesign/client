@@ -95,11 +95,7 @@ export const PersistentQueryProvider: React.FC<PersistentQueryProviderProps> = (
       {children}
       {enableDevtools && 
         typeof window !== 'undefined' && 
-        React.createElement(React.lazy(() => 
-          import('@tanstack/react-query-devtools').then(mod => ({ 
-            default: mod.ReactQueryDevtools 
-          }))
-        ), { initialIsOpen: false })
+        false /* Disable DevTools for now to fix bundling */
       }
     </PersistQueryClientProvider>
   );

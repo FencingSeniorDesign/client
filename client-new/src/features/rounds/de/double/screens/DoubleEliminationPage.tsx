@@ -1,4 +1,4 @@
-// src/navigation/screens/DoubleEliminationPage.tsx
+// src/features/rounds/de/double/screens/DoubleEliminationPage.tsx
 import React, { useState, useEffect } from 'react';
 import {
     View,
@@ -11,14 +11,11 @@ import {
 } from 'react-native';
 import { useRoute, RouteProp, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { RootStackParamList, Event, Round } from '../navigation/types';
-import DEBoutCard from '../components/DEBoutCard';
-import {
-    dbGetDEBouts,
-    dbGetRoundsForEvent,
-    dbUpdateDEBoutAndAdvanceWinner,
-    dbGetDoubleBracketBouts,
-} from '../../db/TournamentDatabaseUtils';
+import { RootStackParamList } from '../../../../../navigation/types';
+import { Event, Round } from '../../../../../core/types';
+import DEBoutCard from '../../components/DEBoutCard';
+import useRoundQueries from '../../../hooks/useRoundQueries';
+import useDEQueries from '../../hooks/useDEQueries';
 
 type DoubleEliminationPageParams = {
     event: Event;
@@ -44,41 +41,56 @@ const DoubleEliminationPage: React.FC = () => {
 
     const [selectedTab, setSelectedTab] = useState<'winners' | 'losers' | 'finals'>('winners');
 
+    // Use hooks for data fetching
+    const roundQueries = useRoundQueries();
+    const { data: rounds, isLoading: isRoundsLoading } = roundQueries.useGetRoundsForEvent(event.id);
+    const deQueries = useDEQueries();
+    const { 
+        data: doubleBracketData,
+        isLoading: isBracketLoading 
+    } = deQueries.useGetDoubleBracketBouts(roundId);
+    
     useEffect(() => {
-        async function fetchBrackets() {
+        async function processData() {
             try {
-                setLoading(true);
-
-                // Get round info
-                const rounds = await dbGetRoundsForEvent(event.id);
+                // Only proceed when we have the data
+                if (!rounds || !doubleBracketData) return;
+                
                 const currentRound = rounds.find(r => r.id === roundId);
-
+                
                 if (!currentRound) {
                     throw new Error('Round not found');
                 }
-
+                
                 setRound(currentRound);
-
-                // Fetch double elimination bracket data
-                const { winners, losers, finals } = await dbGetDoubleBracketBouts(roundId);
-
-                setWinnersBracket(winners);
-                setLosersBracket(losers);
-                setFinalsBracket(finals);
-
+                
+                // Set bracket data
+                if (doubleBracketData) {
+                    setWinnersBracket(doubleBracketData.winners || []);
+                    setLosersBracket(doubleBracketData.losers || []);
+                    setFinalsBracket(doubleBracketData.finals || []);
+                }
             } catch (error) {
-                console.error('Error loading double elimination brackets:', error);
-                Alert.alert('Error', 'Failed to load bracket data');
+                console.error('Error processing double elimination data:', error);
+                Alert.alert('Error', 'Failed to process bracket data.');
             } finally {
                 setLoading(false);
             }
         }
-
-        fetchBrackets();
-    }, [event, roundId, refreshKey]);
+        
+        // Set loading state based on query states
+        setLoading(isRoundsLoading || isBracketLoading);
+        
+        if (!isRoundsLoading && !isBracketLoading) {
+            processData();
+        }
+    }, [rounds, doubleBracketData, roundId, refreshKey, isRoundsLoading, isBracketLoading]);
 
 // Modified handleBoutPress function for DoubleEliminationPage.tsx
 
+    // Get the mutation function from the hook
+    const updateDEBoutMutation = deQueries.useUpdateDEBout();
+    
     const handleBoutPress = (bout: any) => {
         // First check if this is a bye match (one fencer present, one missing)
         const hasFencerA = !!bout.lfencer;
@@ -105,14 +117,14 @@ const DoubleEliminationPage: React.FC = () => {
             currentScore2: bout.right_score || 0,
             onSaveScores: async (score1: number, score2: number) => {
                 try {
-                    // Update bout scores and advance winner
-                    await dbUpdateDEBoutAndAdvanceWinner(
-                        bout.id,
-                        score1,
-                        score2,
-                        bout.lfencer,
-                        bout.rfencer
-                    );
+                    // Update bout scores using the mutation hook
+                    await updateDEBoutMutation.mutateAsync({
+                        boutId: bout.id,
+                        scoreA: score1,
+                        scoreB: score2,
+                        fencerAId: bout.lfencer,
+                        fencerBId: bout.rfencer
+                    });
 
                     // Refresh to show updated scores and advancement
                     setRefreshKey(prev => prev + 1);

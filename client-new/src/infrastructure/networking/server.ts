@@ -8,14 +8,12 @@ import {
     publishTournamentService, 
     unpublishTournamentService 
 } from './utils';
-// Database imports will be replaced with our repository pattern
-// Instead of:
-// import { dbListEvents, dbGetRoundsForEvent, dbGetPoolsForRound, dbGetBoutsForPool, dbUpdateBoutScores } from '../db/TournamentDatabaseUtils';
-// We will use:
-import { TournamentRepository } from '../../features/tournaments/repository';
-import { EventRepository } from '../../features/events/repository';
-import { RoundRepository } from '../../features/rounds/repository';
-import { BoutRepository } from '../../features/rounds/repository';
+// Use service imports instead of repositories
+import { tournamentService } from '../../features/tournaments/services/tournamentService';
+import { eventService } from '../../features/events/services/eventService';
+import { roundService } from '../../features/rounds/services/roundService';
+import { poolService } from '../../features/rounds/pool/services/poolService';
+import { poolBoutService } from '../../features/rounds/pool/services/poolBoutService';
 
 // Constants
 const DEFAULT_PORT = 9001;
@@ -281,11 +279,11 @@ class TournamentServer {
             }
 
             // Fetch events
-            const events = await dbListEvents(tournamentName);
+            const events = await eventService.getEventsForTournament(tournamentName);
 
             // For each event, fetch its rounds
             const eventsWithRounds = await Promise.all(events.map(async (event) => {
-                const rounds = await dbGetRoundsForEvent(event.id);
+                const rounds = await roundService.getRoundsForEvent(event.id);
                 return {
                     ...event,
                     rounds
@@ -499,7 +497,7 @@ class TournamentServer {
             // Fetch rounds from database directly rather than using cached data
             // This ensures we have the most up-to-date rounds information
             console.log(`🔍 Fetching rounds for event ${eventId}...`);
-            const rounds = await dbGetRoundsForEvent(eventId);
+            const rounds = await roundService.getRoundsForEvent(eventId);
             console.log(`✅ Fetched ${rounds.length} rounds for event ${eventId}`);
             
             // Send rounds to the requesting client
@@ -598,7 +596,7 @@ class TournamentServer {
         try {
             // Fetch pools from database
             console.log(`🔍 Fetching pools for round ${roundId}...`);
-            const pools = await dbGetPoolsForRound(roundId);
+            const pools = await poolService.getPoolsForRound(roundId);
             console.log(`✅ Fetched ${pools.length} pools for round ${roundId}`);
             
             // Send pools to the requesting client
@@ -700,7 +698,7 @@ class TournamentServer {
         try {
             // Fetch bouts from database
             console.log(`🔍 Fetching bouts for pool ${poolId} in round ${roundId}...`);
-            const bouts = await dbGetBoutsForPool(roundId, poolId);
+            const bouts = await poolBoutService.getBoutsForPool(roundId, poolId);
             console.log(`✅ Fetched ${bouts.length} bouts for pool ${poolId} in round ${roundId}`);
             
             // Send bouts to the requesting client
@@ -802,8 +800,7 @@ class TournamentServer {
         try {
             // Mark the round as complete in the database
             console.log(`🔍 Marking round ${roundId} as complete...`);
-            await import('../db/TournamentDatabaseUtils')
-                .then(module => module.dbMarkRoundAsComplete(roundId));
+            await roundService.markRoundComplete(roundId);
             console.log(`✅ Round ${roundId} marked as complete`);
             
             // Send confirmation to the requesting client
@@ -900,7 +897,7 @@ class TournamentServer {
         try {
             // Update bout scores in database using the correct function with all parameters
             console.log(`🔍 Updating bout ${boutId} scores to ${scoreA}-${scoreB} in database with fencers ${fencerAId} and ${fencerBId}...`);
-            await dbUpdateBoutScores(boutId, scoreA, scoreB, fencerAId, fencerBId);
+            await poolBoutService.updateBoutScores(boutId, scoreA, scoreB, fencerAId, fencerBId);
             console.log(`✅ Updated scores for bout ${boutId} to ${scoreA}-${scoreB}`);
             
             // First send confirmation to the requesting client
