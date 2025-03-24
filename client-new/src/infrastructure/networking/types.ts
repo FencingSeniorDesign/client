@@ -281,7 +281,7 @@ export interface TournamentBroadcastMessage extends BaseMessage {
   tournamentName: string;
   hostIp: string;
   port: number;
-  timestamp: number;
+  timestamp: string;
 }
 
 /**
@@ -325,42 +325,3 @@ export type TournamentMessage =
   | CompleteRoundMessage
   | RoundCompletedMessage
   | RoundCompletedBroadcastMessage;
-
-/**
- * Type guard functions
- */
-export const isJoinRequestMessage = (msg: any): msg is JoinRequestMessage => 
-  validateMessage(msg) && msg.type === 'join_request';
-
-export const isGetEventsMessage = (msg: any): msg is GetEventsMessage => 
-  validateMessage(msg) && msg.type === 'get_events' && typeof msg.tournamentName === 'string';
-
-export const isWelcomeMessage = (msg: any): msg is WelcomeMessage => 
-  validateMessage(msg) && msg.type === 'welcome' && typeof msg.tournamentName === 'string';
-
-export const isJoinResponseMessage = (msg: any): msg is JoinResponseMessage => 
-  validateMessage(msg) && msg.type === 'join_response' && typeof msg.success === 'boolean';
-
-export const isEventsListMessage = (msg: any): msg is EventsListMessage => 
-  validateMessage(msg) && msg.type === 'events_list' && 
-  typeof msg.tournamentName === 'string' && Array.isArray(msg.events);
-
-export const isTournamentDataMessage = (msg: any): msg is TournamentDataMessage => 
-  validateMessage(msg) && msg.type === 'tournament_data' && typeof msg.tournamentData === 'object';
-
-export const isServerClosingMessage = (msg: any): msg is ServerClosingMessage => 
-  validateMessage(msg) && msg.type === 'server_closing';
-
-export const isTournamentBroadcastMessage = (msg: any): msg is TournamentBroadcastMessage =>
-  validateMessage(msg) && msg.type === 'tournament_broadcast' && 
-  typeof msg.tournamentName === 'string' && 
-  typeof msg.hostIp === 'string' &&
-  typeof msg.port === 'number';
-  
-export const isPoolsListMessage = (msg: any): msg is PoolsListMessage =>
-  validateMessage(msg) && msg.type === 'pools_list' &&
-  typeof msg.roundId === 'number' && Array.isArray(msg.pools);
-  
-export const isPoolBoutsListMessage = (msg: any): msg is PoolBoutsListMessage =>
-  validateMessage(msg) && msg.type === 'pool_bouts_list' &&
-  typeof msg.roundId === 'number' && typeof msg.poolId === 'number' && Array.isArray(msg.bouts);
