@@ -713,31 +713,31 @@ export class TournamentDataProvider {
       return [];
     }
   }
-  
+
   /**
    * Get bouts for a specific pool in a round
    */
   async getBoutsForPool(roundId: number, poolId: number): Promise<any[]> {
     console.log(`[DataProvider] Getting bouts for pool ${poolId} in round ${roundId}, remote: ${this.isRemoteConnection()}`);
-    
+
     if (this.isRemoteConnection()) {
       try {
         // Request bouts with multiple retries
         for (let attempt = 1; attempt <= 3; attempt++) {
           try {
             console.log(`[DataProvider] Attempt ${attempt} to fetch bouts for pool ${poolId} in round ${roundId}`);
-            
+
             // Request bouts for the pool from server
             tournamentClient.requestPoolBouts(roundId, poolId);
-            
+
             // Wait for the response with increased timeout
             const response = await tournamentClient.waitForResponse('pool_bouts_list', 8000);
-            
+
             if (response && Array.isArray(response.bouts)) {
               console.log(`[DataProvider] Received ${response.bouts.length} pool bouts from server`);
               return response.bouts;
             }
-            
+
             console.log(`[DataProvider] Invalid pool bouts response, retrying...`);
           } catch (attemptError) {
             if (attempt < 3) {
@@ -749,18 +749,18 @@ export class TournamentDataProvider {
             }
           }
         }
-        
+
         throw new Error('Failed to fetch pool bouts from server after multiple attempts');
       } catch (error) {
         console.error('[DataProvider] Error fetching remote pool bouts:', error);
         return [];
       }
     }
-    
+
     // For local tournaments, fetch from database
     try {
       const bouts = await dbGetBoutsForPool(roundId, poolId);
-      
+
       console.log(`[DataProvider] Retrieved ${bouts.length} pool bouts from local database`);
       return bouts;
     } catch (error) {

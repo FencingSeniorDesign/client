@@ -13,14 +13,12 @@ import {
 } from 'react-native';
 import { useRoute, RouteProp, useNavigation, useFocusEffect } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import {
-    dbGetBoutsForPool,
-    dbGetSeedingForRound,
-} from '../../db/DrizzleDatabaseUtils';
+import { dbGetSeedingForRound } from '../../db/DrizzleDatabaseUtils';
 import { RootStackParamList, Event, Fencer } from '../navigation/types';
 import { usePools, useCompleteRound, useRoundCompleted } from '../../data/TournamentDataHooks';
-import tournamentClient from '../../networking/TournamentClient';
 import ConnectionStatusBar from '../../networking/components/ConnectionStatusBar';
+import dataProvider from '../../data/DrizzleDataProvider';
+import { useQueryClient } from '@tanstack/react-query';
 
 type PoolsPageRouteParams = {
     event: Event;
@@ -34,6 +32,7 @@ type PoolsPageNavProp = NativeStackNavigationProp<RootStackParamList, 'PoolsPage
 const PoolsPage: React.FC = () => {
     const route = useRoute<RouteProp<{ params: PoolsPageRouteParams }, 'params'>>();
     const navigation = useNavigation<PoolsPageNavProp>();
+    const queryClient = useQueryClient();
 
     const { event, currentRoundIndex, roundId, isRemote = false } = route.params;
     const [pools, setPools] = useState<{ poolid: number; fencers: Fencer[] }[]>([]);
@@ -52,13 +51,13 @@ const PoolsPage: React.FC = () => {
 
     // Use the pools hook instead of direct database access
     const { data: poolsData, isLoading, error } = usePools(roundId);
-    
+
     // Use the complete round mutation
     const completeRoundMutation = useCompleteRound();
-    
+
     // Check if the round is already completed
     const { data: isRoundCompleted, isLoading: isRoundCompletedLoading } = useRoundCompleted(roundId);
-    
+
     // Set pools data when it's fetched from the server or database
     useEffect(() => {
         if (poolsData) {
@@ -68,20 +67,27 @@ const PoolsPage: React.FC = () => {
         }
     }, [poolsData]);
 
+    // Modified to use the data provider instead of direct database calls
     const checkBoutsCompletion = useCallback(async () => {
         try {
             const statusObj: { [poolId: number]: boolean } = {};
+
             await Promise.all(
                 pools.map(async (pool) => {
-                    const bouts = await dbGetBoutsForPool(roundId, pool.poolid);
+                    // Use data provider instead of direct DB access to respect remote connection
+                    const bouts = await dataProvider.getBoutsForPool(roundId, pool.poolid);
+
+                    // Check if all bouts have scores
                     const complete = bouts.every(bout => {
                         const scoreA = bout.left_score ?? 0;
                         const scoreB = bout.right_score ?? 0;
                         return scoreA !== 0 || scoreB !== 0;
                     });
+
                     statusObj[pool.poolid] = complete;
                 })
             );
+
             setPoolCompletionStatus(statusObj);
         } catch (error) {
             console.error("Error checking bout completion:", error);
@@ -101,8 +107,6 @@ const PoolsPage: React.FC = () => {
             }
         }, [pools, checkBoutsCompletion])
     );
-    
-    // Connection alerts are now handled by the ConnectionAlertProvider in App.tsx
 
     const togglePool = (index: number) => {
         setExpandedPools(prev => {
@@ -133,6 +137,8 @@ const PoolsPage: React.FC = () => {
     // Seeding modal code
     const fetchSeeding = async () => {
         try {
+            // For seeding, we're keeping the direct DB call for now
+            // In a full implementation, this should also go through dataProvider
             const seedingData = await dbGetSeedingForRound(roundId);
             console.log("Seeding data fetched:", seedingData);
             setSeeding(seedingData);
@@ -156,7 +162,7 @@ const PoolsPage: React.FC = () => {
                                 roundId,
                                 eventId: event.id
                             });
-                            
+
                             navigation.navigate('RoundResults', {
                                 roundId,
                                 eventId: event.id,
@@ -165,7 +171,7 @@ const PoolsPage: React.FC = () => {
                         } catch (error) {
                             console.error("Error marking round as complete:", error);
                             Alert.alert(
-                                "Error", 
+                                "Error",
                                 "Failed to complete the round. Please try again."
                             );
                         }
@@ -186,14 +192,14 @@ const PoolsPage: React.FC = () => {
             >
                 <Text style={styles.viewSeedingButtonText}>View Seeding</Text>
             </TouchableOpacity>
-            
+
             {isLoading && (
                 <View style={styles.loadingContainer}>
                     <ActivityIndicator size="large" color="#0000ff" />
                     <Text style={styles.loadingText}>Loading pools data...</Text>
                 </View>
             )}
-            
+
             {error && (
                 <View style={styles.errorContainer}>
                     <Text style={styles.errorText}>Error loading pools: {error.toString()}</Text>
@@ -234,6 +240,7 @@ const PoolsPage: React.FC = () => {
                                         navigation.navigate('BoutOrderPage', {
                                             roundId: roundId,
                                             poolId: poolObj.poolid,
+                                            isRemote: isRemote
                                         })
                                     }
                                 >

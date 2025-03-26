@@ -194,9 +194,14 @@ export function usePools(roundId: number) {
 export function useBoutsForPool(roundId: number, poolId: number) {
   return useQuery({
     queryKey: queryKeys.boutsForPool(roundId, poolId),
-    queryFn: () => dataProvider.getBoutsForPool(roundId, poolId),
+    queryFn: () => {
+      console.log(`Fetching bouts for pool ${poolId} in round ${roundId}, isRemote: ${dataProvider.isRemoteConnection()}`);
+      return dataProvider.getBoutsForPool(roundId, poolId);
+    },
     enabled: !!roundId && poolId !== undefined,
     staleTime: dataProvider.isRemoteConnection() ? 5000 : 30000,
+    // Add refetchInterval for remote connections to ensure data stays fresh
+    refetchInterval: dataProvider.isRemoteConnection() ? 5000 : false,
   });
 }
 
