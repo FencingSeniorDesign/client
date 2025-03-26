@@ -11,7 +11,7 @@ import {
 import { useRoute, RouteProp, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList, Fencer } from '../navigation/types';
-import { useInitializeRound, useRoundResultsData, useRounds } from '../../data/TournamentDataHooks';
+import { useInitializeRound, useRoundResultsData, useRounds, useRoundStarted } from '../../data/TournamentDataHooks';
 import { navigateToDEPage } from '../utils/DENavigationUtil';
 
 type RoundResultsRouteProp = RouteProp<RootStackParamList, 'RoundResults'>;
@@ -55,10 +55,15 @@ const RoundResults: React.FC = () => {
     const {
         poolResults,
         event,
-        nextRoundInfo: { nextRound, hasNextRound, nextRoundStarted },
+        nextRoundInfo: { nextRound, hasNextRound, nextRoundStarted: initialNextRoundStarted },
         isLoading,
         isError
     } = useRoundResultsData(roundId, eventId, currentRoundIndex);
+    
+    // Dedicated hook to track if the next round has started
+    // This will update automatically when the round status changes
+    const { data: isNextRoundStarted, isLoading: isNextRoundStatusLoading } = 
+        useRoundStarted(nextRound?.id);
 
     // Get all rounds to determine if this is the final round
     const { data: rounds = [] } = useRounds(eventId);
@@ -99,7 +104,7 @@ const RoundResults: React.FC = () => {
         }
 
         try {
-            if (!nextRoundStarted) {
+            if (!isNextRoundStarted) {
                 setIsInitializingNextRound(true);
 
                 // Use the mutation hook to initialize the round
@@ -107,26 +112,36 @@ const RoundResults: React.FC = () => {
                     eventId: eventId,
                     roundId: nextRound.id
                 });
-
+                
                 Alert.alert("Success", "Next round initialized successfully!");
-            }
-
-            // Navigate to the appropriate screen based on round type
-            if (nextRound.type === 'de') {
-                navigateToDEPage(navigation, event, nextRound, currentRoundIndex + 1, isRemote);
+                
+                // Navigate to the next round
+                navigateToNextRound();
             } else {
-                navigation.navigate('PoolsPage', {
-                    event: event,
-                    currentRoundIndex: currentRoundIndex + 1,
-                    roundId: nextRound.id,
-                    isRemote
-                });
+                // If round is already started, just navigate without initialization
+                navigateToNextRound();
             }
         } catch (error) {
             console.error("Error handling next round:", error);
             Alert.alert("Error", "Failed to initialize or open the next round.");
         } finally {
             setIsInitializingNextRound(false);
+        }
+    };
+    
+    // Helper function to navigate to the next round
+    const navigateToNextRound = () => {
+        if (!nextRound || !event) return;
+        
+        if (nextRound.type === 'de') {
+            navigateToDEPage(navigation, event, nextRound, currentRoundIndex + 1, isRemote);
+        } else {
+            navigation.navigate('PoolsPage', {
+                event: event,
+                currentRoundIndex: currentRoundIndex + 1,
+                roundId: nextRound.id,
+                isRemote
+            });
         }
     };
 
@@ -381,7 +396,7 @@ const RoundResults: React.FC = () => {
                         <ActivityIndicator size="small" color="#fff" />
                     ) : (
                         <Text style={styles.nextRoundButtonText}>
-                            {nextRoundStarted ? "Open Next Round" : "Start Next Round"}
+                            {isNextRoundStarted ? "Next Round" : "Start Next Round"}
                         </Text>
                     )}
                 </TouchableOpacity>

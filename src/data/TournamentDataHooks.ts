@@ -2,12 +2,14 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Event, Fencer, Round, Official } from '../navigation/navigation/types';
-import dataProvider from './TournamentDataProvider';
+import dataProvider from './DrizzleDataProvider';
 import tournamentClient from '../networking/TournamentClient';
 
 // Define query keys for consistent cache management
 export const queryKeys = {
   tournaments: ['tournaments'] as const,
+  ongoingTournaments: ['tournaments', 'ongoing'] as const,
+  completedTournaments: ['tournaments', 'completed'] as const,
   tournament: (name: string) => ['tournament', name] as const,
   events: (tournamentName: string) => ['events', tournamentName] as const,
   event: (eventId: number) => ['event', eventId] as const,
@@ -15,6 +17,9 @@ export const queryKeys = {
   eventStatuses: ['eventStatuses'] as const,
   fencers: (eventId: number) => ['fencers', eventId] as const,
   rounds: (eventId: number) => ['rounds', eventId] as const,
+  round: (roundId: number) => ['round', roundId] as const,
+  roundStarted: (roundId: number) => ['round', roundId, 'started'] as const,
+  roundCompleted: (roundId: number) => ['round', roundId, 'completed'] as const,
   pools: (roundId: number) => ['pools', roundId] as const,
   boutsForPool: (roundId: number, poolId: number) => ['bouts', 'pool', roundId, poolId] as const,
   bouts: (roundId: number) => ['bouts', roundId] as const,
@@ -25,6 +30,28 @@ export const queryKeys = {
 };
 
 // ===== READ HOOKS =====
+
+/**
+ * Hook to get list of ongoing tournaments
+ */
+export function useOngoingTournaments() {
+  return useQuery({
+    queryKey: queryKeys.ongoingTournaments,
+    queryFn: () => dataProvider.listOngoingTournaments(),
+    staleTime: 60000, // 1 minute
+  });
+}
+
+/**
+ * Hook to get list of completed tournaments
+ */
+export function useCompletedTournaments() {
+  return useQuery({
+    queryKey: queryKeys.completedTournaments,
+    queryFn: () => dataProvider.listCompletedTournaments(),
+    staleTime: 60000, // 1 minute
+  });
+}
 
 /**
  * Hook to get events for a tournament
@@ -49,6 +76,36 @@ export function useRounds(eventId: number) {
     queryFn: () => dataProvider.getRounds(eventId),
     enabled: !!eventId,
     staleTime: dataProvider.isRemoteConnection() ? 10000 : 60000,
+  });
+}
+
+/**
+ * Hook to check if a specific round is started
+ */
+export function useRoundStarted(roundId: number) {
+  return useQuery({
+    queryKey: queryKeys.roundStarted(roundId),
+    queryFn: async () => {
+      const roundDetails = await dataProvider.getRoundById(roundId);
+      return roundDetails?.isstarted === 1 || roundDetails?.isstarted === true;
+    },
+    enabled: !!roundId,
+    staleTime: dataProvider.isRemoteConnection() ? 5000 : 30000,
+  });
+}
+
+/**
+ * Hook to check if a specific round is completed
+ */
+export function useRoundCompleted(roundId: number) {
+  return useQuery({
+    queryKey: queryKeys.roundCompleted(roundId),
+    queryFn: async () => {
+      const roundDetails = await dataProvider.getRoundById(roundId);
+      return roundDetails?.iscomplete === 1 || roundDetails?.iscomplete === true;
+    },
+    enabled: !!roundId,
+    staleTime: dataProvider.isRemoteConnection() ? 5000 : 30000,
   });
 }
 

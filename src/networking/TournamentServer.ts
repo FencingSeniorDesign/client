@@ -8,7 +8,7 @@ import {
     publishTournamentService, 
     unpublishTournamentService 
 } from './NetworkUtils';
-import { dbListEvents, dbGetRoundsForEvent, dbGetPoolsForRound, dbGetBoutsForPool, dbUpdateBoutScores } from '../db/TournamentDatabaseUtils';
+import { dbListEvents, dbGetRoundsForEvent, dbGetPoolsForRound, dbGetBoutsForPool, dbUpdateBoutScores } from '../db/DrizzleDatabaseUtils';
 
 // Constants
 const DEFAULT_PORT = 9001;
@@ -795,7 +795,7 @@ class TournamentServer {
         try {
             // Mark the round as complete in the database
             console.log(`🔍 Marking round ${roundId} as complete...`);
-            await import('../db/TournamentDatabaseUtils')
+            await import('../db/DrizzleDatabaseUtils')
                 .then(module => module.dbMarkRoundAsComplete(roundId));
             console.log(`✅ Round ${roundId} marked as complete`);
             

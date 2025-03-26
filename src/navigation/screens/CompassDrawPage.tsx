@@ -17,7 +17,7 @@ import {
     dbGetRoundsForEvent,
     dbUpdateDEBoutAndAdvanceWinner,
     dbGetCompassBracketBouts,
-} from '../../db/TournamentDatabaseUtils';
+} from '../../db/DrizzleDatabaseUtils';
 import { getCompassDirectionName } from '../utils/CompassDrawUtils';
 
 type CompassDrawPageParams = {

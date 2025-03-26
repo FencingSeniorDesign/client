@@ -9,7 +9,7 @@ import {
   Alert,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
-import { dbCreateTournament } from '../../db/TournamentDatabaseUtils';
+import { dbCreateTournament } from '../../db/DrizzleDatabaseUtils';
 
 interface CreateTournamentButtonProps {
   onTournamentCreated: () => void;

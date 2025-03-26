@@ -16,9 +16,9 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import {
     dbGetBoutsForPool,
     dbGetSeedingForRound,
-} from '../../db/TournamentDatabaseUtils';
+} from '../../db/DrizzleDatabaseUtils';
 import { RootStackParamList, Event, Fencer } from '../navigation/types';
-import { usePools, useCompleteRound } from '../../data/TournamentDataHooks';
+import { usePools, useCompleteRound, useRoundCompleted } from '../../data/TournamentDataHooks';
 import tournamentClient from '../../networking/TournamentClient';
 import ConnectionStatusBar from '../../networking/components/ConnectionStatusBar';
 
@@ -55,6 +55,9 @@ const PoolsPage: React.FC = () => {
     
     // Use the complete round mutation
     const completeRoundMutation = useCompleteRound();
+    
+    // Check if the round is already completed
+    const { data: isRoundCompleted, isLoading: isRoundCompletedLoading } = useRoundCompleted(roundId);
     
     // Set pools data when it's fetched from the server or database
     useEffect(() => {
@@ -247,12 +250,18 @@ const PoolsPage: React.FC = () => {
             <TouchableOpacity
                 style={[
                     styles.endRoundButton,
-                    !Object.values(poolCompletionStatus).every(status => status) && styles.disabledButton,
+                    !isRoundCompleted && !Object.values(poolCompletionStatus).every(status => status) && styles.disabledButton,
                 ]}
-                disabled={!Object.values(poolCompletionStatus).every(status => status)}
-                onPress={confirmEndRound}
+                disabled={!isRoundCompleted && !Object.values(poolCompletionStatus).every(status => status)}
+                onPress={isRoundCompleted ? () => navigation.navigate('RoundResults', {
+                    roundId,
+                    eventId: event.id,
+                    currentRoundIndex
+                }) : confirmEndRound}
             >
-                <Text style={styles.endRoundButtonText}>End Round</Text>
+                <Text style={styles.endRoundButtonText}>
+                    {isRoundCompleted ? "Show Results" : "End Round"}
+                </Text>
             </TouchableOpacity>
 
             {/* Strip Number Modal */}

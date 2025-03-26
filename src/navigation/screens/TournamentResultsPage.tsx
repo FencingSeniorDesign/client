@@ -12,7 +12,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList, Event, Fencer, Round } from '../navigation/types';
 import { useRounds } from '../../data/TournamentDataHooks';
 import { useQueryClient } from '@tanstack/react-query';
-import dataProvider from '../../data/TournamentDataProvider';
+import dataProvider from '../../data/DrizzleDataProvider';
 import { MaterialIcons } from '@expo/vector-icons';
 import ConnectionStatusBar from '../../networking/components/ConnectionStatusBar';
 
