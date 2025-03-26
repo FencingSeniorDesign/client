@@ -296,6 +296,73 @@ export interface ConnectionConfig {
 }
 
 /**
+ * Entity types that can be updated in real-time
+ */
+export enum EntityType {
+  EVENT = 'event',
+  ROUND = 'round',
+  POOL = 'pool',
+  BOUT = 'bout',
+  FENCER = 'fencer',
+  SEEDING = 'seeding'
+}
+
+/**
+ * Update operation types
+ */
+export enum UpdateOperation {
+  CREATE = 'create',
+  UPDATE = 'update',
+  DELETE = 'delete'
+}
+
+/**
+ * Real-time entity update message
+ */
+export interface EntityUpdateMessage extends BaseMessage {
+  type: 'entity_update';
+  entityType: EntityType;
+  entityId: number;
+  operation: UpdateOperation;
+  data: any;
+  timestamp: string;
+  version: number;
+}
+
+/**
+ * Bulk update message for multiple entities of the same type
+ */
+export interface BulkEntityUpdateMessage extends BaseMessage {
+  type: 'bulk_entity_update';
+  entityType: EntityType;
+  updates: {
+    entityId: number;
+    operation: UpdateOperation;
+    data: any;
+  }[];
+  timestamp: string;
+  version: number;
+}
+
+/**
+ * Request for missed updates since a specific version
+ */
+export interface RequestMissedUpdatesMessage extends BaseMessage {
+  type: 'request_missed_updates';
+  lastReceivedVersion: number;
+  entityTypes?: EntityType[];
+}
+
+/**
+ * Response with missed updates
+ */
+export interface MissedUpdatesResponseMessage extends BaseMessage {
+  type: 'missed_updates_response';
+  updates: EntityUpdateMessage[];
+  currentVersion: number;
+}
+
+/**
  * All possible message types - union type
  */
 export type TournamentMessage = 
@@ -324,7 +391,11 @@ export type TournamentMessage =
   | TournamentBroadcastMessage
   | CompleteRoundMessage
   | RoundCompletedMessage
-  | RoundCompletedBroadcastMessage;
+  | RoundCompletedBroadcastMessage
+  | EntityUpdateMessage        // New message type
+  | BulkEntityUpdateMessage    // New message type
+  | RequestMissedUpdatesMessage // New message type
+  | MissedUpdatesResponseMessage; // New message type
 
 /**
  * Type guard functions
@@ -364,3 +435,19 @@ export const isPoolsListMessage = (msg: any): msg is PoolsListMessage =>
 export const isPoolBoutsListMessage = (msg: any): msg is PoolBoutsListMessage =>
   validateMessage(msg) && msg.type === 'pool_bouts_list' &&
   typeof msg.roundId === 'number' && typeof msg.poolId === 'number' && Array.isArray(msg.bouts);
+
+export const isEntityUpdateMessage = (msg: any): msg is EntityUpdateMessage =>
+    validateMessage(msg) && msg.type === 'entity_update' &&
+    typeof msg.entityType === 'string' && typeof msg.entityId === 'number';
+
+export const isBulkEntityUpdateMessage = (msg: any): msg is BulkEntityUpdateMessage =>
+    validateMessage(msg) && msg.type === 'bulk_entity_update' &&
+    typeof msg.entityType === 'string' && Array.isArray(msg.updates);
+
+export const isRequestMissedUpdatesMessage = (msg: any): msg is RequestMissedUpdatesMessage =>
+    validateMessage(msg) && msg.type === 'request_missed_updates' &&
+    typeof msg.lastReceivedVersion === 'number';
+
+export const isMissedUpdatesResponseMessage = (msg: any): msg is MissedUpdatesResponseMessage =>
+    validateMessage(msg) && msg.type === 'missed_updates_response' &&
+    Array.isArray(msg.updates) && typeof msg.currentVersion === 'number';

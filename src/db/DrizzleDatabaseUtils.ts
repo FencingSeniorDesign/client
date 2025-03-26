@@ -8,6 +8,8 @@ import { Fencer, Event, Tournament, Round, Bout } from "../navigation/navigation
 import { calculateSeedingFromResults, calculatePreliminarySeeding } from '../navigation/utils/RoundAlgorithms';
 import { generateDoubleEliminationStructure, placeFencersInDoubleElimination } from '../navigation/utils/DoubleEliminationUtils';
 import { generateCompassDrawStructure, placeFencersInCompassDraw } from '../navigation/utils/CompassDrawUtils';
+import ServerPushManager from '../networking/ServerPushManager';
+import {EntityType, UpdateOperation} from "../networking/MessageTypes";
 
 // Tournament Functions
 export async function dbCreateTournament(tournamentName: string, iscomplete: number = 0): Promise<void> {
@@ -237,29 +239,38 @@ export async function dbDeleteFencerFromEventById(fencer: Fencer, event: Event):
 
 // Round Functions
 export async function dbMarkRoundAsComplete(roundId: number): Promise<void> {
-  try {
-    // First, get the round and event info
-    const round = await db.select()
-      .from(schema.rounds)
-      .where(eq(schema.rounds.id, roundId))
-      .limit(1);
-    
-    if (!round || round.length === 0) {
-      throw new Error(`Round with id ${roundId} not found`);
+    try {
+        // Get the round and event info
+        const round = await db.select()
+            .from(schema.rounds)
+            .where(eq(schema.rounds.id, roundId))
+            .limit(1);
+
+        if (!round || round.length === 0) {
+            throw new Error(`Round with id ${roundId} not found`);
+        }
+
+        // Calculate and save seeding from the round results
+        await dbCalculateAndSaveSeedingFromRoundResults(round[0].eventid, roundId);
+
+        // Then mark the round as complete
+        await db.update(schema.rounds)
+            .set({ iscomplete: true })
+            .where(eq(schema.rounds.id, roundId));
+
+        console.log(`Round ${roundId} marked as complete`);
+
+        // Track the update for real-time notifications
+        ServerPushManager.trackEntityUpdate(
+            EntityType.ROUND,
+            roundId,
+            UpdateOperation.UPDATE,
+            { id: roundId, iscomplete: true, eventid: round[0].eventid }
+        );
+    } catch (error) {
+        console.error('Error marking round complete:', error);
+        throw error;
     }
-    
-    // Calculate and save seeding from the round results
-    await dbCalculateAndSaveSeedingFromRoundResults(round[0].eventid, roundId);
-    
-    // Then mark the round as complete
-    await db.update(schema.rounds)
-      .set({ iscomplete: true })
-      .where(eq(schema.rounds.id, roundId));
-    
-    console.log(`Round ${roundId} marked as complete`);
-  } catch (error) {
-    console.error('Error marking round complete:', error);
-  }
 }
 
 export async function dbGetRoundsForEvent(eventId: number): Promise<Round[]> {
@@ -365,98 +376,119 @@ export async function dbMarkRoundAsStarted(roundId: number): Promise<void> {
 }
 
 // Pool and Bout Functions
+/**
+ * Creates pool assignments and bout orders for a round
+ * @param event The event
+ * @param round The round
+ * @param fencers List of fencers in the event
+ * @param poolCount Number of pools to create
+ * @param fencersPerPool Target number of fencers per pool
+ * @param seeding Optional seeding to use for pool assignments
+ */
 export async function dbCreatePoolAssignmentsAndBoutOrders(
-  event: Event,
-  round: Round,
-  fencers: Fencer[],
-  poolCount: number,
-  fencersPerPool: number,
-  seeding?: any[]
+    event: Event,
+    round: Round,
+    fencers: Fencer[],
+    poolCount: number,
+    fencersPerPool: number,
+    seeding?: any[]
 ): Promise<void> {
-  try {
-    console.log(`Creating pool assignments for round ${round.id}, event ${event.id}`);
-    console.log(`Building ${poolCount} pools with ${fencersPerPool} fencers per pool`);
-    console.log(`Total fencers: ${fencers.length}, seeding available: ${seeding ? 'yes' : 'no'}`);
-    
-    const pools: Fencer[][] = buildPools(fencers, poolCount, fencersPerPool, seeding);
-    console.log(`Created ${pools.length} pools`);
-    
-    // Quick verification
-    pools.forEach((pool, index) => {
-      console.log(`Pool ${index} has ${pool.length} fencers: ${pool.map(f => f.id).join(', ')}`);
-    });
+    try {
+        console.log(`Creating pool assignments for round ${round.id}, event ${event.id}`);
+        console.log(`Building ${poolCount} pools with ${fencersPerPool} fencers per pool`);
+        console.log(`Total fencers: ${fencers.length}, seeding available: ${seeding ? 'yes' : 'no'}`);
 
-    for (let poolIndex = 0; poolIndex < pools.length; poolIndex++) {
-      const pool = pools[poolIndex];
-      
-      // Insert each fencer's pool assignment
-      for (let i = 0; i < pool.length; i++) {
-        const fencer = pool[i];
-        if (!fencer.id) continue;
-        
-        await db.insert(schema.fencerPoolAssignment)
-          .values({
-            roundid: round.id,
-            poolid: poolIndex,
-            fencerid: fencer.id,
-            fenceridinpool: i + 1
-          });
-      }
-      
-      // Create round-robin bouts for the pool
-      for (let i = 0; i < pool.length; i++) {
-        for (let j = i + 1; j < pool.length; j++) {
-          const fencerA = pool[i];
-          const fencerB = pool[j];
-          
-          if (!fencerA.id || !fencerB.id) continue;
-          
-          console.log(`Creating bout between ${fencerA.fname} ${fencerA.lname} and ${fencerB.fname} ${fencerB.lname}`);
-          
-          // Insert the bout
-          const boutResult = await db.insert(schema.bouts)
-            .values({
-              lfencer: fencerA.id,
-              rfencer: fencerB.id,
-              eventid: event.id,
-              roundid: round.id,
-              tableof: 2 // Using default value for tableof
-            })
-            .returning({ id: schema.bouts.id });
-          
-          const boutId = boutResult[0]?.id;
-          
-          if (boutId) {
-            console.log(`Bout created with ID: ${boutId}, creating fencerBouts records`);
-            
-            // Also create fencerBouts records (these associate fencers with their bouts and scores)
-            try {
-              await db.insert(schema.fencerBouts)
-                .values({
-                  fencerid: fencerA.id,
-                  boutid: boutId,
-                  score: 0
-                });
-                
-              await db.insert(schema.fencerBouts)
-                .values({
-                  fencerid: fencerB.id,
-                  boutid: boutId,
-                  score: 0  
-                });
-            } catch (fbError) {
-              console.error('Error creating fencerBouts records:', fbError);
+        // Build the pools using the seeding if available
+        const pools: Fencer[][] = buildPools(fencers, poolCount, fencersPerPool, seeding);
+        console.log(`Created ${pools.length} pools`);
+
+        // Save pool assignments to the database
+        for (let poolIndex = 0; poolIndex < pools.length; poolIndex++) {
+            const pool = pools[poolIndex];
+
+            for (let fencerIndex = 0; fencerIndex < pool.length; fencerIndex++) {
+                const fencer = pool[fencerIndex];
+
+                if (!fencer.id) {
+                    console.warn(`Fencer at position ${fencerIndex} in pool ${poolIndex} has no ID, skipping`);
+                    continue;
+                }
+
+                // Save the fencer's assignment to this pool
+                await db.insert(schema.fencerPoolAssignment)
+                    .values({
+                        roundid: round.id,
+                        poolid: poolIndex,
+                        fencerid: fencer.id,
+                        fenceridinpool: fencerIndex + 1 // 1-based index for fencer position in pool
+                    })
+                    .onConflictDoNothing();
+
+                console.log(`Assigned fencer ${fencer.id} (${fencer.fname} ${fencer.lname}) to pool ${poolIndex}, position ${fencerIndex + 1}`);
             }
-          } else {
-            console.error('Failed to get bout ID for newly created bout');
-          }
         }
-      }
+
+        // Create bouts for each pool
+        for (let poolIndex = 0; poolIndex < pools.length; poolIndex++) {
+            const pool = pools[poolIndex];
+
+            // Create a bout for each pair of fencers in the pool
+            for (let i = 0; i < pool.length; i++) {
+                for (let j = i + 1; j < pool.length; j++) {
+                    const fencerA = pool[i];
+                    const fencerB = pool[j];
+
+                    if (!fencerA.id || !fencerB.id) {
+                        console.warn(`Skipping bout creation due to missing fencer ID: ${fencerA.id} vs ${fencerB.id}`);
+                        continue;
+                    }
+
+                    // Create a bout record
+                    const boutResult = await db.insert(schema.bouts)
+                        .values({
+                            lfencer: fencerA.id,
+                            rfencer: fencerB.id,
+                            eventid: event.id,
+                            roundid: round.id
+                        })
+                        .returning({ id: schema.bouts.id });
+
+                    const boutId = boutResult[0]?.id;
+                    console.log(`Created bout ${boutId} between fencers ${fencerA.id} and ${fencerB.id} in pool ${poolIndex}`);
+
+                    // Note: The database trigger will automatically create FencerBouts records
+                }
+            }
+        }
+
+        console.log(`Successfully created all pools and bouts for round ${round.id}`);
+
+        // Track pool assignments for real-time notifications
+        const poolAssignmentData = pools.map((pool, poolIndex) => {
+            return {
+                poolId: poolIndex,
+                fencers: pool.map(fencer => ({
+                    id: fencer.id,
+                    fname: fencer.fname,
+                    lname: fencer.lname
+                }))
+            };
+        });
+
+        ServerPushManager.trackEntityUpdate(
+            EntityType.POOL,
+            round.id, // Using round ID as the entity ID for pools
+            UpdateOperation.CREATE,
+            {
+                roundId: round.id,
+                eventId: event.id,
+                pools: poolAssignmentData
+            }
+        );
+    } catch (error) {
+        console.error('Error creating pool assignments and bout orders:', error);
+        throw error;
     }
-  } catch (error) {
-    console.error('Error creating pool assignments and bout orders:', error);
-    throw error;
-  }
 }
 
 export async function dbGetPoolsForRound(roundId: number): Promise<{ poolid: number; fencers: Fencer[] }[]> {
@@ -652,14 +684,27 @@ export async function dbUpdateBoutScore(boutId: number, fencerId: number, score:
 }
 
 export async function dbUpdateBoutScores(
-  boutId: number,
-  scoreA: number,
-  scoreB: number,
-  fencerAId: number,
-  fencerBId: number
+    boutId: number,
+    scoreA: number,
+    scoreB: number,
+    fencerAId: number,
+    fencerBId: number
 ): Promise<void> {
-  await dbUpdateBoutScore(boutId, fencerAId, scoreA);
-  await dbUpdateBoutScore(boutId, fencerBId, scoreB);
+    try {
+        await dbUpdateBoutScore(boutId, fencerAId, scoreA);
+        await dbUpdateBoutScore(boutId, fencerBId, scoreB);
+
+        // Track the update for real-time notifications
+        ServerPushManager.trackEntityUpdate(
+            EntityType.BOUT,
+            boutId,
+            UpdateOperation.UPDATE,
+            { boutId, scoreA, scoreB, fencerAId, fencerBId }
+        );
+    } catch (error) {
+        console.error('Error updating bout scores:', error);
+        throw error;
+    }
 }
 
 // Seeding Functions

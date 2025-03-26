@@ -425,7 +425,23 @@ class TournamentClient extends EventEmitter {
                     data.bouts = [];
                 }
             }
-            
+
+            // Validate and normalize entity update messages
+            if (data.type === 'entity_update' && data.entityType && data.entityId !== undefined) {
+                console.log(`Received entity update for ${data.entityType} #${data.entityId}`);
+            }
+
+            // Validate and normalize bulk entity update messages
+            if (data.type === 'bulk_entity_update' && data.entityType && Array.isArray(data.updates)) {
+                console.log(`Received bulk update for ${data.updates.length} ${data.entityType} entities`);
+            }
+
+            // Validate and normalize missed updates response
+            if (data.type === 'missed_updates_response' && Array.isArray(data.updates)) {
+                console.log(`Received ${data.updates.length} missed updates`);
+            }
+
+
             // CRITICAL: Process waiting promises BEFORE event handling
             const promiseHandlers = this.responsePromises.get(data.type);
             if (promiseHandlers) {
@@ -511,6 +527,20 @@ class TournamentClient extends EventEmitter {
                 case 'round_completed_broadcast':
                     console.log(`Received broadcast that round ${data.roundId} has been completed`);
                     break;
+                case 'entity_update':
+                    // The new entity update type will be emitted to listeners
+                    break;
+                case 'bulk_entity_update':
+                    // The new bulk entity update type will be emitted to listeners
+                    break;
+                case 'missed_updates_response':
+                    // Process each update in the response
+                    if (Array.isArray(data.updates)) {
+                        data.updates.forEach((update: any) => {
+                            // Emit each update as a separate event
+                            this.emit(update.type, update);
+                        });
+                    }
                 default:
                     console.log(`Unknown message type: ${data.type}`);
             }
@@ -521,6 +551,17 @@ class TournamentClient extends EventEmitter {
         } catch (error) {
             console.error('Error handling server message:', error);
         }
+    }
+
+    /**
+     * Request missed updates since a specific version
+     */
+    public requestMissedUpdates(lastReceivedVersion: number, entityTypes?: string[]): boolean {
+        return this.sendMessage({
+            type: 'request_missed_updates',
+            lastReceivedVersion,
+            entityTypes
+        });
     }
 
     async waitForResponse(type: string, timeout: number = 10000): Promise<any> {

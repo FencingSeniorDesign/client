@@ -19,6 +19,7 @@ import { usePools, useCompleteRound, useRoundCompleted } from '../../data/Tourna
 import ConnectionStatusBar from '../../networking/components/ConnectionStatusBar';
 import dataProvider from '../../data/DrizzleDataProvider';
 import { useQueryClient } from '@tanstack/react-query';
+import RealtimeUpdateIndicator from '../../networking/components/RealtimeUpdateIndicator'; // Add this
 
 type PoolsPageRouteParams = {
     event: Event;
@@ -184,6 +185,8 @@ const PoolsPage: React.FC = () => {
     return (
         <ScrollView contentContainerStyle={styles.container}>
             {isRemote && <ConnectionStatusBar compact={true} />}
+            {isRemote && <RealtimeUpdateIndicator compact={true} />}
+
             <Text style={styles.title}>Pools</Text>
 
             <TouchableOpacity

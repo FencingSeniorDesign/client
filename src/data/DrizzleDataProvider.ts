@@ -774,56 +774,75 @@ export class TournamentDataProvider {
    */
   async getPools(roundId: number): Promise<any[]> {
     console.log(`[DataProvider] Getting pools for round ${roundId}, remote: ${this.isRemoteConnection()}`);
-    
-    if (this.isRemoteConnection()) {
-      try {
-        // Request pools from server - RETRY UP TO 2 TIMES
-        for (let attempt = 1; attempt <= 3; attempt++) {
-          try {
-            console.log(`[DataProvider] Attempt ${attempt} to fetch pools for round ${roundId}`);
-            
-            // Request pools from server
-            tournamentClient.requestPools(roundId);
-            
-            // Wait for the response with longer timeout
-            const response = await tournamentClient.waitForResponse('pools_list', 8000);
-            
-            if (response && Array.isArray(response.pools)) {
-              console.log(`[DataProvider] Received ${response.pools.length} pools from server`);
-              return response.pools;
-            }
-            
-            console.log(`[DataProvider] Invalid pools response, retrying...`);
-          } catch (attemptError) {
-            if (attempt < 3) {
-              console.warn(`[DataProvider] Attempt ${attempt} failed, retrying: ${attemptError.message}`);
-              // Wait a moment before retrying
-              await new Promise(resolve => setTimeout(resolve, 1000));
-            } else {
-              throw attemptError; // Re-throw on final attempt
-            }
+
+    try {
+      if (this.isRemoteConnection()) {
+        try {
+          // First check if the round exists and is initialized
+          console.log(`[DataProvider] Checking round ${roundId} status before fetching pools`);
+          const roundDetails = await this.getRoundById(roundId);
+          console.log(`[DataProvider] Round ${roundId} details:`,
+              JSON.stringify({
+                isStarted: roundDetails?.isstarted,
+                isComplete: roundDetails?.iscomplete,
+                type: roundDetails?.type
+              })
+          );
+
+          if (!roundDetails || !roundDetails.isstarted) {
+            console.log(`[DataProvider] Round ${roundId} is not initialized, no pools will be found`);
+            return [];
           }
+
+          // Normal request process with enhanced logging
+          console.log(`[DataProvider] Requesting pools from server for round ${roundId}`);
+          tournamentClient.requestPools(roundId);
+
+          const response = await tournamentClient.waitForResponse('pools_list', 8000);
+          console.log(`[DataProvider] Server response for pools:`,
+              response ? `Found ${response.pools?.length || 0} pools` : 'No response'
+          );
+
+          if (response && Array.isArray(response.pools)) {
+            if (response.pools.length === 0) {
+              console.log(`[DataProvider] Server returned empty pools array for round ${roundId}`);
+            } else {
+              console.log(`[DataProvider] Sample pool data:`, JSON.stringify(response.pools[0]?.fencers?.length || 0));
+            }
+            return response.pools;
+          } else {
+            console.log(`[DataProvider] Invalid pools response structure:`, response);
+            return [];
+          }
+        } catch (error) {
+          console.error(`[DataProvider] Error fetching pools for round ${roundId}:`, error);
+          return [];
         }
-        
-        throw new Error('Failed to fetch pools from server after multiple attempts');
+      }
+
+      // For local database access
+      try {
+        console.log(`[DataProvider] Accessing local database for pools in round ${roundId}`);
+        const pools = await dbGetPoolsForRound(roundId);
+        console.log(`[DataProvider] Local database returned ${pools.length} pools`);
+
+        if (pools.length === 0) {
+          console.log(`[DataProvider] Checking if round ${roundId} is initialized in database`);
+          const roundRecord = await dbGetRoundById(roundId);
+          console.log(`[DataProvider] Round initialization status:`, roundRecord?.isstarted);
+        }
+
+        return pools;
       } catch (error) {
-        console.error('[DataProvider] Error fetching remote pools:', error);
+        console.error(`[DataProvider] Database error:`, error);
         return [];
       }
-    }
-    
-    // For local tournaments, fetch from database
-    try {
-      const poolsForRound = await dbGetPoolsForRound(roundId);
-      
-      console.log(`[DataProvider] Retrieved ${poolsForRound.length} pools from local database`);
-      return poolsForRound;
-    } catch (error) {
-      console.error('[DataProvider] Error reading local pools:', error);
+    } catch (outerError) {
+      console.error(`[DataProvider] Unhandled error in getPools:`, outerError);
       return [];
     }
   }
-  
+
   /**
    * Get bracket data for a DE round
    */

@@ -9,6 +9,8 @@ import {
     unpublishTournamentService 
 } from './NetworkUtils';
 import { dbListEvents, dbGetRoundsForEvent, dbGetPoolsForRound, dbGetBoutsForPool, dbUpdateBoutScores } from '../db/DrizzleDatabaseUtils';
+import {RequestMissedUpdatesMessage} from "./MessageTypes";
+import serverPushManager from './ServerPushManager';
 
 // Constants
 const DEFAULT_PORT = 9001;
@@ -332,9 +334,16 @@ class TournamentServer {
                 case 'complete_round':
                     this.handleCompleteRound(clientId, data);
                     break;
+                case 'request_missed_updates': // New message type for real-time updates
+                    this.handleRequestMissedUpdates(clientId, data);
+                    break;
                 default:
                     console.log(`Unknown message type: ${data.type}`);
             }
+
+            // Emit the message to any listeners
+            this.emit(data.type, data);
+            this.emit('message', data);
         } catch (error) {
             console.error('Error handling client message:', error);
         }
@@ -955,7 +964,7 @@ class TournamentServer {
     }
 
     // Broadcast a message to all connected clients
-    private broadcastMessage(message: any, excludeClientId?: string): void {
+    broadcastMessage(message: any, excludeClientId?: string): void {
         const messageStr = JSON.stringify(message);
         for (const [clientId, client] of this.clients.entries()) {
             if (excludeClientId && clientId === excludeClientId) {
@@ -986,6 +995,49 @@ class TournamentServer {
 
         this.broadcastMessage(message);
     }
+
+    /**
+     * Handle a request for missed updates
+     */
+    private async handleRequestMissedUpdates(clientId: string, data: RequestMissedUpdatesMessage): Promise<void> {
+        try {
+            console.log(`[TournamentServer] Client ${clientId} requested missed updates since version ${data.lastReceivedVersion}`);
+
+            // Get missed updates
+            const missedUpdates = serverPushManager.getMissedUpdates(
+                data.lastReceivedVersion,
+                data.entityTypes
+            );
+
+            // Convert to EntityUpdateMessage format
+            const updates = missedUpdates.map(update => ({
+                type: 'entity_update',
+                entityType: update.entityType,
+                entityId: update.entityId,
+                operation: update.operation,
+                data: update.data,
+                timestamp: update.timestamp,
+                version: update.version
+            }));
+
+            // Send response
+            const client = this.clients.get(clientId);
+            if (client) {
+                const responseMessage = {
+                    type: 'missed_updates_response',
+                    updates,
+                    currentVersion: serverPushManager.getCurrentVersion()
+                };
+
+                client.write(JSON.stringify(responseMessage));
+                console.log(`[TournamentServer] Sent ${updates.length} missed updates to client ${clientId}`);
+            }
+        } catch (error) {
+            console.error('[TournamentServer] Error handling missed updates request:', error);
+        }
+    }
+
+
 
     // Load server info from AsyncStorage
     async loadServerInfo(): Promise<ServerInfo | null> {

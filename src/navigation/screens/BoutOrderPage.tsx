@@ -14,9 +14,10 @@ import {
 import { useRoute, RouteProp, useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList, Fencer, Bout } from '../navigation/types';
-import { useBoutsForPool, useUpdatePoolBoutScores } from '../../data/TournamentDataHooks';
+import { useBoutsForPool, useUpdatePoolBoutScoresRealtime } from '../../data/TournamentDataHooks';
 import tournamentClient from '../../networking/TournamentClient';
 import ConnectionStatusBar from '../../networking/components/ConnectionStatusBar';
+import RealtimeUpdateIndicator from '../../networking/components/RealtimeUpdateIndicator'; // Add this
 
 type BoutOrderPageRouteProps = RouteProp<RootStackParamList, 'BoutOrderPage'>;
 type BoutOrderPageNavProp = StackNavigationProp<RootStackParamList, 'BoutOrderPage'>;
@@ -28,7 +29,7 @@ const BoutOrderPage: React.FC = () => {
 
     // Use React Query hooks, ensuring they respect remote status
     const { data: boutsData, isLoading, error } = useBoutsForPool(roundId, poolId);
-    const updateBoutScoresMutation = useUpdatePoolBoutScores();
+    const updateBoutScoresMutation = useUpdatePoolBoutScoresRealtime();
 
     const [bouts, setBouts] = useState<Bout[]>([]);
     const [expandedBoutIndex, setExpandedBoutIndex] = useState<number | null>(null);
@@ -330,6 +331,16 @@ const BoutOrderPage: React.FC = () => {
         <View style={{ flex: 1 }}>
             {/* Show connection status if in remote mode */}
             {isRemote && <ConnectionStatusBar compact={true} />}
+
+            <View style={{ flex: 1 }}>
+                {/* Show connection status if in remote mode */}
+                {isRemote && <ConnectionStatusBar compact={true} />}
+
+                {/* Add real-time update indicator if in remote mode */}
+                {isRemote && <RealtimeUpdateIndicator compact={true} />}
+
+                {/* Rest of existing JSX... */}
+            </View>
 
             {/* Header with double stripping toggle */}
             <View style={styles.header}>

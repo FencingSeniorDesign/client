@@ -8,6 +8,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { setupTournamentSync } from './data/TournamentDataHooks';
 import { initializeDatabase } from "./db/DrizzleClient";
+import { initializeRealtimeSync } from '../src/data/TournamentDataHooks';
 
 // Create a client
 const queryClient = new QueryClient({
@@ -26,6 +27,7 @@ initializeDatabase().catch(error => {
 
 // Set up tournament sync with real-time updates
 setupTournamentSync(queryClient);
+initializeRealtimeSync(queryClient);
 
 Asset.loadAsync([
     ...NavigationAssets,
