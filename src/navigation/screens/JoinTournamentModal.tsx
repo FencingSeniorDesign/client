@@ -42,7 +42,7 @@ export const JoinTournamentModal: React.FC<JoinTournamentModalProps> = ({
     const [error, setError] = useState<string | null>(null);
     
     // States for server discovery
-    const [showManualEntry, setShowManualEntry] = useState(true); // Start with manual entry as default
+    const [showManualEntry, setShowManualEntry] = useState(false); // Start with server discovery as default
     const [discoveredServers, setDiscoveredServers] = useState<DiscoveredServer[]>([]);
     const [isDiscovering, setIsDiscovering] = useState(false);
 
@@ -56,15 +56,26 @@ export const JoinTournamentModal: React.FC<JoinTournamentModalProps> = ({
 
         // Set up event listeners for discovery updates
         const serversUpdatedListener = (servers: DiscoveredServer[]) => {
+            console.log('Servers updated event received:', servers.length, 'servers found');
+            servers.forEach(server => {
+                console.log(`Server in list: ${server.tournamentName} at ${server.hostIp}:${server.port}`);
+            });
             setDiscoveredServers(servers);
         };
 
         const scanningChangedListener = (scanning: boolean) => {
+            console.log('Scanning changed event received:', scanning);
             setIsDiscovering(scanning);
+        };
+
+        // Listen for individual server discovery events too
+        const serverDiscoveredListener = (server: DiscoveredServer) => {
+            console.log(`New server discovered: ${server.tournamentName} at ${server.hostIp}:${server.port}`);
         };
 
         serverDiscovery.on('serversUpdated', serversUpdatedListener);
         serverDiscovery.on('scanningChanged', scanningChangedListener);
+        serverDiscovery.on('serverDiscovered', serverDiscoveredListener);
 
         // Clean up when modal closes
         return () => {
@@ -73,6 +84,7 @@ export const JoinTournamentModal: React.FC<JoinTournamentModalProps> = ({
             }
             serverDiscovery.removeListener('serversUpdated', serversUpdatedListener);
             serverDiscovery.removeListener('scanningChanged', scanningChangedListener);
+            serverDiscovery.removeListener('serverDiscovered', serverDiscoveredListener);
         };
     }, [visible]);
 
@@ -171,6 +183,7 @@ export const JoinTournamentModal: React.FC<JoinTournamentModalProps> = ({
         setError(null);
         setIsDiscovering(true);
         try {
+            // First try regular discovery
             const servers = await startServerDiscovery();
             setDiscoveredServers(servers);
         } catch (error: any) {

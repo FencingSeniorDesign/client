@@ -170,16 +170,14 @@ class TournamentServer {
     // Publish service using Zeroconf for local discovery
     private publishService(tournamentName: string): void {
         try {
-            // Create a unique service name by appending a random suffix to avoid name collisions
-            const uniqueId = Math.floor(Math.random() * 10000);
-            const uniqueServiceName = `${tournamentName}-${uniqueId}`;
-            
-            const success = publishTournamentService(uniqueServiceName, DEFAULT_PORT);
+            // Pass the actual tournament name directly without modifications
+            // The networking utils will handle making it unique internally
+            const success = publishTournamentService(tournamentName, DEFAULT_PORT);
             
             if (success) {
-                console.log(`Published Zeroconf service for tournament: ${uniqueServiceName}`);
+                console.log(`Published Zeroconf service for tournament: ${tournamentName}`);
             } else {
-                console.warn(`Zeroconf service publishing failed for tournament: ${uniqueServiceName}`);
+                console.warn(`Zeroconf service publishing failed for tournament: ${tournamentName}`);
                 console.log('Local network discovery may be limited, but direct IP connections will still work');
                 
                 // Since Zeroconf failed, we should show the IP address prominently
