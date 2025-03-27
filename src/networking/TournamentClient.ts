@@ -372,7 +372,15 @@ class TournamentClient extends EventEmitter {
     }
     
     // Update pool bout scores
-    updatePoolBoutScores(boutId: number, scoreA: number, scoreB: number, fencerAId: number, fencerBId: number): boolean {
+    updatePoolBoutScores(
+        boutId: number, 
+        scoreA: number, 
+        scoreB: number, 
+        fencerAId: number, 
+        fencerBId: number, 
+        roundId?: number, 
+        poolId?: number
+    ): boolean {
         console.log(`Sending update_pool_bout_scores for bout ${boutId}: ${scoreA}-${scoreB}`);
         const result = this.sendMessage({
             type: 'update_pool_bout_scores',
@@ -380,7 +388,9 @@ class TournamentClient extends EventEmitter {
             scoreA,
             scoreB,
             fencerAId,
-            fencerBId
+            fencerBId,
+            roundId, // Include roundId if available for targeted cache invalidation
+            poolId   // Include poolId if available for targeted cache invalidation
         });
         
         if (result) {

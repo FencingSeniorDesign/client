@@ -658,36 +658,37 @@ export function useUpdatePoolBoutScores() {
       roundId?: number,
       poolId?: number
     }) => {
-      return dataProvider.updatePoolBoutScores(boutId, scoreA, scoreB, fencerAId, fencerBId);
+      // Pass roundId and poolId to data provider for targeted cache invalidation
+      return dataProvider.updatePoolBoutScores(boutId, scoreA, scoreB, fencerAId, fencerBId, roundId, poolId);
     },
     onSuccess: (result, variables) => {
       console.log(`useUpdatePoolBoutScores onSuccess with result:`, result);
       const { roundId, poolId } = variables;
       
-      // Always invalidate all bouts queries to be safe
-      console.log(`Invalidating all bout queries after score update`);
-      queryClient.invalidateQueries({ 
-        queryKey: ['bouts'] 
-      });
+      // Client-side cache invalidation - the server will handle server-side invalidation
+      // This ensures the client UI refreshes correctly
       
-      // Also invalidate pools as completion status may have changed
-      console.log(`Invalidating all pool queries after score update`);
-      queryClient.invalidateQueries({ 
-        queryKey: ['pools'] 
-      });
-      
-      // If we know the round and pool, do a more targeted invalidation too
+      // If we know the round and pool, do a targeted invalidation
       if (roundId !== undefined && poolId !== undefined) {
-        console.log(`Also invalidating specific pool ${poolId} in round ${roundId}`);
+        console.log(`Client-side targeted invalidation for pool ${poolId} in round ${roundId}`);
         queryClient.invalidateQueries({ 
           queryKey: queryKeys.boutsForPool(roundId, poolId) 
         });
         
-        if (roundId) {
-          queryClient.invalidateQueries({ 
-            queryKey: queryKeys.pools(roundId) 
-          });
-        }
+        queryClient.invalidateQueries({ 
+          queryKey: queryKeys.pools(roundId) 
+        });
+      } else {
+        // Otherwise do broader invalidation
+        console.log(`Client-side broad invalidation of all bout queries after score update`);
+        queryClient.invalidateQueries({ 
+          queryKey: ['bouts'] 
+        });
+        
+        console.log(`Client-side invalidation of all pool queries after score update`);
+        queryClient.invalidateQueries({ 
+          queryKey: ['pools'] 
+        });
       }
     },
     // Also handle errors more gracefully
@@ -863,13 +864,24 @@ export function setupTournamentSync(queryClient: any) {
     if (data?.boutId) {
       console.log(`Received score update for bout ${data.boutId}: ${data.scoreA}-${data.scoreB}`);
       
-      // Invalidate all bouts-related queries to ensure UI updates
-      console.log(`Invalidating all bout-related queries to refresh UI`);
-      queryClient.invalidateQueries({ queryKey: ['bouts'] });
-      
-      // Also invalidate pools queries as the completion status may have changed
-      console.log(`Invalidating all pool queries to refresh UI`);
-      queryClient.invalidateQueries({ queryKey: ['pools'] });
+      // If roundId and poolId are available, do targeted invalidation
+      if (data.roundId !== undefined && data.poolId !== undefined) {
+        console.log(`Targeted invalidation for pool ${data.poolId} in round ${data.roundId}`);
+        queryClient.invalidateQueries({ 
+          queryKey: queryKeys.boutsForPool(data.roundId, data.poolId) 
+        });
+        
+        queryClient.invalidateQueries({ 
+          queryKey: queryKeys.pools(data.roundId) 
+        });
+      } else {
+        // Otherwise, do broader invalidation
+        console.log(`Invalidating all bout-related queries to refresh UI`);
+        queryClient.invalidateQueries({ queryKey: ['bouts'] });
+        
+        console.log(`Invalidating all pool queries to refresh UI`);
+        queryClient.invalidateQueries({ queryKey: ['pools'] });
+      }
     }
   });
   
@@ -880,9 +892,22 @@ export function setupTournamentSync(queryClient: any) {
       
       // Even though mutation should handle this, let's be extra safe and invalidate here too
       if (data.success) {
-        console.log(`bout_scores_updated: Invalidating all bout and pool queries to refresh UI`);
-        queryClient.invalidateQueries({ queryKey: ['bouts'] });
-        queryClient.invalidateQueries({ queryKey: ['pools'] });
+        // If roundId and poolId are available, do targeted invalidation
+        if (data.roundId !== undefined && data.poolId !== undefined) {
+          console.log(`bout_scores_updated: Targeted invalidation for pool ${data.poolId} in round ${data.roundId}`);
+          queryClient.invalidateQueries({ 
+            queryKey: queryKeys.boutsForPool(data.roundId, data.poolId) 
+          });
+          
+          queryClient.invalidateQueries({ 
+            queryKey: queryKeys.pools(data.roundId) 
+          });
+        } else {
+          // Otherwise do broader invalidation
+          console.log(`bout_scores_updated: Invalidating all bout and pool queries to refresh UI`);
+          queryClient.invalidateQueries({ queryKey: ['bouts'] });
+          queryClient.invalidateQueries({ queryKey: ['pools'] });
+        }
       }
     }
   });

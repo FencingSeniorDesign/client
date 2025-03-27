@@ -703,8 +703,7 @@ export class TournamentDataProvider {
 
     // For local tournaments, fetch from database
     try {
-      const bouts = await import('../db/DrizzleDatabaseUtils')
-          .then(module => module.dbGetBoutsForRound(roundId));
+      const bouts = await dbGetBoutsForRound(roundId);
 
       console.log(`[DataProvider] Retrieved ${bouts.length} bouts from local database`);
       return bouts;
@@ -855,9 +854,7 @@ export class TournamentDataProvider {
     
     // For local tournaments, fetch from database
     try {
-      // Import the database utility dynamically to avoid circular dependencies
-      const bracketData = await import('../db/DrizzleDatabaseUtils')
-        .then(module => module.dbGetBracketForRound?.(roundId));
+      const bracketData = await dbGetBracketForRound?.(roundId);
       
       console.log(`[DataProvider] Retrieved bracket from local database`);
       return bracketData;
@@ -908,13 +905,21 @@ export class TournamentDataProvider {
   /**
    * Update pool bout scores
    */
-  async updatePoolBoutScores(boutId: number, scoreA: number, scoreB: number, fencerAId: number, fencerBId: number): Promise<boolean> {
+  async updatePoolBoutScores(
+    boutId: number, 
+    scoreA: number, 
+    scoreB: number, 
+    fencerAId: number, 
+    fencerBId: number, 
+    roundId?: number, 
+    poolId?: number
+  ): Promise<boolean> {
     console.log(`[DataProvider] Updating pool bout ${boutId} score to ${scoreA}-${scoreB}, remote: ${this.isRemoteConnection()}`);
     
     if (this.isRemoteConnection()) {
       try {
-        // Send update pool bout scores request to server
-        tournamentClient.updatePoolBoutScores(boutId, scoreA, scoreB, fencerAId, fencerBId);
+        // Send update pool bout scores request to server with round and pool IDs for targeted cache invalidation
+        tournamentClient.updatePoolBoutScores(boutId, scoreA, scoreB, fencerAId, fencerBId, roundId, poolId);
         
         // Wait for confirmation
         const response = await tournamentClient.waitForResponse('bout_scores_updated', 10000); // Increased timeout
