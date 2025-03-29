@@ -20,7 +20,7 @@ import {
     dbGetDETableSize,
     dbIsDERoundComplete, // Add this import
 
-} from '../../db/TournamentDatabaseUtils';
+} from '../../db/DrizzleDatabaseUtils';
 
 type DEBracketPageParams = {
     event: Event;

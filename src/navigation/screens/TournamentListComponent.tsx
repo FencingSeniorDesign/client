@@ -8,7 +8,7 @@ import {
     Alert,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { dbDeleteTournament } from '../../db/TournamentDatabaseUtils';
+import { dbDeleteTournament } from '../../db/DrizzleDatabaseUtils';
 import {Tournament} from "../navigation/types";
 
 interface TournamentListProps {

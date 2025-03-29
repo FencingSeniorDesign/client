@@ -44,13 +44,36 @@ class TournamentClient extends EventEmitter {
                 await this.disconnect();
             }
 
-            console.log(`Attempting to connect to ${hostIp}:${port}...`);
+            // Try to resolve hostname or use IP directly
+            let resolvedHost = hostIp;
+            
+            // Check if this is a hostname rather than an IP address
+            if (!/^\d+\.\d+\.\d+\.\d+$/.test(hostIp)) {
+                console.log(`Host appears to be a hostname: ${hostIp}`);
+                
+                // If hostname is from mDNS and missing .local suffix, add it
+                if (!hostIp.includes('.')) {
+                    console.log(`Adding .local suffix to hostname: ${hostIp}`);
+                    resolvedHost = `${hostIp}.local`;
+                } 
+                // If it has .local already, use it as is
+                else if (hostIp.endsWith('.local')) {
+                    console.log(`Using hostname with .local suffix: ${hostIp}`);
+                    resolvedHost = hostIp;
+                }
+                // Otherwise try to use it directly
+                else {
+                    console.log(`Using hostname as provided: ${hostIp}`);
+                }
+            }
+
+            console.log(`Attempting to connect to ${resolvedHost}:${port}...`);
             this.connectionAttempts = 0;
 
             return new Promise((resolve, reject) => {
                 // Create simple connection options without problematic interface specifications
                 const options = {
-                    host: hostIp,
+                    host: resolvedHost,
                     port: port,
                     tls: false,
                     timeout: CONNECTION_TIMEOUT
@@ -349,7 +372,15 @@ class TournamentClient extends EventEmitter {
     }
     
     // Update pool bout scores
-    updatePoolBoutScores(boutId: number, scoreA: number, scoreB: number, fencerAId: number, fencerBId: number): boolean {
+    updatePoolBoutScores(
+        boutId: number, 
+        scoreA: number, 
+        scoreB: number, 
+        fencerAId: number, 
+        fencerBId: number, 
+        roundId?: number, 
+        poolId?: number
+    ): boolean {
         console.log(`Sending update_pool_bout_scores for bout ${boutId}: ${scoreA}-${scoreB}`);
         const result = this.sendMessage({
             type: 'update_pool_bout_scores',
@@ -357,7 +388,9 @@ class TournamentClient extends EventEmitter {
             scoreA,
             scoreB,
             fencerAId,
-            fencerBId
+            fencerBId,
+            roundId, // Include roundId if available for targeted cache invalidation
+            poolId   // Include poolId if available for targeted cache invalidation
         });
         
         if (result) {

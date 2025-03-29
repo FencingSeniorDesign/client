@@ -18,7 +18,7 @@ import {
     dbGetRoundsForEvent,
     dbUpdateDEBoutAndAdvanceWinner,
     dbGetDoubleBracketBouts,
-} from '../../db/TournamentDatabaseUtils';
+} from '../../db/DrizzleDatabaseUtils';
 
 type DoubleEliminationPageParams = {
     event: Event;

@@ -2,12 +2,14 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Event, Fencer, Round, Official } from '../navigation/navigation/types';
-import dataProvider from './TournamentDataProvider';
+import dataProvider from './DrizzleDataProvider';
 import tournamentClient from '../networking/TournamentClient';
 
 // Define query keys for consistent cache management
 export const queryKeys = {
   tournaments: ['tournaments'] as const,
+  ongoingTournaments: ['tournaments', 'ongoing'] as const,
+  completedTournaments: ['tournaments', 'completed'] as const,
   tournament: (name: string) => ['tournament', name] as const,
   events: (tournamentName: string) => ['events', tournamentName] as const,
   event: (eventId: number) => ['event', eventId] as const,
@@ -15,6 +17,9 @@ export const queryKeys = {
   eventStatuses: ['eventStatuses'] as const,
   fencers: (eventId: number) => ['fencers', eventId] as const,
   rounds: (eventId: number) => ['rounds', eventId] as const,
+  round: (roundId: number) => ['round', roundId] as const,
+  roundStarted: (roundId: number) => ['round', roundId, 'started'] as const,
+  roundCompleted: (roundId: number) => ['round', roundId, 'completed'] as const,
   pools: (roundId: number) => ['pools', roundId] as const,
   boutsForPool: (roundId: number, poolId: number) => ['bouts', 'pool', roundId, poolId] as const,
   bouts: (roundId: number) => ['bouts', roundId] as const,
@@ -25,6 +30,28 @@ export const queryKeys = {
 };
 
 // ===== READ HOOKS =====
+
+/**
+ * Hook to get list of ongoing tournaments
+ */
+export function useOngoingTournaments() {
+  return useQuery({
+    queryKey: queryKeys.ongoingTournaments,
+    queryFn: () => dataProvider.listOngoingTournaments(),
+    staleTime: 60000, // 1 minute
+  });
+}
+
+/**
+ * Hook to get list of completed tournaments
+ */
+export function useCompletedTournaments() {
+  return useQuery({
+    queryKey: queryKeys.completedTournaments,
+    queryFn: () => dataProvider.listCompletedTournaments(),
+    staleTime: 60000, // 1 minute
+  });
+}
 
 /**
  * Hook to get events for a tournament
@@ -49,6 +76,36 @@ export function useRounds(eventId: number) {
     queryFn: () => dataProvider.getRounds(eventId),
     enabled: !!eventId,
     staleTime: dataProvider.isRemoteConnection() ? 10000 : 60000,
+  });
+}
+
+/**
+ * Hook to check if a specific round is started
+ */
+export function useRoundStarted(roundId: number) {
+  return useQuery({
+    queryKey: queryKeys.roundStarted(roundId),
+    queryFn: async () => {
+      const roundDetails = await dataProvider.getRoundById(roundId);
+      return roundDetails?.isstarted === 1 || roundDetails?.isstarted === true;
+    },
+    enabled: !!roundId,
+    staleTime: dataProvider.isRemoteConnection() ? 5000 : 30000,
+  });
+}
+
+/**
+ * Hook to check if a specific round is completed
+ */
+export function useRoundCompleted(roundId: number) {
+  return useQuery({
+    queryKey: queryKeys.roundCompleted(roundId),
+    queryFn: async () => {
+      const roundDetails = await dataProvider.getRoundById(roundId);
+      return roundDetails?.iscomplete === 1 || roundDetails?.iscomplete === true;
+    },
+    enabled: !!roundId,
+    staleTime: dataProvider.isRemoteConnection() ? 5000 : 30000,
   });
 }
 
@@ -137,9 +194,14 @@ export function usePools(roundId: number) {
 export function useBoutsForPool(roundId: number, poolId: number) {
   return useQuery({
     queryKey: queryKeys.boutsForPool(roundId, poolId),
-    queryFn: () => dataProvider.getBoutsForPool(roundId, poolId),
+    queryFn: () => {
+      console.log(`Fetching bouts for pool ${poolId} in round ${roundId}, isRemote: ${dataProvider.isRemoteConnection()}`);
+      return dataProvider.getBoutsForPool(roundId, poolId);
+    },
     enabled: !!roundId && poolId !== undefined,
     staleTime: dataProvider.isRemoteConnection() ? 5000 : 30000,
+    // Add refetchInterval for remote connections to ensure data stays fresh
+    refetchInterval: dataProvider.isRemoteConnection() ? 5000 : false,
   });
 }
 
@@ -596,36 +658,37 @@ export function useUpdatePoolBoutScores() {
       roundId?: number,
       poolId?: number
     }) => {
-      return dataProvider.updatePoolBoutScores(boutId, scoreA, scoreB, fencerAId, fencerBId);
+      // Pass roundId and poolId to data provider for targeted cache invalidation
+      return dataProvider.updatePoolBoutScores(boutId, scoreA, scoreB, fencerAId, fencerBId, roundId, poolId);
     },
     onSuccess: (result, variables) => {
       console.log(`useUpdatePoolBoutScores onSuccess with result:`, result);
       const { roundId, poolId } = variables;
       
-      // Always invalidate all bouts queries to be safe
-      console.log(`Invalidating all bout queries after score update`);
-      queryClient.invalidateQueries({ 
-        queryKey: ['bouts'] 
-      });
+      // Client-side cache invalidation - the server will handle server-side invalidation
+      // This ensures the client UI refreshes correctly
       
-      // Also invalidate pools as completion status may have changed
-      console.log(`Invalidating all pool queries after score update`);
-      queryClient.invalidateQueries({ 
-        queryKey: ['pools'] 
-      });
-      
-      // If we know the round and pool, do a more targeted invalidation too
+      // If we know the round and pool, do a targeted invalidation
       if (roundId !== undefined && poolId !== undefined) {
-        console.log(`Also invalidating specific pool ${poolId} in round ${roundId}`);
+        console.log(`Client-side targeted invalidation for pool ${poolId} in round ${roundId}`);
         queryClient.invalidateQueries({ 
           queryKey: queryKeys.boutsForPool(roundId, poolId) 
         });
         
-        if (roundId) {
-          queryClient.invalidateQueries({ 
-            queryKey: queryKeys.pools(roundId) 
-          });
-        }
+        queryClient.invalidateQueries({ 
+          queryKey: queryKeys.pools(roundId) 
+        });
+      } else {
+        // Otherwise do broader invalidation
+        console.log(`Client-side broad invalidation of all bout queries after score update`);
+        queryClient.invalidateQueries({ 
+          queryKey: ['bouts'] 
+        });
+        
+        console.log(`Client-side invalidation of all pool queries after score update`);
+        queryClient.invalidateQueries({ 
+          queryKey: ['pools'] 
+        });
       }
     },
     // Also handle errors more gracefully
@@ -801,13 +864,24 @@ export function setupTournamentSync(queryClient: any) {
     if (data?.boutId) {
       console.log(`Received score update for bout ${data.boutId}: ${data.scoreA}-${data.scoreB}`);
       
-      // Invalidate all bouts-related queries to ensure UI updates
-      console.log(`Invalidating all bout-related queries to refresh UI`);
-      queryClient.invalidateQueries({ queryKey: ['bouts'] });
-      
-      // Also invalidate pools queries as the completion status may have changed
-      console.log(`Invalidating all pool queries to refresh UI`);
-      queryClient.invalidateQueries({ queryKey: ['pools'] });
+      // If roundId and poolId are available, do targeted invalidation
+      if (data.roundId !== undefined && data.poolId !== undefined) {
+        console.log(`Targeted invalidation for pool ${data.poolId} in round ${data.roundId}`);
+        queryClient.invalidateQueries({ 
+          queryKey: queryKeys.boutsForPool(data.roundId, data.poolId) 
+        });
+        
+        queryClient.invalidateQueries({ 
+          queryKey: queryKeys.pools(data.roundId) 
+        });
+      } else {
+        // Otherwise, do broader invalidation
+        console.log(`Invalidating all bout-related queries to refresh UI`);
+        queryClient.invalidateQueries({ queryKey: ['bouts'] });
+        
+        console.log(`Invalidating all pool queries to refresh UI`);
+        queryClient.invalidateQueries({ queryKey: ['pools'] });
+      }
     }
   });
   
@@ -818,9 +892,22 @@ export function setupTournamentSync(queryClient: any) {
       
       // Even though mutation should handle this, let's be extra safe and invalidate here too
       if (data.success) {
-        console.log(`bout_scores_updated: Invalidating all bout and pool queries to refresh UI`);
-        queryClient.invalidateQueries({ queryKey: ['bouts'] });
-        queryClient.invalidateQueries({ queryKey: ['pools'] });
+        // If roundId and poolId are available, do targeted invalidation
+        if (data.roundId !== undefined && data.poolId !== undefined) {
+          console.log(`bout_scores_updated: Targeted invalidation for pool ${data.poolId} in round ${data.roundId}`);
+          queryClient.invalidateQueries({ 
+            queryKey: queryKeys.boutsForPool(data.roundId, data.poolId) 
+          });
+          
+          queryClient.invalidateQueries({ 
+            queryKey: queryKeys.pools(data.roundId) 
+          });
+        } else {
+          // Otherwise do broader invalidation
+          console.log(`bout_scores_updated: Invalidating all bout and pool queries to refresh UI`);
+          queryClient.invalidateQueries({ queryKey: ['bouts'] });
+          queryClient.invalidateQueries({ queryKey: ['pools'] });
+        }
       }
     }
   });

@@ -1,5 +1,5 @@
-// src/data/TournamentDataProvider.ts
-import { Event, Fencer, Round, Official } from '../navigation/navigation/types';
+// src/data/DrizzleDataProvider.ts
+import {Event, Fencer, Round, Official, Tournament} from '../navigation/navigation/types';
 import {
   dbListEvents,
   dbGetFencersInEventById,
@@ -22,8 +22,20 @@ import {
   dbListReferees,
   dbAddRefereeToEvent,
   dbGetOfficialByDeviceId,
-  dbGetRefereeByDeviceId
-} from '../db/TournamentDatabaseUtils';
+  dbGetRefereeByDeviceId,
+  dbGetEventById,
+  dbGetRoundById,
+  dbGetSeedingForRound,
+  dbGetPoolsForRound,
+  dbGetBoutsForPool,
+  dbUpdateBoutScores,
+  dbMarkRoundAsComplete,
+  dbInitializeRound,
+  dbDeleteOfficial,
+  dbDeleteReferee,
+  dbListOngoingTournaments,
+  dbListCompletedTournaments
+} from '../db/DrizzleDatabaseUtils';
 import tournamentClient from '../networking/TournamentClient';
 import tournamentServer from '../networking/TournamentServer';
 import { getClientId } from '../networking/NetworkUtils';
@@ -33,6 +45,37 @@ import { getClientId } from '../networking/NetworkUtils';
  * determining whether to fetch data from the local database or remote server.
  */
 export class TournamentDataProvider {
+  // Tournament listing methods
+  async listOngoingTournaments(): Promise<Tournament[]> {
+    try {
+      if (this.isRemoteConnection()) {
+        console.log('[DataProvider] Ongoing tournament listings are always local');
+        return [];
+      }
+      
+      // For local tournaments, fetch from database
+      return await dbListOngoingTournaments();
+    } catch (error) {
+      console.error('[DataProvider] Error listing ongoing tournaments:', error);
+      return [];
+    }
+  }
+  
+  async listCompletedTournaments(): Promise<Tournament[]> {
+    try {
+      if (this.isRemoteConnection()) {
+        console.log('[DataProvider] Completed tournament listings are always local');
+        return [];
+      }
+      
+      // For local tournaments, fetch from database
+      return await dbListCompletedTournaments();
+    } catch (error) {
+      console.error('[DataProvider] Error listing completed tournaments:', error);
+      return [];
+    }
+  }
+  
   /**
    * Check if we're currently connected to a remote tournament server
    */
@@ -246,8 +289,7 @@ export class TournamentDataProvider {
 
     // For local tournaments, fetch from database
     try {
-      const event = await import('../db/TournamentDatabaseUtils')
-          .then(module => module.dbGetEventById(eventId));
+      const event = await dbGetEventById(eventId);
 
       console.log(`[DataProvider] Retrieved event from local database`);
       return event;
@@ -288,8 +330,7 @@ export class TournamentDataProvider {
 
     // For local tournaments, fetch from database
     try {
-      const seeding = await import('../db/TournamentDatabaseUtils')
-          .then(module => module.dbGetSeedingForRound(roundId));
+      const seeding = await dbGetSeedingForRound(roundId);
 
       console.log(`[DataProvider] Retrieved ${seeding.length} seeding entries from local database`);
       return seeding;
@@ -495,7 +536,8 @@ export class TournamentDataProvider {
     
     // For local tournaments, create in database
     try {
-      return await dbCreateEvent(tournamentName, event);
+      await dbCreateEvent(tournamentName, event);
+      return event.id || -1;
     } catch (error) {
       console.error('[DataProvider] Error creating event locally:', error);
       return -1;
@@ -558,7 +600,8 @@ export class TournamentDataProvider {
     
     // For local tournaments, add to database
     try {
-      return await dbAddRound(round as any);
+      await dbAddRound(round as any);
+      return round.id || -1;
     } catch (error) {
       console.error('[DataProvider] Error adding round locally:', error);
       return -1;
@@ -660,8 +703,7 @@ export class TournamentDataProvider {
 
     // For local tournaments, fetch from database
     try {
-      const bouts = await import('../db/TournamentDatabaseUtils')
-          .then(module => module.dbGetBoutsForRound(roundId));
+      const bouts = await dbGetBoutsForRound(roundId);
 
       console.log(`[DataProvider] Retrieved ${bouts.length} bouts from local database`);
       return bouts;
@@ -670,31 +712,31 @@ export class TournamentDataProvider {
       return [];
     }
   }
-  
+
   /**
    * Get bouts for a specific pool in a round
    */
   async getBoutsForPool(roundId: number, poolId: number): Promise<any[]> {
     console.log(`[DataProvider] Getting bouts for pool ${poolId} in round ${roundId}, remote: ${this.isRemoteConnection()}`);
-    
+
     if (this.isRemoteConnection()) {
       try {
         // Request bouts with multiple retries
         for (let attempt = 1; attempt <= 3; attempt++) {
           try {
             console.log(`[DataProvider] Attempt ${attempt} to fetch bouts for pool ${poolId} in round ${roundId}`);
-            
+
             // Request bouts for the pool from server
             tournamentClient.requestPoolBouts(roundId, poolId);
-            
+
             // Wait for the response with increased timeout
             const response = await tournamentClient.waitForResponse('pool_bouts_list', 8000);
-            
+
             if (response && Array.isArray(response.bouts)) {
               console.log(`[DataProvider] Received ${response.bouts.length} pool bouts from server`);
               return response.bouts;
             }
-            
+
             console.log(`[DataProvider] Invalid pool bouts response, retrying...`);
           } catch (attemptError) {
             if (attempt < 3) {
@@ -706,19 +748,18 @@ export class TournamentDataProvider {
             }
           }
         }
-        
+
         throw new Error('Failed to fetch pool bouts from server after multiple attempts');
       } catch (error) {
         console.error('[DataProvider] Error fetching remote pool bouts:', error);
         return [];
       }
     }
-    
+
     // For local tournaments, fetch from database
     try {
-      const bouts = await import('../db/TournamentDatabaseUtils')
-        .then(module => module.dbGetBoutsForPool(roundId, poolId));
-      
+      const bouts = await dbGetBoutsForPool(roundId, poolId);
+
       console.log(`[DataProvider] Retrieved ${bouts.length} pool bouts from local database`);
       return bouts;
     } catch (error) {
@@ -772,9 +813,7 @@ export class TournamentDataProvider {
     
     // For local tournaments, fetch from database
     try {
-      // Import the database utility dynamically to avoid circular dependencies
-      const poolsForRound = await import('../db/TournamentDatabaseUtils')
-        .then(module => module.dbGetPoolsForRound(roundId));
+      const poolsForRound = await dbGetPoolsForRound(roundId);
       
       console.log(`[DataProvider] Retrieved ${poolsForRound.length} pools from local database`);
       return poolsForRound;
@@ -815,9 +854,7 @@ export class TournamentDataProvider {
     
     // For local tournaments, fetch from database
     try {
-      // Import the database utility dynamically to avoid circular dependencies
-      const bracketData = await import('../db/TournamentDatabaseUtils')
-        .then(module => module.dbGetBracketForRound(roundId));
+      const bracketData = await dbGetBracketForRound?.(roundId);
       
       console.log(`[DataProvider] Retrieved bracket from local database`);
       return bracketData;
@@ -855,11 +892,10 @@ export class TournamentDataProvider {
     
     // For local tournaments, update in database
     try {
-      // Import the database utility dynamically to avoid circular dependencies
-      await import('../db/TournamentDatabaseUtils')
-        .then(module => module.dbUpdateBoutScore(boutId, scoreA, scoreB));
-      
-      return true;
+      // We can't just update the score because we need the fencer IDs
+      // This would require additional lookup to get fencer IDs
+      console.error('[DataProvider] Error updating bout score locally: missing implementation');
+      return false;
     } catch (error) {
       console.error('[DataProvider] Error updating bout score locally:', error);
       return false;
@@ -869,13 +905,21 @@ export class TournamentDataProvider {
   /**
    * Update pool bout scores
    */
-  async updatePoolBoutScores(boutId: number, scoreA: number, scoreB: number, fencerAId: number, fencerBId: number): Promise<boolean> {
+  async updatePoolBoutScores(
+    boutId: number, 
+    scoreA: number, 
+    scoreB: number, 
+    fencerAId: number, 
+    fencerBId: number, 
+    roundId?: number, 
+    poolId?: number
+  ): Promise<boolean> {
     console.log(`[DataProvider] Updating pool bout ${boutId} score to ${scoreA}-${scoreB}, remote: ${this.isRemoteConnection()}`);
     
     if (this.isRemoteConnection()) {
       try {
-        // Send update pool bout scores request to server
-        tournamentClient.updatePoolBoutScores(boutId, scoreA, scoreB, fencerAId, fencerBId);
+        // Send update pool bout scores request to server with round and pool IDs for targeted cache invalidation
+        tournamentClient.updatePoolBoutScores(boutId, scoreA, scoreB, fencerAId, fencerBId, roundId, poolId);
         
         // Wait for confirmation
         const response = await tournamentClient.waitForResponse('bout_scores_updated', 10000); // Increased timeout
@@ -890,10 +934,8 @@ export class TournamentDataProvider {
     
     // For local tournaments, update in database
     try {
-      // Import the database utility dynamically to avoid circular dependencies
       // Pass all parameters to the database utility
-      await import('../db/TournamentDatabaseUtils')
-        .then(module => module.dbUpdateBoutScores(boutId, scoreA, scoreB, fencerAId, fencerBId));
+      await dbUpdateBoutScores(boutId, scoreA, scoreB, fencerAId, fencerBId);
       
       return true;
     } catch (error) {
@@ -926,17 +968,12 @@ export class TournamentDataProvider {
     // For local tournaments, initialize in database
     try {
       // Get the necessary data to initialize the round
-      const event = await import('../db/TournamentDatabaseUtils')
-        .then(module => module.dbGetEventById(eventId));
-      
-      const round = await import('../db/TournamentDatabaseUtils')
-        .then(module => module.dbGetRoundById(roundId));
-      
+      const event = await dbGetEventById(eventId);
+      const round = await dbGetRoundById(roundId);
       const fencers = await this.getFencers(event);
       
       // Initialize the round
-      await import('../db/TournamentDatabaseUtils')
-        .then(module => module.dbInitializeRound(event, round, fencers));
+      await dbInitializeRound(event, round, fencers);
       
       return true;
     } catch (error) {
@@ -971,9 +1008,7 @@ export class TournamentDataProvider {
     
     // For local tournaments, complete in database
     try {
-      // Import the database utility dynamically to avoid circular dependencies
-      await import('../db/TournamentDatabaseUtils')
-        .then(module => module.dbMarkRoundAsComplete(roundId));
+      await dbMarkRoundAsComplete(roundId);
       
       return true;
     } catch (error) {
@@ -1159,9 +1194,7 @@ export class TournamentDataProvider {
     
     // For local tournaments, remove from database
     try {
-      // Import the database utility dynamically 
-      await import('../db/TournamentDatabaseUtils')
-        .then(module => module.dbDeleteReferee(refereeId));
+      await dbDeleteReferee(refereeId);
       return true;
     } catch (error) {
       console.error('[DataProvider] Error removing referee locally:', error);
@@ -1195,9 +1228,7 @@ export class TournamentDataProvider {
     
     // For local tournaments, remove from database
     try {
-      // Import the database utility dynamically
-      await import('../db/TournamentDatabaseUtils')
-        .then(module => module.dbDeleteOfficial(officialId));
+      await dbDeleteOfficial(officialId);
       return true;
     } catch (error) {
       console.error('[DataProvider] Error removing official locally:', error);
@@ -1256,8 +1287,49 @@ export class TournamentDataProvider {
       return 'spectator';
     }
   }
+  
+  /**
+   * Get round details by ID
+   */
+  async getRoundById(roundId: number): Promise<any> {
+    console.log(`[DataProvider] Getting round status for round ${roundId}, remote: ${this.isRemoteConnection()}`);
+    
+    if (this.isRemoteConnection()) {
+      try {
+        // Request round data from server
+        tournamentClient.sendMessage({
+          type: 'get_round',
+          roundId
+        });
+        
+        // Wait for the response
+        const response = await tournamentClient.waitForResponse('round_data', 5000);
+        
+        if (response && response.round) {
+          console.log(`[DataProvider] Received round data from server`);
+          return response.round;
+        }
+        
+        throw new Error('Failed to fetch round data from server');
+      } catch (error) {
+        console.error('[DataProvider] Error fetching remote round data:', error);
+        return null;
+      }
+    }
+    
+    // For local tournaments, fetch from database
+    try {
+      const round = await dbGetRoundById(roundId);
+      console.log(`[DataProvider] Retrieved round data from local database`);
+      return round;
+    } catch (error) {
+      console.error('[DataProvider] Error reading local round data:', error);
+      return null;
+    }
+  }
 }
 
 // Create a singleton instance
 const tournamentDataProvider = new TournamentDataProvider();
+
 export default tournamentDataProvider;

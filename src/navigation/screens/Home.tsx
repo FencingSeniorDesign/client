@@ -3,13 +3,13 @@ import React, { useState, useEffect } from 'react';
 import { StyleSheet, View, Text, Image, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import { CreateTournamentButton } from './CreateTournamentModal';
 import { TournamentList } from './TournamentListComponent';
-import { dbListCompletedTournaments, dbListOngoingTournaments } from '../../db/TournamentDatabaseUtils';
 import { useNavigation } from '@react-navigation/native';
 import { Tournament } from "../navigation/types";
 import { JoinTournamentModal } from './JoinTournamentModal';
 import tournamentClient from '../../networking/TournamentClient';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { MaterialIcons } from '@expo/vector-icons';
+import { useOngoingTournaments, useCompletedTournaments } from '../../data/TournamentDataHooks';
 
 // Import the logo image
 import logo from '../../assets/logo.png';
@@ -22,19 +22,9 @@ export function Home() {
   const [joinModalVisible, setJoinModalVisible] = useState(false);
   const [connectedTournament, setConnectedTournament] = useState<string | null>(null);
 
-  // Use TanStack Query for ongoing tournaments
-  const ongoingTournamentsQuery = useQuery({
-    queryKey: ['tournaments', 'ongoing'],
-    queryFn: dbListOngoingTournaments,
-    staleTime: 1000 * 60, // 1 minute
-  });
-
-  // Use TanStack Query for completed tournaments
-  const completedTournamentsQuery = useQuery({
-    queryKey: ['tournaments', 'completed'],
-    queryFn: dbListCompletedTournaments,
-    staleTime: 1000 * 60, // 1 minute
-  });
+  // Use TanStack Query hooks for tournaments
+  const ongoingTournamentsQuery = useOngoingTournaments();
+  const completedTournamentsQuery = useCompletedTournaments();
 
   // Check if we're connected to a tournament on load
   useEffect(() => {

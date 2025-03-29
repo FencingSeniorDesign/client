@@ -26,7 +26,7 @@ const BoutOrderPage: React.FC = () => {
     const navigation = useNavigation<BoutOrderPageNavProp>();
     const { roundId, poolId, isRemote = false } = route.params;
 
-    // Use React Query hooks
+    // Use React Query hooks, ensuring they respect remote status
     const { data: boutsData, isLoading, error } = useBoutsForPool(roundId, poolId);
     const updateBoutScoresMutation = useUpdatePoolBoutScores();
 
@@ -46,7 +46,11 @@ const BoutOrderPage: React.FC = () => {
     // Process the bouts data when it loads from the hook
     useEffect(() => {
         if (boutsData) {
+            console.log(`Received bout data for pool ${poolId} (Remote: ${isRemote}):`,
+                JSON.stringify(boutsData.slice(0, 1))); // Log first bout for debugging
+
             const fetchedBouts: Bout[] = boutsData.map((row: any) => {
+                // Create consistent Bout objects regardless of data source
                 const fencerA: Fencer = {
                     id: row.left_fencerid,
                     fname: row.left_fname,
@@ -76,9 +80,10 @@ const BoutOrderPage: React.FC = () => {
                 const status = (scoreA !== 0 || scoreB !== 0) ? 'completed' : 'pending';
                 return { id: row.id, fencerA, fencerB, scoreA, scoreB, status };
             });
+
             setBouts(fetchedBouts);
         }
-    }, [boutsData]);
+    }, [boutsData, poolId, isRemote]);
 
     // For pending bouts, compute a pendingRank based on order in the list.
     let pendingCounter = 0;
@@ -168,6 +173,7 @@ const BoutOrderPage: React.FC = () => {
             fencer2Name: bout.fencerB.lname || bout.fencerB.fname,
             currentScore1: bout.scoreA,
             currentScore2: bout.scoreB,
+            isRemote: isRemote,
             onSaveScores: async (score1: number, score2: number) => {
                 try {
                     console.log(`Saving scores from ref module for bout ${bout.id}: ${score1}-${score2}`);

@@ -131,10 +131,15 @@ class ServerDiscoveryEmitter extends EventEmitter {
             try {
                 console.log('Zeroconf service resolved:', JSON.stringify(service, null, 2));
                 
-                // Check if this is our service type - library adds underscores and .tcp
-                // So we check for _tournafence._tcp
-                if (service.type && service.type.includes(`_${SERVICE_TYPE}._tcp`)) {
-                    console.log('Service type matches our target service');
+                // Check for our service based on name pattern rather than type
+                // This is more reliable since some platforms don't consistently provide the type
+                const isTournaFenceService = 
+                    (service.name && service.name.startsWith('TournaFence-')) ||
+                    (service.fullName && service.fullName.includes('._tournafence._tcp.')) ||
+                    (service.type && service.type.includes(`_${SERVICE_TYPE}`));
+                
+                if (isTournaFenceService) {
+                    console.log('Service identified as TournaFence service');
                     
                     // Get the tournament name from the TXT record if available
                     let tournamentName = 'Unknown Tournament';
@@ -144,25 +149,86 @@ class ServerDiscoveryEmitter extends EventEmitter {
                         tournamentName = service.txt.name;
                         console.log('Using tournament name from TXT record:', tournamentName);
                     } else if (service.name && service.name.startsWith('TournaFence-')) {
-                        // If no TXT record, still show a friendly name by removing the random ID
-                        tournamentName = 'Tournament';
-                        console.log('Using generic tournament name for TournaFence service');
+                        // If no TXT record, extract name from the service name format we use
+                        const nameParts = service.name.split('-');
+                        if (nameParts.length >= 2) {
+                            tournamentName = nameParts[1] || 'Tournament';
+                        } else {
+                            tournamentName = 'Tournament';
+                        }
+                        console.log('Extracted tournament name from service name:', tournamentName);
                     } else {
                         tournamentName = service.name || 'Unknown Tournament';
                         console.log('Using service name as tournament name:', tournamentName);
                     }
                     
+                    // Get the IP address - try multiple options
+                    let hostIp = null;
+                    
+                    // Always prefer IP addresses from addresses array if available
+                    if (service.addresses && service.addresses.length > 0) {
+                        // Try to find a non-local, IPv4 address (best choice for connectivity)
+                        const ipv4Address = service.addresses.find(addr => 
+                            addr.includes('.') && 
+                            !addr.startsWith('169.254.') && // Skip Link-local
+                            !addr.startsWith('127.') &&     // Skip Loopback
+                            !addr.includes(':')            // Skip IPv6
+                        );
+                        
+                        if (ipv4Address) {
+                            console.log('Using IPv4 address from addresses array:', ipv4Address);
+                            hostIp = ipv4Address;
+                        } else {
+                            // If no suitable IPv4, look for any IPv4 address
+                            const anyIPv4 = service.addresses.find(addr => addr.includes('.'));
+                            if (anyIPv4) {
+                                console.log('Using alternative IPv4 address:', anyIPv4);
+                                hostIp = anyIPv4;
+                            } else {
+                                console.log('No IPv4 addresses found, using first address:', service.addresses[0]);
+                                hostIp = service.addresses[0];
+                            }
+                        }
+                    }
+                    // Next try the ip property
+                    else if (service.ip) {
+                        console.log('Using IP from service:', service.ip);
+                        hostIp = service.ip;
+                    }
+                    // Only use hostname as a last resort, and keep the .local suffix
+                    else if (service.host) {
+                        // For iOS, we need to keep the .local suffix for mDNS resolution
+                        console.log('Using host from service (with .local if present):', service.host);
+                        
+                        // If we have full hostname/IP, use it instead
+                        if (service.host.includes('.') && !service.host.endsWith('.local')) {
+                            hostIp = service.host;
+                        } else {
+                            // Legacy clients might need this
+                            hostIp = service.host;
+                        }
+                    }
+                    
+                    const port = service.port || DEFAULT_PORT;
+                    
+                    // Skip services without valid connection info
+                    if (!hostIp || hostIp === '0.0.0.0') {
+                        console.log('Skipping service with invalid IP address');
+                        return;
+                    }
+                    
                     const server: DiscoveredServer = {
                         tournamentName: tournamentName,
-                        hostIp: service.host || service.ip || '0.0.0.0',
-                        port: service.port || DEFAULT_PORT,
+                        hostIp: hostIp,
+                        port: port,
                         timestamp: Date.now()
                     };
                     
                     console.log(`Discovered tournament server: ${server.tournamentName} at ${server.hostIp}:${server.port}`);
                     this.addServer(server);
                 } else {
-                    console.log(`Ignoring service of type: ${service.type} (not _${SERVICE_TYPE}._tcp)`);
+                    console.log(`Ignoring service, not matching TournaFence pattern:`, 
+                                service.name, service.fullName);
                 }
             } catch (error) {
                 console.error('Error handling resolved service:', error);
@@ -249,6 +315,16 @@ class ServerDiscoveryEmitter extends EventEmitter {
         console.log(`Added test server: ${name} at ${ip}:${port}`);
         return server;
     }
+    
+    // Manually add a server from console logs for testing
+    manualDiscoverServer(server: DiscoveredServer) {
+        if (!server.timestamp) {
+            server.timestamp = Date.now();
+        }
+        this.addServer(server);
+        console.log(`Manually added server: ${server.tournamentName} at ${server.hostIp}:${server.port}`);
+        return server;
+    }
 
     startScan() {
         if (this.isScanning) {
@@ -257,6 +333,12 @@ class ServerDiscoveryEmitter extends EventEmitter {
         }
 
         console.log('Starting server discovery scan...');
+        
+        // Report current system state for debugging
+        console.log('Zeroconf available:', this.isZeroconfAvailable);
+        console.log('Platform:', Platform.OS);
+        console.log('Is simulator:', DeviceInfo.isEmulator());
+        
         this.clearServers();
         this.setScanning(true);
         
@@ -271,6 +353,14 @@ class ServerDiscoveryEmitter extends EventEmitter {
             }, DISCOVERY_TIMEOUT);
             
             return;
+        }
+        
+        // Print info about current Zeroconf state
+        console.log('Zeroconf object:', this.zeroconf ? 'exists' : 'null');
+        if (this.zeroconf) {
+            console.log('Zeroconf service browser active:', 
+                        this.zeroconf.isServiceBrowserActive !== undefined ? 
+                        this.zeroconf.isServiceBrowserActive : 'unknown');
         }
         
         try {
@@ -337,10 +427,11 @@ class ServerDiscoveryEmitter extends EventEmitter {
             // Remove any existing service first
             this.unpublishService();
             
-            // Use a very simple generic name that's unlikely to collide
-            // Avoid the name parameter altogether to prevent collisions
-            const uniqueId = Math.floor(Math.random() * 10000000);
-            const simpleName = `TournaFence-${uniqueId}`;
+            // Create a unique ID that's based on the tournament name and a random suffix
+            // This ensures the name is both user-friendly and unique
+            const safeNamePart = name.replace(/[^a-zA-Z0-9]/g, '').substring(0, 10);
+            const uniqueId = Math.floor(Math.random() * 10000);
+            const simpleName = `TournaFence-${safeNamePart}-${uniqueId}`;
             
             console.log(`Attempting to publish service with name: ${simpleName}`);
             
@@ -349,7 +440,7 @@ class ServerDiscoveryEmitter extends EventEmitter {
                 SERVICE_TYPE,      // type (without underscores)
                 'tcp',             // protocol
                 'local.',          // domain (always "local.")
-                simpleName,        // name (simple unique ID)
+                simpleName,        // name (includes user-friendly part)
                 port,              // port number
                 {                  // TXT record with the actual tournament name
                     name: name,    // Store the real name in TXT record

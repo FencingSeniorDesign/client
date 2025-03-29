@@ -23,7 +23,7 @@ import { getLocalIpAddress, isConnectedToInternet, getNetworkInfo } from '../../
 import ConnectionStatusBar from '../../networking/components/ConnectionStatusBar';
 import { useQueryClient } from '@tanstack/react-query';
 import { useEvents, useCreateEvent, useEventStatuses, useDeleteEvent, useRounds, useFencers, useInitializeRound, queryKeys } from '../../data/TournamentDataHooks';
-import dataProvider from '../../data/TournamentDataProvider';
+import dataProvider from '../../data/DrizzleDataProvider';
 
 type Props = {
   route: RouteProp<{ params: { tournamentName: string, isRemoteConnection?: boolean } }, 'params'>;

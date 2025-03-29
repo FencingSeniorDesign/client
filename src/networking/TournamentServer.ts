@@ -8,7 +8,14 @@ import {
     publishTournamentService, 
     unpublishTournamentService 
 } from './NetworkUtils';
-import { dbListEvents, dbGetRoundsForEvent, dbGetPoolsForRound, dbGetBoutsForPool, dbUpdateBoutScores } from '../db/TournamentDatabaseUtils';
+import { 
+    dbListEvents, 
+    dbGetRoundsForEvent, 
+    dbGetPoolsForRound, 
+    dbGetBoutsForPool, 
+    dbUpdateBoutScores,
+    dbMarkRoundAsComplete
+} from '../db/DrizzleDatabaseUtils';
 
 // Constants
 const DEFAULT_PORT = 9001;
@@ -28,6 +35,7 @@ class TournamentServer {
     private cachedTournamentData: any = null;
     private tournamentDataLastUpdated: number = 0;
     private tournamentDataRefreshInterval: number = 30000; // 30 seconds
+    private queryClient: any = null; // TanStack Query client
 
     // Start TCP server for a tournament
     async startServer(tournament: Tournament): Promise<boolean> {
@@ -50,6 +58,14 @@ class TournamentServer {
 
             // Cache tournament data for quick responses
             await this.refreshTournamentData(tournament.name);
+            
+            // Invalidate any existing cache for this tournament if queryClient is available
+            if (this.queryClient) {
+                console.log(`🔄 Invalidating cache for tournament ${tournament.name} on server start`);
+                this.queryClient.invalidateQueries({ queryKey: ['tournament', tournament.name] });
+                this.queryClient.invalidateQueries({ queryKey: ['events', tournament.name] });
+                this.queryClient.invalidateQueries({ queryKey: ['tournaments'] });
+            }
 
             // Create TCP server without specifying a host to avoid interface errors
             // This will bind to all available interfaces
@@ -170,16 +186,14 @@ class TournamentServer {
     // Publish service using Zeroconf for local discovery
     private publishService(tournamentName: string): void {
         try {
-            // Create a unique service name by appending a random suffix to avoid name collisions
-            const uniqueId = Math.floor(Math.random() * 10000);
-            const uniqueServiceName = `${tournamentName}-${uniqueId}`;
-            
-            const success = publishTournamentService(uniqueServiceName, DEFAULT_PORT);
+            // Pass the actual tournament name directly without modifications
+            // The networking utils will handle making it unique internally
+            const success = publishTournamentService(tournamentName, DEFAULT_PORT);
             
             if (success) {
-                console.log(`Published Zeroconf service for tournament: ${uniqueServiceName}`);
+                console.log(`Published Zeroconf service for tournament: ${tournamentName}`);
             } else {
-                console.warn(`Zeroconf service publishing failed for tournament: ${uniqueServiceName}`);
+                console.warn(`Zeroconf service publishing failed for tournament: ${tournamentName}`);
                 console.log('Local network discovery may be limited, but direct IP connections will still work');
                 
                 // Since Zeroconf failed, we should show the IP address prominently
@@ -229,6 +243,17 @@ class TournamentServer {
 
                 // Clear cached data
                 this.cachedTournamentData = null;
+                
+                // Invalidate all cached tournament data if queryClient is available
+                if (this.queryClient && this.serverInfo?.tournamentName) {
+                    console.log(`🔄 Invalidating all tournament cache on server stop`);
+                    this.queryClient.invalidateQueries({ queryKey: ['tournament', this.serverInfo.tournamentName] });
+                    this.queryClient.invalidateQueries({ queryKey: ['events', this.serverInfo.tournamentName] });
+                    this.queryClient.invalidateQueries({ queryKey: ['tournaments'] });
+                    this.queryClient.invalidateQueries({ queryKey: ['rounds'] });
+                    this.queryClient.invalidateQueries({ queryKey: ['pools'] });
+                    this.queryClient.invalidateQueries({ queryKey: ['bouts'] });
+                }
 
                 // Close the server
                 try {
@@ -364,11 +389,37 @@ class TournamentServer {
     private handleScoreUpdate(clientId: string, data: any): void {
         // Handle score update and broadcast to all clients
         console.log(`Broadcasting score update from ${clientId}`);
+        
+        // Apply server-side cache invalidation if queryClient is available
+        if (this.queryClient) {
+            console.log(`🔄 Performing server-side cache invalidation for bout ${data.boutId}`);
+            
+            // Perform targeted invalidation if poolId and roundId are available
+            if (data.poolId !== undefined && data.roundId !== undefined) {
+                console.log(`🔄 Targeted invalidation for pool ${data.poolId} in round ${data.roundId}`);
+                this.queryClient.invalidateQueries({ 
+                    queryKey: ['bouts', 'pool', data.roundId, data.poolId] 
+                });
+                this.queryClient.invalidateQueries({ 
+                    queryKey: ['pools', data.roundId] 
+                });
+            } else {
+                // Otherwise do broader invalidation
+                console.log(`🔄 Broad invalidation of all bout queries`);
+                this.queryClient.invalidateQueries({ queryKey: ['bouts'] });
+                this.queryClient.invalidateQueries({ queryKey: ['pools'] });
+            }
+        } else {
+            console.log(`⚠️ No queryClient available for server-side cache invalidation`);
+        }
+        
         this.broadcastMessage({
             type: 'score_update',
             boutId: data.boutId,
             scoreA: data.scoreA,
-            scoreB: data.scoreB
+            scoreB: data.scoreB,
+            poolId: data.poolId,
+            roundId: data.roundId
         });
     }
 
@@ -768,7 +819,7 @@ class TournamentServer {
         
         console.log(`🔄 Handling complete_round from client ${clientId}, data:`, JSON.stringify(data));
         
-        const { roundId } = data;
+        const { roundId, eventId } = data;
         
         if (!roundId) {
             console.error('Missing roundId in complete_round request');
@@ -795,9 +846,29 @@ class TournamentServer {
         try {
             // Mark the round as complete in the database
             console.log(`🔍 Marking round ${roundId} as complete...`);
-            await import('../db/TournamentDatabaseUtils')
-                .then(module => module.dbMarkRoundAsComplete(roundId));
+            await dbMarkRoundAsComplete(roundId);
             console.log(`✅ Round ${roundId} marked as complete`);
+            
+            // Apply server-side cache invalidation if queryClient is available
+            if (this.queryClient) {
+                console.log(`🔄 Performing server-side cache invalidation for completed round ${roundId}`);
+                
+                // Invalidate rounds queries
+                this.queryClient.invalidateQueries({ queryKey: ['rounds'] });
+                
+                // If eventId is provided, do targeted invalidation
+                if (eventId) {
+                    console.log(`🔄 Targeted invalidation for event ${eventId}`);
+                    this.queryClient.invalidateQueries({ queryKey: ['rounds', eventId] });
+                    this.queryClient.invalidateQueries({ queryKey: ['events', { eventId }] });
+                }
+                
+                // Invalidate pools and bouts for this round
+                this.queryClient.invalidateQueries({ queryKey: ['pools', roundId] });
+                this.queryClient.invalidateQueries({ queryKey: ['bouts', roundId] });
+            } else {
+                console.log(`⚠️ No queryClient available for server-side cache invalidation`);
+            }
             
             // Send confirmation to the requesting client
             const client = this.clients.get(clientId);
@@ -806,6 +877,7 @@ class TournamentServer {
                     const confirmationMessage = {
                         type: 'round_completed',
                         roundId,
+                        eventId,
                         success: true
                     };
                     console.log(`🔄 Sending confirmation to client ${clientId}: ${JSON.stringify(confirmationMessage)}`);
@@ -828,7 +900,8 @@ class TournamentServer {
             // Broadcast the round completion to all clients
             const broadcastMessage = {
                 type: 'round_completed_broadcast',
-                roundId
+                roundId,
+                eventId
             };
             console.log(`🔄 Broadcasting round completion to all clients: ${JSON.stringify(broadcastMessage)}`);
             this.broadcastMessage(broadcastMessage);
@@ -866,7 +939,7 @@ class TournamentServer {
         
         console.log(`🔄 Handling update_pool_bout_scores from client ${clientId}, data:`, JSON.stringify(data));
         
-        const { boutId, scoreA, scoreB, fencerAId, fencerBId } = data;
+        const { boutId, scoreA, scoreB, fencerAId, fencerBId, roundId, poolId } = data;
         
         if (!boutId || scoreA === undefined || scoreB === undefined || !fencerAId || !fencerBId) {
             console.error('Missing required data in update_pool_bout_scores request');
@@ -896,6 +969,29 @@ class TournamentServer {
             await dbUpdateBoutScores(boutId, scoreA, scoreB, fencerAId, fencerBId);
             console.log(`✅ Updated scores for bout ${boutId} to ${scoreA}-${scoreB}`);
             
+            // Apply server-side cache invalidation if queryClient is available
+            if (this.queryClient) {
+                console.log(`🔄 Performing server-side cache invalidation for bout ${boutId}`);
+                
+                // Perform targeted invalidation if poolId and roundId are available
+                if (poolId !== undefined && roundId !== undefined) {
+                    console.log(`🔄 Targeted invalidation for pool ${poolId} in round ${roundId}`);
+                    this.queryClient.invalidateQueries({ 
+                        queryKey: ['bouts', 'pool', roundId, poolId] 
+                    });
+                    this.queryClient.invalidateQueries({ 
+                        queryKey: ['pools', roundId] 
+                    });
+                } else {
+                    // Otherwise do broader invalidation
+                    console.log(`🔄 Broad invalidation of all bout and pool queries`);
+                    this.queryClient.invalidateQueries({ queryKey: ['bouts'] });
+                    this.queryClient.invalidateQueries({ queryKey: ['pools'] });
+                }
+            } else {
+                console.log(`⚠️ No queryClient available for server-side cache invalidation`);
+            }
+            
             // First send confirmation to the requesting client
             const client = this.clients.get(clientId);
             if (client) {
@@ -905,6 +1001,8 @@ class TournamentServer {
                         boutId: boutId,
                         scoreA: scoreA,
                         scoreB: scoreB,
+                        roundId: roundId, // Include roundId for targeted cache invalidation
+                        poolId: poolId,   // Include poolId for targeted cache invalidation
                         success: true
                     };
                     console.log(`🔄 Sending confirmation to client ${clientId}: ${JSON.stringify(confirmationMessage)}`);
@@ -930,7 +1028,9 @@ class TournamentServer {
                 type: 'bout_score_updated',  // This is for UI updates in listening clients
                 boutId: boutId,
                 scoreA: scoreA,
-                scoreB: scoreB
+                scoreB: scoreB,
+                poolId: poolId, // Include poolId if available for better client handling
+                roundId: roundId // Include roundId if available for better client handling
             };
             console.log(`🔄 Broadcasting bout score update to all clients: ${JSON.stringify(broadcastMessage)}`);
             this.broadcastMessage(broadcastMessage);
@@ -986,6 +1086,39 @@ class TournamentServer {
             data
         };
 
+        // Apply server-side cache invalidation if queryClient is available
+        if (this.queryClient && this.serverInfo?.tournamentName) {
+            console.log(`🔄 Performing server-side cache invalidation for tournament update`);
+            
+            // Invalidate tournament data
+            this.queryClient.invalidateQueries({ 
+                queryKey: ['tournament', this.serverInfo.tournamentName] 
+            });
+            
+            // Invalidate events data
+            this.queryClient.invalidateQueries({ 
+                queryKey: ['events', this.serverInfo.tournamentName] 
+            });
+            
+            // If update contains specific data, perform targeted invalidation
+            if (data.eventId) {
+                this.queryClient.invalidateQueries({ 
+                    queryKey: ['event', data.eventId] 
+                });
+            }
+            
+            if (data.roundId) {
+                this.queryClient.invalidateQueries({ 
+                    queryKey: ['round', data.roundId] 
+                });
+                this.queryClient.invalidateQueries({ 
+                    queryKey: ['pools', data.roundId] 
+                });
+            }
+        } else {
+            console.log(`⚠️ No queryClient or tournament name available for cache invalidation`);
+        }
+
         this.broadcastMessage(message);
     }
 
@@ -1007,6 +1140,12 @@ class TournamentServer {
     // Get the number of connected clients
     getConnectedClientCount(): number {
         return this.clients.size;
+    }
+    
+    // Set the query client for server-side cache invalidation
+    setQueryClient(client: any): void {
+        this.queryClient = client;
+        console.log('TournamentServer: QueryClient has been set for server-side cache invalidation');
     }
 }
 
