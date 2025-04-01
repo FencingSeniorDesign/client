@@ -1,7 +1,9 @@
 // src/networking/NetworkUtils.ts - Updated to use Zeroconf for service discovery
 import { Platform, NativeModules } from 'react-native';
 import * as Network from 'expo-network';
-import DeviceInfo from 'react-native-device-info';
+import * as Device from 'expo-device';
+import * as Application from 'expo-application';
+import Constants from 'expo-constants';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import tournamentClient from './TournamentClient';
 import { EventEmitter } from 'events';
@@ -25,7 +27,7 @@ export interface DiscoveredServer {
 class ServerDiscoveryEmitter extends EventEmitter {
     private discoveredServers: Map<string, DiscoveredServer> = new Map();
     private isScanning: boolean = false;
-    private zeroconf: Zeroconf | null = null;
+    private zeroconf: Zeroconf | null = null; // Use 'any' type here
     private isZeroconfAvailable: boolean = true;
     private discoveryTimer: NodeJS.Timeout | null = null;
 
@@ -46,7 +48,7 @@ class ServerDiscoveryEmitter extends EventEmitter {
                 return;
             }
             
-            const isPhysicalDevice = !DeviceInfo.isEmulator();
+            const isPhysicalDevice = Device.isDevice;
             console.log(`Initializing Zeroconf on ${isPhysicalDevice ? 'physical device' : 'simulator'}, Platform: ${Platform.OS}`);
             
             // Create Zeroconf instance with debug mode enabled - this shows more logs
@@ -122,12 +124,12 @@ class ServerDiscoveryEmitter extends EventEmitter {
         }
 
         // Listen for service found - this is when a service is discovered but not yet resolved
-        this.zeroconf.on('found', service => {
+        this.zeroconf.on('found', (service: any) => { // Add : any
             console.log('Zeroconf service found:', service);
         });
 
         // Handle service resolution
-        this.zeroconf.on('resolved', service => {
+        this.zeroconf.on('resolved', (service: any) => { // Add : any
             try {
                 console.log('Zeroconf service resolved:', JSON.stringify(service, null, 2));
                 
@@ -168,7 +170,7 @@ class ServerDiscoveryEmitter extends EventEmitter {
                     // Always prefer IP addresses from addresses array if available
                     if (service.addresses && service.addresses.length > 0) {
                         // Try to find a non-local, IPv4 address (best choice for connectivity)
-                        const ipv4Address = service.addresses.find(addr => 
+                        const ipv4Address = service.addresses.find((addr: any) => // Add : any
                             addr.includes('.') && 
                             !addr.startsWith('169.254.') && // Skip Link-local
                             !addr.startsWith('127.') &&     // Skip Loopback
@@ -180,7 +182,7 @@ class ServerDiscoveryEmitter extends EventEmitter {
                             hostIp = ipv4Address;
                         } else {
                             // If no suitable IPv4, look for any IPv4 address
-                            const anyIPv4 = service.addresses.find(addr => addr.includes('.'));
+                            const anyIPv4 = service.addresses.find((addr: any) => addr.includes('.')); // Add : any
                             if (anyIPv4) {
                                 console.log('Using alternative IPv4 address:', anyIPv4);
                                 hostIp = anyIPv4;
@@ -237,7 +239,7 @@ class ServerDiscoveryEmitter extends EventEmitter {
         });
 
         // Handle errors
-        this.zeroconf.on('error', error => {
+        this.zeroconf.on('error', (error: any) => { // Add : any
             console.error('Zeroconf error:', error);
             console.error('Error details:', JSON.stringify(error));
             
@@ -337,7 +339,7 @@ class ServerDiscoveryEmitter extends EventEmitter {
         // Report current system state for debugging
         console.log('Zeroconf available:', this.isZeroconfAvailable);
         console.log('Platform:', Platform.OS);
-        console.log('Is simulator:', DeviceInfo.isEmulator());
+        console.log('Is simulator:', !Device.isDevice);
         
         this.clearServers();
         this.setScanning(true);
@@ -365,7 +367,7 @@ class ServerDiscoveryEmitter extends EventEmitter {
         
         try {
             // Check if we're on a physical iOS device and log accordingly
-            const isPhysicalDevice = !DeviceInfo.isEmulator();
+            const isPhysicalDevice = Device.isDevice;
             if (Platform.OS === 'ios' && isPhysicalDevice) {
                 console.log('Starting real device scan - checking for Local Network permissions');
                 
@@ -486,8 +488,8 @@ export async function getLocalIpAddress(): Promise<string | null> {
         // Get network state using expo-network
         const networkState = await Network.getNetworkStateAsync();
         
-        // For iOS simulator, we need special handling
-        if (Platform.OS === 'ios' && isRunningInSimulator()) {
+        // For iOS simulator, we need special handling (check if Device.isDevice is explicitly false)
+        if (Platform.OS === 'ios' && Device.isDevice === false) { 
             // Get IP directly from expo-network
             try {
                 const ipAddress = await Network.getIpAddressAsync();
@@ -532,16 +534,13 @@ export async function isConnectedToInternet(): Promise<boolean> {
 }
 
 /**
- * Get a unique client identifier for this device
+ * Get a unique client identifier for this device.
+ * This should be persistent across app installs for the same device.
  */
 export async function getClientId(): Promise<string> {
-    try {
-        return await DeviceInfo.getUniqueId();
-    } catch (error) {
-        console.error('Error getting device ID:', error);
-        // Generate a random fallback ID
-        return `client-${Math.random().toString(36).substring(2, 15)}`;
-    }
+    // Reuse the logic from getDeviceId which aims for persistence
+    // using AsyncStorage and platform-specific IDs.
+    return await getDeviceId();
 }
 
 /**
@@ -563,13 +562,10 @@ export function isValidPort(port: number): boolean {
  * Detect if we're running in a simulator
  */
 export function isRunningInSimulator(): boolean {
-    if (Platform.OS === 'ios') {
-        // iOS simulator detection - check for typical simulator strings
-        if (__DEV__) {
-            return DeviceInfo.isEmulator();
-        }
-    }
-    return false;
+    // Use expo-device to check if it's a physical device.
+    // Device.isDevice is false if simulator, true if physical, null/undefined otherwise.
+    // Return true only if explicitly false (is a simulator).
+    return Device.isDevice === false;
 }
 
 /**
@@ -629,15 +625,29 @@ export async function getDeviceId(): Promise<string> {
         }
         
         // Generate a new 5-character device ID if none exists
-        const uniqueId = await DeviceInfo.getUniqueId();
+        // Use platform-specific IDs from expo-application for better persistence
+        let sourceId: string | null = null;
+        if (Platform.OS === 'android') {
+            sourceId = Application.getAndroidId();
+        } else if (Platform.OS === 'ios') {
+            sourceId = await Application.getIosIdForVendorAsync();
+        }
         
-        // Generate a 5-character alphanumeric ID that's derived from the device's unique ID
+        if (!sourceId) {
+            console.warn('Could not get platform-specific device ID. Falling back to random.');
+            // Fall back to a random 5-character ID if a persistent ID can't be obtained
+            const randomId = Math.random().toString(36).substring(2, 7).toUpperCase();
+            await AsyncStorage.setItem('tournament_device_id', randomId);
+            return randomId;
+        }
+        
+        // Generate a 5-character alphanumeric ID that's derived from the platform-specific ID
         // Use a combination of letters and numbers, avoiding confusing characters like 0/O and 1/I
         const alphabet = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
         let shortId = '';
         
-        // Use hash of the uniqueId to generate more random distribution
-        const hash = uniqueId.split('').reduce((a, b) => {
+        // Use hash of the sourceId to generate more random distribution
+        const hash = sourceId.split('').reduce((a, b) => {
             a = ((a << 5) - a) + b.charCodeAt(0);
             return a & a;
         }, 0);
@@ -695,7 +705,9 @@ export function startServerDiscovery(): Promise<DiscoveredServer[]> {
     return new Promise((resolve, reject) => {
         try {
             // For physical iOS devices, we might need to trigger the permissions dialog
-            if (!hasTriggeredInitialScan && Platform.OS === 'ios' && !DeviceInfo.isEmulator()) {
+            // Explicitly cast the comparison result to boolean
+            // @ts-ignore - Keep suppression just in case
+            if (!hasTriggeredInitialScan && Platform.OS === 'ios' && Boolean(Device.isDevice === true)) { 
                 console.log('First scan on physical iOS device - should trigger permissions dialog');
                 hasTriggeredInitialScan = true;
             }
