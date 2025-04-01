@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useRef, useEffect } from "react";
 import {
     View,
     Text,
@@ -400,6 +400,25 @@ export const EventSettings = ({ route }: Props) => {
         ));
     }, [fencerSuggestions, formatRatingString, handleAddFencerFromSearch, addFencerMutation.isPending]);
 
+    // Add refs array for round items
+    const roundItemRefs = useRef<Array<View | null>>([]);
+    
+    // Effect to scroll to expanded round config
+    useEffect(() => {
+        if (expandedConfigIndex !== null && roundItemRefs.current[expandedConfigIndex]) {
+            requestAnimationFrame(() => {
+                roundItemRefs.current[expandedConfigIndex]?.measureLayout(
+                    // @ts-ignore - Known React Native issue with measureLayout types
+                    scrollViewRef.current?._internalFiberInstanceHandleDEV || scrollViewRef.current,
+                    (_, y) => {
+                        scrollViewRef.current?.scrollTo({ y: y - 50, animated: true });
+                    },
+                    () => console.error("Failed to measure layout")
+                );
+            });
+        }
+    }, [expandedConfigIndex]);
+
     const toggleRoundConfig = useCallback((index: number) => {
         setExpandedConfigIndex((prev) => (prev === index ? null : index));
     }, []);
@@ -441,6 +460,11 @@ export const EventSettings = ({ route }: Props) => {
         };
 
         addRoundMutation.mutate(newRound);
+        
+        // Scroll to the new rounds section immediately after mutation
+        requestAnimationFrame(() => {
+            scrollViewRef.current?.scrollToEnd({ animated: true });
+        });
     }, [event.id, rounds.length, addRoundMutation]);
 
     // Handler to update a round immediately after a change
@@ -453,8 +477,16 @@ export const EventSettings = ({ route }: Props) => {
         deleteRoundMutation.mutate({ roundId, eventId: event.id });
     }, [deleteRoundMutation, event.id]);
 
+    // Create refs for scrolling
+    const scrollViewRef = useRef<ScrollView>(null);
+    const roundsDropdownRef = useRef<View>(null);
+    const roundTypeMenuRef = useRef<View>(null);
+    
     return (
-        <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+        <ScrollView 
+            ref={scrollViewRef}
+            style={styles.container} 
+            contentContainerStyle={styles.content}>
             <Text style={styles.title}>Edit Event Settings</Text>
 
             {/* Fencing Management Dropdown */}
@@ -598,12 +630,29 @@ export const EventSettings = ({ route }: Props) => {
             {/* Round Management */}
             <TouchableOpacity
                 style={styles.dropdownHeader}
-                onPress={() => setRoundDropdownOpen(!roundDropdownOpen)}
+                onPress={() => {
+                    setRoundDropdownOpen(!roundDropdownOpen);
+                    // If opening the dropdown, scroll to it immediately
+                    if (!roundDropdownOpen) {
+                        requestAnimationFrame(() => {
+                            roundsDropdownRef.current?.measureLayout(
+                                // @ts-ignore - Known React Native issue with measureLayout types
+                                scrollViewRef.current?._internalFiberInstanceHandleDEV || scrollViewRef.current,
+                                (_, y) => {
+                                    scrollViewRef.current?.scrollTo({ y: y - 20, animated: true });
+                                },
+                                () => console.error("Failed to measure layout")
+                            );
+                        });
+                    }
+                }}
             >
                 <Text style={styles.dropdownHeaderText}>Round Management</Text>
             </TouchableOpacity>
             {roundDropdownOpen && (
-                <View style={styles.dropdownContent}>
+                <View 
+                    ref={roundsDropdownRef}
+                    style={styles.dropdownContent}>
                     {roundsLoading ? (
                         <View style={styles.loadingContainer}>
                             <ActivityIndicator size="medium" color="#001f3f" />
@@ -612,7 +661,10 @@ export const EventSettings = ({ route }: Props) => {
                     ) : rounds.length > 0 ? (
                         <View style={styles.roundsList}>
                             {rounds.map((round, idx) => (
-                                <View key={round.id} style={styles.roundItem}>
+                                <View 
+                                    key={round.id} 
+                                    ref={el => roundItemRefs.current[idx] = el}
+                                    style={styles.roundItem}>
                                     <View style={styles.roundItemRow}>
                                         <View style={styles.dragHandle}>
                                             <Text style={styles.dragIcon}>☰</Text>
@@ -802,12 +854,29 @@ export const EventSettings = ({ route }: Props) => {
 
                     <TouchableOpacity
                         style={styles.addRoundButton}
-                        onPress={() => setShowRoundTypeOptions(!showRoundTypeOptions)}
+                        onPress={() => {
+                            setShowRoundTypeOptions(!showRoundTypeOptions);
+                            // If opening the round type options, scroll to them immediately
+                            if (!showRoundTypeOptions) {
+                                requestAnimationFrame(() => {
+                                    roundTypeMenuRef.current?.measureLayout(
+                                        // @ts-ignore - Known React Native issue with measureLayout types
+                                        scrollViewRef.current?._internalFiberInstanceHandleDEV || scrollViewRef.current,
+                                        (_, y) => {
+                                            scrollViewRef.current?.scrollTo({ y: y - 20, animated: true });
+                                        },
+                                        () => console.error("Failed to measure layout")
+                                    );
+                                });
+                            }
+                        }}
                     >
                         <Text style={styles.addRoundButtonText}>Add Round</Text>
                     </TouchableOpacity>
                     {showRoundTypeOptions && (
-                        <View style={styles.roundTypeMenu}>
+                        <View 
+                            ref={roundTypeMenuRef}
+                            style={styles.roundTypeMenu}>
                             <TouchableOpacity
                                 style={styles.roundTypeChoice}
                                 onPress={() => {
