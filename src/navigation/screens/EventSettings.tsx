@@ -14,7 +14,9 @@ import { RouteProp, useNavigation } from "@react-navigation/native";
 import { Event, Fencer, Round } from "../navigation/types";
 import * as DocumentPicker from "expo-document-picker";
 import * as FileSystem from "expo-file-system";
-import { Picker } from "@react-native-picker/picker";
+// Import our custom picker component instead of the native one
+import CustomPickerComponent from "../../components/ui/CustomPicker";
+const { CustomPicker, FencerCreationControls } = CustomPickerComponent;
 import { useQueryClient } from "@tanstack/react-query";
 import {
     useFencers,
@@ -497,83 +499,40 @@ export const EventSettings = ({ route }: Props) => {
                             value={fencerLastName}
                             onChangeText={setFencerLastName}
                         />
-                        {/* Optimized Horizontal Layout for Weapon and Rating */}
-                        <View style={styles.horizontalFormRow}>
-                            {/* Weapon Selection */}
-                            <View style={styles.weaponPickerContainer}>
-                                <Text style={styles.compactInputLabel}>Weapon</Text>
-                                <Picker
-                                    selectedValue={selectedWeapon}
-                                    onValueChange={(itemValue) => setSelectedWeapon(itemValue)}
-                                    style={styles.compactPicker}
-                                >
-                                    <Picker.Item label="Epee" value="epee" />
-                                    <Picker.Item label="Foil" value="foil" />
-                                    <Picker.Item label="Saber" value="saber" />
-                                </Picker>
-                            </View>
-
-                            {/* Rating Selection */}
-                            <View style={styles.ratingPickerContainer}>
-                                <Text style={styles.compactInputLabel}>Rating</Text>
-                                <Picker
-                                    selectedValue={currentRating}
-                                    onValueChange={(itemValue) => {
-                                        if (selectedWeapon === "epee") {
-                                            setEpeeRating(itemValue);
-                                            setEpeeYear((prevYear) =>
-                                                itemValue === "U" ? 0 : prevYear || new Date().getFullYear()
-                                            );
-                                        } else if (selectedWeapon === "foil") {
-                                            setFoilRating(itemValue);
-                                            setFoilYear((prevYear) =>
-                                                itemValue === "U" ? 0 : prevYear || new Date().getFullYear()
-                                            );
-                                        } else if (selectedWeapon === "saber") {
-                                            setSaberRating(itemValue);
-                                            setSaberYear((prevYear) =>
-                                                itemValue === "U" ? 0 : prevYear || new Date().getFullYear()
-                                            );
-                                        }
-                                    }}
-                                    style={styles.compactPicker}
-                                >
-                                    <Picker.Item label="A" value="A" />
-                                    <Picker.Item label="B" value="B" />
-                                    <Picker.Item label="C" value="C" />
-                                    <Picker.Item label="D" value="D" />
-                                    <Picker.Item label="E" value="E" />
-                                    <Picker.Item label="U" value="U" />
-                                </Picker>
-                            </View>
-
-                            {/* Year Selection - Only shown when rating isn't "U" */}
-                            {currentRating !== "U" && (
-                                <View style={styles.yearPickerContainer}>
-                                    <Text style={styles.compactInputLabel}>Year</Text>
-                                    <Picker
-                                        selectedValue={currentYear}
-                                        onValueChange={(itemValue) => {
-                                            if (selectedWeapon === "epee") {
-                                                setEpeeYear(itemValue);
-                                            } else if (selectedWeapon === "foil") {
-                                                setFoilYear(itemValue);
-                                            } else if (selectedWeapon === "saber") {
-                                                setSaberYear(itemValue);
-                                            }
-                                        }}
-                                        style={styles.compactPicker}
-                                    >
-                                        {Array.from({ length: 10 }, (_, i) => {
-                                            const year = new Date().getFullYear() - i;
-                                            return (
-                                                <Picker.Item key={year} label={year.toString()} value={year} />
-                                            );
-                                        })}
-                                    </Picker>
-                                </View>
-                            )}
-                        </View>
+                        {/* Replace with our custom FencerCreationControls component */}
+                        <FencerCreationControls
+                            selectedWeapon={selectedWeapon}
+                            setSelectedWeapon={setSelectedWeapon}
+                            currentRating={currentRating}
+                            currentYear={currentYear}
+                            handleRatingChange={(itemValue) => {
+                                if (selectedWeapon === "epee") {
+                                    setEpeeRating(itemValue);
+                                    setEpeeYear((prevYear) =>
+                                        itemValue === "U" ? 0 : prevYear || new Date().getFullYear()
+                                    );
+                                } else if (selectedWeapon === "foil") {
+                                    setFoilRating(itemValue);
+                                    setFoilYear((prevYear) =>
+                                        itemValue === "U" ? 0 : prevYear || new Date().getFullYear()
+                                    );
+                                } else if (selectedWeapon === "saber") {
+                                    setSaberRating(itemValue);
+                                    setSaberYear((prevYear) =>
+                                        itemValue === "U" ? 0 : prevYear || new Date().getFullYear()
+                                    );
+                                }
+                            }}
+                            handleYearChange={(itemValue) => {
+                                if (selectedWeapon === "epee") {
+                                    setEpeeYear(itemValue);
+                                } else if (selectedWeapon === "foil") {
+                                    setFoilYear(itemValue);
+                                } else if (selectedWeapon === "saber") {
+                                    setSaberYear(itemValue);
+                                }
+                            }}
+                        />
                         <TouchableOpacity
                             onPress={handleAddFencer}
                             style={styles.addFencerButton}
@@ -1289,46 +1248,7 @@ const styles = StyleSheet.create({
         color: '#666',
         marginTop: 10,
     },
-    // New styles for the optimized horizontal form layout
-    horizontalFormRow: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        marginBottom: 10,
-        borderWidth: 1,
-        borderColor: '#ccc',
-        borderRadius: 6,
-        backgroundColor: '#fff',
-        overflow: 'hidden',
-    },
-    weaponPickerContainer: {
-        flex: 1.2,
-        paddingVertical: 2,
-        paddingHorizontal: 6,
-        borderRightWidth: 1,
-        borderRightColor: '#ccc',
-    },
-    ratingPickerContainer: {
-        flex: 0.8,
-        paddingVertical: 2,
-        paddingHorizontal: 6,
-        borderRightWidth: 1,
-        borderRightColor: '#ccc',
-    },
-    yearPickerContainer: {
-        flex: 1,
-        paddingVertical: 2,
-        paddingHorizontal: 6,
-    },
-    compactInputLabel: {
-        fontSize: 12,
-        color: '#001f3f',
-        marginBottom: 0,
-        paddingTop: 2,
-    },
-    compactPicker: {
-        height: 36,
-        marginBottom: -8, // Reduce extra bottom space in the picker
-    },
+    // Styles for custom picker are now imported from the component
     // New styles for the Random Fill button
     randomFillButton: {
         backgroundColor: "#28a745",
