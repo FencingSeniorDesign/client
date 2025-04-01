@@ -100,7 +100,8 @@ const DEBracketPage: React.FC = () => {
 
                 // 3. Get all bouts for this round
                 const bouts = await dbGetDEBouts(roundId);
-
+                console.log(`Fetched ${bouts.length} DE bouts for round ${roundId}`);
+                
                 // 4. Check if the round is complete
                 const roundComplete = await dbIsDERoundComplete(roundId);
                 setIsRoundComplete(roundComplete);
@@ -120,6 +121,12 @@ const DEBracketPage: React.FC = () => {
     }, [event, currentRoundIndex, roundId, refreshKey]);
 
     const processBoutsIntoBracket = (bouts: any[], tableSize: number): DEBracketData => {
+        console.log(`Processing ${bouts?.length || 0} bouts into bracket with tableSize=${tableSize}`);
+        if (!bouts || bouts.length === 0) {
+            console.log('No bouts to process, returning empty bracket');
+            return { rounds: [] };
+        }
+        
         // Calculate number of rounds based on table size
         const numRounds = Math.log2(tableSize);
         const rounds: DEBracketRound[] = [];
@@ -128,6 +135,7 @@ const DEBracketPage: React.FC = () => {
         for (let i = 0; i < numRounds; i++) {
             const currentTableOf = tableSize / Math.pow(2, i);
             const roundBouts = bouts.filter(bout => bout.tableof === currentTableOf);
+            console.log(`Round ${i}: found ${roundBouts.length} bouts for tableOf=${currentTableOf}`);
 
             // Sort bouts by their position in the bracket
             roundBouts.sort((a, b) => a.id - b.id);
