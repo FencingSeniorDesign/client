@@ -1,0 +1,16 @@
+# Ignore artifacts:
+node_modules
+build/
+dist/
+.expo/
+coverage/
+
+# Ignore generated files:
+drizzle/
+
+# Ignore config files (often have specific formatting):
+*.config.js
+*.config.ts
+
+# Ignore specific files if needed:
+# e.g., src/some-generated-file.ts
