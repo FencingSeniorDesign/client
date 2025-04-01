@@ -1,5 +1,5 @@
 // src/data/DrizzleDataProvider.ts
-import {Event, Fencer, Round, Official, Tournament} from '../navigation/navigation/types';
+import {Event, Fencer, Round, Official, Tournament, PoolData} from '../navigation/navigation/types'; // Added PoolData import
 import {
   dbListEvents,
   dbGetFencersInEventById,
@@ -34,7 +34,9 @@ import {
   dbDeleteOfficial,
   dbDeleteReferee,
   dbListOngoingTournaments,
-  dbListCompletedTournaments
+  dbListCompletedTournaments,
+  dbGetBoutsForRound, // Added missing import
+  dbGetBracketForRound // Added missing import
 } from '../db/DrizzleDatabaseUtils';
 import tournamentClient from '../networking/TournamentClient';
 import tournamentServer from '../networking/TournamentServer';
@@ -52,7 +54,7 @@ export class TournamentDataProvider {
         console.log('[DataProvider] Ongoing tournament listings are always local');
         return [];
       }
-      
+
       // For local tournaments, fetch from database
       return await dbListOngoingTournaments();
     } catch (error) {
@@ -60,14 +62,14 @@ export class TournamentDataProvider {
       return [];
     }
   }
-  
+
   async listCompletedTournaments(): Promise<Tournament[]> {
     try {
       if (this.isRemoteConnection()) {
         console.log('[DataProvider] Completed tournament listings are always local');
         return [];
       }
-      
+
       // For local tournaments, fetch from database
       return await dbListCompletedTournaments();
     } catch (error) {
@@ -75,7 +77,7 @@ export class TournamentDataProvider {
       return [];
     }
   }
-  
+
   /**
    * Check if we're currently connected to a remote tournament server
    */
@@ -86,23 +88,11 @@ export class TournamentDataProvider {
   /**
    * Get events for a tournament
    */
-  // Cache to avoid multiple requests for the same event list
-  private eventsCache: {[key: string]: {timestamp: number, events: Event[]}} = {};
-  private EVENT_CACHE_TTL = 10000; // 10 seconds
-  
   async getEvents(tournamentName: string): Promise<Event[]> {
     console.log(`[DataProvider] Getting events for ${tournamentName}, remote: ${this.isRemoteConnection()}`);
-    
-    // Check cache first
-    const cacheKey = `events_${tournamentName}`;
-    const cached = this.eventsCache[cacheKey];
-    const now = Date.now();
-    
-    if (cached && (now - cached.timestamp < this.EVENT_CACHE_TTL)) {
-      console.log(`[DataProvider] Using cached events (age: ${now - cached.timestamp}ms)`);
-      return cached.events;
-    }
-    
+
+    // Removed manual cache check
+
     if (this.isRemoteConnection()) {
       try {
         // Send a new request for events even if we've sent one before
@@ -116,24 +106,21 @@ export class TournamentDataProvider {
         // Wait for the response from server with a longer timeout for first connection scenarios
         console.log(`[DataProvider] Waiting for events_list response from server`);
         const response = await tournamentClient.waitForResponse('events_list', 10000);
-        
+
         // Process the response
         if (response && response.events) {
           const events = Array.isArray(response.events) ? response.events : [];
           console.log(`[DataProvider] Received ${events.length} events from server`);
-          
-          // Cache the results
-          this.eventsCache[cacheKey] = {
-            timestamp: now,
-            events: events
-          };
-          
+
+          // Removed manual cache setting
+
           return events;
         }
         return [];
       } catch (error) {
         console.error('[DataProvider] Error fetching remote events:', error);
-        return []; // Return empty array on error
+        // Let Tanstack Query handle retries and error state
+        throw error; // Re-throw error for Tanstack Query
       }
     }
 
@@ -144,7 +131,7 @@ export class TournamentDataProvider {
       return events;
     } catch (error) {
       console.error('[DataProvider] Error reading local events:', error);
-      return [];
+      throw error; // Re-throw error for Tanstack Query
     }
   }
 
@@ -154,7 +141,7 @@ export class TournamentDataProvider {
   async getRounds(event: Event | number): Promise<Round[]> {
     const eventId = typeof event === 'number' ? event : event.id;
     console.log(`[DataProvider] Getting rounds for event ${eventId}, remote: ${this.isRemoteConnection()}`);
-    
+
     if (this.isRemoteConnection()) {
       try {
         // First, check if the event already has rounds embedded in it
@@ -162,48 +149,35 @@ export class TournamentDataProvider {
           console.log(`[DataProvider] Using ${event.rounds.length} embedded rounds from event`);
           return event.rounds;
         }
-        
-        // Request rounds with multiple retries
-        for (let attempt = 1; attempt <= 3; attempt++) {
-          try {
-            console.log(`[DataProvider] Attempt ${attempt} to fetch rounds for event ${eventId}`);
-            
-            // Request rounds from server
-            tournamentClient.sendMessage({
-              type: 'get_rounds',
-              eventId
-            });
-            
-            // Wait for the response with increased timeout
-            const response = await tournamentClient.waitForResponse('rounds_list', 8000);
-            
-            if (response && Array.isArray(response.rounds)) {
-              console.log(`[DataProvider] Received ${response.rounds.length} rounds from server`);
-              return response.rounds;
-            }
-            
-            console.log(`[DataProvider] Invalid rounds response, retrying...`);
-          } catch (attemptError) {
-            if (attempt < 3) {
-              console.warn(`[DataProvider] Attempt ${attempt} failed, retrying: ${attemptError.message}`);
-              // Wait a moment before retrying
-              await new Promise(resolve => setTimeout(resolve, 1000));
-            } else {
-              throw attemptError; // Re-throw on final attempt
-            }
-          }
+
+        // Removed manual retry loop - Tanstack Query handles retries
+
+        console.log(`[DataProvider] Attempting to fetch rounds for event ${eventId}`);
+
+        // Request rounds from server
+        tournamentClient.sendMessage({
+          type: 'get_rounds',
+          eventId
+        });
+
+        // Wait for the response with increased timeout
+        const response = await tournamentClient.waitForResponse('rounds_list', 8000);
+
+        if (response && Array.isArray(response.rounds)) {
+          console.log(`[DataProvider] Received ${response.rounds.length} rounds from server`);
+          return response.rounds;
         }
-        
-        throw new Error('Failed to fetch rounds from server after multiple attempts');
+
+        console.log(`[DataProvider] Invalid rounds response received.`);
+        throw new Error('Invalid rounds response from server'); // Throw error for Tanstack Query
+
       } catch (error) {
         console.error('[DataProvider] Error fetching remote rounds:', error);
-        
-        // No fallback for remote tournaments - return empty array
-        console.error('[DataProvider] Failed to fetch remote rounds and no fallback is available');
-        return [];
+        // Let Tanstack Query handle retries and error state
+        throw error; // Re-throw error for Tanstack Query
       }
     }
-    
+
     // For local tournaments, fetch from database
     try {
       const rounds = await dbGetRoundsForEvent(eventId);
@@ -211,7 +185,7 @@ export class TournamentDataProvider {
       return rounds;
     } catch (error) {
       console.error('[DataProvider] Error reading local rounds:', error);
-      return [];
+      throw error; // Re-throw error for Tanstack Query
     }
   }
 
@@ -220,7 +194,7 @@ export class TournamentDataProvider {
    */
   async getFencers(event: Event): Promise<Fencer[]> {
     console.log(`[DataProvider] Getting fencers for event ${event.id}, remote: ${this.isRemoteConnection()}`);
-    
+
     if (this.isRemoteConnection()) {
       try {
         // First, check if the event already has fencers embedded in it
@@ -228,31 +202,28 @@ export class TournamentDataProvider {
           console.log(`[DataProvider] Using ${event.fencers.length} embedded fencers from event`);
           return event.fencers;
         }
-        
+
         // Request fencers from server
         tournamentClient.sendMessage({
           type: 'get_fencers',
           eventId: event.id
         });
-        
+
         // Wait for the response
         const response = await tournamentClient.waitForResponse('fencers_list', 5000);
-        
+
         if (response && Array.isArray(response.fencers)) {
           console.log(`[DataProvider] Received ${response.fencers.length} fencers from server`);
           return response.fencers;
         }
-        
+
         throw new Error('Failed to fetch fencers from server');
       } catch (error) {
         console.error('[DataProvider] Error fetching remote fencers:', error);
-        
-        // No fallback for remote tournaments - return empty array
-        console.error('[DataProvider] Failed to fetch remote fencers and no fallback is available');
-        return [];
+        throw error; // Re-throw error for Tanstack Query
       }
     }
-    
+
     // For local tournaments, fetch from database
     try {
       const fencers = await dbGetFencersInEventById(event);
@@ -260,7 +231,7 @@ export class TournamentDataProvider {
       return fencers;
     } catch (error) {
       console.error('[DataProvider] Error reading local fencers:', error);
-      return [];
+      throw error; // Re-throw error for Tanstack Query
     }
   }
 
@@ -286,7 +257,7 @@ export class TournamentDataProvider {
         throw new Error('Failed to fetch event from server');
       } catch (error) {
         console.error('[DataProvider] Error fetching remote event:', error);
-        throw error;
+        throw error; // Re-throw error for Tanstack Query
       }
     }
 
@@ -298,7 +269,7 @@ export class TournamentDataProvider {
       return event;
     } catch (error) {
       console.error('[DataProvider] Error reading local event:', error);
-      throw error;
+      throw error; // Re-throw error for Tanstack Query
     }
   }
 
@@ -327,7 +298,7 @@ export class TournamentDataProvider {
         throw new Error('Failed to fetch seeding data from server');
       } catch (error) {
         console.error('[DataProvider] Error fetching remote seeding:', error);
-        return [];
+        throw error; // Re-throw error for Tanstack Query
       }
     }
 
@@ -339,17 +310,19 @@ export class TournamentDataProvider {
       return seeding;
     } catch (error) {
       console.error('[DataProvider] Error reading local seeding:', error);
-      return [];
+      throw error; // Re-throw error for Tanstack Query
     }
   }
 
   /**
    * Get status of an event (whether it has started)
+   * NOTE: This still fetches full rounds if status isn't embedded.
+   * Consider optimizing backend/DB if performance is critical.
    */
   async getEventStatus(event: Event | number): Promise<boolean> {
     const eventId = typeof event === 'number' ? event : event.id;
     console.log(`[DataProvider] Getting status for event ${eventId}, remote: ${this.isRemoteConnection()}`);
-    
+
     // First, check if the event object has status information
     if (typeof event !== 'number') {
       // Check for various status fields
@@ -357,27 +330,28 @@ export class TournamentDataProvider {
       if (event.has_started !== undefined) return !!event.has_started;
       if (event.started !== undefined) return !!event.started;
       if (event.isstarted !== undefined) return !!event.isstarted;
-      
+
       // Check embedded rounds
       if (event.rounds && Array.isArray(event.rounds) && event.rounds.length > 0) {
-        const isStarted = event.rounds[0].isstarted;
-        return isStarted === 1 || isStarted === true || isStarted === "1" || !!isStarted;
+        // Directly return the boolean value from the Round type
+        return event.rounds[0].isstarted;
       }
     }
-    
+
     // If we don't have status info in the event object, get rounds to determine status
     try {
-      const rounds = await this.getRounds(eventId);
-      
+      const rounds = await this.getRounds(eventId); // This uses the updated getRounds
+
       if (rounds && rounds.length > 0) {
-        const isStarted = rounds[0].isstarted;
-        return isStarted === 1 || isStarted === true || isStarted === "1" || !!isStarted;
+        // Directly return the boolean value from the Round type
+        return rounds[0].isstarted;
       }
-      
+
       return false;
     } catch (error) {
       console.error('[DataProvider] Error determining event status:', error);
-      return false;
+      // If fetching rounds failed, we can't determine status
+      return false; // Or re-throw if error state is preferred
     }
   }
 
@@ -392,26 +366,28 @@ export class TournamentDataProvider {
           type: 'search_fencers',
           query
         });
-        
+
         // Wait for the response
         const response = await tournamentClient.waitForResponse('fencer_search_results', 5000);
-        
+
         if (response && Array.isArray(response.fencers)) {
           return response.fencers;
         }
-        
+
         throw new Error('Failed to fetch fencer search results from server');
       } catch (error) {
         console.error('[DataProvider] Error searching remote fencers:', error);
-        
-        // No fallback for remote tournaments - return empty array
-        console.error('[DataProvider] Failed to search remote fencers and no fallback is available');
-        return [];
+        throw error; // Re-throw error for Tanstack Query
       }
     }
-    
+
     // For local tournaments, search in database
-    return await dbSearchFencers(query);
+    try {
+        return await dbSearchFencers(query);
+    } catch(error) {
+        console.error('[DataProvider] Error searching local fencers:', error);
+        throw error; // Re-throw error for Tanstack Query
+    }
   }
 
   /**
@@ -426,17 +402,17 @@ export class TournamentDataProvider {
           eventId: event.id,
           fencer
         });
-        
+
         // Wait for confirmation
         const response = await tournamentClient.waitForResponse('fencer_added', 5000);
-        
+
         return response && response.success === true;
       } catch (error) {
         console.error('[DataProvider] Error adding fencer remotely:', error);
-        return false;
+        return false; // Mutations often return success/failure rather than throwing
       }
     }
-    
+
     // For local tournaments, add to database
     try {
       await dbAddFencerToEventById(fencer, event);
@@ -460,17 +436,17 @@ export class TournamentDataProvider {
           eventId: event.id,
           addToEvent
         });
-        
+
         // Wait for confirmation
         const response = await tournamentClient.waitForResponse('fencer_created', 5000);
-        
+
         return response && response.success === true;
       } catch (error) {
         console.error('[DataProvider] Error creating fencer remotely:', error);
         return false;
       }
     }
-    
+
     // For local tournaments, add to database
     try {
       await dbCreateFencerByName(fencer, event, addToEvent);
@@ -493,17 +469,17 @@ export class TournamentDataProvider {
           eventId: event.id,
           fencerId: fencer.id
         });
-        
+
         // Wait for confirmation
         const response = await tournamentClient.waitForResponse('fencer_removed', 5000);
-        
+
         return response && response.success === true;
       } catch (error) {
         console.error('[DataProvider] Error removing fencer remotely:', error);
         return false;
       }
     }
-    
+
     // For local tournaments, remove from database
     try {
       await dbDeleteFencerFromEventById(fencer, event);
@@ -526,17 +502,17 @@ export class TournamentDataProvider {
           tournamentName,
           event
         });
-        
+
         // Wait for confirmation
         const response = await tournamentClient.waitForResponse('event_created', 5000);
-        
+
         return response && response.eventId ? response.eventId : -1;
       } catch (error) {
         console.error('[DataProvider] Error creating event remotely:', error);
         return -1;
       }
     }
-    
+
     // For local tournaments, create in database
     try {
       await dbCreateEvent(tournamentName, event);
@@ -558,17 +534,17 @@ export class TournamentDataProvider {
           type: 'delete_event',
           eventId
         });
-        
+
         // Wait for confirmation
         const response = await tournamentClient.waitForResponse('event_deleted', 5000);
-        
+
         return response && response.success === true;
       } catch (error) {
         console.error('[DataProvider] Error deleting event remotely:', error);
         return false;
       }
     }
-    
+
     // For local tournaments, delete from database
     try {
       await dbDeleteEvent(eventId);
@@ -590,17 +566,17 @@ export class TournamentDataProvider {
           type: 'add_round',
           round
         });
-        
+
         // Wait for confirmation
         const response = await tournamentClient.waitForResponse('round_added', 5000);
-        
+
         return response && response.roundId ? response.roundId : -1;
       } catch (error) {
         console.error('[DataProvider] Error adding round remotely:', error);
         return -1;
       }
     }
-    
+
     // For local tournaments, add to database
     try {
       await dbAddRound(round as any);
@@ -622,17 +598,17 @@ export class TournamentDataProvider {
           type: 'update_round',
           round
         });
-        
+
         // Wait for confirmation
         const response = await tournamentClient.waitForResponse('round_updated', 5000);
-        
+
         return response && response.success === true;
       } catch (error) {
         console.error('[DataProvider] Error updating round remotely:', error);
         return false;
       }
     }
-    
+
     // For local tournaments, update in database
     try {
       await dbUpdateRound(round);
@@ -654,17 +630,17 @@ export class TournamentDataProvider {
           type: 'delete_round',
           roundId
         });
-        
+
         // Wait for confirmation
         const response = await tournamentClient.waitForResponse('round_deleted', 5000);
-        
+
         return response && response.success === true;
       } catch (error) {
         console.error('[DataProvider] Error deleting round remotely:', error);
         return false;
       }
     }
-    
+
     // For local tournaments, delete from database
     try {
       await dbDeleteRound(roundId);
@@ -674,7 +650,7 @@ export class TournamentDataProvider {
       return false;
     }
   }
-  
+
   /**
    * Get bouts for a round
    */
@@ -700,7 +676,7 @@ export class TournamentDataProvider {
         throw new Error('Failed to fetch bouts from server');
       } catch (error) {
         console.error('[DataProvider] Error fetching remote bouts:', error);
-        return [];
+        throw error; // Re-throw error for Tanstack Query
       }
     }
 
@@ -712,7 +688,7 @@ export class TournamentDataProvider {
       return bouts;
     } catch (error) {
       console.error('[DataProvider] Error reading local bouts:', error);
-      return [];
+      throw error; // Re-throw error for Tanstack Query
     }
   }
 
@@ -724,38 +700,27 @@ export class TournamentDataProvider {
 
     if (this.isRemoteConnection()) {
       try {
-        // Request bouts with multiple retries
-        for (let attempt = 1; attempt <= 3; attempt++) {
-          try {
-            console.log(`[DataProvider] Attempt ${attempt} to fetch bouts for pool ${poolId} in round ${roundId}`);
+        // Removed manual retry loop - Tanstack Query handles retries
 
-            // Request bouts for the pool from server
-            tournamentClient.requestPoolBouts(roundId, poolId);
+        console.log(`[DataProvider] Attempting to fetch bouts for pool ${poolId} in round ${roundId}`);
 
-            // Wait for the response with increased timeout
-            const response = await tournamentClient.waitForResponse('pool_bouts_list', 8000);
+        // Request bouts for the pool from server
+        tournamentClient.requestPoolBouts(roundId, poolId);
 
-            if (response && Array.isArray(response.bouts)) {
-              console.log(`[DataProvider] Received ${response.bouts.length} pool bouts from server`);
-              return response.bouts;
-            }
+        // Wait for the response with increased timeout
+        const response = await tournamentClient.waitForResponse('pool_bouts_list', 8000);
 
-            console.log(`[DataProvider] Invalid pool bouts response, retrying...`);
-          } catch (attemptError) {
-            if (attempt < 3) {
-              console.warn(`[DataProvider] Attempt ${attempt} failed, retrying: ${attemptError.message}`);
-              // Wait a moment before retrying
-              await new Promise(resolve => setTimeout(resolve, 1000));
-            } else {
-              throw attemptError; // Re-throw on final attempt
-            }
-          }
+        if (response && Array.isArray(response.bouts)) {
+          console.log(`[DataProvider] Received ${response.bouts.length} pool bouts from server`);
+          return response.bouts;
         }
 
-        throw new Error('Failed to fetch pool bouts from server after multiple attempts');
+        console.log(`[DataProvider] Invalid pool bouts response received.`);
+        throw new Error('Invalid pool bouts response from server'); // Throw error for Tanstack Query
+
       } catch (error) {
         console.error('[DataProvider] Error fetching remote pool bouts:', error);
-        return [];
+        throw error; // Re-throw error for Tanstack Query
       }
     }
 
@@ -767,71 +732,60 @@ export class TournamentDataProvider {
       return bouts;
     } catch (error) {
       console.error('[DataProvider] Error reading local pool bouts:', error);
-      return [];
+      throw error; // Re-throw error for Tanstack Query
     }
   }
-  
+
   /**
    * Get pools for a round
    */
-  async getPools(roundId: number): Promise<any[]> {
+  async getPools(roundId: number): Promise<PoolData[]> { // Updated return type
     console.log(`[DataProvider] Getting pools for round ${roundId}, remote: ${this.isRemoteConnection()}`);
-    
+
     if (this.isRemoteConnection()) {
       try {
-        // Request pools from server - RETRY UP TO 2 TIMES
-        for (let attempt = 1; attempt <= 3; attempt++) {
-          try {
-            console.log(`[DataProvider] Attempt ${attempt} to fetch pools for round ${roundId}`);
-            
-            // Request pools from server
-            tournamentClient.requestPools(roundId);
-            
-            // Wait for the response with longer timeout
-            const response = await tournamentClient.waitForResponse('pools_list', 8000);
-            
-            if (response && Array.isArray(response.pools)) {
-              console.log(`[DataProvider] Received ${response.pools.length} pools from server`);
-              return response.pools;
-            }
-            
-            console.log(`[DataProvider] Invalid pools response, retrying...`);
-          } catch (attemptError) {
-            if (attempt < 3) {
-              console.warn(`[DataProvider] Attempt ${attempt} failed, retrying: ${attemptError.message}`);
-              // Wait a moment before retrying
-              await new Promise(resolve => setTimeout(resolve, 1000));
-            } else {
-              throw attemptError; // Re-throw on final attempt
-            }
-          }
+        // Removed manual retry loop - Tanstack Query handles retries
+
+        console.log(`[DataProvider] Attempting to fetch pools for round ${roundId}`);
+
+        // Request pools from server
+        tournamentClient.requestPools(roundId);
+
+        // Wait for the response with longer timeout
+        const response = await tournamentClient.waitForResponse('pools_list', 8000);
+
+        if (response && Array.isArray(response.pools)) {
+          console.log(`[DataProvider] Received ${response.pools.length} pools from server`);
+          return response.pools;
         }
-        
-        throw new Error('Failed to fetch pools from server after multiple attempts');
+
+        console.log(`[DataProvider] Invalid pools response received.`);
+        throw new Error('Invalid pools response from server'); // Throw error for Tanstack Query
+
       } catch (error) {
         console.error('[DataProvider] Error fetching remote pools:', error);
-        return [];
+        throw error; // Re-throw error for Tanstack Query
       }
     }
-    
+
     // For local tournaments, fetch from database
     try {
       const poolsForRound = await dbGetPoolsForRound(roundId);
-      
+
       console.log(`[DataProvider] Retrieved ${poolsForRound.length} pools from local database`);
       return poolsForRound;
     } catch (error) {
       console.error('[DataProvider] Error reading local pools:', error);
-      return [];
+      throw error; // Re-throw error for Tanstack Query
     }
   }
-  
+
   /**
    * Get bracket data for a DE round
    */
   async getBracketData(roundId: number): Promise<any> {
     console.log(`[DataProvider] Getting bracket for round ${roundId}, remote: ${this.isRemoteConnection()}`);
-    
+
     if (this.isRemoteConnection()) {
       try {
         // Request bracket from server
@@ -839,40 +793,40 @@ export class TournamentDataProvider {
           type: 'get_bracket',
           roundId
         });
-        
+
         // Wait for the response
         const response = await tournamentClient.waitForResponse('bracket_data', 5000);
-        
+
         if (response && response.bracket) {
           console.log(`[DataProvider] Received bracket from server`);
           return response.bracket;
         }
-        
+
         throw new Error('Failed to fetch bracket from server');
       } catch (error) {
         console.error('[DataProvider] Error fetching remote bracket:', error);
-        return null;
+        throw error; // Re-throw error for Tanstack Query
       }
     }
-    
+
     // For local tournaments, fetch from database
     try {
       const bracketData = await dbGetBracketForRound?.(roundId);
-      
+
       console.log(`[DataProvider] Retrieved bracket from local database`);
       return bracketData;
     } catch (error) {
       console.error('[DataProvider] Error reading local bracket:', error);
-      return null;
+      throw error; // Re-throw error for Tanstack Query
     }
   }
-  
+
   /**
    * Update bout score
    */
   async updateBoutScore(boutId: number, scoreA: number, scoreB: number): Promise<boolean> {
     console.log(`[DataProvider] Updating bout ${boutId} score to ${scoreA}-${scoreB}, remote: ${this.isRemoteConnection()}`);
-    
+
     if (this.isRemoteConnection()) {
       try {
         // Send update score request to server
@@ -882,17 +836,17 @@ export class TournamentDataProvider {
           scoreA,
           scoreB
         });
-        
+
         // Wait for confirmation
         const response = await tournamentClient.waitForResponse('bout_score_updated', 5000);
-        
+
         return response && response.success === true;
       } catch (error) {
         console.error('[DataProvider] Error updating bout score remotely:', error);
         return false;
       }
     }
-    
+
     // For local tournaments, update in database
     try {
       // We can't just update the score because we need the fencer IDs
@@ -904,29 +858,29 @@ export class TournamentDataProvider {
       return false;
     }
   }
-  
+
   /**
    * Update pool bout scores
    */
   async updatePoolBoutScores(
-    boutId: number, 
-    scoreA: number, 
-    scoreB: number, 
-    fencerAId: number, 
-    fencerBId: number, 
-    roundId?: number, 
+    boutId: number,
+    scoreA: number,
+    scoreB: number,
+    fencerAId: number,
+    fencerBId: number,
+    roundId?: number,
     poolId?: number
   ): Promise<boolean> {
     console.log(`[DataProvider] Updating pool bout ${boutId} score to ${scoreA}-${scoreB}, remote: ${this.isRemoteConnection()}`);
-    
+
     if (this.isRemoteConnection()) {
       try {
         // Send update pool bout scores request to server with round and pool IDs for targeted cache invalidation
         tournamentClient.updatePoolBoutScores(boutId, scoreA, scoreB, fencerAId, fencerBId, roundId, poolId);
-        
+
         // Wait for confirmation
         const response = await tournamentClient.waitForResponse('bout_scores_updated', 10000); // Increased timeout
-        
+
         console.log(`[DataProvider] Received response for updatePoolBoutScores:`, response);
         return response && response.success === true;
       } catch (error) {
@@ -934,63 +888,63 @@ export class TournamentDataProvider {
         return false;
       }
     }
-    
+
     // For local tournaments, update in database
     try {
       // Pass all parameters to the database utility
       await dbUpdateBoutScores(boutId, scoreA, scoreB, fencerAId, fencerBId);
-      
+
       return true;
     } catch (error) {
       console.error('[DataProvider] Error updating pool bout scores locally:', error);
       return false;
     }
   }
-  
+
   /**
    * Initialize a round (start a round)
    */
   async initializeRound(eventId: number, roundId: number): Promise<boolean> {
     console.log(`[DataProvider] Initializing round ${roundId} for event ${eventId}, remote: ${this.isRemoteConnection()}`);
-    
+
     if (this.isRemoteConnection()) {
       try {
         // Send initialize round request to server using the proper method
         tournamentClient.requestInitializeRound(eventId, roundId);
-        
+
         // Wait for confirmation
         const response = await tournamentClient.waitForResponse('round_initialized', 10000);
-        
+
         return response && response.success === true;
       } catch (error) {
         console.error('[DataProvider] Error initializing round remotely:', error);
         return false;
       }
     }
-    
+
     // For local tournaments, initialize in database
     try {
       // Get the necessary data to initialize the round
       const event = await dbGetEventById(eventId);
       const round = await dbGetRoundById(roundId);
       const fencers = await this.getFencers(event);
-      
+
       // Initialize the round
       await dbInitializeRound(event, round, fencers);
-      
+
       return true;
     } catch (error) {
       console.error('[DataProvider] Error initializing round locally:', error);
       return false;
     }
   }
-  
+
   /**
    * Complete a round
    */
   async completeRound(roundId: number): Promise<boolean> {
     console.log(`[DataProvider] Completing round ${roundId}, remote: ${this.isRemoteConnection()}`);
-    
+
     if (this.isRemoteConnection()) {
       try {
         // Send complete round request to server
@@ -998,21 +952,21 @@ export class TournamentDataProvider {
           type: 'complete_round',
           roundId
         });
-        
+
         // Wait for confirmation
         const response = await tournamentClient.waitForResponse('round_completed', 10000);
-        
+
         return response && response.success === true;
       } catch (error) {
         console.error('[DataProvider] Error completing round remotely:', error);
         return false;
       }
     }
-    
+
     // For local tournaments, complete in database
     try {
       await dbMarkRoundAsComplete(roundId);
-      
+
       return true;
     } catch (error) {
       console.error('[DataProvider] Error completing round locally:', error);
@@ -1024,7 +978,7 @@ export class TournamentDataProvider {
    */
   async getOfficials(tournamentName: string): Promise<Official[]> {
     console.log(`[DataProvider] Getting officials for tournament ${tournamentName}, remote: ${this.isRemoteConnection()}`);
-    
+
     if (this.isRemoteConnection()) {
       try {
         // Request officials from server
@@ -1032,22 +986,22 @@ export class TournamentDataProvider {
           type: 'get_officials',
           tournamentName
         });
-        
+
         // Wait for the response
         const response = await tournamentClient.waitForResponse('officials_list', 5000);
-        
+
         if (response && Array.isArray(response.officials)) {
           console.log(`[DataProvider] Received ${response.officials.length} officials from server`);
           return response.officials;
         }
-        
+
         throw new Error('Failed to fetch officials from server');
       } catch (error) {
         console.error('[DataProvider] Error fetching remote officials:', error);
-        return [];
+        throw error; // Re-throw error for Tanstack Query
       }
     }
-    
+
     // For local tournaments, fetch from database
     try {
       // Get all officials for the tournament
@@ -1057,7 +1011,7 @@ export class TournamentDataProvider {
       return officials;
     } catch (error) {
       console.error('[DataProvider] Error reading local officials:', error);
-      return [];
+      throw error; // Re-throw error for Tanstack Query
     }
   }
 
@@ -1066,7 +1020,7 @@ export class TournamentDataProvider {
    */
   async getReferees(tournamentName: string): Promise<Official[]> {
     console.log(`[DataProvider] Getting referees for tournament ${tournamentName}, remote: ${this.isRemoteConnection()}`);
-    
+
     if (this.isRemoteConnection()) {
       try {
         // Request referees from server
@@ -1074,22 +1028,22 @@ export class TournamentDataProvider {
           type: 'get_referees',
           tournamentName
         });
-        
+
         // Wait for the response
         const response = await tournamentClient.waitForResponse('referees_list', 5000);
-        
+
         if (response && Array.isArray(response.referees)) {
           console.log(`[DataProvider] Received ${response.referees.length} referees from server`);
           return response.referees;
         }
-        
+
         throw new Error('Failed to fetch referees from server');
       } catch (error) {
         console.error('[DataProvider] Error fetching remote referees:', error);
-        return [];
+        throw error; // Re-throw error for Tanstack Query
       }
     }
-    
+
     // For local tournaments, fetch from database
     try {
       // Get all referees for the tournament
@@ -1099,7 +1053,7 @@ export class TournamentDataProvider {
       return referees;
     } catch (error) {
       console.error('[DataProvider] Error reading local referees:', error);
-      return [];
+      throw error; // Re-throw error for Tanstack Query
     }
   }
 
@@ -1108,7 +1062,7 @@ export class TournamentDataProvider {
    */
   async addOfficial(official: Official): Promise<boolean> {
     console.log(`[DataProvider] Adding official to tournament, remote: ${this.isRemoteConnection()}`);
-    
+
     if (this.isRemoteConnection()) {
       try {
         // Send add official request to server
@@ -1116,17 +1070,17 @@ export class TournamentDataProvider {
           type: 'add_official',
           official
         });
-        
+
         // Wait for confirmation
         const response = await tournamentClient.waitForResponse('official_added', 5000);
-        
+
         return response && response.success === true;
       } catch (error) {
         console.error('[DataProvider] Error adding official remotely:', error);
         return false;
       }
     }
-    
+
     // For local tournaments, add to database
     try {
       await dbCreateOfficial(official);
@@ -1142,7 +1096,7 @@ export class TournamentDataProvider {
    */
   async addReferee(referee: Official): Promise<boolean> {
     console.log(`[DataProvider] Adding referee to tournament, remote: ${this.isRemoteConnection()}`);
-    
+
     if (this.isRemoteConnection()) {
       try {
         // Send add referee request to server
@@ -1150,17 +1104,17 @@ export class TournamentDataProvider {
           type: 'add_referee',
           referee
         });
-        
+
         // Wait for confirmation
         const response = await tournamentClient.waitForResponse('referee_added', 5000);
-        
+
         return response && response.success === true;
       } catch (error) {
         console.error('[DataProvider] Error adding referee remotely:', error);
         return false;
       }
     }
-    
+
     // For local tournaments, add to database
     try {
       await dbCreateReferee(referee);
@@ -1170,13 +1124,13 @@ export class TournamentDataProvider {
       return false;
     }
   }
-  
+
   /**
    * Remove a referee from the tournament
    */
   async removeReferee(refereeId: number): Promise<boolean> {
     console.log(`[DataProvider] Removing referee ${refereeId} from tournament, remote: ${this.isRemoteConnection()}`);
-    
+
     if (this.isRemoteConnection()) {
       try {
         // Send remove referee request to server
@@ -1184,17 +1138,17 @@ export class TournamentDataProvider {
           type: 'remove_referee',
           refereeId
         });
-        
+
         // Wait for confirmation
         const response = await tournamentClient.waitForResponse('referee_removed', 5000);
-        
+
         return response && response.success === true;
       } catch (error) {
         console.error('[DataProvider] Error removing referee remotely:', error);
         return false;
       }
     }
-    
+
     // For local tournaments, remove from database
     try {
       await dbDeleteReferee(refereeId);
@@ -1204,13 +1158,13 @@ export class TournamentDataProvider {
       return false;
     }
   }
-  
+
   /**
    * Remove an official from the tournament
    */
   async removeOfficial(officialId: number): Promise<boolean> {
     console.log(`[DataProvider] Removing official ${officialId} from tournament, remote: ${this.isRemoteConnection()}`);
-    
+
     if (this.isRemoteConnection()) {
       try {
         // Send remove official request to server
@@ -1218,17 +1172,17 @@ export class TournamentDataProvider {
           type: 'remove_official',
           officialId
         });
-        
+
         // Wait for confirmation
         const response = await tournamentClient.waitForResponse('official_removed', 5000);
-        
+
         return response && response.success === true;
       } catch (error) {
         console.error('[DataProvider] Error removing official remotely:', error);
         return false;
       }
     }
-    
+
     // For local tournaments, remove from database
     try {
       await dbDeleteOfficial(officialId);
@@ -1244,7 +1198,7 @@ export class TournamentDataProvider {
    */
   async checkUserRole(deviceId: string, eventId: number): Promise<string> {
     console.log(`[DataProvider] Checking role for device ID ${deviceId} in event ${eventId}`);
-    
+
     if (this.isRemoteConnection()) {
       try {
         // Request role check from server
@@ -1253,22 +1207,23 @@ export class TournamentDataProvider {
           deviceId,
           eventId
         });
-        
+
         // Wait for the response
         const response = await tournamentClient.waitForResponse('role_check_result', 5000);
-        
+
         if (response && response.role) {
           console.log(`[DataProvider] Received role from server: ${response.role}`);
           return response.role;
         }
-        
+
         throw new Error('Failed to get role from server');
       } catch (error) {
         console.error('[DataProvider] Error checking role remotely:', error);
+        // Default to spectator on error, or re-throw if needed
         return 'spectator';
       }
     }
-    
+
     // For local tournaments, check in database
     try {
       // Check if device ID is in officials table
@@ -1276,13 +1231,13 @@ export class TournamentDataProvider {
       if (official) {
         return 'tournament_official';
       }
-      
+
       // Check if device ID is in referees table
       const referee = await dbGetRefereeByDeviceId(deviceId);
       if (referee) {
         return 'referee';
       }
-      
+
       // Default to spectator
       return 'spectator';
     } catch (error) {
@@ -1290,13 +1245,13 @@ export class TournamentDataProvider {
       return 'spectator';
     }
   }
-  
+
   /**
    * Get round details by ID
    */
   async getRoundById(roundId: number): Promise<any> {
     console.log(`[DataProvider] Getting round status for round ${roundId}, remote: ${this.isRemoteConnection()}`);
-    
+
     if (this.isRemoteConnection()) {
       try {
         // Request round data from server
@@ -1304,22 +1259,22 @@ export class TournamentDataProvider {
           type: 'get_round',
           roundId
         });
-        
+
         // Wait for the response
         const response = await tournamentClient.waitForResponse('round_data', 5000);
-        
+
         if (response && response.round) {
           console.log(`[DataProvider] Received round data from server`);
           return response.round;
         }
-        
+
         throw new Error('Failed to fetch round data from server');
       } catch (error) {
         console.error('[DataProvider] Error fetching remote round data:', error);
-        return null;
+        throw error; // Re-throw error for Tanstack Query
       }
     }
-    
+
     // For local tournaments, fetch from database
     try {
       const round = await dbGetRoundById(roundId);
@@ -1327,7 +1282,7 @@ export class TournamentDataProvider {
       return round;
     } catch (error) {
       console.error('[DataProvider] Error reading local round data:', error);
-      return null;
+      throw error; // Re-throw error for Tanstack Query
     }
   }
 }

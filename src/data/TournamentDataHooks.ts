@@ -1,7 +1,7 @@
 // src/data/TournamentDataHooks.ts
 import React, { useState, useEffect, useMemo } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Event, Fencer, Round, Official } from '../navigation/navigation/types';
+import { useQuery, useMutation, useQueryClient, useQueries } from '@tanstack/react-query'; // Added useQueries import
+import { Event, Fencer, Round, Official, PoolData } from '../navigation/navigation/types'; // Added PoolData import
 import dataProvider from './DrizzleDataProvider';
 import tournamentClient from '../networking/TournamentClient';
 
@@ -85,12 +85,10 @@ export function useRounds(eventId: number) {
 export function useRoundStarted(roundId: number) {
   return useQuery({
     queryKey: queryKeys.roundStarted(roundId),
-    queryFn: async () => {
-      const roundDetails = await dataProvider.getRoundById(roundId);
-      return roundDetails?.isstarted === 1 || roundDetails?.isstarted === true;
-    },
+    queryFn: () => dataProvider.getRoundById(roundId), // Fetch the full round
     enabled: !!roundId,
     staleTime: dataProvider.isRemoteConnection() ? 5000 : 30000,
+    select: (roundDetails) => !!roundDetails?.isstarted, // Select only the boolean status
   });
 }
 
@@ -100,12 +98,11 @@ export function useRoundStarted(roundId: number) {
 export function useRoundCompleted(roundId: number) {
   return useQuery({
     queryKey: queryKeys.roundCompleted(roundId),
-    queryFn: async () => {
-      const roundDetails = await dataProvider.getRoundById(roundId);
-      return roundDetails?.iscomplete === 1 || roundDetails?.iscomplete === true;
-    },
+    queryFn: () => dataProvider.getRoundById(roundId), // Fetch the full round
     enabled: !!roundId,
     staleTime: dataProvider.isRemoteConnection() ? 5000 : 30000,
+    // Note: iscomplete is still number in Round type, needs boolean conversion
+    select: (roundDetails) => roundDetails?.iscomplete === 1, // Select only the boolean status
   });
 }
 
@@ -126,22 +123,22 @@ export function useFencers(event: Event) {
  */
 export function useEventStatuses(events: Event[]) {
   const queryClient = useQueryClient();
-  
+
   // Extract just the event IDs for the query key
-  const eventIds = React.useMemo(() => 
-    Array.isArray(events) ? events.map(e => e?.id).filter(Boolean) : [], 
+  const eventIds = React.useMemo(() =>
+    Array.isArray(events) ? events.map(e => e?.id).filter(Boolean) : [],
     [events]
   );
-  
+
   return useQuery({
     queryKey: queryKeys.eventStatuses,
     queryFn: async () => {
       if (!events || !Array.isArray(events) || events.length === 0) {
         return {};
       }
-      
+
       const statuses: { [key: number]: boolean } = {};
-      
+
       // Process each event to determine its status
       await Promise.all(
         events.map(async (event) => {
@@ -155,7 +152,7 @@ export function useEventStatuses(events: Event[]) {
           }
         })
       );
-      
+
       return statuses;
     },
     enabled: Array.isArray(events) && events.length > 0,
@@ -212,7 +209,7 @@ export function useBoutsForPool(roundId: number, poolId: number) {
  */
 export function useAddFencer() {
   const queryClient = useQueryClient();
-  
+
   return useMutation({
     mutationFn: ({ fencer, event }: { fencer: Fencer, event: Event }) => {
       return dataProvider.addFencer(fencer, event);
@@ -228,9 +225,9 @@ export function useAddFencer() {
  */
 export function useCreateFencer() {
   const queryClient = useQueryClient();
-  
+
   return useMutation({
-    mutationFn: ({ fencer, event, addToEvent = true }: 
+    mutationFn: ({ fencer, event, addToEvent = true }:
       { fencer: Fencer, event: Event, addToEvent?: boolean }) => {
       return dataProvider.createFencer(fencer, event, addToEvent);
     },
@@ -245,7 +242,7 @@ export function useCreateFencer() {
  */
 export function useRemoveFencer() {
   const queryClient = useQueryClient();
-  
+
   return useMutation({
     mutationFn: ({ fencer, event }: { fencer: Fencer, event: Event }) => {
       return dataProvider.removeFencer(fencer, event);
@@ -261,7 +258,7 @@ export function useRemoveFencer() {
  */
 export function useCreateEvent() {
   const queryClient = useQueryClient();
-  
+
   return useMutation({
     mutationFn: ({ tournamentName, event }: { tournamentName: string, event: Event }) => {
       return dataProvider.createEvent(tournamentName, event);
@@ -277,7 +274,7 @@ export function useCreateEvent() {
  */
 export function useDeleteEvent() {
   const queryClient = useQueryClient();
-  
+
   return useMutation({
     mutationFn: (eventId: number) => {
       return dataProvider.deleteEvent(eventId);
@@ -294,7 +291,7 @@ export function useDeleteEvent() {
  */
 export function useAddRound() {
   const queryClient = useQueryClient();
-  
+
   return useMutation({
     mutationFn: (round: Partial<Round>) => {
       return dataProvider.addRound(round);
@@ -313,7 +310,7 @@ export function useAddRound() {
  */
 export function useUpdateRound() {
   const queryClient = useQueryClient();
-  
+
   return useMutation({
     mutationFn: (round: Round) => {
       return dataProvider.updateRound(round);
@@ -332,7 +329,7 @@ export function useUpdateRound() {
  */
 export function useDeleteRound() {
   const queryClient = useQueryClient();
-  
+
   return useMutation({
     mutationFn: ({ roundId, eventId }: { roundId: number, eventId: number }) => {
       return dataProvider.deleteRound(roundId);
@@ -349,24 +346,24 @@ export function useDeleteRound() {
  */
 export function useInitializeRound() {
   const queryClient = useQueryClient();
-  
+
   return useMutation({
     mutationFn: ({ eventId, roundId }: { eventId: number, roundId: number }) => {
       return dataProvider.initializeRound(eventId, roundId);
     },
     onSuccess: (_, { eventId }) => {
       // When a round is initialized, we need to update both rounds and event statuses
-      
+
       // First invalidate the rounds to refetch them
       queryClient.invalidateQueries({ queryKey: queryKeys.rounds(eventId) });
-      
+
       // Directly update the event status in the cache - this ensures immediate UI update
       const currentStatuses = queryClient.getQueryData(queryKeys.eventStatuses) || {};
       queryClient.setQueryData(queryKeys.eventStatuses, {
         ...currentStatuses,
         [eventId]: true // Set this event as started
       });
-      
+
       // After directly updating, also invalidate to ensure eventual consistency
       queryClient.invalidateQueries({ queryKey: queryKeys.eventStatuses });
     },
@@ -378,7 +375,7 @@ export function useInitializeRound() {
  */
 export function useCompleteRound() {
   const queryClient = useQueryClient();
-  
+
   return useMutation({
     mutationFn: ({ roundId, eventId }: { roundId: number, eventId: number }) => {
       return dataProvider.completeRound(roundId);
@@ -399,113 +396,58 @@ export function useCompleteRound() {
  */
 export function useRoundResultsData(roundId: number, eventId: number, currentRoundIndex: number) {
   // Fetch pools data for the round
-  const { 
-    data: poolsData, 
+  const {
+    data: poolsData,
     isLoading: poolsLoading,
     isError: poolsError
   } = usePools(roundId);
-  
+
   // Fetch rounds data for the event
-  const { 
-    data: roundsData, 
+  const {
+    data: roundsData,
     isLoading: roundsLoading,
     isError: roundsError
   } = useRounds(eventId);
-  
+
   // Create a map of pool IDs to their bout data
   const poolIds = React.useMemo(() => poolsData?.map(pool => pool.poolid) || [], [poolsData]);
-  
-  // Instead of trying to create dynamic queries which causes hook rules violations,
-  // use prefetching approach with queryClient
-  const queryClient = useQueryClient();
-  
-  // Prefetch all bout data when poolIds change
-  React.useEffect(() => {
-    if (!poolIds.length) return;
-    
-    // Prefetch bouts data for all pools
-    poolIds.forEach(poolId => {
-      queryClient.prefetchQuery({
-        queryKey: queryKeys.boutsForPool(roundId, poolId),
-        queryFn: () => dataProvider.getBoutsForPool(roundId, poolId)
-      });
-    });
-  }, [poolIds, roundId, queryClient]);
-  
-  // Use a single flag to track if we're still loading bout data
-  const [isBoutsLoading, setIsBoutsLoading] = React.useState(false);
-  const [isBoutsError, setIsBoutsError] = React.useState(false);
-  const [boutsData, setBoutsData] = React.useState<Record<number, any[]>>({});
-  
-  // Fetch all bout data in a single effect
-  React.useEffect(() => {
-    if (!poolIds.length) return;
-    
-    let isMounted = true;
-    setIsBoutsLoading(true);
-    setIsBoutsError(false);
-    
-    const fetchAllPoolBouts = async () => {
-      try {
-        const boutsResult: Record<number, any[]> = {};
-        
-        // Fetch bouts for each pool
-        await Promise.all(poolIds.map(async (poolId) => {
-          try {
-            // Try to get from cache first
-            const cached = queryClient.getQueryData(queryKeys.boutsForPool(roundId, poolId));
-            if (cached) {
-              boutsResult[poolId] = cached as any[];
-              return;
-            }
-            
-            // Otherwise fetch it
-            const data = await queryClient.fetchQuery({
-              queryKey: queryKeys.boutsForPool(roundId, poolId),
-              queryFn: () => dataProvider.getBoutsForPool(roundId, poolId)
-            });
-            
-            if (isMounted) {
-              boutsResult[poolId] = data || [];
-            }
-          } catch (err) {
-            console.error(`Error fetching bouts for pool ${poolId}:`, err);
-            if (isMounted) {
-              setIsBoutsError(true);
-            }
-          }
-        }));
-        
-        if (isMounted) {
-          setBoutsData(boutsResult);
-          setIsBoutsLoading(false);
-        }
-      } catch (error) {
-        console.error("Error fetching all pool bouts:", error);
-        if (isMounted) {
-          setIsBoutsError(true);
-          setIsBoutsLoading(false);
-        }
+
+  // Use useQueries to fetch bouts for all pools dynamically
+  const boutQueries = useQueries({
+    queries: poolIds.map(poolId => ({
+      queryKey: queryKeys.boutsForPool(roundId, poolId),
+      queryFn: () => dataProvider.getBoutsForPool(roundId, poolId),
+      enabled: !!roundId && poolId !== undefined,
+      staleTime: dataProvider.isRemoteConnection() ? 5000 : 30000,
+      // refetchInterval could be added here if needed per pool, but might be excessive
+    })),
+  });
+
+  // Aggregate loading and error states from bout queries
+  const isBoutsLoading = boutQueries.some(query => query.isLoading);
+  const isBoutsError = boutQueries.some(query => query.isError);
+
+  // Reconstruct boutsData map from successful queries
+  const boutsData = React.useMemo(() => {
+    const data: Record<number, any[]> = {};
+    boutQueries.forEach((query, index) => {
+      if (query.isSuccess) {
+        const poolId = poolIds[index]; // Get corresponding poolId
+        data[poolId] = query.data || [];
       }
-    };
-    
-    fetchAllPoolBouts();
-    
-    // Cleanup function
-    return () => {
-      isMounted = false;
-    };
-  }, [poolIds, roundId, queryClient]);
-  
+    });
+    return data;
+  }, [boutQueries, poolIds]); // Fixed closing bracket
+
   // Process data to calculate pool results when all data is available
   const poolResults = React.useMemo(() => {
     // Don't calculate if data is still loading or has errors
     if (!poolsData || isBoutsLoading || poolsError || isBoutsError) {
       return [];
     }
-    
+
     interface FencerStats {
-      fencer: any;
+      fencer: Fencer; // Use the imported Fencer type
       boutsCount: number;
       wins: number;
       touchesScored: number;
@@ -518,13 +460,13 @@ export function useRoundResultsData(roundId: number, eventId: number, currentRou
       poolid: number;
       stats: FencerStats[];
     }
-    
+
     const results: PoolResult[] = [];
-    
+
     // Process each pool
-    for (const pool of poolsData) {
+    for (const pool of poolsData as PoolData[]) { // Explicitly type 'pool'
       const statsMap = new Map<number, FencerStats>();
-      
+
       // Initialize fencer stats
       pool.fencers.forEach(fencer => {
         if (fencer.id !== undefined) {
@@ -539,10 +481,10 @@ export function useRoundResultsData(roundId: number, eventId: number, currentRou
           });
         }
       });
-      
+
       // Get bouts for this pool from our state
       const bouts = boutsData[pool.poolid] || [];
-      
+
       // Process bout data for this pool
       bouts.forEach((bout: any) => {
         const leftId = bout.left_fencerid;
@@ -578,17 +520,17 @@ export function useRoundResultsData(roundId: number, eventId: number, currentRou
         stats.push(stat);
       });
       stats.sort((a, b) => b.winRate - a.winRate);
-      
+
       // Add results for this pool
       results.push({
         poolid: pool.poolid,
         stats,
       });
     }
-    
+
     return results;
   }, [poolsData, boutsData, isBoutsLoading, poolsError, isBoutsError]);
-  
+
   // Process round data to determine next round information
   const nextRoundInfo = React.useMemo(() => {
     if (!roundsData || roundsLoading || roundsError) {
@@ -598,36 +540,36 @@ export function useRoundResultsData(roundId: number, eventId: number, currentRou
         nextRoundStarted: false,
       };
     }
-    
+
     const nextRoundIndex = currentRoundIndex + 1;
-    
+
     if (nextRoundIndex < roundsData.length) {
       const nextRound = roundsData[nextRoundIndex];
       return {
         nextRound,
         hasNextRound: true,
-        nextRoundStarted: nextRound.isstarted === 1,
+        nextRoundStarted: nextRound.isstarted, // Directly use the boolean value
       };
     }
-    
+
     return {
       nextRound: null,
       hasNextRound: false,
       nextRoundStarted: false,
     };
   }, [roundsData, roundsLoading, roundsError, currentRoundIndex]);
-  
+
   // Prepare an event object
   const event = React.useMemo(() => {
     return { id: eventId } as any;
   }, [eventId]);
-  
+
   // Overall loading state
   const isLoading = poolsLoading || roundsLoading || isBoutsLoading;
-  
+
   // Overall error state
   const isError = poolsError || roundsError || isBoutsError;
-  
+
   return {
     poolResults,
     event,
@@ -639,21 +581,21 @@ export function useRoundResultsData(roundId: number, eventId: number, currentRou
 
 export function useUpdatePoolBoutScores() {
   const queryClient = useQueryClient();
-  
+
   return useMutation({
-    mutationFn: ({ 
-      boutId, 
-      scoreA, 
-      scoreB, 
-      fencerAId, 
-      fencerBId, 
-      roundId, 
-      poolId 
-    }: { 
-      boutId: number, 
-      scoreA: number, 
-      scoreB: number, 
-      fencerAId: number, 
+    mutationFn: ({
+      boutId,
+      scoreA,
+      scoreB,
+      fencerAId,
+      fencerBId,
+      roundId,
+      poolId
+    }: {
+      boutId: number,
+      scoreA: number,
+      scoreB: number,
+      fencerAId: number,
       fencerBId: number,
       roundId?: number,
       poolId?: number
@@ -664,30 +606,30 @@ export function useUpdatePoolBoutScores() {
     onSuccess: (result, variables) => {
       console.log(`useUpdatePoolBoutScores onSuccess with result:`, result);
       const { roundId, poolId } = variables;
-      
+
       // Client-side cache invalidation - the server will handle server-side invalidation
       // This ensures the client UI refreshes correctly
-      
+
       // If we know the round and pool, do a targeted invalidation
       if (roundId !== undefined && poolId !== undefined) {
         console.log(`Client-side targeted invalidation for pool ${poolId} in round ${roundId}`);
-        queryClient.invalidateQueries({ 
-          queryKey: queryKeys.boutsForPool(roundId, poolId) 
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.boutsForPool(roundId, poolId)
         });
-        
-        queryClient.invalidateQueries({ 
-          queryKey: queryKeys.pools(roundId) 
+
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.pools(roundId)
         });
       } else {
         // Otherwise do broader invalidation
         console.log(`Client-side broad invalidation of all bout queries after score update`);
-        queryClient.invalidateQueries({ 
-          queryKey: ['bouts'] 
+        queryClient.invalidateQueries({
+          queryKey: ['bouts']
         });
-        
+
         console.log(`Client-side invalidation of all pool queries after score update`);
-        queryClient.invalidateQueries({ 
-          queryKey: ['pools'] 
+        queryClient.invalidateQueries({
+          queryKey: ['pools']
         });
       }
     },
@@ -707,7 +649,7 @@ export function setupTournamentSync(queryClient: any) {
         queryKeys.events(data.tournamentName),
         data.events
       );
-      
+
       // Update rounds cache for each event if rounds are embedded
       data.events.forEach((event: any) => {
         if (event?.id && Array.isArray(event.rounds)) {
@@ -717,12 +659,12 @@ export function setupTournamentSync(queryClient: any) {
           );
         }
       });
-      
+
       // Force a refresh of event statuses
-      queryClient.invalidateQueries(queryKeys.eventStatuses);
+      queryClient.invalidateQueries({ queryKey: queryKeys.eventStatuses });
     }
   });
-  
+
   // Handle fencer updates
   tournamentClient.on('fencer_added', (data: any) => {
     if (data.eventId) {
@@ -731,7 +673,7 @@ export function setupTournamentSync(queryClient: any) {
       });
     }
   });
-  
+
   tournamentClient.on('fencer_removed', (data: any) => {
     if (data.eventId) {
       queryClient.invalidateQueries({
@@ -739,7 +681,7 @@ export function setupTournamentSync(queryClient: any) {
       });
     }
   });
-  
+
   // Handle event updates
   tournamentClient.on('event_created', (data: any) => {
     if (data.tournamentName) {
@@ -748,12 +690,12 @@ export function setupTournamentSync(queryClient: any) {
       });
     }
   });
-  
+
   tournamentClient.on('event_deleted', (data: any) => {
     // Invalidate all events queries since we don't know the tournament name
     queryClient.invalidateQueries({ queryKey: ['events'] });
   });
-  
+
   // Handle event status updates
   tournamentClient.on('event_statuses', (data: any) => {
     if (data?.statuses) {
@@ -765,7 +707,7 @@ export function setupTournamentSync(queryClient: any) {
       );
     }
   });
-  
+
   // Handle rounds updates
   tournamentClient.on('rounds_list', (data: any) => {
     if (data?.eventId && Array.isArray(data.rounds)) {
@@ -774,13 +716,13 @@ export function setupTournamentSync(queryClient: any) {
         queryKeys.rounds(data.eventId),
         data.rounds
       );
-      
+
       // Update event status if needed
       if (data.rounds.length > 0) {
         const isStarted = data.rounds[0].isstarted;
-        const isStartedBool = isStarted === 1 || isStarted === true || 
-                              isStarted === "1" || !!isStarted;
-        
+        // Corrected boolean check for isStarted
+        const isStartedBool = !!isStarted;
+
         const currentStatuses = queryClient.getQueryData(queryKeys.eventStatuses) || {};
         queryClient.setQueryData(
           queryKeys.eventStatuses,
@@ -789,7 +731,7 @@ export function setupTournamentSync(queryClient: any) {
       }
     }
   });
-  
+
   // Handle round completion
   tournamentClient.on('round_completed', (data: any) => {
     if (data?.roundId) {
@@ -802,7 +744,7 @@ export function setupTournamentSync(queryClient: any) {
           const eventId = queryKey[1]; // From the query key format ['rounds', eventId]
           if (eventId) {
             console.log(`Invalidating rounds and related data for event ${eventId}`);
-            queryClient.invalidateQueries({ queryKey: queryKeys.rounds(eventId) });
+            queryClient.invalidateQueries({ queryKey: queryKeys.rounds(eventId as number) }); // Ensure eventId is number
             // Also invalidate pools and bouts that might be affected
             queryClient.invalidateQueries({ queryKey: ['pools'] });
             queryClient.invalidateQueries({ queryKey: ['bouts'] });
@@ -811,7 +753,7 @@ export function setupTournamentSync(queryClient: any) {
       }
     }
   });
-  
+
   // Handle round completion broadcast (for other clients)
   tournamentClient.on('round_completed_broadcast', (data: any) => {
     if (data?.roundId) {
@@ -822,7 +764,7 @@ export function setupTournamentSync(queryClient: any) {
       queryClient.invalidateQueries({ queryKey: ['bouts'] });
     }
   });
-  
+
   // Handle fencers updates
   tournamentClient.on('fencers_list', (data: any) => {
     if (data?.eventId && Array.isArray(data.fencers)) {
@@ -834,7 +776,7 @@ export function setupTournamentSync(queryClient: any) {
       );
     }
   });
-  
+
   // Handle pools updates
   tournamentClient.on('pools_list', (data: any) => {
     if (data?.roundId && Array.isArray(data.pools)) {
@@ -846,7 +788,7 @@ export function setupTournamentSync(queryClient: any) {
       );
     }
   });
-  
+
   // Handle pool bouts updates
   tournamentClient.on('pool_bouts_list', (data: any) => {
     if (data?.roundId && data?.poolId && Array.isArray(data.bouts)) {
@@ -858,49 +800,49 @@ export function setupTournamentSync(queryClient: any) {
       );
     }
   });
-  
+
   // Handle bout score updates
   tournamentClient.on('bout_score_updated', (data: any) => {
     if (data?.boutId) {
       console.log(`Received score update for bout ${data.boutId}: ${data.scoreA}-${data.scoreB}`);
-      
+
       // If roundId and poolId are available, do targeted invalidation
       if (data.roundId !== undefined && data.poolId !== undefined) {
         console.log(`Targeted invalidation for pool ${data.poolId} in round ${data.roundId}`);
-        queryClient.invalidateQueries({ 
-          queryKey: queryKeys.boutsForPool(data.roundId, data.poolId) 
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.boutsForPool(data.roundId, data.poolId)
         });
-        
-        queryClient.invalidateQueries({ 
-          queryKey: queryKeys.pools(data.roundId) 
+
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.pools(data.roundId)
         });
       } else {
         // Otherwise, do broader invalidation
         console.log(`Invalidating all bout-related queries to refresh UI`);
         queryClient.invalidateQueries({ queryKey: ['bouts'] });
-        
+
         console.log(`Invalidating all pool queries to refresh UI`);
         queryClient.invalidateQueries({ queryKey: ['pools'] });
       }
     }
   });
-  
+
   // Handle bout scores updated confirmation
   tournamentClient.on('bout_scores_updated', (data: any) => {
     if (data?.boutId) {
       console.log(`Bout ${data.boutId} scores updated confirmation received:`, data);
-      
+
       // Even though mutation should handle this, let's be extra safe and invalidate here too
       if (data.success) {
         // If roundId and poolId are available, do targeted invalidation
         if (data.roundId !== undefined && data.poolId !== undefined) {
           console.log(`bout_scores_updated: Targeted invalidation for pool ${data.poolId} in round ${data.roundId}`);
-          queryClient.invalidateQueries({ 
-            queryKey: queryKeys.boutsForPool(data.roundId, data.poolId) 
+          queryClient.invalidateQueries({
+            queryKey: queryKeys.boutsForPool(data.roundId, data.poolId)
           });
-          
-          queryClient.invalidateQueries({ 
-            queryKey: queryKeys.pools(data.roundId) 
+
+          queryClient.invalidateQueries({
+            queryKey: queryKeys.pools(data.roundId)
           });
         } else {
           // Otherwise do broader invalidation
@@ -911,32 +853,32 @@ export function setupTournamentSync(queryClient: any) {
       }
     }
   });
-  
+
   // Handle individual round updates
   tournamentClient.on('round_added', (data: any) => {
     if (data.eventId) {
       queryClient.invalidateQueries({
         queryKey: queryKeys.rounds(data.eventId)
       });
-      queryClient.invalidateQueries(queryKeys.eventStatuses);
+      queryClient.invalidateQueries({ queryKey: queryKeys.eventStatuses });
     }
   });
-  
+
   tournamentClient.on('round_updated', (data: any) => {
     if (data.eventId) {
       queryClient.invalidateQueries({
         queryKey: queryKeys.rounds(data.eventId)
       });
-      queryClient.invalidateQueries(queryKeys.eventStatuses);
+      queryClient.invalidateQueries({ queryKey: queryKeys.eventStatuses });
     }
   });
-  
+
   tournamentClient.on('round_deleted', (data: any) => {
     if (data.eventId) {
       queryClient.invalidateQueries({
         queryKey: queryKeys.rounds(data.eventId)
       });
-      queryClient.invalidateQueries(queryKeys.eventStatuses);
+      queryClient.invalidateQueries({ queryKey: queryKeys.eventStatuses });
     }
   });
 }
@@ -982,21 +924,21 @@ export function useUserRole(deviceId: string, eventId: number) {
  */
 export function useAddOfficial() {
   const queryClient = useQueryClient();
-  
+
   return useMutation({
-    mutationFn: ({ 
-      official, 
-      tournamentName 
-    }: { 
-      official: Official, 
-      tournamentName: string 
+    mutationFn: ({
+      official,
+      tournamentName
+    }: {
+      official: Official,
+      tournamentName: string
     }) => {
       return dataProvider.addOfficial(official);
     },
     onSuccess: (result, variables) => {
       const { tournamentName } = variables;
-      queryClient.invalidateQueries({ 
-        queryKey: queryKeys.officials(tournamentName) 
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.officials(tournamentName)
       });
     }
   });
@@ -1007,21 +949,21 @@ export function useAddOfficial() {
  */
 export function useAddReferee() {
   const queryClient = useQueryClient();
-  
+
   return useMutation({
-    mutationFn: ({ 
-      referee, 
-      tournamentName 
-    }: { 
-      referee: Official, 
-      tournamentName: string 
+    mutationFn: ({
+      referee,
+      tournamentName
+    }: {
+      referee: Official,
+      tournamentName: string
     }) => {
       return dataProvider.addReferee(referee);
     },
     onSuccess: (result, variables) => {
       const { tournamentName } = variables;
-      queryClient.invalidateQueries({ 
-        queryKey: queryKeys.referees(tournamentName) 
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.referees(tournamentName)
       });
     }
   });
@@ -1032,21 +974,21 @@ export function useAddReferee() {
  */
 export function useRemoveReferee() {
   const queryClient = useQueryClient();
-  
+
   return useMutation({
-    mutationFn: ({ 
-      refereeId, 
-      tournamentName 
-    }: { 
-      refereeId: number, 
-      tournamentName: string 
+    mutationFn: ({
+      refereeId,
+      tournamentName
+    }: {
+      refereeId: number,
+      tournamentName: string
     }) => {
       return dataProvider.removeReferee(refereeId);
     },
     onSuccess: (result, variables) => {
       const { tournamentName } = variables;
-      queryClient.invalidateQueries({ 
-        queryKey: queryKeys.referees(tournamentName) 
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.referees(tournamentName)
       });
     }
   });
@@ -1057,21 +999,21 @@ export function useRemoveReferee() {
  */
 export function useRemoveOfficial() {
   const queryClient = useQueryClient();
-  
+
   return useMutation({
-    mutationFn: ({ 
-      officialId, 
-      tournamentName 
-    }: { 
-      officialId: number, 
-      tournamentName: string 
+    mutationFn: ({
+      officialId,
+      tournamentName
+    }: {
+      officialId: number,
+      tournamentName: string
     }) => {
       return dataProvider.removeOfficial(officialId);
     },
     onSuccess: (result, variables) => {
       const { tournamentName } = variables;
-      queryClient.invalidateQueries({ 
-        queryKey: queryKeys.officials(tournamentName) 
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.officials(tournamentName)
       });
     }
   });

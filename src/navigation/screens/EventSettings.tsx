@@ -121,6 +121,49 @@ export const EventSettings = ({ route }: Props) => {
     const updateRoundMutation = useUpdateRound();
     const deleteRoundMutation = useDeleteRound();
 
+    // --- Round Reordering Logic ---
+    const handleMoveRound = useCallback(async (roundId: number, direction: 'up' | 'down') => {
+        const currentIndex = rounds.findIndex(r => r.id === roundId);
+        if (currentIndex === -1) return; // Round not found
+
+        const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+
+        // Check bounds
+        if (targetIndex < 0 || targetIndex >= rounds.length) return;
+
+        // Create a new ordered array for optimistic update (optional but good UX)
+        const newOrderedRounds = [...rounds];
+        const [movedRound] = newOrderedRounds.splice(currentIndex, 1);
+        newOrderedRounds.splice(targetIndex, 0, movedRound);
+
+        // Optimistically update the UI before database calls
+        queryClient.setQueryData(['rounds', event.id], newOrderedRounds.map((r, index) => ({ ...r, rorder: index + 1 })));
+
+        // Prepare updates for the database
+        const updates: Promise<any>[] = [];
+        newOrderedRounds.forEach((round, index) => {
+            const newOrder = index + 1;
+            // Only update if the order actually changed
+            if (round.rorder !== newOrder) {
+                updates.push(updateRoundMutation.mutateAsync({ ...round, rorder: newOrder }));
+            }
+        });
+
+        try {
+            await Promise.all(updates);
+            // Invalidate to refetch and confirm the order from the source of truth
+            queryClient.invalidateQueries({ queryKey: ['rounds', event.id] });
+        } catch (error) {
+            console.error("Failed to reorder rounds:", error);
+            Alert.alert("Error", "Failed to save the new round order.");
+            // Revert optimistic update on failure
+            queryClient.setQueryData(['rounds', event.id], rounds);
+        }
+
+    }, [rounds, updateRoundMutation, queryClient, event.id]);
+    // --- End Round Reordering Logic ---
+
+
     // States for ratings and years
     const [epeeRating, setEpeeRating] = useState<string>("U");
     const [epeeYear, setEpeeYear] = useState<number>(new Date().getFullYear());
@@ -136,6 +179,7 @@ export const EventSettings = ({ route }: Props) => {
     // Round management states
     const [showRoundTypeOptions, setShowRoundTypeOptions] = useState<boolean>(false);
     const [expandedConfigIndex, setExpandedConfigIndex] = useState<number | null>(null);
+    const [promotionInputText, setPromotionInputText] = useState<string>(""); // State for promotion % input
 
     // Dropdown states
     const [fencingDropdownOpen, setFencingDropdownOpen] = useState<boolean>(false);
@@ -420,8 +464,13 @@ export const EventSettings = ({ route }: Props) => {
     }, [expandedConfigIndex]);
 
     const toggleRoundConfig = useCallback((index: number) => {
-        setExpandedConfigIndex((prev) => (prev === index ? null : index));
-    }, []);
+        const newIndex = expandedConfigIndex === index ? null : index;
+        setExpandedConfigIndex(newIndex);
+        // Initialize input text when expanding a pool round config
+        if (newIndex !== null && rounds[newIndex]?.type === 'pool') {
+            setPromotionInputText(rounds[newIndex].promotionpercent?.toString() || "100");
+        }
+    }, [expandedConfigIndex, rounds]);
 
     // Handler for selecting a pool configuration for a specific round
     const handleSelectPoolConfiguration = useCallback((config: PoolConfiguration, roundIndex: number) => {
@@ -449,17 +498,17 @@ export const EventSettings = ({ route }: Props) => {
             type: roundType,
             promotionpercent: roundType === 'pool' ? 100 : 0,
             targetbracket: roundType === 'pool' ? 0 : 0,
-            usetargetbracket: 0,
+            usetargetbracket: 0 as 0 | 1, // Use literal 0 and assert type
             deformat: roundType === 'de' ? 'single' : '',
             detablesize: roundType === 'de' ? 0 : 0,
             iscomplete: 0,
-            poolcount: roundType === 'pool' ? 0 : null,
-            poolsize: roundType === 'pool' ? 0 : null,
+            poolcount: roundType === 'pool' ? 0 : undefined, // Use undefined instead of null
+            poolsize: roundType === 'pool' ? 0 : undefined, // Use undefined instead of null
             poolsoption: roundType === 'pool' ? 'promotion' : undefined,
-            isstarted: 0
+            isstarted: false // Use boolean false for isstarted
         };
 
-        addRoundMutation.mutate(newRound);
+        addRoundMutation.mutate(newRound as Partial<Round>); // Assert as Partial<Round>
         
         // Scroll to the new rounds section immediately after mutation
         requestAnimationFrame(() => {
@@ -537,7 +586,7 @@ export const EventSettings = ({ route }: Props) => {
                             setSelectedWeapon={setSelectedWeapon}
                             currentRating={currentRating}
                             currentYear={currentYear}
-                            handleRatingChange={(itemValue) => {
+                            handleRatingChange={(itemValue: string) => { // Added type for itemValue
                                 if (selectedWeapon === "epee") {
                                     setEpeeRating(itemValue);
                                     setEpeeYear((prevYear) =>
@@ -555,7 +604,7 @@ export const EventSettings = ({ route }: Props) => {
                                     );
                                 }
                             }}
-                            handleYearChange={(itemValue) => {
+                            handleYearChange={(itemValue: number) => { // Added type for itemValue
                                 if (selectedWeapon === "epee") {
                                     setEpeeYear(itemValue);
                                 } else if (selectedWeapon === "foil") {
@@ -655,7 +704,7 @@ export const EventSettings = ({ route }: Props) => {
                     style={styles.dropdownContent}>
                     {roundsLoading ? (
                         <View style={styles.loadingContainer}>
-                            <ActivityIndicator size="medium" color="#001f3f" />
+                            <ActivityIndicator size="small" color="#001f3f" /> {/* Changed size to small */}
                             <Text style={styles.loadingText}>Loading rounds...</Text>
                         </View>
                     ) : rounds.length > 0 ? (
@@ -666,15 +715,23 @@ export const EventSettings = ({ route }: Props) => {
                                     ref={el => roundItemRefs.current[idx] = el}
                                     style={styles.roundItem}>
                                     <View style={styles.roundItemRow}>
-                                        <View style={styles.dragHandle}>
-                                            <Text style={styles.dragIcon}>☰</Text>
-                                            <TouchableOpacity style={styles.moveButton}>
-                                                <Text style={styles.moveButtonText}>↑</Text>
-                                            </TouchableOpacity>
-                                            <TouchableOpacity style={styles.moveButton}>
-                                                <Text style={styles.moveButtonText}>↓</Text>
-                                            </TouchableOpacity>
-                                        </View>
+                                         <View style={styles.dragHandle}>
+                                             {/* <Text style={styles.dragIcon}>☰</Text> */}
+                                             <TouchableOpacity
+                                                 style={styles.moveButton}
+                                                 onPress={() => handleMoveRound(round.id, 'up')}
+                                                 disabled={idx === 0 || updateRoundMutation.isPending} // Disable up for first item or while updating
+                                             >
+                                                 <Text style={[styles.moveButtonText, (idx === 0 || updateRoundMutation.isPending) && styles.moveButtonTextDisabled]}>↑</Text>
+                                             </TouchableOpacity>
+                                             <TouchableOpacity
+                                                 style={styles.moveButton}
+                                                 onPress={() => handleMoveRound(round.id, 'down')}
+                                                 disabled={idx === rounds.length - 1 || updateRoundMutation.isPending} // Disable down for last item or while updating
+                                             >
+                                                 <Text style={[styles.moveButtonText, (idx === rounds.length - 1 || updateRoundMutation.isPending) && styles.moveButtonTextDisabled]}>↓</Text>
+                                             </TouchableOpacity>
+                                         </View>
                                         <Text style={styles.roundLabelText}>
                                             {round.type === "pool" ? "Pools Round" : "DE Round"}
                                         </Text>
@@ -704,7 +761,7 @@ export const EventSettings = ({ route }: Props) => {
                                                                 round.poolsoption === "promotion" && styles.configOptionSelected,
                                                             ]}
                                                             onPress={() => {
-                                                                const updatedRound = { ...round, poolsoption: "promotion" };
+                                                                const updatedRound: Round = { ...round, poolsoption: "promotion" }; // Explicit type
                                                                 handleUpdateRound(updatedRound);
                                                             }}
                                                         >
@@ -716,7 +773,7 @@ export const EventSettings = ({ route }: Props) => {
                                                                 round.poolsoption === "target" && styles.configOptionSelected,
                                                             ]}
                                                             onPress={() => {
-                                                                const updatedRound = { ...round, poolsoption: "target" };
+                                                                const updatedRound: Round = { ...round, poolsoption: "target" }; // Explicit type
                                                                 handleUpdateRound(updatedRound);
                                                             }}
                                                         >
@@ -727,17 +784,15 @@ export const EventSettings = ({ route }: Props) => {
                                                         <TextInput
                                                             style={styles.configInput}
                                                             keyboardType="numeric"
-                                                            defaultValue={round.promotionpercent?.toString() || ""}
+                                                            value={promotionInputText} // Use state variable
                                                             placeholder="Enter Promotion %"
-                                                            onChangeText={(text) => {
-                                                                // Store text locally
-                                                                round._tempPromotionPercent = parseInt(text) || 0;
-                                                            }}
+                                                            onChangeText={setPromotionInputText} // Update state variable
                                                             onEndEditing={() => {
-                                                                // When done editing, update the round with the temp value
+                                                                // Parse the final value from state and update
+                                                                const percent = parseInt(promotionInputText) || 0;
                                                                 const updatedRound = {
                                                                     ...round,
-                                                                    promotionpercent: round._tempPromotionPercent || round.promotionpercent || 0
+                                                                    promotionpercent: percent
                                                                 };
                                                                 handleUpdateRound(updatedRound);
                                                             }}
@@ -752,7 +807,11 @@ export const EventSettings = ({ route }: Props) => {
                                                                         round.targetbracket === size && styles.targetButtonSelected,
                                                                     ]}
                                                                     onPress={() => {
-                                                                        const updatedRound = { ...round, targetbracket: size };
+                                                                        const updatedRound = {
+                                                                            ...round,
+                                                                            poolsoption: round.poolsoption, // Explicitly include poolsoption
+                                                                            targetbracket: size
+                                                                        };
                                                                         handleUpdateRound(updatedRound);
                                                                     }}
                                                                 >
@@ -804,7 +863,8 @@ export const EventSettings = ({ route }: Props) => {
                                                                     round.deformat === format && styles.deFormatButtonSelected,
                                                                 ]}
                                                                 onPress={() => {
-                                                                    const updatedRound = { ...round, deformat: format };
+                                                                    // Assert format type for deformat
+                                                                    const updatedRound: Round = { ...round, deformat: format as 'single' | 'double' | 'compass' };
                                                                     handleUpdateRound(updatedRound);
                                                                 }}
                                                             >
@@ -1112,9 +1172,14 @@ const styles = StyleSheet.create({
     moveButton: {
         paddingHorizontal: 4,
     },
-    moveButtonText: {
-        fontSize: 16,
-    },
+     moveButtonText: {
+         fontSize: 20, // Increased size for better touch target
+         color: navyBlue, // Use theme color
+         paddingHorizontal: 5, // Add some horizontal padding
+     },
+     moveButtonTextDisabled: {
+        color: greyAccent, // Grey out when disabled
+     },
     roundLabelText: {
         flex: 1,
         fontSize: 16,
