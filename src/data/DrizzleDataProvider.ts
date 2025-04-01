@@ -105,14 +105,17 @@ export class TournamentDataProvider {
     
     if (this.isRemoteConnection()) {
       try {
-        // Request events from server
+        // Send a new request for events even if we've sent one before
+        // This ensures we're not just waiting for a response that might never come
+        console.log(`[DataProvider] Sending fresh 'get_events' request to server for ${tournamentName}`);
         tournamentClient.sendMessage({
           type: 'get_events',
           tournamentName
         });
 
-        // Wait for the response from server
-        const response = await tournamentClient.waitForResponse('events_list');
+        // Wait for the response from server with a longer timeout for first connection scenarios
+        console.log(`[DataProvider] Waiting for events_list response from server`);
+        const response = await tournamentClient.waitForResponse('events_list', 10000);
         
         // Process the response
         if (response && response.events) {
