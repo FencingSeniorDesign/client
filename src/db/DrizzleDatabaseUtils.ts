@@ -1224,6 +1224,18 @@ export async function dbGetDEBouts(roundId: number): Promise<any[]> {
   try {
     console.log(`Fetching DE bouts for round ${roundId}`);
     
+    // First check if there are any bouts for this round
+    const boutCount = await db.select({ count: count() })
+      .from(schema.bouts)
+      .where(eq(schema.bouts.roundid, roundId));
+    
+    console.log(`Found ${boutCount[0]?.count || 0} bouts for round ${roundId}`);
+    
+    if (boutCount[0]?.count === 0) {
+      console.log('No bouts found for this round, returning empty array');
+      return [];
+    }
+    
     // Create aliases for the joined tables to handle multiple joins on the same table
     const leftFencer = alias(schema.fencers, 'leftF');
     const rightFencer = alias(schema.fencers, 'rightF');
@@ -1233,6 +1245,26 @@ export async function dbGetDEBouts(roundId: number): Promise<any[]> {
     const rightSeeding = alias(schema.seedingFromRoundResults, 'RIGHT_SEEDING');
 
     // Using Drizzle's structured join API with table aliases
+    console.log('Executing bout query with careful null handling...');
+    
+    // First get a simple list of bouts to ensure we have data
+    const basicBouts = await db
+      .select({
+        id: schema.bouts.id,
+        lfencer: schema.bouts.lfencer,
+        rfencer: schema.bouts.rfencer
+      })
+      .from(schema.bouts)
+      .where(eq(schema.bouts.roundid, roundId));
+      
+    if (basicBouts.length === 0) {
+      console.log('No bouts found in basic query');
+      return [];
+    }
+    
+    console.log(`Basic query found ${basicBouts.length} bouts. Sample: ${JSON.stringify(basicBouts[0])}`);
+    
+    // Continue with the detailed query now that we know bouts exist
     const bouts = await db
       .select({
         bout: {
@@ -1244,13 +1276,14 @@ export async function dbGetDEBouts(roundId: number): Promise<any[]> {
           roundid: schema.bouts.roundid,
           tableof: schema.bouts.tableof
         },
+        // Use coalesce to handle null fields
         leftFencer: {
-          fname: leftFencer.fname,
-          lname: leftFencer.lname
+          fname: sql`COALESCE(${leftFencer.fname}, '')`,
+          lname: sql`COALESCE(${leftFencer.lname}, '')`
         },
         rightFencer: {
-          fname: rightFencer.fname,
-          lname: rightFencer.lname
+          fname: sql`COALESCE(${rightFencer.fname}, '')`,
+          lname: sql`COALESCE(${rightFencer.lname}, '')`
         },
         scores: {
           left_score: leftFencerBout.score,
@@ -1301,24 +1334,32 @@ export async function dbGetDEBouts(roundId: number): Promise<any[]> {
       .where(eq(schema.bouts.roundid, roundId))
       .orderBy(desc(schema.bouts.tableof), asc(schema.bouts.id));
 
-    // Transform the results to the expected flat format
-    const transformedBouts = bouts.map(bout => ({
-      id: bout.bout.id,
-      lfencer: bout.bout.lfencer,
-      rfencer: bout.bout.rfencer,
-      victor: bout.bout.victor,
-      eventid: bout.bout.eventid,
-      roundid: bout.bout.roundid,
-      tableof: bout.bout.tableof,
-      left_fname: bout.leftFencer.fname,
-      left_lname: bout.leftFencer.lname,
-      right_fname: bout.rightFencer.fname,
-      right_lname: bout.rightFencer.lname,
-      left_score: bout.scores.left_score,
-      right_score: bout.scores.right_score,
-      seed_left: bout.seeding.seed_left,
-      seed_right: bout.seeding.seed_right
-    }));
+    // Transform the results to the expected flat format with careful null checking
+    const transformedBouts = bouts.map(bout => {
+      // Debug output for troubleshooting
+      console.log(`Processing bout ID ${bout.bout.id}: leftFencer=${JSON.stringify(bout.leftFencer)}, rightFencer=${JSON.stringify(bout.rightFencer)}`);
+      
+      return {
+        id: bout.bout.id,
+        lfencer: bout.bout.lfencer,
+        rfencer: bout.bout.rfencer,
+        victor: bout.bout.victor,
+        eventid: bout.bout.eventid,
+        roundid: bout.bout.roundid,
+        tableof: bout.bout.tableof,
+        // Handle null/undefined fencer data safely
+        left_fname: bout.leftFencer && bout.leftFencer.fname !== undefined ? bout.leftFencer.fname : '',
+        left_lname: bout.leftFencer && bout.leftFencer.lname !== undefined ? bout.leftFencer.lname : '',
+        right_fname: bout.rightFencer && bout.rightFencer.fname !== undefined ? bout.rightFencer.fname : '',
+        right_lname: bout.rightFencer && bout.rightFencer.lname !== undefined ? bout.rightFencer.lname : '',
+        // Handle null/undefined scores safely
+        left_score: bout.scores && bout.scores.left_score !== undefined ? bout.scores.left_score : null,
+        right_score: bout.scores && bout.scores.right_score !== undefined ? bout.scores.right_score : null,
+        // Handle null/undefined seeding data safely
+        seed_left: bout.seeding && bout.seeding.seed_left !== undefined ? bout.seeding.seed_left : null,
+        seed_right: bout.seeding && bout.seeding.seed_right !== undefined ? bout.seeding.seed_right : null
+      };
+    });
 
     console.log(`Returning ${transformedBouts.length} transformed DE bouts`);
     if (transformedBouts.length > 0) {
