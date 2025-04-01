@@ -621,6 +621,12 @@ class TournamentClient extends EventEmitter {
 
         // Request tournament data after connecting
         this.requestTournamentData();
+        
+        // Immediately also request event list since that's what users see first
+        this.sendMessage({
+            type: 'get_events',
+            tournamentName: data.tournamentName
+        });
     }
 
     // Handle join response from server
