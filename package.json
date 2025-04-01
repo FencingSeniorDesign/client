@@ -8,7 +8,9 @@
     "android": "expo run:android",
     "ios": "expo run:ios",
     "drizzle:generate": "drizzle-kit generate",
-    "drizzle:studio": "drizzle-kit studio"
+    "drizzle:studio": "drizzle-kit studio",
+    "lint": "eslint . --ext .js,.jsx,.ts,.tsx",
+    "format": "prettier --write \"**/*.{js,jsx,ts,tsx,json,md}\""
   },
   "dependencies": {
     "@expo/metro-runtime": "~4.0.0",
@@ -45,8 +47,7 @@
     "react-native-screens": "~4.4.0",
     "react-native-tcp-socket": "^6.2.0",
     "react-native-web": "~0.19.13",
-    "react-native-zeroconf": "^0.13.8",
-    "zustand": "^5.0.3"
+    "react-native-zeroconf": "^0.13.8"
   },
   "devDependencies": {
     "@babel/core": "^7.20.0",
@@ -54,7 +55,17 @@
     "@types/react": "~18.3.12",
     "@types/react-native-sqlite-storage": "^6.0.5",
     "@types/websocket": "^1.0.10",
+    "@typescript-eslint/eslint-plugin": "^8.29.0",
+    "@typescript-eslint/parser": "^8.29.0",
     "drizzle-kit": "^0.30.5",
+    "eslint": "^8.57.1",
+    "eslint-config-expo": "^8.0.1",
+    "eslint-config-prettier": "^10.1.1",
+    "eslint-plugin-prettier": "^5.2.5",
+    "eslint-plugin-react": "^7.37.4",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "eslint-plugin-react-native": "^5.0.0",
+    "prettier": "^3.5.3",
     "typescript": "^5.7.2"
   },
   "private": true

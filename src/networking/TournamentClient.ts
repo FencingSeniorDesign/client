@@ -621,6 +621,12 @@ class TournamentClient extends EventEmitter {
 
         // Request tournament data after connecting
         this.requestTournamentData();
+        
+        // Immediately also request event list since that's what users see first
+        this.sendMessage({
+            type: 'get_events',
+            tournamentName: data.tournamentName
+        });
     }
 
     // Handle join response from server
@@ -726,7 +732,7 @@ class TournamentClient extends EventEmitter {
                 this.clientInfo = JSON.parse(infoStr);
 
                 // If we were previously connected, try to reconnect
-                if (this.clientInfo.isConnected) {
+                if (this.clientInfo?.isConnected) {
                     this.connectToServer(this.clientInfo.hostIp, this.clientInfo.port)
                         .catch(error => console.error('Failed to reconnect:', error));
                 }

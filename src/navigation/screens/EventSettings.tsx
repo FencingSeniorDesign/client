@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useRef, useEffect } from "react";
 import {
     View,
     Text,
@@ -14,7 +14,9 @@ import { RouteProp, useNavigation } from "@react-navigation/native";
 import { Event, Fencer, Round } from "../navigation/types";
 import * as DocumentPicker from "expo-document-picker";
 import * as FileSystem from "expo-file-system";
-import { Picker } from "@react-native-picker/picker";
+// Import our custom picker component instead of the native one
+import CustomPickerComponent from "../../components/ui/CustomPicker";
+const { CustomPicker, FencerCreationControls } = CustomPickerComponent;
 import { useQueryClient } from "@tanstack/react-query";
 import {
     useFencers,
@@ -119,6 +121,49 @@ export const EventSettings = ({ route }: Props) => {
     const updateRoundMutation = useUpdateRound();
     const deleteRoundMutation = useDeleteRound();
 
+    // --- Round Reordering Logic ---
+    const handleMoveRound = useCallback(async (roundId: number, direction: 'up' | 'down') => {
+        const currentIndex = rounds.findIndex(r => r.id === roundId);
+        if (currentIndex === -1) return; // Round not found
+
+        const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+
+        // Check bounds
+        if (targetIndex < 0 || targetIndex >= rounds.length) return;
+
+        // Create a new ordered array for optimistic update (optional but good UX)
+        const newOrderedRounds = [...rounds];
+        const [movedRound] = newOrderedRounds.splice(currentIndex, 1);
+        newOrderedRounds.splice(targetIndex, 0, movedRound);
+
+        // Optimistically update the UI before database calls
+        queryClient.setQueryData(['rounds', event.id], newOrderedRounds.map((r, index) => ({ ...r, rorder: index + 1 })));
+
+        // Prepare updates for the database
+        const updates: Promise<any>[] = [];
+        newOrderedRounds.forEach((round, index) => {
+            const newOrder = index + 1;
+            // Only update if the order actually changed
+            if (round.rorder !== newOrder) {
+                updates.push(updateRoundMutation.mutateAsync({ ...round, rorder: newOrder }));
+            }
+        });
+
+        try {
+            await Promise.all(updates);
+            // Invalidate to refetch and confirm the order from the source of truth
+            queryClient.invalidateQueries({ queryKey: ['rounds', event.id] });
+        } catch (error) {
+            console.error("Failed to reorder rounds:", error);
+            Alert.alert("Error", "Failed to save the new round order.");
+            // Revert optimistic update on failure
+            queryClient.setQueryData(['rounds', event.id], rounds);
+        }
+
+    }, [rounds, updateRoundMutation, queryClient, event.id]);
+    // --- End Round Reordering Logic ---
+
+
     // States for ratings and years
     const [epeeRating, setEpeeRating] = useState<string>("U");
     const [epeeYear, setEpeeYear] = useState<number>(new Date().getFullYear());
@@ -134,6 +179,7 @@ export const EventSettings = ({ route }: Props) => {
     // Round management states
     const [showRoundTypeOptions, setShowRoundTypeOptions] = useState<boolean>(false);
     const [expandedConfigIndex, setExpandedConfigIndex] = useState<number | null>(null);
+    const [promotionInputText, setPromotionInputText] = useState<string>(""); // State for promotion % input
 
     // Dropdown states
     const [fencingDropdownOpen, setFencingDropdownOpen] = useState<boolean>(false);
@@ -398,9 +444,33 @@ export const EventSettings = ({ route }: Props) => {
         ));
     }, [fencerSuggestions, formatRatingString, handleAddFencerFromSearch, addFencerMutation.isPending]);
 
+    // Add refs array for round items
+    const roundItemRefs = useRef<Array<View | null>>([]);
+    
+    // Effect to scroll to expanded round config
+    useEffect(() => {
+        if (expandedConfigIndex !== null && roundItemRefs.current[expandedConfigIndex]) {
+            requestAnimationFrame(() => {
+                roundItemRefs.current[expandedConfigIndex]?.measureLayout(
+                    // @ts-ignore - Known React Native issue with measureLayout types
+                    scrollViewRef.current?._internalFiberInstanceHandleDEV || scrollViewRef.current,
+                    (_, y) => {
+                        scrollViewRef.current?.scrollTo({ y: y - 50, animated: true });
+                    },
+                    () => console.error("Failed to measure layout")
+                );
+            });
+        }
+    }, [expandedConfigIndex]);
+
     const toggleRoundConfig = useCallback((index: number) => {
-        setExpandedConfigIndex((prev) => (prev === index ? null : index));
-    }, []);
+        const newIndex = expandedConfigIndex === index ? null : index;
+        setExpandedConfigIndex(newIndex);
+        // Initialize input text when expanding a pool round config
+        if (newIndex !== null && rounds[newIndex]?.type === 'pool') {
+            setPromotionInputText(rounds[newIndex].promotionpercent?.toString() || "100");
+        }
+    }, [expandedConfigIndex, rounds]);
 
     // Handler for selecting a pool configuration for a specific round
     const handleSelectPoolConfiguration = useCallback((config: PoolConfiguration, roundIndex: number) => {
@@ -428,17 +498,22 @@ export const EventSettings = ({ route }: Props) => {
             type: roundType,
             promotionpercent: roundType === 'pool' ? 100 : 0,
             targetbracket: roundType === 'pool' ? 0 : 0,
-            usetargetbracket: 0,
+            usetargetbracket: 0 as 0 | 1, // Use literal 0 and assert type
             deformat: roundType === 'de' ? 'single' : '',
             detablesize: roundType === 'de' ? 0 : 0,
             iscomplete: 0,
-            poolcount: roundType === 'pool' ? 0 : null,
-            poolsize: roundType === 'pool' ? 0 : null,
+            poolcount: roundType === 'pool' ? 0 : undefined, // Use undefined instead of null
+            poolsize: roundType === 'pool' ? 0 : undefined, // Use undefined instead of null
             poolsoption: roundType === 'pool' ? 'promotion' : undefined,
-            isstarted: 0
+            isstarted: false // Use boolean false for isstarted
         };
 
-        addRoundMutation.mutate(newRound);
+        addRoundMutation.mutate(newRound as Partial<Round>); // Assert as Partial<Round>
+        
+        // Scroll to the new rounds section immediately after mutation
+        requestAnimationFrame(() => {
+            scrollViewRef.current?.scrollToEnd({ animated: true });
+        });
     }, [event.id, rounds.length, addRoundMutation]);
 
     // Handler to update a round immediately after a change
@@ -451,8 +526,16 @@ export const EventSettings = ({ route }: Props) => {
         deleteRoundMutation.mutate({ roundId, eventId: event.id });
     }, [deleteRoundMutation, event.id]);
 
+    // Create refs for scrolling
+    const scrollViewRef = useRef<ScrollView>(null);
+    const roundsDropdownRef = useRef<View>(null);
+    const roundTypeMenuRef = useRef<View>(null);
+    
     return (
-        <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+        <ScrollView 
+            ref={scrollViewRef}
+            style={styles.container} 
+            contentContainerStyle={styles.content}>
             <Text style={styles.title}>Edit Event Settings</Text>
 
             {/* Fencing Management Dropdown */}
@@ -497,83 +580,40 @@ export const EventSettings = ({ route }: Props) => {
                             value={fencerLastName}
                             onChangeText={setFencerLastName}
                         />
-                        {/* Optimized Horizontal Layout for Weapon and Rating */}
-                        <View style={styles.horizontalFormRow}>
-                            {/* Weapon Selection */}
-                            <View style={styles.weaponPickerContainer}>
-                                <Text style={styles.compactInputLabel}>Weapon</Text>
-                                <Picker
-                                    selectedValue={selectedWeapon}
-                                    onValueChange={(itemValue) => setSelectedWeapon(itemValue)}
-                                    style={styles.compactPicker}
-                                >
-                                    <Picker.Item label="Epee" value="epee" />
-                                    <Picker.Item label="Foil" value="foil" />
-                                    <Picker.Item label="Saber" value="saber" />
-                                </Picker>
-                            </View>
-
-                            {/* Rating Selection */}
-                            <View style={styles.ratingPickerContainer}>
-                                <Text style={styles.compactInputLabel}>Rating</Text>
-                                <Picker
-                                    selectedValue={currentRating}
-                                    onValueChange={(itemValue) => {
-                                        if (selectedWeapon === "epee") {
-                                            setEpeeRating(itemValue);
-                                            setEpeeYear((prevYear) =>
-                                                itemValue === "U" ? 0 : prevYear || new Date().getFullYear()
-                                            );
-                                        } else if (selectedWeapon === "foil") {
-                                            setFoilRating(itemValue);
-                                            setFoilYear((prevYear) =>
-                                                itemValue === "U" ? 0 : prevYear || new Date().getFullYear()
-                                            );
-                                        } else if (selectedWeapon === "saber") {
-                                            setSaberRating(itemValue);
-                                            setSaberYear((prevYear) =>
-                                                itemValue === "U" ? 0 : prevYear || new Date().getFullYear()
-                                            );
-                                        }
-                                    }}
-                                    style={styles.compactPicker}
-                                >
-                                    <Picker.Item label="A" value="A" />
-                                    <Picker.Item label="B" value="B" />
-                                    <Picker.Item label="C" value="C" />
-                                    <Picker.Item label="D" value="D" />
-                                    <Picker.Item label="E" value="E" />
-                                    <Picker.Item label="U" value="U" />
-                                </Picker>
-                            </View>
-
-                            {/* Year Selection - Only shown when rating isn't "U" */}
-                            {currentRating !== "U" && (
-                                <View style={styles.yearPickerContainer}>
-                                    <Text style={styles.compactInputLabel}>Year</Text>
-                                    <Picker
-                                        selectedValue={currentYear}
-                                        onValueChange={(itemValue) => {
-                                            if (selectedWeapon === "epee") {
-                                                setEpeeYear(itemValue);
-                                            } else if (selectedWeapon === "foil") {
-                                                setFoilYear(itemValue);
-                                            } else if (selectedWeapon === "saber") {
-                                                setSaberYear(itemValue);
-                                            }
-                                        }}
-                                        style={styles.compactPicker}
-                                    >
-                                        {Array.from({ length: 10 }, (_, i) => {
-                                            const year = new Date().getFullYear() - i;
-                                            return (
-                                                <Picker.Item key={year} label={year.toString()} value={year} />
-                                            );
-                                        })}
-                                    </Picker>
-                                </View>
-                            )}
-                        </View>
+                        {/* Replace with our custom FencerCreationControls component */}
+                        <FencerCreationControls
+                            selectedWeapon={selectedWeapon}
+                            setSelectedWeapon={setSelectedWeapon}
+                            currentRating={currentRating}
+                            currentYear={currentYear}
+                            handleRatingChange={(itemValue: string) => { // Added type for itemValue
+                                if (selectedWeapon === "epee") {
+                                    setEpeeRating(itemValue);
+                                    setEpeeYear((prevYear) =>
+                                        itemValue === "U" ? 0 : prevYear || new Date().getFullYear()
+                                    );
+                                } else if (selectedWeapon === "foil") {
+                                    setFoilRating(itemValue);
+                                    setFoilYear((prevYear) =>
+                                        itemValue === "U" ? 0 : prevYear || new Date().getFullYear()
+                                    );
+                                } else if (selectedWeapon === "saber") {
+                                    setSaberRating(itemValue);
+                                    setSaberYear((prevYear) =>
+                                        itemValue === "U" ? 0 : prevYear || new Date().getFullYear()
+                                    );
+                                }
+                            }}
+                            handleYearChange={(itemValue: number) => { // Added type for itemValue
+                                if (selectedWeapon === "epee") {
+                                    setEpeeYear(itemValue);
+                                } else if (selectedWeapon === "foil") {
+                                    setFoilYear(itemValue);
+                                } else if (selectedWeapon === "saber") {
+                                    setSaberYear(itemValue);
+                                }
+                            }}
+                        />
                         <TouchableOpacity
                             onPress={handleAddFencer}
                             style={styles.addFencerButton}
@@ -639,31 +679,59 @@ export const EventSettings = ({ route }: Props) => {
             {/* Round Management */}
             <TouchableOpacity
                 style={styles.dropdownHeader}
-                onPress={() => setRoundDropdownOpen(!roundDropdownOpen)}
+                onPress={() => {
+                    setRoundDropdownOpen(!roundDropdownOpen);
+                    // If opening the dropdown, scroll to it immediately
+                    if (!roundDropdownOpen) {
+                        requestAnimationFrame(() => {
+                            roundsDropdownRef.current?.measureLayout(
+                                // @ts-ignore - Known React Native issue with measureLayout types
+                                scrollViewRef.current?._internalFiberInstanceHandleDEV || scrollViewRef.current,
+                                (_, y) => {
+                                    scrollViewRef.current?.scrollTo({ y: y - 20, animated: true });
+                                },
+                                () => console.error("Failed to measure layout")
+                            );
+                        });
+                    }
+                }}
             >
                 <Text style={styles.dropdownHeaderText}>Round Management</Text>
             </TouchableOpacity>
             {roundDropdownOpen && (
-                <View style={styles.dropdownContent}>
+                <View 
+                    ref={roundsDropdownRef}
+                    style={styles.dropdownContent}>
                     {roundsLoading ? (
                         <View style={styles.loadingContainer}>
-                            <ActivityIndicator size="medium" color="#001f3f" />
+                            <ActivityIndicator size="small" color="#001f3f" /> {/* Changed size to small */}
                             <Text style={styles.loadingText}>Loading rounds...</Text>
                         </View>
                     ) : rounds.length > 0 ? (
                         <View style={styles.roundsList}>
                             {rounds.map((round, idx) => (
-                                <View key={round.id} style={styles.roundItem}>
+                                <View 
+                                    key={round.id} 
+                                    ref={el => roundItemRefs.current[idx] = el}
+                                    style={styles.roundItem}>
                                     <View style={styles.roundItemRow}>
-                                        <View style={styles.dragHandle}>
-                                            <Text style={styles.dragIcon}>☰</Text>
-                                            <TouchableOpacity style={styles.moveButton}>
-                                                <Text style={styles.moveButtonText}>↑</Text>
-                                            </TouchableOpacity>
-                                            <TouchableOpacity style={styles.moveButton}>
-                                                <Text style={styles.moveButtonText}>↓</Text>
-                                            </TouchableOpacity>
-                                        </View>
+                                         <View style={styles.dragHandle}>
+                                             {/* <Text style={styles.dragIcon}>☰</Text> */}
+                                             <TouchableOpacity
+                                                 style={styles.moveButton}
+                                                 onPress={() => handleMoveRound(round.id, 'up')}
+                                                 disabled={idx === 0 || updateRoundMutation.isPending} // Disable up for first item or while updating
+                                             >
+                                                 <Text style={[styles.moveButtonText, (idx === 0 || updateRoundMutation.isPending) && styles.moveButtonTextDisabled]}>↑</Text>
+                                             </TouchableOpacity>
+                                             <TouchableOpacity
+                                                 style={styles.moveButton}
+                                                 onPress={() => handleMoveRound(round.id, 'down')}
+                                                 disabled={idx === rounds.length - 1 || updateRoundMutation.isPending} // Disable down for last item or while updating
+                                             >
+                                                 <Text style={[styles.moveButtonText, (idx === rounds.length - 1 || updateRoundMutation.isPending) && styles.moveButtonTextDisabled]}>↓</Text>
+                                             </TouchableOpacity>
+                                         </View>
                                         <Text style={styles.roundLabelText}>
                                             {round.type === "pool" ? "Pools Round" : "DE Round"}
                                         </Text>
@@ -693,7 +761,7 @@ export const EventSettings = ({ route }: Props) => {
                                                                 round.poolsoption === "promotion" && styles.configOptionSelected,
                                                             ]}
                                                             onPress={() => {
-                                                                const updatedRound = { ...round, poolsoption: "promotion" };
+                                                                const updatedRound: Round = { ...round, poolsoption: "promotion" }; // Explicit type
                                                                 handleUpdateRound(updatedRound);
                                                             }}
                                                         >
@@ -705,7 +773,7 @@ export const EventSettings = ({ route }: Props) => {
                                                                 round.poolsoption === "target" && styles.configOptionSelected,
                                                             ]}
                                                             onPress={() => {
-                                                                const updatedRound = { ...round, poolsoption: "target" };
+                                                                const updatedRound: Round = { ...round, poolsoption: "target" }; // Explicit type
                                                                 handleUpdateRound(updatedRound);
                                                             }}
                                                         >
@@ -716,17 +784,15 @@ export const EventSettings = ({ route }: Props) => {
                                                         <TextInput
                                                             style={styles.configInput}
                                                             keyboardType="numeric"
-                                                            defaultValue={round.promotionpercent?.toString() || ""}
+                                                            value={promotionInputText} // Use state variable
                                                             placeholder="Enter Promotion %"
-                                                            onChangeText={(text) => {
-                                                                // Store text locally
-                                                                round._tempPromotionPercent = parseInt(text) || 0;
-                                                            }}
+                                                            onChangeText={setPromotionInputText} // Update state variable
                                                             onEndEditing={() => {
-                                                                // When done editing, update the round with the temp value
+                                                                // Parse the final value from state and update
+                                                                const percent = parseInt(promotionInputText) || 0;
                                                                 const updatedRound = {
                                                                     ...round,
-                                                                    promotionpercent: round._tempPromotionPercent || round.promotionpercent || 0
+                                                                    promotionpercent: percent
                                                                 };
                                                                 handleUpdateRound(updatedRound);
                                                             }}
@@ -741,7 +807,11 @@ export const EventSettings = ({ route }: Props) => {
                                                                         round.targetbracket === size && styles.targetButtonSelected,
                                                                     ]}
                                                                     onPress={() => {
-                                                                        const updatedRound = { ...round, targetbracket: size };
+                                                                        const updatedRound = {
+                                                                            ...round,
+                                                                            poolsoption: round.poolsoption, // Explicitly include poolsoption
+                                                                            targetbracket: size
+                                                                        };
                                                                         handleUpdateRound(updatedRound);
                                                                     }}
                                                                 >
@@ -793,7 +863,8 @@ export const EventSettings = ({ route }: Props) => {
                                                                     round.deformat === format && styles.deFormatButtonSelected,
                                                                 ]}
                                                                 onPress={() => {
-                                                                    const updatedRound = { ...round, deformat: format };
+                                                                    // Assert format type for deformat
+                                                                    const updatedRound: Round = { ...round, deformat: format as 'single' | 'double' | 'compass' };
                                                                     handleUpdateRound(updatedRound);
                                                                 }}
                                                             >
@@ -843,12 +914,29 @@ export const EventSettings = ({ route }: Props) => {
 
                     <TouchableOpacity
                         style={styles.addRoundButton}
-                        onPress={() => setShowRoundTypeOptions(!showRoundTypeOptions)}
+                        onPress={() => {
+                            setShowRoundTypeOptions(!showRoundTypeOptions);
+                            // If opening the round type options, scroll to them immediately
+                            if (!showRoundTypeOptions) {
+                                requestAnimationFrame(() => {
+                                    roundTypeMenuRef.current?.measureLayout(
+                                        // @ts-ignore - Known React Native issue with measureLayout types
+                                        scrollViewRef.current?._internalFiberInstanceHandleDEV || scrollViewRef.current,
+                                        (_, y) => {
+                                            scrollViewRef.current?.scrollTo({ y: y - 20, animated: true });
+                                        },
+                                        () => console.error("Failed to measure layout")
+                                    );
+                                });
+                            }
+                        }}
                     >
                         <Text style={styles.addRoundButtonText}>Add Round</Text>
                     </TouchableOpacity>
                     {showRoundTypeOptions && (
-                        <View style={styles.roundTypeMenu}>
+                        <View 
+                            ref={roundTypeMenuRef}
+                            style={styles.roundTypeMenu}>
                             <TouchableOpacity
                                 style={styles.roundTypeChoice}
                                 onPress={() => {
@@ -1084,9 +1172,14 @@ const styles = StyleSheet.create({
     moveButton: {
         paddingHorizontal: 4,
     },
-    moveButtonText: {
-        fontSize: 16,
-    },
+     moveButtonText: {
+         fontSize: 20, // Increased size for better touch target
+         color: navyBlue, // Use theme color
+         paddingHorizontal: 5, // Add some horizontal padding
+     },
+     moveButtonTextDisabled: {
+        color: greyAccent, // Grey out when disabled
+     },
     roundLabelText: {
         flex: 1,
         fontSize: 16,
@@ -1289,46 +1382,7 @@ const styles = StyleSheet.create({
         color: '#666',
         marginTop: 10,
     },
-    // New styles for the optimized horizontal form layout
-    horizontalFormRow: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        marginBottom: 10,
-        borderWidth: 1,
-        borderColor: '#ccc',
-        borderRadius: 6,
-        backgroundColor: '#fff',
-        overflow: 'hidden',
-    },
-    weaponPickerContainer: {
-        flex: 1.2,
-        paddingVertical: 2,
-        paddingHorizontal: 6,
-        borderRightWidth: 1,
-        borderRightColor: '#ccc',
-    },
-    ratingPickerContainer: {
-        flex: 0.8,
-        paddingVertical: 2,
-        paddingHorizontal: 6,
-        borderRightWidth: 1,
-        borderRightColor: '#ccc',
-    },
-    yearPickerContainer: {
-        flex: 1,
-        paddingVertical: 2,
-        paddingHorizontal: 6,
-    },
-    compactInputLabel: {
-        fontSize: 12,
-        color: '#001f3f',
-        marginBottom: 0,
-        paddingTop: 2,
-    },
-    compactPicker: {
-        height: 36,
-        marginBottom: -8, // Reduce extra bottom space in the picker
-    },
+    // Styles for custom picker are now imported from the component
     // New styles for the Random Fill button
     randomFillButton: {
         backgroundColor: "#28a745",

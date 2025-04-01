@@ -36,8 +36,8 @@ export type Round = {
     eventid: number;
     rorder: number;
     type: 'pool' | 'de' ;
-    poolcount: number
-    poolsize: number
+    poolcount?: number // Made optional
+    poolsize?: number // Made optional
     promotionpercent: number;
     targetbracket: number;
     usetargetbracket: 0 | 1;
@@ -46,7 +46,7 @@ export type Round = {
     isstarted: boolean;
     iscomplete: number;
     // UI-only properties (not persisted in the database)
-    poolsoption: 'promotion' | 'target';
+    poolsoption?: 'promotion' | 'target'; // Made optional as it only applies to pool rounds
     poolConfiguration?: PoolConfiguration;
 };
 
@@ -58,6 +58,21 @@ export type Event = {
     class: string;
     seeding: string;
     startedCount?: number; // Used to make sure we don't re-init pool/de brackets
+
+    // Optional properties potentially added by server/data provider logic
+    rounds?: Round[];
+    fencers?: Fencer[];
+    isStarted?: boolean;
+    has_started?: boolean;
+    started?: boolean;
+    isstarted?: boolean;
+};
+
+// Type for data returned by getPools
+export type PoolData = {
+    poolid: number;
+    fencers: Fencer[];
+    // Add other properties returned by getPools if known
 };
 
 export type Bout = {

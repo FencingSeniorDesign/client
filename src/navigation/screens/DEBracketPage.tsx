@@ -100,7 +100,8 @@ const DEBracketPage: React.FC = () => {
 
                 // 3. Get all bouts for this round
                 const bouts = await dbGetDEBouts(roundId);
-
+                console.log(`Fetched ${bouts.length} DE bouts for round ${roundId}`);
+                
                 // 4. Check if the round is complete
                 const roundComplete = await dbIsDERoundComplete(roundId);
                 setIsRoundComplete(roundComplete);
@@ -120,6 +121,12 @@ const DEBracketPage: React.FC = () => {
     }, [event, currentRoundIndex, roundId, refreshKey]);
 
     const processBoutsIntoBracket = (bouts: any[], tableSize: number): DEBracketData => {
+        console.log(`Processing ${bouts?.length || 0} bouts into bracket with tableSize=${tableSize}`);
+        if (!bouts || bouts.length === 0) {
+            console.log('No bouts to process, returning empty bracket');
+            return { rounds: [] };
+        }
+        
         // Calculate number of rounds based on table size
         const numRounds = Math.log2(tableSize);
         const rounds: DEBracketRound[] = [];
@@ -128,6 +135,7 @@ const DEBracketPage: React.FC = () => {
         for (let i = 0; i < numRounds; i++) {
             const currentTableOf = tableSize / Math.pow(2, i);
             const roundBouts = bouts.filter(bout => bout.tableof === currentTableOf);
+            console.log(`Round ${i}: found ${roundBouts.length} bouts for tableOf=${currentTableOf}`);
 
             // Sort bouts by their position in the bracket
             roundBouts.sort((a, b) => a.id - b.id);
@@ -141,8 +149,8 @@ const DEBracketPage: React.FC = () => {
                     boutIndex: j,
                     fencerA: bout.lfencer ? {
                         id: bout.lfencer,
-                        fname: bout.left_fname || '',
-                        lname: bout.left_lname || '',
+                        fname: (bout.left_fname !== null && bout.left_fname !== undefined) ? bout.left_fname : '',
+                        lname: (bout.left_lname !== null && bout.left_lname !== undefined) ? bout.left_lname : '',
                         erating: 'U',
                         eyear: 0,
                         frating: 'U',
@@ -152,8 +160,8 @@ const DEBracketPage: React.FC = () => {
                     } : undefined,
                     fencerB: bout.rfencer ? {
                         id: bout.rfencer,
-                        fname: bout.right_fname || '',
-                        lname: bout.right_lname || '',
+                        fname: (bout.right_fname !== null && bout.right_fname !== undefined) ? bout.right_fname : '',
+                        lname: (bout.right_lname !== null && bout.right_lname !== undefined) ? bout.right_lname : '',
                         erating: 'U',
                         eyear: 0,
                         frating: 'U',
@@ -181,44 +189,63 @@ const DEBracketPage: React.FC = () => {
     };
 
     const handleBoutPress = (bout: DEBout) => {
-        // Skip if it's a BYE
-        if (bout.isBye) {
-            Alert.alert('BYE', 'This fencer advances automatically.');
-            return;
+        try {
+            // Skip if it's a BYE
+            if (bout.isBye) {
+                Alert.alert('BYE', 'This fencer advances automatically.');
+                return;
+            }
+
+            // Skip if both fencers aren't set yet (waiting for previous round)
+            if (!bout.fencerA || !bout.fencerB) {
+                Alert.alert('Not Ready', 'This bout is waiting for fencers from previous rounds.');
+                return;
+            }
+
+            // Validate fencer data before proceeding
+            if (!bout.fencerA.id || !bout.fencerB.id) {
+                console.error('Invalid fencer data - missing IDs', { 
+                    fencerAId: bout.fencerA.id, 
+                    fencerBId: bout.fencerB.id 
+                });
+                Alert.alert('Error', 'Invalid fencer data. Please refresh and try again.');
+                return;
+            }
+
+            // Create safe fencer names
+            const fencer1Name = `${bout.fencerA.fname || ''} ${bout.fencerA.lname || ''}`.trim() || 'Fencer A';
+            const fencer2Name = `${bout.fencerB.fname || ''} ${bout.fencerB.lname || ''}`.trim() || 'Fencer B';
+
+            // Navigate to Referee Module
+            navigation.navigate('RefereeModule', {
+                boutIndex: bout.boutIndex,
+                fencer1Name: fencer1Name,
+                fencer2Name: fencer2Name,
+                currentScore1: bout.scoreA || 0,
+                currentScore2: bout.scoreB || 0,
+                onSaveScores: async (score1: number, score2: number) => {
+                    try {
+                        // Update bout scores and advance winner
+                        await dbUpdateDEBoutAndAdvanceWinner(
+                            bout.id,
+                            score1,
+                            score2,
+                            bout.fencerA.id,
+                            bout.fencerB.id
+                        );
+
+                        // Refresh to show updated scores and advancement
+                        setRefreshKey(prev => prev + 1);
+                    } catch (error) {
+                        console.error('Error updating bout scores:', error);
+                        Alert.alert('Error', 'Failed to save scores.');
+                    }
+                },
+            });
+        } catch (error) {
+            console.error('Error in handleBoutPress:', error);
+            Alert.alert('Error', 'An unexpected error occurred when processing this bout.');
         }
-
-        // Skip if both fencers aren't set yet (waiting for previous round)
-        if (!bout.fencerA || !bout.fencerB) {
-            Alert.alert('Not Ready', 'This bout is waiting for fencers from previous rounds.');
-            return;
-        }
-
-        // Navigate to Referee Module
-        navigation.navigate('RefereeModule', {
-            boutIndex: bout.boutIndex,
-            fencer1Name: `${bout.fencerA.fname} ${bout.fencerA.lname}`,
-            fencer2Name: `${bout.fencerB.fname} ${bout.fencerB.lname}`,
-            currentScore1: bout.scoreA || 0,
-            currentScore2: bout.scoreB || 0,
-            onSaveScores: async (score1: number, score2: number) => {
-                try {
-                    // Update bout scores and advance winner
-                    await dbUpdateDEBoutAndAdvanceWinner(
-                        bout.id,
-                        score1,
-                        score2,
-                        bout.fencerA.id!,
-                        bout.fencerB.id!
-                    );
-
-                    // Refresh to show updated scores and advancement
-                    setRefreshKey(prev => prev + 1);
-                } catch (error) {
-                    console.error('Error updating bout scores:', error);
-                    Alert.alert('Error', 'Failed to save scores.');
-                }
-            },
-        });
     };
 
     const handleViewResults = () => {
@@ -229,12 +256,34 @@ const DEBracketPage: React.FC = () => {
     };
 
     const renderBout = (bout: DEBout) => {
-        const fencerAName = bout.fencerA
-            ? `${bout.fencerA.lname}, ${bout.fencerA.fname}`
-            : 'BYE';
-        const fencerBName = bout.fencerB
-            ? `${bout.fencerB.lname}, ${bout.fencerB.fname}`
-            : 'BYE';
+        // Check if bout is valid
+        if (!bout) {
+            console.error('Received invalid bout in renderBout');
+            return null;
+        }
+
+        // Safely create fencer names with null checks
+        let fencerAName = 'BYE';
+        if (bout.fencerA) {
+            if (bout.fencerA.lname !== undefined && bout.fencerA.fname !== undefined) {
+                fencerAName = `${bout.fencerA.lname}, ${bout.fencerA.fname}`;
+            } else if (bout.fencerA.lname) {
+                fencerAName = bout.fencerA.lname;
+            } else if (bout.fencerA.fname) {
+                fencerAName = bout.fencerA.fname;
+            }
+        }
+
+        let fencerBName = 'BYE';
+        if (bout.fencerB) {
+            if (bout.fencerB.lname !== undefined && bout.fencerB.fname !== undefined) {
+                fencerBName = `${bout.fencerB.lname}, ${bout.fencerB.fname}`;
+            } else if (bout.fencerB.lname) {
+                fencerBName = bout.fencerB.lname;
+            } else if (bout.fencerB.fname) {
+                fencerBName = bout.fencerB.fname;
+            }
+        }
 
         // Determine styles based on winner/BYE status
         const boutCompleted = bout.winner !== undefined;

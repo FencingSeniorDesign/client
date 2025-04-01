@@ -132,6 +132,11 @@ export const bouts = sqliteTable('Bouts', {
   eventid: integer('eventid').references(() => events.id),
   roundid: integer('roundid').references(() => rounds.id),
   tableof: integer('tableof', { enum: [2, 4, 8, 16, 32, 64, 128, 256] }),
+}, (table) => {
+  return {
+    // Add a unique constraint to prevent duplicate bouts in the same round
+    uniqueBoutConstraint: primaryKey({ columns: [table.roundid, table.lfencer, table.rfencer] }),
+  };
 });
 
 // DEBracketBouts table

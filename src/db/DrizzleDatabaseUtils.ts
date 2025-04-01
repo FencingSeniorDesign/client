@@ -366,97 +366,105 @@ export async function dbMarkRoundAsStarted(roundId: number): Promise<void> {
 
 // Pool and Bout Functions
 export async function dbCreatePoolAssignmentsAndBoutOrders(
-  event: Event,
-  round: Round,
-  fencers: Fencer[],
-  poolCount: number,
-  fencersPerPool: number,
-  seeding?: any[]
+    event: Event,
+    round: Round,
+    fencers: Fencer[],
+    poolCount: number,
+    fencersPerPool: number,
+    seeding?: any[]
 ): Promise<void> {
-  try {
-    console.log(`Creating pool assignments for round ${round.id}, event ${event.id}`);
-    console.log(`Building ${poolCount} pools with ${fencersPerPool} fencers per pool`);
-    console.log(`Total fencers: ${fencers.length}, seeding available: ${seeding ? 'yes' : 'no'}`);
-    
-    const pools: Fencer[][] = buildPools(fencers, poolCount, fencersPerPool, seeding);
-    console.log(`Created ${pools.length} pools`);
-    
-    // Quick verification
-    pools.forEach((pool, index) => {
-      console.log(`Pool ${index} has ${pool.length} fencers: ${pool.map(f => f.id).join(', ')}`);
-    });
+    try {
+        console.log(`Creating pool assignments for round ${round.id}, event ${event.id}`);
+        console.log(`Building ${poolCount} pools with ${fencersPerPool} fencers per pool`);
+        console.log(`Total fencers: ${fencers.length}, seeding available: ${seeding ? 'yes' : 'no'}`);
 
-    for (let poolIndex = 0; poolIndex < pools.length; poolIndex++) {
-      const pool = pools[poolIndex];
-      
-      // Insert each fencer's pool assignment
-      for (let i = 0; i < pool.length; i++) {
-        const fencer = pool[i];
-        if (!fencer.id) continue;
-        
-        await db.insert(schema.fencerPoolAssignment)
-          .values({
-            roundid: round.id,
-            poolid: poolIndex,
-            fencerid: fencer.id,
-            fenceridinpool: i + 1
-          });
-      }
-      
-      // Create round-robin bouts for the pool
-      for (let i = 0; i < pool.length; i++) {
-        for (let j = i + 1; j < pool.length; j++) {
-          const fencerA = pool[i];
-          const fencerB = pool[j];
-          
-          if (!fencerA.id || !fencerB.id) continue;
-          
-          console.log(`Creating bout between ${fencerA.fname} ${fencerA.lname} and ${fencerB.fname} ${fencerB.lname}`);
-          
-          // Insert the bout
-          const boutResult = await db.insert(schema.bouts)
-            .values({
-              lfencer: fencerA.id,
-              rfencer: fencerB.id,
-              eventid: event.id,
-              roundid: round.id,
-              tableof: 2 // Using default value for tableof
-            })
-            .returning({ id: schema.bouts.id });
-          
-          const boutId = boutResult[0]?.id;
-          
-          if (boutId) {
-            console.log(`Bout created with ID: ${boutId}, creating fencerBouts records`);
-            
-            // Also create fencerBouts records (these associate fencers with their bouts and scores)
-            try {
-              await db.insert(schema.fencerBouts)
-                .values({
-                  fencerid: fencerA.id,
-                  boutid: boutId,
-                  score: 0
-                });
-                
-              await db.insert(schema.fencerBouts)
-                .values({
-                  fencerid: fencerB.id,
-                  boutid: boutId,
-                  score: 0  
-                });
-            } catch (fbError) {
-              console.error('Error creating fencerBouts records:', fbError);
+        const pools: Fencer[][] = buildPools(fencers, poolCount, fencersPerPool, seeding);
+        console.log(`Created ${pools.length} pools`);
+
+        // Quick verification
+        pools.forEach((pool, index) => {
+            console.log(`Pool ${index} has ${pool.length} fencers: ${pool.map(f => f.id).join(', ')}`);
+        });
+
+        for (let poolIndex = 0; poolIndex < pools.length; poolIndex++) {
+            const pool = pools[poolIndex];
+
+            // Insert each fencer's pool assignment
+            for (let i = 0; i < pool.length; i++) {
+                const fencer = pool[i];
+                if (!fencer.id) continue;
+
+                await db.insert(schema.fencerPoolAssignment)
+                    .values({
+                        roundid: round.id,
+                        poolid: poolIndex,
+                        fencerid: fencer.id,
+                        fenceridinpool: i + 1
+                    });
             }
-          } else {
-            console.error('Failed to get bout ID for newly created bout');
-          }
+
+            // Create round-robin bouts for the pool
+            for (let i = 0; i < pool.length; i++) {
+                for (let j = i + 1; j < pool.length; j++) {
+                    const fencerA = pool[i];
+                    const fencerB = pool[j];
+
+                    if (!fencerA.id || !fencerB.id) continue;
+
+                    console.log(`Creating bout between ${fencerA.fname} ${fencerA.lname} and ${fencerB.fname} ${fencerB.lname}`);
+
+                    // Insert the bout
+                    const boutResult = await db.insert(schema.bouts)
+                        .values({
+                            lfencer: fencerA.id,
+                            rfencer: fencerB.id,
+                            eventid: event.id,
+                            roundid: round.id,
+                            tableof: 2 // Using default value for tableof
+                        })
+                        .returning({ id: schema.bouts.id });
+
+                    const boutId = boutResult[0]?.id;
+
+                    if (boutId) {
+                        console.log(`Bout created with ID: ${boutId}`);
+
+                        // IMPORTANT FIX: We don't need to manually insert FencerBouts records
+                        // The trigger `create_fencer_bouts_after_bout_insert` already creates these records
+                        // If we do need to update scores, we can use onConflictDoUpdate:
+
+                        try {
+                            // Update the scores to 0 (in case they were null from trigger)
+                            await db.update(schema.fencerBouts)
+                                .set({ score: 0 })
+                                .where(
+                                    and(
+                                        eq(schema.fencerBouts.boutid, boutId),
+                                        eq(schema.fencerBouts.fencerid, fencerA.id)
+                                    )
+                                );
+
+                            await db.update(schema.fencerBouts)
+                                .set({ score: 0 })
+                                .where(
+                                    and(
+                                        eq(schema.fencerBouts.boutid, boutId),
+                                        eq(schema.fencerBouts.fencerid, fencerB.id)
+                                    )
+                                );
+                        } catch (fbError) {
+                            console.error('Error updating fencerBouts scores:', fbError);
+                        }
+                    } else {
+                        console.error('Failed to get bout ID for newly created bout');
+                    }
+                }
+            }
         }
-      }
+    } catch (error) {
+        console.error('Error creating pool assignments and bout orders:', error);
+        throw error;
     }
-  } catch (error) {
-    console.error('Error creating pool assignments and bout orders:', error);
-    throw error;
-  }
 }
 
 export async function dbGetPoolsForRound(roundId: number): Promise<{ poolid: number; fencers: Fencer[] }[]> {
@@ -1188,17 +1196,16 @@ export async function dbInitializeRound(
 
       console.log(`Automatically set DE table size to ${tableSize} for ${fencers.length} fencers`);
 
-      // Initialize based on DE format
+      // // Initialize based on DE format
       if (round.deformat === 'single') {
-        // Note: This function needs to be implemented
-        console.log('Single elimination bracket creation will be implemented soon');
-        // await createFirstRoundDEBouts(event, round, fencers, seeding);
+        console.log('Creating single elimination bracket');
+        await createFirstRoundDEBouts(event, round, fencers, seeding);
       } else if (round.deformat === 'double') {
-        console.log('Double elimination bracket creation will be implemented soon');
-        // await dbCreateDoubleEliminationBracket(round.id, tableSize, seeding);
+        console.log('Creating double elimination bracket');
+        await dbCreateDoubleEliminationBracket(round.id, tableSize, seeding);
       } else if (round.deformat === 'compass') {
-        console.log('Compass draw bracket creation will be implemented soon');
-        // await dbCreateCompassDrawBracket(round.id, tableSize, seeding);
+        console.log('Creating compass draw bracket');
+        await dbCreateCompassDrawBracket(round.id, tableSize, seeding);
       }
     }
 
@@ -1215,6 +1222,20 @@ export async function dbInitializeRound(
  */
 export async function dbGetDEBouts(roundId: number): Promise<any[]> {
   try {
+    console.log(`Fetching DE bouts for round ${roundId}`);
+    
+    // First check if there are any bouts for this round
+    const boutCount = await db.select({ count: count() })
+      .from(schema.bouts)
+      .where(eq(schema.bouts.roundid, roundId));
+    
+    console.log(`Found ${boutCount[0]?.count || 0} bouts for round ${roundId}`);
+    
+    if (boutCount[0]?.count === 0) {
+      console.log('No bouts found for this round, returning empty array');
+      return [];
+    }
+    
     // Create aliases for the joined tables to handle multiple joins on the same table
     const leftFencer = alias(schema.fencers, 'leftF');
     const rightFencer = alias(schema.fencers, 'rightF');
@@ -1224,6 +1245,26 @@ export async function dbGetDEBouts(roundId: number): Promise<any[]> {
     const rightSeeding = alias(schema.seedingFromRoundResults, 'RIGHT_SEEDING');
 
     // Using Drizzle's structured join API with table aliases
+    console.log('Executing bout query with careful null handling...');
+    
+    // First get a simple list of bouts to ensure we have data
+    const basicBouts = await db
+      .select({
+        id: schema.bouts.id,
+        lfencer: schema.bouts.lfencer,
+        rfencer: schema.bouts.rfencer
+      })
+      .from(schema.bouts)
+      .where(eq(schema.bouts.roundid, roundId));
+      
+    if (basicBouts.length === 0) {
+      console.log('No bouts found in basic query');
+      return [];
+    }
+    
+    console.log(`Basic query found ${basicBouts.length} bouts. Sample: ${JSON.stringify(basicBouts[0])}`);
+    
+    // Continue with the detailed query now that we know bouts exist
     const bouts = await db
       .select({
         bout: {
@@ -1235,13 +1276,14 @@ export async function dbGetDEBouts(roundId: number): Promise<any[]> {
           roundid: schema.bouts.roundid,
           tableof: schema.bouts.tableof
         },
+        // Use coalesce to handle null fields
         leftFencer: {
-          fname: leftFencer.fname,
-          lname: leftFencer.lname
+          fname: sql`COALESCE(${leftFencer.fname}, '')`,
+          lname: sql`COALESCE(${leftFencer.lname}, '')`
         },
         rightFencer: {
-          fname: rightFencer.fname,
-          lname: rightFencer.lname
+          fname: sql`COALESCE(${rightFencer.fname}, '')`,
+          lname: sql`COALESCE(${rightFencer.lname}, '')`
         },
         scores: {
           left_score: leftFencerBout.score,
@@ -1292,25 +1334,49 @@ export async function dbGetDEBouts(roundId: number): Promise<any[]> {
       .where(eq(schema.bouts.roundid, roundId))
       .orderBy(desc(schema.bouts.tableof), asc(schema.bouts.id));
 
-    // Transform the results to the expected flat format
-    const transformedBouts = bouts.map(bout => ({
-      id: bout.bout.id,
-      lfencer: bout.bout.lfencer,
-      rfencer: bout.bout.rfencer,
-      victor: bout.bout.victor,
-      eventid: bout.bout.eventid,
-      roundid: bout.bout.roundid,
-      tableof: bout.bout.tableof,
-      left_fname: bout.leftFencer.fname,
-      left_lname: bout.leftFencer.lname,
-      right_fname: bout.rightFencer.fname,
-      right_lname: bout.rightFencer.lname,
-      left_score: bout.scores.left_score,
-      right_score: bout.scores.right_score,
-      seed_left: bout.seeding.seed_left,
-      seed_right: bout.seeding.seed_right
-    }));
+    // Transform the results to the expected flat format with careful null checking
+    const transformedBouts = bouts.map(bout => {
+      // Debug output for troubleshooting
+      console.log(`Processing bout ID ${bout.bout.id}: leftFencer=${JSON.stringify(bout.leftFencer)}, rightFencer=${JSON.stringify(bout.rightFencer)}`);
+      
+      return {
+        id: bout.bout.id,
+        lfencer: bout.bout.lfencer,
+        rfencer: bout.bout.rfencer,
+        victor: bout.bout.victor,
+        eventid: bout.bout.eventid,
+        roundid: bout.bout.roundid,
+        tableof: bout.bout.tableof,
+        // Handle null/undefined fencer data safely
+        left_fname: bout.leftFencer && bout.leftFencer.fname !== undefined ? bout.leftFencer.fname : '',
+        left_lname: bout.leftFencer && bout.leftFencer.lname !== undefined ? bout.leftFencer.lname : '',
+        right_fname: bout.rightFencer && bout.rightFencer.fname !== undefined ? bout.rightFencer.fname : '',
+        right_lname: bout.rightFencer && bout.rightFencer.lname !== undefined ? bout.rightFencer.lname : '',
+        // Handle null/undefined scores safely
+        left_score: bout.scores && bout.scores.left_score !== undefined ? bout.scores.left_score : null,
+        right_score: bout.scores && bout.scores.right_score !== undefined ? bout.scores.right_score : null,
+        // Handle null/undefined seeding data safely
+        seed_left: bout.seeding && bout.seeding.seed_left !== undefined ? bout.seeding.seed_left : null,
+        seed_right: bout.seeding && bout.seeding.seed_right !== undefined ? bout.seeding.seed_right : null
+      };
+    });
 
+    console.log(`Returning ${transformedBouts.length} transformed DE bouts`);
+    if (transformedBouts.length > 0) {
+      console.log('Sample bout:', JSON.stringify(transformedBouts[0]));
+    } else {
+      console.log('No bouts found for this round');
+      
+      // Additional check to see if any bouts exist at all for this round
+      const simpleBoutCheck = await db.select({
+        count: count()
+      })
+      .from(schema.bouts)
+      .where(eq(schema.bouts.roundid, roundId));
+      
+      console.log(`Simple count check: ${simpleBoutCheck[0]?.count || 0} bouts exist for round ${roundId}`);
+    }
+    
     return transformedBouts;
   } catch (error) {
     console.error('Error getting DE bouts:', error);
@@ -2015,6 +2081,19 @@ export async function createFirstRoundDEBouts(
     seeding: any[]
 ): Promise<void> {
   try {
+    console.log(`Creating first round DE bouts for event ${event.id}, round ${round.id} with ${fencers.length} fencers`);
+    console.log(`Seeding data: ${seeding.length} entries`);
+    
+    // Check if bouts already exist for this round to prevent duplicates
+    const existingBouts = await db.select({ count: count() })
+      .from(schema.bouts)
+      .where(eq(schema.bouts.roundid, round.id));
+    
+    if (existingBouts[0]?.count > 0) {
+      console.log(`Bouts already exist for round ${round.id}. Skipping creation to prevent duplicates.`);
+      return;
+    }
+    
     // Determine the appropriate table size based on number of fencers
     const fencerCount = fencers.length;
     let tableSize = 2;
@@ -2022,78 +2101,83 @@ export async function createFirstRoundDEBouts(
       tableSize *= 2;
     }
 
-    // Update the round with the DE table size
-    await db.update(schema.rounds)
-        .set({ detablesize: tableSize })
-        .where(eq(schema.rounds.id, round.id));
+    console.log(`Using table size ${tableSize} for ${fencerCount} fencers`);
 
-    // Sort fencers by seed
-    const sortedFencers = [...seeding].sort((a, b) => a.seed - b.seed);
+    // Use a transaction to ensure all operations succeed or fail together
+    await db.transaction(async (tx) => {
+      try {
+        // Update the round with the DE table size
+        await tx.update(schema.rounds)
+            .set({ detablesize: tableSize })
+            .where(eq(schema.rounds.id, round.id));
 
-    // Generate standard bracket positions
-    const positions = generateBracketPositions(tableSize);
+        // Sort fencers by seed
+        const sortedFencers = [...seeding].sort((a, b) => a.seed - b.seed);
 
-    // Place fencers according to seeding
-    for (let i = 0; i < positions.length; i++) {
-      const [posA, posB] = positions[i];
+        // Generate standard bracket positions
+        const positions = generateBracketPositions(tableSize);
+        console.log(`Generated ${positions.length} bracket positions`);
 
-      // Get fencers for this bout (or null for byes)
-      const fencerA = posA <= sortedFencers.length ? sortedFencers[posA - 1].fencer : null;
-      const fencerB = posB <= sortedFencers.length ? sortedFencers[posB - 1].fencer : null;
+        // Track created bout IDs for better error handling
+        const createdBoutIds = [];
 
-      // If both fencers are null, skip this bout
-      if (!fencerA && !fencerB) continue;
+        // Place fencers according to seeding
+        for (let i = 0; i < positions.length; i++) {
+          const [posA, posB] = positions[i];
 
-      // If only one fencer, it's a bye
-      const isBye = !fencerA || !fencerB;
+          // Get fencers for this bout (or null for byes)
+          const fencerA = posA <= sortedFencers.length ? sortedFencers[posA - 1].fencer : null;
+          const fencerB = posB <= sortedFencers.length ? sortedFencers[posB - 1].fencer : null;
 
-      // If it's a bye, the present fencer automatically advances
-      const victor = isBye ? (fencerA ? fencerA.id : fencerB.id) : null;
+          // If both fencers are null, skip this bout
+          if (!fencerA && !fencerB) {
+            console.log(`Skipping bout ${i+1} as both fencers are null`);
+            continue;
+          }
 
-      // Insert the bout
-      const boutResult = await db.insert(schema.bouts)
-          .values({
-            lfencer: fencerA ? fencerA.id : null,
-            rfencer: fencerB ? fencerB.id : null,
-            victor: victor,
-            eventid: event.id,
-            roundid: round.id,
-            tableof: tableSize
-          })
-          .returning({ id: schema.bouts.id });
+          // If only one fencer, it's a bye
+          const isBye = !fencerA || !fencerB;
 
-      const boutId = boutResult[0].id;
+          // If it's a bye, the present fencer automatically advances
+          const victor = isBye ? (fencerA ? fencerA.id : fencerB.id) : null;
 
-      // If it's a bye, automatically create the score (15-0 for victor)
-      if (isBye && victor) {
-        if (fencerA) {
-          await db.update(schema.fencerBouts)
-              .set({ score: 15 })
-              .where(
-                  and(
-                      eq(schema.fencerBouts.boutid, boutId),
-                      eq(schema.fencerBouts.fencerid, fencerA.id)
-                  )
-              );
-        } else if (fencerB) {
-          await db.update(schema.fencerBouts)
-              .set({ score: 15 })
-              .where(
-                  and(
-                      eq(schema.fencerBouts.boutid, boutId),
-                      eq(schema.fencerBouts.fencerid, fencerB.id)
-                  )
-              );
+          console.log(`Creating bout ${i+1}: ${fencerA?.fname || 'BYE'} vs ${fencerB?.fname || 'BYE'}, bye: ${isBye}, victor: ${victor}`);
+
+          // Insert the bout
+          const boutResult = await tx.insert(schema.bouts)
+              .values({
+                lfencer: fencerA ? fencerA.id : null,
+                rfencer: fencerB ? fencerB.id : null,
+                victor: victor,
+                eventid: event.id,
+                roundid: round.id,
+                tableof: tableSize
+              })
+              .returning({ id: schema.bouts.id });
+
+          const boutId = boutResult[0].id;
+          createdBoutIds.push(boutId);
+          console.log(`Created bout with ID ${boutId}`);
+
+          // For byes, we don't award any points as the fencer didn't actually fence
+          // We only mark the victor for advancement purposes
+          if (isBye && victor) {
+            console.log(`Bye for fencer ${victor} in bout ${boutId} - advancing without points`);
+          }
         }
+
+        // For byes, also create the next round bouts for advancing fencers
+        if (fencers.length < tableSize) {
+          console.log(`Creating next round bouts for advancing fencers (${tableSize/2})`);
+          await createNextRoundBoutsInTransaction(tx, round.id, tableSize / 2);
+        }
+
+        console.log(`Successfully created ${Math.ceil(tableSize / 2)} first round DE bouts`);
+      } catch (error) {
+        console.error('Error in DE bout creation transaction:', error);
+        throw error; // Re-throw to trigger transaction rollback
       }
-    }
-
-    // For byes, also create the next round bouts for advancing fencers
-    if (fencers.length < tableSize) {
-      await createNextRoundBouts(round.id, tableSize / 2);
-    }
-
-    console.log(`Created ${Math.ceil(tableSize / 2)} first round DE bouts`);
+    });
   } catch (error) {
     console.error('Error creating first round DE bouts:', error);
     throw error;
@@ -2124,8 +2208,38 @@ export function generateBracketPositions(tableSize: number): [number, number][] 
  */
 export async function createNextRoundBouts(roundId: number, tableOf: number): Promise<void> {
   try {
+    // Use the transaction version but create our own transaction context
+    await db.transaction(async (tx) => {
+      await createNextRoundBoutsInTransaction(tx, roundId, tableOf);
+    });
+  } catch (error) {
+    console.error('Error creating next round bouts:', error);
+    throw error;
+  }
+}
+
+/**
+ * Transaction-aware version of createNextRoundBouts that works within an existing transaction
+ */
+export async function createNextRoundBoutsInTransaction(tx: any, roundId: number, tableOf: number): Promise<void> {
+  try {
+    // Check if bouts already exist for this table size to prevent duplicates
+    const existingBouts = await tx.select({ count: count() })
+      .from(schema.bouts)
+      .where(
+        and(
+          eq(schema.bouts.roundid, roundId),
+          eq(schema.bouts.tableof, tableOf)
+        )
+      );
+    
+    if (existingBouts[0]?.count > 0) {
+      console.log(`Bouts already exist for round ${roundId} and table size ${tableOf}. Skipping creation.`);
+      return;
+    }
+
     // Get the round and event info
-    const round = await db.select()
+    const round = await tx.select()
         .from(schema.rounds)
         .where(eq(schema.rounds.id, roundId))
         .limit(1);
@@ -2134,7 +2248,7 @@ export async function createNextRoundBouts(roundId: number, tableOf: number): Pr
 
     // Get all completed bouts from the previous round (higher tableOf)
     const prevTableOf = tableOf * 2;
-    const prevBouts = await db.select()
+    const prevBouts = await tx.select()
         .from(schema.bouts)
         .where(
             and(
@@ -2155,7 +2269,7 @@ export async function createNextRoundBouts(roundId: number, tableOf: number): Pr
       const boutB = prevBouts[i + 1];
 
       // Create a new bout with the winners from boutA and boutB
-      await db.insert(schema.bouts)
+      await tx.insert(schema.bouts)
           .values({
             lfencer: boutA.victor,
             rfencer: boutB.victor,
@@ -2172,7 +2286,7 @@ export async function createNextRoundBouts(roundId: number, tableOf: number): Pr
       console.log('Reached the final bout');
     }
   } catch (error) {
-    console.error('Error creating next round bouts:', error);
+    console.error('Error creating next round bouts in transaction:', error);
     throw error;
   }
 }
@@ -2241,27 +2355,19 @@ export async function dbCreateDoubleEliminationBracket(
             loser_next_bout_id: bout.loserNextBoutId || null
           });
 
-      // If it's a bye, automatically update scores properly
+      // If it's a bye, automatically advance the fencer without awarding points
       if ((bout.fencerA === null && bout.fencerB !== null) ||
           (bout.fencerA !== null && bout.fencerB === null)) {
 
         const winningFencer = bout.fencerA || bout.fencerB;
 
         if (winningFencer) {
-          // Set the victor in Bouts table
+          // Set the victor in Bouts table (no points awarded for byes)
           await db.update(schema.bouts)
               .set({ victor: winningFencer })
               .where(eq(schema.bouts.id, boutId));
-
-          // Set scores in FencerBouts (15-0 for winner)
-          await db.update(schema.fencerBouts)
-              .set({ score: 15 })
-              .where(
-                  and(
-                      eq(schema.fencerBouts.boutid, boutId),
-                      eq(schema.fencerBouts.fencerid, winningFencer)
-                  )
-              );
+              
+          console.log(`Bye for fencer ${winningFencer} in double elimination bout ${boutId} - advancing without points`);
         }
       }
     }
@@ -2338,27 +2444,19 @@ export async function dbCreateCompassDrawBracket(
             loser_next_bout_id: bout.loserNextBoutId || null
           });
 
-      // If it's a bye, automatically update scores properly
+      // If it's a bye, automatically advance the fencer without awarding points
       if ((bout.fencerA === null && bout.fencerB !== null) ||
           (bout.fencerA !== null && bout.fencerB === null)) {
 
         const winningFencer = bout.fencerA || bout.fencerB;
 
         if (winningFencer) {
-          // Set the victor in Bouts table
+          // Set the victor in Bouts table (no points awarded for byes)
           await db.update(schema.bouts)
               .set({ victor: winningFencer })
               .where(eq(schema.bouts.id, boutId));
-
-          // Set scores in FencerBouts (15-0 for winner)
-          await db.update(schema.fencerBouts)
-              .set({ score: 15 })
-              .where(
-                  and(
-                      eq(schema.fencerBouts.boutid, boutId),
-                      eq(schema.fencerBouts.fencerid, winningFencer)
-                  )
-              );
+              
+          console.log(`Bye for fencer ${winningFencer} in compass draw bout ${boutId} - advancing without points`);
         }
       }
     }
