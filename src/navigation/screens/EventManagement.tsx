@@ -580,11 +580,13 @@ export const EventManagement = ({ route }: Props) => {
   return (
       <ScrollView contentContainerStyle={styles.container}>
         <Text style={styles.title}>
-          {isRemote ? 'Remote Tournament' : 'Edit Tournament'}
+          {isRemote ? remoteConnectionInfo?.tournamentName || 'Remote Tournament' : 'Edit Tournament'}
         </Text>
 
         <View style={styles.headerContainer}>
-          <Text style={styles.tournamentName}>{tournamentName}</Text>
+          <Text style={styles.tournamentName}>
+            {isRemote ? remoteConnectionInfo?.tournamentName || tournamentName : tournamentName}
+          </Text>
 
           {/* Connection Status (for remote connection only) */}
           {isRemote && (

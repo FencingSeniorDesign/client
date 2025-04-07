@@ -137,3 +137,10 @@ docs/pages/versions/*/react-native/*.diff
 
 # iOS
 **/ios/.xcode.env.local
+docs/createAsyncStoragePersister.md
+docs/createPersister.md
+docs/createSyncStoragePersister.md
+docs/hydration.md
+docs/network-mode.md
+docs/OnlineManager.md
+docs/persistQueryClient.md
