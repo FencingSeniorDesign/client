@@ -97,10 +97,9 @@ export class TournamentDataProvider {
       try {
         // Send a new request for events even if we've sent one before
         // This ensures we're not just waiting for a response that might never come
-        console.log(`[DataProvider] Sending fresh 'get_events' request to server for ${tournamentName}`);
+        console.log(`[DataProvider] Sending fresh 'get_events' request to server`);
         tournamentClient.sendMessage({
-          type: 'get_events',
-          tournamentName
+          type: 'get_events'
         });
 
         // Wait for the response from server with a longer timeout for first connection scenarios

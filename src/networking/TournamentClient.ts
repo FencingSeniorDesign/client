@@ -473,7 +473,12 @@ class TournamentClient extends EventEmitter {
                     this.handleServerClosing(data);
                     break;
                 case 'events_list':
-                    console.log(`Received events_list with ${data.events.length} events`);
+                    console.log(`Received events_list with ${data.events ? data.events.length : 0} events`);
+                    // Make sure data is complete before emitting
+                    if (!data.events) {
+                        console.warn('Received events_list with undefined events array, setting to empty array');
+                        data.events = [];
+                    }
                     break;
                 case 'event_statuses':
                     console.log(`Received event_statuses update`);
@@ -623,9 +628,9 @@ class TournamentClient extends EventEmitter {
         this.requestTournamentData();
         
         // Immediately also request event list since that's what users see first
+        // Make sure we're requesting events properly without requiring tournament name
         this.sendMessage({
-            type: 'get_events',
-            tournamentName: data.tournamentName
+            type: 'get_events'
         });
     }
 
