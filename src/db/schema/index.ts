@@ -1,6 +1,13 @@
 import { sqliteTable, text, integer, primaryKey } from 'drizzle-orm/sqlite-core';
 import { sql } from 'drizzle-orm';
 
+// Clubs table
+export const clubs = sqliteTable('Clubs', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  name: text('name').notNull().unique(),
+  abbreviation: text('abbreviation'),
+});
+
 // Tournaments table
 export const tournaments = sqliteTable('Tournaments', {
   name: text('name').primaryKey(),
@@ -14,7 +21,8 @@ export const fencers = sqliteTable('Fencers', {
   lname: text('lname').notNull(),
   nickname: text('nickname'),
   gender: text('gender'),
-  club: text('club'),
+  club: text('club'), // Keep for backward compatibility
+  clubid: integer('clubid').references(() => clubs.id),
   erating: text('erating', { enum: ['U', 'E', 'D', 'C', 'B', 'A'] }).default('U'),
   eyear: integer('eyear').default(0),
   frating: text('frating', { enum: ['U', 'E', 'D', 'C', 'B', 'A'] }).default('U'),
@@ -131,7 +139,7 @@ export const bouts = sqliteTable('Bouts', {
   referee: integer('referee').references(() => referees.id),
   eventid: integer('eventid').references(() => events.id),
   roundid: integer('roundid').references(() => rounds.id),
-  tableof: integer('tableof', { enum: [2, 4, 8, 16, 32, 64, 128, 256] }),
+  tableof: integer('tableof'),
 }, (table) => {
   return {
     // Add a unique constraint to prevent duplicate bouts in the same round
@@ -155,7 +163,7 @@ export const deBracketBouts = sqliteTable('DEBracketBouts', {
 export const deTable = sqliteTable('DETable', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   roundid: integer('roundid').references(() => rounds.id),
-  tableof: integer('tableof', { enum: [2, 4, 8, 16, 32, 64, 128, 256] }),
+  tableof: integer('tableof'),
 });
 
 // FencerBouts table
@@ -181,6 +189,13 @@ export const seedingFromRoundResults = sqliteTable('SeedingFromRoundResults', {
 // Define relationships
 // These are not part of the schema but help with type inference in TypeScript
 export const relations = {
+  clubs: {
+    fencers: {
+      relationship: 'has-many',
+      from: clubs.id,
+      to: fencers.clubid,
+    },
+  },
   tournaments: {
     events: {
       relationship: 'has-many',
@@ -216,6 +231,11 @@ export const relations = {
     },
   },
   fencers: {
+    club: {
+      relationship: 'belongs-to',
+      from: fencers.clubid,
+      to: clubs.id,
+    },
     fencerEvents: {
       relationship: 'has-many',
       from: fencers.id,

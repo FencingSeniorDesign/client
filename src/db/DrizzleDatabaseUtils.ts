@@ -120,13 +120,89 @@ export async function dbDeleteEvent(eventId: number): Promise<void> {
   }
 }
 
+// Club Functions
+export async function dbCreateClub(club: { name: string; abbreviation?: string }): Promise<number> {
+  try {
+    // Auto-generate abbreviation if not provided
+    if (!club.abbreviation && club.name) {
+      club.abbreviation = generateClubAbbreviation(club.name);
+    }
+    
+    const result = await db.insert(schema.clubs)
+      .values({
+        name: club.name,
+        abbreviation: club.abbreviation
+      })
+      .returning({ id: schema.clubs.id });
+    
+    console.log(`Club "${club.name}" created with id ${result[0]?.id}.`);
+    return result[0]?.id || -1;
+  } catch (error) {
+    console.error('Error creating club:', error);
+    throw error;
+  }
+}
+
+export async function dbSearchClubs(query: string): Promise<any[]> {
+  try {
+    const clubs = await db.select()
+      .from(schema.clubs)
+      .where(like(schema.clubs.name, `%${query}%`));
+    
+    console.log(`Search returned ${clubs.length} clubs`);
+    return clubs;
+  } catch (error) {
+    console.error('Error searching clubs:', error);
+    return [];
+  }
+}
+
+// Helper function to generate club abbreviation
+function generateClubAbbreviation(name: string): string {
+  if (!name) return '';
+  
+  // Take first letter of each word, uppercase
+  const abbr = name
+    .split(/\s+/)
+    .map(word => word.charAt(0).toUpperCase())
+    .join('');
+  
+  // Ensure it's between 2-5 characters
+  if (abbr.length < 2) {
+    // If too short, add the second letter of the first word if available
+    return name.length > 1 ? name.substring(0, 2).toUpperCase() : abbr;
+  } else if (abbr.length > 5) {
+    // If too long, truncate to 5 characters
+    return abbr.substring(0, 5);
+  }
+  
+  return abbr;
+}
+
 // Fencer Functions
 export async function dbCreateFencerByName(fencer: Fencer, event?: Event, insertOnCreate: boolean = false): Promise<void> {
   try {
+    // Handle club creation/assignment if needed
+    if (fencer.club && !fencer.clubid) {
+      // Check if club already exists
+      const existingClubs = await dbSearchClubs(fencer.club);
+      const exactMatch = existingClubs.find(c => c.name.toLowerCase() === fencer.club?.toLowerCase());
+      
+      if (exactMatch) {
+        fencer.clubid = exactMatch.id;
+      } else {
+        // Create new club
+        const clubId = await dbCreateClub({ name: fencer.club });
+        fencer.clubid = clubId;
+      }
+    }
+    
     const result = await db.insert(schema.fencers)
       .values({
         fname: fencer.fname,
         lname: fencer.lname,
+        club: fencer.club || null,
+        clubid: fencer.clubid || null,
         erating: fencer.erating ?? 'U',
         eyear: fencer.eyear ?? 0,
         frating: fencer.frating ?? 'U',
@@ -151,14 +227,32 @@ export async function dbCreateFencerByName(fencer: Fencer, event?: Event, insert
 
 export async function dbSearchFencers(query: string): Promise<Fencer[]> {
   try {
-    const fencers = await db.select()
-      .from(schema.fencers)
-      .where(
-        or(
-          like(schema.fencers.fname, `%${query}%`),
-          like(schema.fencers.lname, `%${query}%`)
-        )
-      );
+    const fencers = await db.select({
+      id: schema.fencers.id,
+      fname: schema.fencers.fname,
+      lname: schema.fencers.lname,
+      club: schema.fencers.club,
+      clubid: schema.fencers.clubid,
+      clubName: schema.clubs.name,
+      clubAbbreviation: schema.clubs.abbreviation,
+      erating: schema.fencers.erating,
+      eyear: schema.fencers.eyear,
+      frating: schema.fencers.frating,
+      fyear: schema.fencers.fyear,
+      srating: schema.fencers.srating,
+      syear: schema.fencers.syear
+    })
+    .from(schema.fencers)
+    .leftJoin(
+      schema.clubs,
+      eq(schema.fencers.clubid, schema.clubs.id)
+    )
+    .where(
+      or(
+        like(schema.fencers.fname, `%${query}%`),
+        like(schema.fencers.lname, `%${query}%`)
+      )
+    );
     
     console.log(`Search returned ${fencers.length} results`);
     return fencers as Fencer[];
@@ -175,6 +269,10 @@ export async function dbGetFencersInEventById(event: Event): Promise<Fencer[]> {
         id: schema.fencers.id,
         fname: schema.fencers.fname,
         lname: schema.fencers.lname,
+        club: schema.fencers.club,
+        clubid: schema.fencers.clubid,
+        clubName: schema.clubs.name,
+        clubAbbreviation: schema.clubs.abbreviation,
         erating: schema.fencers.erating,
         eyear: schema.fencers.eyear,
         frating: schema.fencers.frating,
@@ -186,6 +284,10 @@ export async function dbGetFencersInEventById(event: Event): Promise<Fencer[]> {
       .innerJoin(
         schema.fencerEvents,
         eq(schema.fencers.id, schema.fencerEvents.fencerid)
+      )
+      .leftJoin(
+        schema.clubs,
+        eq(schema.fencers.clubid, schema.clubs.id)
       )
       .where(eq(schema.fencerEvents.eventid, event.id));
     
@@ -469,25 +571,51 @@ export async function dbCreatePoolAssignmentsAndBoutOrders(
 
 export async function dbGetPoolsForRound(roundId: number): Promise<{ poolid: number; fencers: Fencer[] }[]> {
   try {
+    console.log(`Getting pool assignments for round ${roundId}`);
+    
+    // First, get all pools and their fencer counts for this round
+    const poolCounts = await db
+      .select({
+        poolid: schema.fencerPoolAssignment.poolid,
+        count: count()
+      })
+      .from(schema.fencerPoolAssignment)
+      .where(eq(schema.fencerPoolAssignment.roundid, roundId))
+      .groupBy(schema.fencerPoolAssignment.poolid);
+    
+    console.log(`Found ${poolCounts.length} pools with assigned fencers`, 
+      poolCounts.map(p => `Pool ${p.poolid}: ${p.count} fencers`));
+    
+    // Get detailed fencer data with club information
     const results = await db
       .select({
         poolid: schema.fencerPoolAssignment.poolid,
+        poolposition: schema.fencerPoolAssignment.fenceridinpool,
         fencer: {
           id: schema.fencers.id,
           fname: schema.fencers.fname,
           lname: schema.fencers.lname,
+          club: schema.fencers.club,
+          clubid: schema.fencers.clubid,
           erating: schema.fencers.erating,
           eyear: schema.fencers.eyear,
           frating: schema.fencers.frating,
           fyear: schema.fencers.fyear,
           srating: schema.fencers.srating,
           syear: schema.fencers.syear
-        }
+        },
+        // Using optional fields for clubs to prevent null issues
+        clubName: schema.clubs.name,
+        clubAbbr: schema.clubs.abbreviation
       })
       .from(schema.fencerPoolAssignment)
       .innerJoin(
         schema.fencers,
         eq(schema.fencerPoolAssignment.fencerid, schema.fencers.id)
+      )
+      .leftJoin(
+        schema.clubs,
+        eq(schema.fencers.clubid, schema.clubs.id)
       )
       .where(eq(schema.fencerPoolAssignment.roundid, roundId))
       .orderBy(
@@ -495,16 +623,44 @@ export async function dbGetPoolsForRound(roundId: number): Promise<{ poolid: num
         schema.fencerPoolAssignment.fenceridinpool
       );
     
+    console.log(`Found ${results.length} total fencer-pool assignments`);
+    
     // Group by poolid
     const poolsMap = new Map<number, Fencer[]>();
     
+    // First initialize pools based on the pool counts (this ensures empty pools still show up)
+    for (const poolCount of poolCounts) {
+      poolsMap.set(poolCount.poolid, []);
+    }
+    
+    // Log a sample of the results to debug
+    if (results.length > 0) {
+      console.log(`Sample first result:`, JSON.stringify(results[0]));
+    }
+    
+    // Then add all fencers to their respective pools
     for (const result of results) {
-      const { poolid, fencer } = result;
+      const { poolid, poolposition, fencer, clubName, clubAbbr } = result;
+      
+      // Add club information to fencer (whether club is present or not)
+      const fencerWithClubInfo: Fencer = {
+        ...fencer as Fencer,
+        poolNumber: poolposition, // Important: set the pool position here
+        clubName: clubName || fencer.club || '', // Use joined club name or fallback to legacy field
+        clubAbbreviation: clubAbbr || '' // Use abbreviation from joined club table
+      };
+      
+      // Ensure the pool exists in the map (should already be there from the poolCounts loop)
       if (!poolsMap.has(poolid)) {
         poolsMap.set(poolid, []);
       }
-      poolsMap.get(poolid)?.push(fencer as Fencer);
+      
+      poolsMap.get(poolid)?.push(fencerWithClubInfo);
     }
+    
+    // Log counts of fencers per pool in our map
+    console.log("Fencers per pool after processing:", 
+      Array.from(poolsMap.entries()).map(([poolid, fencers]) => `Pool ${poolid}: ${fencers.length} fencers`));
     
     // Convert map to array
     const pools: { poolid: number; fencers: Fencer[] }[] = [];
@@ -513,6 +669,8 @@ export async function dbGetPoolsForRound(roundId: number): Promise<{ poolid: num
     });
     
     pools.sort((a, b) => a.poolid - b.poolid);
+    
+    console.log(`Returning ${pools.length} pools with ${pools.reduce((sum, pool) => sum + pool.fencers.length, 0)} total fencers`);
     return pools;
   } catch (error) {
     console.error('Error getting pools for round:', error);

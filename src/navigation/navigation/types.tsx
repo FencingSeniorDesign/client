@@ -3,11 +3,21 @@ export type Tournament = {
     isComplete: boolean;
 }
 
+export type Club = {
+    id?: number;
+    name: string;
+    abbreviation?: string;
+};
+
 export type Fencer = {
     id?: number;
     fname: string;
     lname: string;
     nickname?: string;
+    club?: string; // Keep for backward compatibility
+    clubid?: number;
+    clubName?: string; // For UI display purposes
+    clubAbbreviation?: string; // For UI display purposes
     erating: string | 'U' | 'E' | 'D' | 'C' | 'B' | 'A';
     eyear: number;
     frating: string | 'U' | 'E' | 'D' | 'C' | 'B' | 'A';
@@ -82,6 +92,7 @@ export type Bout = {
     scoreA: number;
     scoreB: number;
     status: 'pending' | 'active' | 'completed';
+    boutOrderPosition?: number; // Position in the official bout order
 };
 
 

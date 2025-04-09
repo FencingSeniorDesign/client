@@ -36,7 +36,9 @@ import {
   dbListOngoingTournaments,
   dbListCompletedTournaments,
   dbGetBoutsForRound, // Added missing import
-  dbGetBracketForRound // Added missing import
+  dbGetBracketForRound, // Added missing import
+  dbSearchClubs, // Added for club search
+  dbCreateClub // Added for club creation
 } from '../db/DrizzleDatabaseUtils';
 import tournamentClient from '../networking/TournamentClient';
 import tournamentServer from '../networking/TournamentServer';
@@ -386,6 +388,72 @@ export class TournamentDataProvider {
     } catch(error) {
         console.error('[DataProvider] Error searching local fencers:', error);
         throw error; // Re-throw error for Tanstack Query
+    }
+  }
+
+  /**
+   * Search for clubs by name
+   */
+  async searchClubs(query: string): Promise<any[]> {
+    if (this.isRemoteConnection()) {
+      try {
+        // Request club search from server
+        tournamentClient.sendMessage({
+          type: 'search_clubs',
+          query
+        });
+
+        // Wait for the response
+        const response = await tournamentClient.waitForResponse('club_search_results', 5000);
+
+        if (response && Array.isArray(response.clubs)) {
+          return response.clubs;
+        }
+
+        throw new Error('Failed to fetch club search results from server');
+      } catch (error) {
+        console.error('[DataProvider] Error searching remote clubs:', error);
+        throw error; // Re-throw error for Tanstack Query
+      }
+    }
+
+    // For local tournaments, search in database
+    try {
+      return await dbSearchClubs(query);
+    } catch(error) {
+      console.error('[DataProvider] Error searching local clubs:', error);
+      throw error; // Re-throw error for Tanstack Query
+    }
+  }
+
+  /**
+   * Create a new club
+   */
+  async createClub(club: { name: string; abbreviation?: string }): Promise<number> {
+    if (this.isRemoteConnection()) {
+      try {
+        // Send create club request to server
+        tournamentClient.sendMessage({
+          type: 'create_club',
+          club
+        });
+
+        // Wait for confirmation
+        const response = await tournamentClient.waitForResponse('club_created', 5000);
+
+        return response && response.clubId ? response.clubId : -1;
+      } catch (error) {
+        console.error('[DataProvider] Error creating club remotely:', error);
+        throw error;
+      }
+    }
+
+    // For local tournaments, create in database
+    try {
+      return await dbCreateClub(club);
+    } catch (error) {
+      console.error('[DataProvider] Error creating club locally:', error);
+      throw error;
     }
   }
 

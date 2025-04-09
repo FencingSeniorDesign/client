@@ -156,3 +156,15 @@ CREATE TABLE `Tournaments` (
 	`name` text PRIMARY KEY NOT NULL,
 	`iscomplete` integer DEFAULT false
 );
+--> statement-breakpoint
+CREATE TABLE `Clubs` (
+	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+	`name` text NOT NULL UNIQUE,
+	`abbreviation` text
+);
+--> statement-breakpoint
+ALTER TABLE `Fencers` ADD COLUMN `clubid` integer REFERENCES `Clubs`(`id`);
+--> statement-breakpoint
+CREATE INDEX `idx_fencers_clubid` ON `Fencers` (`clubid`);
+--> statement-breakpoint
+CREATE INDEX `idx_clubs_name` ON `Clubs` (`name`);

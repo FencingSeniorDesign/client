@@ -11,8 +11,9 @@ import {
     Platform,
 } from "react-native";
 import { RouteProp, useNavigation } from "@react-navigation/native";
-import { Event, Fencer, Round } from "../navigation/types";
+import { Event, Fencer, Round, Club } from "../navigation/types";
 import * as DocumentPicker from "expo-document-picker";
+import ClubAutocomplete from "../../components/ui/ClubAutocomplete";
 import * as FileSystem from "expo-file-system";
 // Import our custom picker component instead of the native one
 import CustomPickerComponent from "../../components/ui/CustomPicker";
@@ -101,6 +102,9 @@ export const EventSettings = ({ route }: Props) => {
     const [selectedWeapon, setSelectedWeapon] = useState<string>(initialWeapon);
     const [fencerFirstName, setFencerFirstName] = useState<string>("");
     const [fencerLastName, setFencerLastName] = useState<string>("");
+    const [fencerClub, setFencerClub] = useState<string>("");
+    const [fencerClubId, setFencerClubId] = useState<number | undefined>(undefined);
+    const [fencerClubAbbreviation, setFencerClubAbbreviation] = useState<string>("");
 
     // TanStack Query hooks
     const {
@@ -209,6 +213,10 @@ export const EventSettings = ({ route }: Props) => {
         let newFencer: Fencer = {
             fname: fencerFirstName.trim(),
             lname: fencerLastName.trim(),
+            club: fencerClub.trim(),
+            clubid: fencerClubId,
+            clubName: fencerClub.trim(),
+            clubAbbreviation: fencerClubAbbreviation,
             erating: epeeRating,
             eyear: epeeYear,
             frating: foilRating,
@@ -222,12 +230,18 @@ export const EventSettings = ({ route }: Props) => {
             event,
             addToEvent: true
         });
-
-        setFencerFirstName("");
+setFencerFirstName("");
+setFencerLastName("");
+setFencerClub("");
+setFencerClubId(undefined);
+setFencerClubAbbreviation("");
         setFencerLastName("");
     }, [
         fencerFirstName,
         fencerLastName,
+        fencerClub,
+        fencerClubId,
+        fencerClubAbbreviation,
         epeeRating,
         epeeYear,
         foilRating,
@@ -413,7 +427,9 @@ export const EventSettings = ({ route }: Props) => {
         return fencers.map((fencer) => (
             <View key={fencer.id} style={styles.fencerRow}>
                 <Text style={styles.fencerItem}>
-                    {fencer.lname}, {fencer.fname} ({formatRatingString(fencer)})
+                    {fencer.lname}, {fencer.fname}
+                    {fencer.clubAbbreviation && ` (${fencer.clubAbbreviation})`}
+                    {formatRatingString(fencer) && ` (${formatRatingString(fencer)})`}
                 </Text>
                 <TouchableOpacity
                     onPress={() => handleRemoveFencer(fencer, event)}
@@ -438,7 +454,9 @@ export const EventSettings = ({ route }: Props) => {
                 disabled={addFencerMutation.isPending}
             >
                 <Text style={styles.fencerItem}>
-                    {fencer.lname}, {fencer.fname} ({formatRatingString(fencer)})
+                    {fencer.lname}, {fencer.fname}
+                    {fencer.clubAbbreviation && ` (${fencer.clubAbbreviation})`}
+                    {formatRatingString(fencer) && ` (${formatRatingString(fencer)})`}
                 </Text>
             </TouchableOpacity>
         ));
@@ -579,6 +597,16 @@ export const EventSettings = ({ route }: Props) => {
                             placeholder="Last Name"
                             value={fencerLastName}
                             onChangeText={setFencerLastName}
+                        />
+                        <ClubAutocomplete
+                            value={fencerClub}
+                            abbreviation={fencerClubAbbreviation}
+                            onValueChange={(value, clubId, abbreviation) => {
+                                setFencerClub(value);
+                                setFencerClubId(clubId);
+                                setFencerClubAbbreviation(abbreviation || '');
+                            }}
+                            containerStyle={styles.input}
                         />
                         {/* Replace with our custom FencerCreationControls component */}
                         <FencerCreationControls

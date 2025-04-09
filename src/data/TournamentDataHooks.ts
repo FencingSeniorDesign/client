@@ -24,6 +24,8 @@ export const queryKeys = {
   boutsForPool: (roundId: number, poolId: number) => ['bouts', 'pool', roundId, poolId] as const,
   bouts: (roundId: number) => ['bouts', roundId] as const,
   fencerSearch: (query: string) => ['fencerSearch', query] as const,
+  clubs: ['clubs'] as const,
+  clubSearch: (query: string) => ['clubSearch', query] as const,
   officials: (tournamentName: string) => ['officials', tournamentName] as const,
   referees: (tournamentName: string) => ['referees', tournamentName] as const,
   userRole: (deviceId: string, eventId: number) => ['userRole', deviceId, eventId] as const,
@@ -170,6 +172,35 @@ export function useSearchFencers(query: string) {
     queryFn: () => dataProvider.searchFencers(query),
     enabled: query.trim().length > 0,
     staleTime: 30000,
+  });
+}
+
+/**
+ * Hook to search for clubs
+ */
+export function useSearchClubs(query: string) {
+  return useQuery({
+    queryKey: queryKeys.clubSearch(query),
+    queryFn: () => dataProvider.searchClubs(query),
+    enabled: query.trim().length > 0,
+    staleTime: 30000,
+  });
+}
+
+/**
+ * Hook to create a new club
+ */
+export function useCreateClub() {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: (club: { name: string; abbreviation?: string }) => {
+      return dataProvider.createClub(club);
+    },
+    onSuccess: () => {
+      // Invalidate club-related queries
+      queryClient.invalidateQueries({ queryKey: queryKeys.clubs });
+    },
   });
 }
 
