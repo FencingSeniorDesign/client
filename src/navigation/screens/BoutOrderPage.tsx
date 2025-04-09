@@ -14,7 +14,8 @@ import {
 import { useRoute, RouteProp, useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList, Fencer, Bout } from '../navigation/types';
-import { useBoutsForPool, useUpdatePoolBoutScores } from '../../data/TournamentDataHooks';
+import { useBoutsForPool, useUpdatePoolBoutScores, usePools } from '../../data/TournamentDataHooks';
+import { assignPoolPositions, getBoutOrder } from '../utils/BoutOrderUtils';
 import tournamentClient from '../../networking/TournamentClient';
 import ConnectionStatusBar from '../../networking/components/ConnectionStatusBar';
 
@@ -27,10 +28,12 @@ const BoutOrderPage: React.FC = () => {
     const { roundId, poolId, isRemote = false } = route.params;
 
     // Use React Query hooks, ensuring they respect remote status
-    const { data: boutsData, isLoading, error } = useBoutsForPool(roundId, poolId);
+    const { data: boutsData, isLoading: boutsLoading, error: boutsError } = useBoutsForPool(roundId, poolId);
+    const { data: poolsData, isLoading: poolsLoading, error: poolsError } = usePools(roundId);
     const updateBoutScoresMutation = useUpdatePoolBoutScores();
 
     const [bouts, setBouts] = useState<Bout[]>([]);
+    const [fencers, setFencers] = useState<Fencer[]>([]);
     const [expandedBoutIndex, setExpandedBoutIndex] = useState<number | null>(null);
     const [protectedScores, setProtectedScores] = useState<boolean>(false);
     const [alterModalVisible, setAlterModalVisible] = useState<boolean>(false);
@@ -43,18 +46,39 @@ const BoutOrderPage: React.FC = () => {
     const activeCount = doubleStripping ? 2 : 1;
     const onDeckCount = doubleStripping ? 2 : 1;
 
+    // Extract fencers from pools data
+    useEffect(() => {
+        if (poolsData) {
+            const currentPool = poolsData.find(pool => pool.poolid === poolId);
+            if (currentPool && currentPool.fencers) {
+                // Apply club-based pool positions
+                const fencersWithPositions = assignPoolPositions(currentPool.fencers);
+                setFencers(fencersWithPositions);
+            }
+        }
+    }, [poolsData, poolId]);
+
     // Process the bouts data when it loads from the hook
     useEffect(() => {
-        if (boutsData) {
+        if (boutsData && fencers.length > 0) {
             console.log(`Received bout data for pool ${poolId} (Remote: ${isRemote}):`,
                 JSON.stringify(boutsData.slice(0, 1))); // Log first bout for debugging
 
+            // Get the official bout order based on pool size and club affiliations
+            const poolSize = fencers.length;
+            const boutOrder = getBoutOrder(poolSize, fencers);
+            
+            // Map the bout data to our Bout objects
             const fetchedBouts: Bout[] = boutsData.map((row: any) => {
                 // Create consistent Bout objects regardless of data source
                 const fencerA: Fencer = {
                     id: row.left_fencerid,
                     fname: row.left_fname,
                     lname: row.left_lname,
+                    club: row.left_club,
+                    clubid: row.left_clubid,
+                    clubName: row.left_clubname,
+                    clubAbbreviation: row.left_clubabbreviation,
                     erating: 'U',
                     eyear: 0,
                     frating: 'U',
@@ -67,6 +91,10 @@ const BoutOrderPage: React.FC = () => {
                     id: row.right_fencerid,
                     fname: row.right_fname,
                     lname: row.right_lname,
+                    club: row.right_club,
+                    clubid: row.right_clubid,
+                    clubName: row.right_clubname,
+                    clubAbbreviation: row.right_clubabbreviation,
                     erating: 'U',
                     eyear: 0,
                     frating: 'U',
@@ -78,12 +106,28 @@ const BoutOrderPage: React.FC = () => {
                 const scoreA = row.left_score ?? 0;
                 const scoreB = row.right_score ?? 0;
                 const status = (scoreA !== 0 || scoreB !== 0) ? 'completed' : 'pending';
-                return { id: row.id, fencerA, fencerB, scoreA, scoreB, status };
+                const bout = { id: row.id, fencerA, fencerB, scoreA, scoreB, status };
+                
+                // Add boutOrderPosition for sorting
+                const boutPosition = boutOrder.findIndex(([posA, posB]) => {
+                    return (
+                        (fencerA.poolNumber === posA && fencerB.poolNumber === posB) || 
+                        (fencerA.poolNumber === posB && fencerB.poolNumber === posA)
+                    );
+                });
+                
+                return { ...bout, boutOrderPosition: boutPosition !== -1 ? boutPosition : Number.MAX_SAFE_INTEGER };
             });
 
-            setBouts(fetchedBouts);
+            // Sort bouts according to the official bout order positions
+            const sortedBouts = [...fetchedBouts].sort((a, b) => a.boutOrderPosition - b.boutOrderPosition);
+            
+            console.log('Sorted bouts by official bout order:', 
+                sortedBouts.map(b => `${b.fencerA.poolNumber}-${b.fencerB.poolNumber} (pos: ${b.boutOrderPosition})`));
+                
+            setBouts(sortedBouts);
         }
-    }, [boutsData, poolId, isRemote]);
+    }, [boutsData, fencers, poolId, isRemote]);
 
     // For pending bouts, compute a pendingRank based on order in the list.
     let pendingCounter = 0;
@@ -173,7 +217,6 @@ const BoutOrderPage: React.FC = () => {
             fencer2Name: bout.fencerB.lname || bout.fencerB.fname,
             currentScore1: bout.scoreA,
             currentScore2: bout.scoreB,
-            isRemote: isRemote,
             onSaveScores: async (score1: number, score2: number) => {
                 try {
                     console.log(`Saving scores from ref module for bout ${bout.id}: ${score1}-${score2}`);
@@ -212,7 +255,7 @@ const BoutOrderPage: React.FC = () => {
                     poolId
                 });
                 console.log(`Random score update for bout ${bout.id} completed with result:`, result);
-                return { ...bout, scoreA: randomScoreA, scoreB: randomScoreB, status: 'completed' };
+                return { ...bout, scoreA: randomScoreA, scoreB: randomScoreB, status: 'completed' as 'completed' | 'pending' | 'active' };
             } catch (error) {
                 console.error(`Error updating bout ${bout.id} with random scores:`, error);
                 Alert.alert("Error", `Failed to update bout ${bout.id} with random scores.`);
@@ -223,7 +266,7 @@ const BoutOrderPage: React.FC = () => {
     };
 
     // Show loading state
-    if (isLoading) {
+    if (boutsLoading || poolsLoading) {
         return (
             <View style={styles.loadingContainer}>
                 <ActivityIndicator size="large" color="#0000ff" />
@@ -233,10 +276,10 @@ const BoutOrderPage: React.FC = () => {
     }
 
     // Show error message if there was an error
-    if (error) {
+    if (boutsError || poolsError) {
         return (
             <View style={styles.errorContainer}>
-                <Text style={styles.errorText}>Error loading bouts: {error.toString()}</Text>
+                <Text style={styles.errorText}>Error loading bouts: {(boutsError || poolsError)?.toString()}</Text>
             </View>
         );
     }
@@ -249,9 +292,9 @@ const BoutOrderPage: React.FC = () => {
         let winnerId: number | null = null;
         if (bout.status === 'completed') {
             if (bout.scoreA > bout.scoreB) {
-                winnerId = bout.fencerA.id;
+                winnerId = bout.fencerA.id || null;
             } else if (bout.scoreB > bout.scoreA) {
-                winnerId = bout.fencerB.id;
+                winnerId = bout.fencerB.id || null;
             }
         }
 
@@ -280,6 +323,7 @@ const BoutOrderPage: React.FC = () => {
                     <View style={styles.fencerBox}>
                         <Text style={[styles.fencerText, winnerId === bout.fencerA.id && styles.winnerText]}>
                             {`(${bout.fencerA.poolNumber || '-'}) ${bout.fencerA.fname}`}
+                            {bout.fencerA.clubAbbreviation && ` (${bout.fencerA.clubAbbreviation})`}
                         </Text>
                     </View>
                     <Text style={styles.middleText}>
@@ -288,6 +332,7 @@ const BoutOrderPage: React.FC = () => {
                     <View style={styles.fencerBox}>
                         <Text style={[styles.fencerText, winnerId === bout.fencerB.id && styles.winnerText]}>
                             {`(${bout.fencerB.poolNumber || '-'}) ${bout.fencerB.fname}`}
+                            {bout.fencerB.clubAbbreviation && ` (${bout.fencerB.clubAbbreviation})`}
                         </Text>
                     </View>
                 </TouchableOpacity>

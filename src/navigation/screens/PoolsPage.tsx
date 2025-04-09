@@ -15,6 +15,7 @@ import { useRoute, RouteProp, useNavigation, useFocusEffect } from '@react-navig
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { dbGetSeedingForRound } from '../../db/DrizzleDatabaseUtils';
 import { RootStackParamList, Event, Fencer } from '../navigation/types';
+import { assignPoolPositions } from '../utils/BoutOrderUtils';
 import { usePools, useCompleteRound, useRoundCompleted } from '../../data/TournamentDataHooks';
 import ConnectionStatusBar from '../../networking/components/ConnectionStatusBar';
 import dataProvider from '../../data/DrizzleDataProvider';
@@ -61,8 +62,37 @@ const PoolsPage: React.FC = () => {
     // Set pools data when it's fetched from the server or database
     useEffect(() => {
         if (poolsData) {
-            console.log("Pools data fetched:", JSON.stringify(poolsData.map(pool => pool.fencers), null, 2));
-            setPools(poolsData);
+            console.log("Pools data fetched:", JSON.stringify(poolsData.map(pool => ({
+                poolid: pool.poolid,
+                fencersCount: pool.fencers ? pool.fencers.length : 0
+            })), null, 2));
+            
+            // Apply club-based pool positions to each pool's fencers
+            const poolsWithPositions = poolsData.map(pool => {
+                // Make sure pool.fencers exists and is an array before applying assignPoolPositions
+                if (!pool.fencers || !Array.isArray(pool.fencers)) {
+                    console.error(`Missing or invalid fencers array for pool ${pool.poolid}`, pool);
+                    return { ...pool, fencers: [] };
+                }
+                
+                // Debug log to check fencers data
+                console.log(`Pool ${pool.poolid} has ${pool.fencers.length} fencers:`, 
+                    pool.fencers.map(f => `${f.fname} ${f.lname} (${f.poolNumber || 'no position'})`));
+                
+                // Only apply assignPoolPositions if pool positions are not already assigned
+                // This allows our database-assigned positions to take precedence
+                if (pool.fencers.some(f => f.poolNumber === undefined)) {
+                    return {
+                        ...pool,
+                        fencers: assignPoolPositions(pool.fencers)
+                    };
+                } else {
+                    // If pool numbers are already assigned, keep them
+                    return pool;
+                }
+            });
+            
+            setPools(poolsWithPositions);
             setExpandedPools(new Array(poolsData.length).fill(false));
         }
     }, [poolsData]);
@@ -229,11 +259,17 @@ const PoolsPage: React.FC = () => {
                         </TouchableOpacity>
                         {isExpanded && (
                             <View style={styles.fencerList}>
-                                {poolObj.fencers.map((fencer, i) => (
-                                    <Text key={i} style={styles.fencerText}>
-                                        {fencer.lname}, {fencer.fname}
-                                    </Text>
-                                ))}
+                                {Array.isArray(poolObj.fencers) && poolObj.fencers.length > 0 ? (
+                                    poolObj.fencers.map((fencer, i) => (
+                                        <Text key={i} style={styles.fencerText}>
+                                            {fencer.poolNumber && `(${fencer.poolNumber}) `}
+                                            {fencer.lname}, {fencer.fname}
+                                            {fencer.clubAbbreviation && ` (${fencer.clubAbbreviation})`}
+                                        </Text>
+                                    ))
+                                ) : (
+                                    <Text style={styles.noFencersText}>No fencers assigned to this pool</Text>
+                                )}
                                 <TouchableOpacity
                                     style={styles.refereeButton}
                                     onPress={() =>
@@ -356,6 +392,12 @@ const styles = StyleSheet.create({
         marginTop: 10,
         fontSize: 16,
         color: '#666',
+    },
+    noFencersText: {
+        fontSize: 14,
+        fontStyle: 'italic',
+        color: '#888',
+        marginBottom: 10,
     },
     errorContainer: {
         backgroundColor: '#ffeded',

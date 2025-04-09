@@ -38,6 +38,16 @@ export async function initializeDatabase() {
       );
     `);
     
+    // Create Clubs table if it doesn't exist
+    await db.run(sql`
+      CREATE TABLE IF NOT EXISTS Clubs (
+        id integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+        name text NOT NULL UNIQUE,
+        abbreviation text
+      );
+    `);
+    
+    // Create Fencers table with correct columns
     await db.run(sql`
       CREATE TABLE IF NOT EXISTS Fencers (
         id integer PRIMARY KEY AUTOINCREMENT NOT NULL,
@@ -46,13 +56,24 @@ export async function initializeDatabase() {
         nickname text,
         gender text,
         club text,
+        clubid integer,
         erating text DEFAULT 'U',
         eyear integer DEFAULT 0,
         frating text DEFAULT 'U',
         fyear integer DEFAULT 0,
         srating text DEFAULT 'U',
-        syear integer DEFAULT 0
+        syear integer DEFAULT 0,
+        FOREIGN KEY (clubid) REFERENCES Clubs(id) ON UPDATE no action ON DELETE no action
       );
+    `);
+    
+    // Create indexes for faster club lookups
+    await db.run(sql`
+      CREATE INDEX IF NOT EXISTS idx_fencers_clubid ON Fencers (clubid);
+    `);
+    
+    await db.run(sql`
+      CREATE INDEX IF NOT EXISTS idx_clubs_name ON Clubs (name);
     `);
     
     await db.run(sql`
