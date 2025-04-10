@@ -1323,16 +1323,20 @@ export class TournamentDataProvider {
       try {
         // Request round data from server
         tournamentClient.sendMessage({
-          type: 'get_round',
-          roundId
+          type: 'get_rounds',
+          eventId: roundId
         });
 
         // Wait for the response
-        const response = await tournamentClient.waitForResponse('round_data', 5000);
+        const response = await tournamentClient.waitForResponse('rounds_list', 5000);
 
-        if (response && response.round) {
-          console.log(`[DataProvider] Received round data from server`);
-          return response.round;
+        if (response && Array.isArray(response.rounds) && response.rounds.length > 0) {
+          console.log(`[DataProvider] Received rounds data from server`);
+          // Use the first round that matches the roundId
+          const round = response.rounds.find((r: any) => r.id === roundId);
+          if (round) {
+            return round;
+          }
         }
 
         throw new Error('Failed to fetch round data from server');
