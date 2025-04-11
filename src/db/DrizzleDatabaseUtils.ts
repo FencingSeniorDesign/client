@@ -3,9 +3,8 @@ import { and, count, countDistinct, eq, gt, like, or, sql, desc, isNull, isNotNu
 import { alias } from 'drizzle-orm/sqlite-core';
 import { db } from './DrizzleClient';
 import * as schema from './schema';
-import { buildPools } from "../navigation/utils/RoundAlgorithms";
-import { Fencer, Event, Tournament, Round, Bout } from "../navigation/navigation/types";
-import { calculateSeedingFromResults, calculatePreliminarySeeding } from '../navigation/utils/RoundAlgorithms';
+import { buildPools, calculateSeedingFromResults, calculatePreliminarySeeding } from "../navigation/utils/RoundAlgorithms";
+import type { Fencer, Event, Tournament, Round, Bout } from "../navigation/navigation/types";
 import { generateDoubleEliminationStructure, placeFencersInDoubleElimination } from '../navigation/utils/DoubleEliminationUtils';
 import { generateCompassDrawStructure, placeFencersInCompassDraw } from '../navigation/utils/CompassDrawUtils';
 
@@ -906,7 +905,6 @@ export async function dbGetSeedingForRound(roundId: number): Promise<any[]> {
 export async function dbCalculateAndSaveSeedingFromRoundResults(eventId: number, roundId: number): Promise<void> {
   try {
     // Get all pools for the round
-    const pools = await dbGetPoolsForRound(roundId);
     
     // For each pool, calculate stats for each fencer
     const poolResults = [];
@@ -977,7 +975,6 @@ export async function dbCalculateAndSaveSeedingFromRoundResults(eventId: number,
     }
     
     // Calculate seeding based on pool results
-    const { calculateSeedingFromResults } = require('../navigation/utils/RoundAlgorithms');
     const seeding = calculateSeedingFromResults(poolResults);
     
     // Save the seeding to the database
@@ -1300,7 +1297,6 @@ export async function dbInitializeRound(
 
     // If this is the first round, calculate preliminary seeding
     if (round.rorder === 1) {
-      const { calculatePreliminarySeeding } = require("../navigation/utils/RoundAlgorithms");
       seeding = calculatePreliminarySeeding(fencers);
       // Save the preliminary seeding to the database
       await dbSaveSeeding(event.id, round.id, seeding);
@@ -1323,7 +1319,6 @@ export async function dbInitializeRound(
       // If still no seeding found (unlikely), use preliminary seeding as a last resort
       if (!seeding || seeding.length === 0) {
         console.warn("No previous round results found, using preliminary seeding as fallback");
-        const { calculatePreliminarySeeding } = require("../navigation/utils/RoundAlgorithms");
         seeding = calculatePreliminarySeeding(fencers);
       }
 
