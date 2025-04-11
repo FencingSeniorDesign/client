@@ -10,6 +10,7 @@ import tournamentClient from '../../networking/TournamentClient';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useOngoingTournaments, useCompletedTournaments } from '../../data/TournamentDataHooks';
+import { getDeviceId } from '../../networking/NetworkUtils';
 
 // Import the logo image
 import logo from '../../assets/logo.png';
@@ -21,12 +22,13 @@ export function Home() {
   // State for join tournament modal
   const [joinModalVisible, setJoinModalVisible] = useState(false);
   const [connectedTournament, setConnectedTournament] = useState<string | null>(null);
+  const [deviceId, setDeviceId] = useState<string>('');
 
   // Use TanStack Query hooks for tournaments
   const ongoingTournamentsQuery = useOngoingTournaments();
   const completedTournamentsQuery = useCompletedTournaments();
 
-  // Check if we're connected to a tournament on load
+  // Check if we're connected to a tournament on load and get device ID
   useEffect(() => {
     const checkConnection = async () => {
       await tournamentClient.loadClientInfo();
@@ -34,6 +36,10 @@ export function Home() {
       if (clientInfo && clientInfo.isConnected) {
         setConnectedTournament(clientInfo.tournamentName);
       }
+
+      // Get and set device ID
+      const id = await getDeviceId();
+      setDeviceId(id);
     };
 
     checkConnection();
@@ -117,6 +123,9 @@ export function Home() {
           </View>
         </View>
 
+        {/* Device ID display */}
+        <Text style={styles.deviceIdText}>Device ID: {deviceId}</Text>
+        
         {/* Referee Module Button */}
         <TouchableOpacity style={styles.refereeButton} onPress={() => navigation.navigate('RefereeModule')}>
           <MaterialIcons name="timer" size={24} color="#fff" style={styles.buttonIcon} />
@@ -146,6 +155,12 @@ const styles = StyleSheet.create({
     width: 280,
     height: 140,
     marginBottom: 20,
+  },
+  deviceIdText: {
+    fontSize: 12,
+    color: '#666',
+    marginBottom: 5,
+    alignSelf: 'center',
   },
   buttonContainer: {
     width: '100%',
