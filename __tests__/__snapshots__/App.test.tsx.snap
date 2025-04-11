@@ -1,0 +1,17 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`App Component renders without crashing and displays the Navigation component 1`] = `
+<View
+  style={
+    {
+      "flex": 1,
+    }
+  }
+>
+  <Text
+    testID="navigation"
+  >
+    Navigation Component
+  </Text>
+</View>
+`;
