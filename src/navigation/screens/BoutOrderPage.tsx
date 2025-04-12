@@ -276,7 +276,7 @@ const BoutOrderPage: React.FC = () => {
                     poolId
                 });
                 console.log(`Random score update for bout ${bout.id} completed with result:`, result);
-                return { ...bout, scoreA: randomScoreA, scoreB: randomScoreB, status: 'completed' as 'completed' | 'pending' | 'active' };
+                return { ...bout, scoreA: randomScoreA, scoreB: randomScoreB, status: 'completed' } as Bout;
             } catch (error) {
                 console.error(`Error updating bout ${bout.id} with random scores:`, error);
                 Alert.alert("Error", `Failed to update bout ${bout.id} with random scores.`);
@@ -313,9 +313,9 @@ const BoutOrderPage: React.FC = () => {
         let winnerId: number | null = null;
         if (bout.status === 'completed') {
             if (bout.scoreA > bout.scoreB) {
-                winnerId = bout.fencerA.id || null;
+                winnerId = bout.fencerA.id ?? null;
             } else if (bout.scoreB > bout.scoreA) {
-                winnerId = bout.fencerB.id || null;
+                winnerId = bout.fencerB.id ?? null;
             }
         }
 

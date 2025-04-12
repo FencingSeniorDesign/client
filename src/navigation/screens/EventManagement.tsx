@@ -357,8 +357,8 @@ export const EventManagement = ({ route }: Props) => {
       });
       
       // Get the freshly fetched data from the cache
-      const fencers = queryClient.getQueryData(queryKeys.fencers(eventId));
-      const rounds = queryClient.getQueryData(queryKeys.rounds(eventId));
+      const fencers = queryClient.getQueryData<Fencer[]>(queryKeys.fencers(eventId));
+      const rounds = queryClient.getQueryData<Round[]>(queryKeys.rounds(eventId));
       
       if (!fencers || fencers.length === 0) {
         Alert.alert('Error', 'Cannot start event with no fencers. Please add fencers to this event.');
@@ -422,7 +422,7 @@ export const EventManagement = ({ route }: Props) => {
       });
       
       // Get the rounds from the query cache
-      const rounds = queryClient.getQueryData(queryKeys.rounds(eventId));
+      const rounds = queryClient.getQueryData<Round[]>(queryKeys.rounds(eventId));
       console.log('Retrieved rounds:', rounds);
 
       if (!rounds || rounds.length === 0) {
@@ -540,7 +540,7 @@ export const EventManagement = ({ route }: Props) => {
       console.log('Network info before starting server:', networkInfo);
       
       // Start the server
-      const tournament = { name: tournamentName };
+      const tournament = { name: tournamentName, isComplete: false }; // Add isComplete property
       const success = await tournamentServer.startServer(tournament);
       
       // Verify server actually started
@@ -729,18 +729,20 @@ export const EventManagement = ({ route }: Props) => {
                     {event.age} {event.gender} {event.weapon}
                   </Text>
                   <View style={styles.eventActions}>
-                    <TouchableOpacity
-                        style={[styles.actionButton, styles.flexAction]}
-                        onPress={() =>
-                            navigation.navigate('EventSettings', {
-                              event: event,
-                              onSave: handleSaveEventSettings,
-                              isRemote: isRemote
-                            })
-                        }
-                    >
-                      <Text style={styles.buttonText}>Edit</Text>
-                    </TouchableOpacity>
+                    <Can I="update" a="Event" this={event}>
+                      <TouchableOpacity
+                          style={[styles.actionButton, styles.flexAction]}
+                          onPress={() =>
+                              navigation.navigate('EventSettings', {
+                                event: event,
+                                onSave: handleSaveEventSettings,
+                                isRemote: isRemote
+                              })
+                          }
+                      >
+                        <Text style={styles.buttonText}>Edit</Text>
+                      </TouchableOpacity>
+                    </Can>
                     <TouchableOpacity
                         style={[styles.actionButton, styles.flexAction]}
                         onPress={() => {

@@ -107,7 +107,7 @@ export type Official = {
 export type RootStackParamList = {
     HomeTabs: undefined;
     EventManagment: { tournamentName: string };
-    EventSettings: { event: Event; onSave: (updatedEvent: Event) => void };
+    EventSettings: { event: Event; onSave: (updatedEvent: Event) => void; isRemote?: boolean; };
     RefereeModule: {
         boutIndex: number;
         fencer1Name: string;
@@ -115,6 +115,7 @@ export type RootStackParamList = {
         currentScore1: number;
         currentScore2: number;
         onSaveScores?: (score1: number, score2: number) => void;
+        isRemote?: boolean; // Add optional isRemote flag
     };
     PoolsPage: {
         event: Event;
