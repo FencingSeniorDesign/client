@@ -95,13 +95,25 @@ export const JoinTournamentModal: React.FC<JoinTournamentModalProps> = ({
             setConnecting(false);
             const clientInfo = tournamentClient.getClientInfo();
             if (clientInfo) {
+                // Explicitly request events list from the server
+                console.log("Requesting events list after successful connection");
+                tournamentClient.sendMessage({
+                    type: 'get_events'
+                });
+                
+                // Also request event statuses to ensure the UI is properly updated
+                tournamentClient.sendMessage({
+                    type: 'get_event_statuses',
+                    eventIds: [] // Empty array to get all event statuses
+                });
+
                 // Notify parent component
-                onJoinSuccess(clientInfo.tournamentName);
+                onJoinSuccess(clientInfo.tournamentName || 'Tournament');
 
                 // After successful connection, navigate to EventManagement screen
                 // with the tournament name from the connection
                 navigation.navigate('EventManagement', {
-                    tournamentName: clientInfo.tournamentName,
+                    tournamentName: clientInfo.tournamentName || 'Tournament',
                     isRemoteConnection: true  // Flag to indicate this is a remote connection
                 });
 

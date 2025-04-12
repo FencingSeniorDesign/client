@@ -1,5 +1,6 @@
 // src/data/DrizzleDataProvider.ts
 import {Event, Fencer, Round, Official, Tournament, PoolData} from '../navigation/navigation/types'; // Added PoolData import
+import { Role } from '../rbac/ability';
 import {
   dbListEvents,
   dbGetFencersInEventById,
@@ -1310,6 +1311,63 @@ export class TournamentDataProvider {
     } catch (error) {
       console.error('[DataProvider] Error checking role locally:', error);
       return 'spectator';
+    }
+  }
+
+  /**
+   * Get the role (Official, Referee, Viewer) for a specific device within a given tournament.
+   * Checks against the tournament's official and referee lists by iterating through its events.
+   * NOTE: This should only be called for local data access scenarios. Remote role
+   * determination should happen server-side.
+   */
+  async getTournamentRoleForDevice(deviceId: string, tournamentName: string): Promise<Role> {
+    console.log(`[DataProvider] Checking tournament role for device ${deviceId} in tournament ${tournamentName}`);
+    if (!deviceId || !tournamentName) {
+      console.log('[DataProvider] Missing deviceId or tournamentName, defaulting to VIEWER');
+      return Role.VIEWER;
+    }
+
+    // This method assumes local data access.
+    if (this.isRemoteConnection()) {
+      console.warn('[DataProvider] getTournamentRoleForDevice called on remote connection. Defaulting to VIEWER.');
+      return Role.VIEWER;
+    }
+
+    try {
+      // 1. Get all events for the tournament
+      const events = await dbListEvents(tournamentName);
+      if (!events || events.length === 0) {
+        console.log(`[DataProvider] No events found for tournament ${tournamentName}. Defaulting to VIEWER.`);
+        return Role.VIEWER;
+      }
+
+      // 2. Iterate through events and check official/referee lists for each event
+      for (const event of events) {
+        const eventId = event.id;
+
+        // Check officials for this event
+        const officials = await dbGetOfficialsForEvent(eventId);
+        const isOfficial = officials.some(official => official.deviceId === deviceId);
+        if (isOfficial) {
+          console.log(`[DataProvider] Device ${deviceId} is an OFFICIAL for event ${eventId} in tournament ${tournamentName}`);
+          return Role.OFFICIAL;
+        }
+
+        // Check referees for this event
+        const referees = await dbGetRefereesForEvent(eventId);
+        const isReferee = referees.some(referee => referee.deviceId === deviceId);
+        if (isReferee) {
+          console.log(`[DataProvider] Device ${deviceId} is a REFEREE for event ${eventId} in tournament ${tournamentName}`);
+          return Role.REFEREE;
+        }
+      }
+
+      // 3. If not found in any event's list, default to Viewer
+      console.log(`[DataProvider] Device ${deviceId} is a VIEWER for tournament ${tournamentName}`);
+      return Role.VIEWER;
+    } catch (error) {
+      console.error(`[DataProvider] Error checking tournament role for device ${deviceId}:`, error);
+      return Role.VIEWER; // Default to viewer on error
     }
   }
 

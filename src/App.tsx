@@ -9,6 +9,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { setupTournamentSync } from './data/TournamentDataHooks';
 import { initializeDatabase } from "./db/DrizzleClient";
 import tournamentServer from './networking/TournamentServer';
+import { AbilityProvider } from './rbac/AbilityContext';
 
 // Create a client
 const queryClient = new QueryClient({
@@ -42,18 +43,21 @@ export function App() {
     return (
         <QueryClientProvider client={queryClient}>
             <GestureHandlerRootView style={{ flex: 1 }}>
-                <Navigation
-                    linking={{
-                        enabled: 'auto',
-                        prefixes: [
-                            // Change the scheme to match your app's scheme defined in app.json
-                            'helloworld://',
-                        ],
-                    }}
-                    onReady={() => {
-                        SplashScreen.hideAsync();
-                    }}
-                />
+                {/* Add AbilityProvider for RBAC */}
+                <AbilityProvider>
+                    <Navigation
+                        linking={{
+                            enabled: 'auto',
+                            prefixes: [
+                                // Change the scheme to match your app's scheme defined in app.json
+                                'helloworld://',
+                            ],
+                        }}
+                        onReady={() => {
+                            SplashScreen.hideAsync();
+                        }}
+                    />
+                </AbilityProvider>
             </GestureHandlerRootView>
         </QueryClientProvider>
     );

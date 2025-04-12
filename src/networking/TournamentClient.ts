@@ -94,6 +94,7 @@ class TournamentClient extends EventEmitter {
                         console.log(`Sending join request with device ID: ${deviceId}`);
                         
                         // Send join request with device ID
+                        // Send join request WITHOUT requesting a specific role
                         this.sendMessageRaw(JSON.stringify({
                             type: 'join_request',
                             deviceId,
@@ -617,21 +618,38 @@ class TournamentClient extends EventEmitter {
 
     // Handle welcome message from server
     private handleWelcome(data: any): void {
+        console.log(`Received welcome message with tournament name: ${data.tournamentName}`);
+        
+        // Store the original tournament name
+        const tournamentName = data.tournamentName;
+        
         if (this.clientInfo) {
-            this.clientInfo.tournamentName = data.tournamentName;
+            if (tournamentName) {
+                console.log(`Using actual tournament name from server: ${tournamentName}`);
+                this.clientInfo.tournamentName = tournamentName;
+            } else {
+                console.log(`No tournament name provided in welcome message, using default`);
+                this.clientInfo.tournamentName = 'Tournament';
+            }
+            
             this.clientInfo.isConnected = true;
             AsyncStorage.setItem(CLIENT_INFO_KEY, JSON.stringify(this.clientInfo));
         }
-        this.emit('connected', data.tournamentName);
+        
+        this.emit('connected', tournamentName || 'Tournament');
 
         // Request tournament data after connecting
         this.requestTournamentData();
         
         // Immediately also request event list since that's what users see first
         // Make sure we're requesting events properly without requiring tournament name
+        console.log('Requesting events list after welcome message');
         this.sendMessage({
             type: 'get_events'
         });
+        
+        // Don't request event statuses if the server doesn't support this message type
+        // Based on server logs, the current server doesn't recognize 'get_event_statuses'
     }
 
     // Handle join response from server
@@ -644,8 +662,38 @@ class TournamentClient extends EventEmitter {
                 AsyncStorage.setItem('tournament_user_role', data.role)
                     .catch(error => console.error('Error storing user role:', error));
             }
+            // Removed the else block that defaulted to 'referee'
             
-            this.emit('joined', data.message);
+            // Check if we also received a tournament name in the join response
+            if (data.tournamentName && this.clientInfo) {
+                console.log(`Server provided tournament name: ${data.tournamentName}`);
+                this.clientInfo.tournamentName = data.tournamentName;
+                AsyncStorage.setItem(CLIENT_INFO_KEY, JSON.stringify(this.clientInfo));
+            } else if (this.clientInfo && this.clientInfo.tournamentData && this.clientInfo.tournamentData.tournamentName) {
+                // Use the tournament name from tournament data if available
+                console.log(`Using tournament name from tournament data: ${this.clientInfo.tournamentData.tournamentName}`);
+                this.clientInfo.tournamentName = this.clientInfo.tournamentData.tournamentName;
+                AsyncStorage.setItem(CLIENT_INFO_KEY, JSON.stringify(this.clientInfo));
+            }
+            
+            this.emit('joined', data.message); // Existing event
+
+            // Emit a new event when the server assigns a role
+            if (data.role) {
+              this.emit('roleAssigned', {
+                role: data.role,
+                tournamentName: this.clientInfo?.tournamentName
+              });
+            }
+            
+            // Explicitly request events after successful join
+            console.log('Requesting events list after successful join');
+            this.sendMessage({
+                type: 'get_events'
+            });
+            
+            // Don't request event statuses if the server doesn't support this message type
+            // Based on server logs, the current server doesn't recognize 'get_event_statuses'
 
             // Send any queued messages
             while (this.messageQueue.length > 0) {
@@ -683,7 +731,16 @@ class TournamentClient extends EventEmitter {
     // Handle tournament data from server (complete tournament data)
     private handleTournamentData(data: any): void {
         if (this.clientInfo) {
+            // Store the tournament data
             this.clientInfo.tournamentData = data.tournamentData;
+            
+            // If we have a tournament name in the data, update the client info
+            if (data.tournamentData?.tournamentName && !this.clientInfo.tournamentName) {
+                console.log(`Updating tournament name from tournament_data: ${data.tournamentData.tournamentName}`);
+                this.clientInfo.tournamentName = data.tournamentData.tournamentName;
+            }
+            
+            // Save the updated client info
             AsyncStorage.setItem(CLIENT_INFO_KEY, JSON.stringify(this.clientInfo));
         }
         this.emit('tournamentData', data.tournamentData);

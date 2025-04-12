@@ -24,6 +24,8 @@ import ConnectionStatusBar from '../../networking/components/ConnectionStatusBar
 import { useQueryClient } from '@tanstack/react-query';
 import { useEvents, useCreateEvent, useEventStatuses, useDeleteEvent, useRounds, useFencers, useInitializeRound, queryKeys } from '../../data/TournamentDataHooks';
 import dataProvider from '../../data/DrizzleDataProvider';
+import { PermissionsDisplay } from '../../rbac/PermissionsDisplay';
+import { Can } from '../../rbac/Can';
 
 type Props = {
   route: RouteProp<{ params: { tournamentName: string, isRemoteConnection?: boolean } }, 'params'>;
@@ -111,14 +113,33 @@ export const EventManagement = ({ route }: Props) => {
     if (isRemote) {
       const clientInfo = tournamentClient.getClientInfo();
       if (clientInfo) {
+        // Use the exact tournamentName from the client info rather than a default
+        // This ensures we're using the name the server provided
+        console.log(`Setting remote connection info with tournament name: ${clientInfo.tournamentName}`);
+        
+        // Update both the connection info and parameters used throughout the component
+        const actualTournamentName = clientInfo.tournamentName || tournamentName || 'Tournament';
+        
         setRemoteConnectionInfo({
-          tournamentName: clientInfo.tournamentName,
+          tournamentName: actualTournamentName,
           hostIp: clientInfo.hostIp,
           port: clientInfo.port
         });
+        
+        // Also explicitly request events list when in remote mode
+        if (isRemote && tournamentClient.isConnected()) {
+          console.log(`Requesting events list for tournament "${actualTournamentName}" from EventManagement component`);
+          tournamentClient.sendMessage({
+            type: 'get_events'
+          });
+          
+          // Don't send get_event_statuses if the server doesn't support it
+          // This is based on the server logs showing it doesn't recognize this type
+          // We'll handle status calculation differently
+        }
       }
     }
-  }, [isRemote]);
+  }, [isRemote, tournamentName]);
   
   // Connection alerts are now handled by the ConnectionAlertProvider in App.tsx
 
@@ -580,8 +601,11 @@ export const EventManagement = ({ route }: Props) => {
   return (
       <ScrollView contentContainerStyle={styles.container}>
         <Text style={styles.title}>
-          {isRemote ? remoteConnectionInfo?.tournamentName || 'Remote Tournament' : 'Edit Tournament'}
+          {isRemote ? remoteConnectionInfo?.tournamentName || tournamentName || 'Tournament' : 'Edit Tournament'}
         </Text>
+
+        {/* Display user permissions */}
+        <PermissionsDisplay tournamentName={tournamentName} />
 
         <View style={styles.headerContainer}>
           <Text style={styles.tournamentName}>
@@ -659,27 +683,33 @@ export const EventManagement = ({ route }: Props) => {
             </View>
         )}
 
-        {!isRemote && (
-            <TouchableOpacity
-                style={styles.manageOfficialsButton}
-                onPress={() => 
-                    navigation.navigate('ManageOfficials', {
-                        tournamentName: tournamentName,
-                        isRemote: isRemote
-                    })
-                }
-            >
-                <Text style={styles.manageOfficialsText}>Manage Officials</Text>
-            </TouchableOpacity>
-        )}
+        {/* Use CASL's Can component to show the button only if user has permission */}
+        <Can I="manage" a="Official">
+          {!isRemote && (
+              <TouchableOpacity
+                  style={styles.manageOfficialsButton}
+                  onPress={() => 
+                      navigation.navigate('ManageOfficials', {
+                          tournamentName: tournamentName,
+                          isRemote: isRemote
+                      })
+                  }
+              >
+                  <Text style={styles.manageOfficialsText}>Manage Officials</Text>
+              </TouchableOpacity>
+          )}
+        </Can>
 
-        {!isRemote && (
-            <Button 
-              title="Create Event" 
-              onPress={openCreateModal}
-              disabled={createEventMutation.isPending} 
-            />
-        )}
+        {/* Use CASL's Can component to enable creating events only if user has permission */}
+        <Can I="create" a="Event">
+          {!isRemote && (
+              <Button 
+                title="Create Event" 
+                onPress={openCreateModal}
+                disabled={createEventMutation.isPending} 
+              />
+          )}
+        </Can>
 
         {eventsLoading ? (
           <View style={styles.loadingContainer}>

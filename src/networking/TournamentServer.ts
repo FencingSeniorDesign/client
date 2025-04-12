@@ -368,22 +368,51 @@ class TournamentServer {
     }
 
     // Handle a join request from a client
-    private handleJoinRequest(clientId: string, data: any): void {
-        const client = this.clients.get(clientId);
-        if (client) {
-            // Respond to the join request
-            console.log(`Sending join response to ${clientId}`);
-            try {
-                client.write(JSON.stringify({
-                    type: 'join_response',
-                    success: true,
-                    message: `Successfully joined ${this.serverInfo?.tournamentName}`
-                }));
-            } catch (error) {
-                console.error('Error sending join response:', error);
-            }
+    async handleJoinRequest(clientId: string, data: any): Promise<void> {
+    const client = this.clients.get(clientId);
+    if (!client) return;
+
+    const deviceId = data.deviceId;
+    let assignedRole = 'viewer'; // Default role
+
+    if (deviceId) {
+      try {
+        // Dynamically import DB utils inside the async method
+        const { dbGetOfficialByDeviceId, dbGetRefereeByDeviceId } = require('../db/DrizzleDatabaseUtils');
+        
+        console.log(`[Server] Checking role for deviceId: ${deviceId}`);
+        const official = await dbGetOfficialByDeviceId(deviceId);
+        if (official) {
+          assignedRole = 'tournament_official';
+        } else {
+          const referee = await dbGetRefereeByDeviceId(deviceId);
+          if (referee) {
+            assignedRole = 'referee';
+          }
         }
+        console.log(`[Server] Assigned role: ${assignedRole} for deviceId: ${deviceId}`);
+      } catch (error) {
+        console.error(`[Server] Error checking role for deviceId ${deviceId}:`, error);
+        // Keep default 'viewer' role on error
+      }
+    } else {
+      console.warn(`[Server] No deviceId provided in join_request from ${clientId}. Assigning 'viewer' role.`);
     }
+
+    // Respond to the join request including the determined role
+    console.log(`[Server] Sending join response to ${clientId} with role: ${assignedRole}`);
+    try {
+      client.write(JSON.stringify({
+        type: 'join_response',
+        success: true,
+        message: `Successfully joined ${this.serverInfo?.tournamentName}`,
+        role: assignedRole, // Include the assigned role
+        tournamentName: this.serverInfo?.tournamentName // Also include tournament name
+      }));
+    } catch (error) {
+      console.error('[Server] Error sending join response:', error);
+    }
+  }
 
     // Handle a score update from a client
     private handleScoreUpdate(clientId: string, data: any): void {
