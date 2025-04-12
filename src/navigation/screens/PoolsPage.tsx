@@ -16,10 +16,12 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { dbGetSeedingForRound } from '../../db/DrizzleDatabaseUtils';
 import { RootStackParamList, Event, Fencer } from '../navigation/types';
 import { assignPoolPositions } from '../utils/BoutOrderUtils';
-import { usePools, useCompleteRound, useRoundCompleted } from '../../data/TournamentDataHooks';
+import { usePools, useCompleteRound, useRoundCompleted, queryKeys } from '../../data/TournamentDataHooks';
 import ConnectionStatusBar from '../../networking/components/ConnectionStatusBar';
 import dataProvider from '../../data/DrizzleDataProvider';
 import { useQueryClient } from '@tanstack/react-query';
+import { Can } from '../../rbac/Can';
+import { useAbility } from '../../rbac/AbilityContext';
 
 type PoolsPageRouteParams = {
     event: Event;
@@ -34,6 +36,7 @@ const PoolsPage: React.FC = () => {
     const route = useRoute<RouteProp<{ params: PoolsPageRouteParams }, 'params'>>();
     const navigation = useNavigation<PoolsPageNavProp>();
     const queryClient = useQueryClient();
+    const { ability } = useAbility();
 
     const { event, currentRoundIndex, roundId, isRemote = false } = route.params;
     const [pools, setPools] = useState<{ poolid: number; fencers: Fencer[] }[]>([]);
@@ -57,7 +60,20 @@ const PoolsPage: React.FC = () => {
     const completeRoundMutation = useCompleteRound();
 
     // Check if the round is already completed
-    const { data: isRoundCompleted, isLoading: isRoundCompletedLoading } = useRoundCompleted(roundId);
+    const { data: isRoundCompleted, isLoading: isRoundCompletedLoading, refetch: refetchRoundCompleted } = useRoundCompleted(roundId);
+    
+    // Add debugging for round completion status
+    useEffect(() => {
+        console.log(`Round ${roundId} completed status:`, isRoundCompleted);
+    }, [isRoundCompleted, roundId]);
+    
+    // Refetch completion status when component is focused to ensure we have latest status
+    useFocusEffect(
+        useCallback(() => {
+            console.log("PoolsPage focused - refetching round completion status");
+            refetchRoundCompleted();
+        }, [refetchRoundCompleted])
+    );
 
     // Set pools data when it's fetched from the server or database
     useEffect(() => {
@@ -119,6 +135,11 @@ const PoolsPage: React.FC = () => {
             );
 
             setPoolCompletionStatus(statusObj);
+            
+            // Log the completion status of all pools
+            console.log("Pool completion status:", statusObj);
+            const allPoolsComplete = Object.values(statusObj).every(status => status);
+            console.log("All pools complete:", allPoolsComplete);
         } catch (error) {
             console.error("Error checking bout completion:", error);
         }
@@ -188,16 +209,39 @@ const PoolsPage: React.FC = () => {
                 {
                     text: "Yes", onPress: async () => {
                         try {
-                            await completeRoundMutation.mutateAsync({
+                            console.log(`Marking round ${roundId} as complete...`);
+                            
+                            const result = await completeRoundMutation.mutateAsync({
                                 roundId,
                                 eventId: event.id
                             });
-
-                            navigation.navigate('RoundResults', {
-                                roundId,
-                                eventId: event.id,
-                                currentRoundIndex
+                            
+                            console.log(`Result of marking round ${roundId} as complete:`, result);
+                            
+                            // Force refetch of round completion status
+                            await queryClient.invalidateQueries({ 
+                                queryKey: queryKeys.roundCompleted(roundId) 
                             });
+                            
+                            // Also invalidate the entire round data
+                            await queryClient.invalidateQueries({
+                                queryKey: queryKeys.round(roundId)
+                            });
+                            
+                            // Explicitly refetch the round completion status
+                            console.log("Explicitly refetching round completion status");
+                            await refetchRoundCompleted();
+                            
+                            // Instead of immediately navigating, delay navigation to allow the UI to update
+                            setTimeout(() => {
+                                // Navigate to results
+                                console.log("Navigating to RoundResults");
+                                navigation.navigate('RoundResults', {
+                                    roundId,
+                                    eventId: event.id,
+                                    currentRoundIndex
+                                });
+                            }, 500);
                         } catch (error) {
                             console.error("Error marking round as complete:", error);
                             Alert.alert(
@@ -281,7 +325,10 @@ const PoolsPage: React.FC = () => {
                                     }
                                 >
                                     <Text style={styles.refereeButtonText}>
-                                        {complete ? "Edit Completed Pool" : "Referee"}
+                                        {ability.can('score', 'Bout')
+                                            ? complete ? "Edit Completed Pool" : "Referee"
+                                            : "Open"
+                                        }
                                     </Text>
                                 </TouchableOpacity>
                             </View>
@@ -290,22 +337,36 @@ const PoolsPage: React.FC = () => {
                 );
             })}
 
-            <TouchableOpacity
-                style={[
-                    styles.endRoundButton,
-                    !isRoundCompleted && !Object.values(poolCompletionStatus).every(status => status) && styles.disabledButton,
-                ]}
-                disabled={!isRoundCompleted && !Object.values(poolCompletionStatus).every(status => status)}
-                onPress={isRoundCompleted ? () => navigation.navigate('RoundResults', {
-                    roundId,
-                    eventId: event.id,
-                    currentRoundIndex
-                }) : confirmEndRound}
-            >
-                <Text style={styles.endRoundButtonText}>
-                    {isRoundCompleted ? "Show Results" : "End Round"}
-                </Text>
-            </TouchableOpacity>
+            <Can I="update" a="Round">
+                {(allowed) => {
+                    // Debug values affecting button
+                    console.log("Button debug - isRoundCompleted:", isRoundCompleted);
+                    console.log("Button debug - all pools complete:", Object.values(poolCompletionStatus).every(status => status));
+                    console.log("Button debug - allowed:", allowed);
+                    
+                    const allPoolsComplete = Object.values(poolCompletionStatus).every(status => status);
+                    const buttonDisabled = (!isRoundCompleted && !allPoolsComplete) || !allowed;
+                    
+                    return (
+                        <TouchableOpacity
+                            style={[
+                                styles.endRoundButton,
+                                buttonDisabled && styles.disabledButton,
+                            ]}
+                            disabled={buttonDisabled}
+                            onPress={isRoundCompleted ? () => navigation.navigate('RoundResults', {
+                                roundId,
+                                eventId: event.id,
+                                currentRoundIndex
+                            }) : confirmEndRound}
+                        >
+                            <Text style={[styles.endRoundButtonText, !allowed && styles.disabledText]}>
+                                {isRoundCompleted ? "Show Results" : "End Round"}
+                            </Text>
+                        </TouchableOpacity>
+                    );
+                }}
+            </Can>
 
             {/* Strip Number Modal */}
             <Modal
@@ -479,6 +540,10 @@ const styles = StyleSheet.create({
     },
     disabledButton: {
         backgroundColor: '#ccc',
+        opacity: 0.7,
+    },
+    disabledText: {
+        color: '#999',
     },
     viewSeedingButton: {
         backgroundColor: '#4682B4',

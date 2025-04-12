@@ -26,6 +26,7 @@ import { useEvents, useCreateEvent, useEventStatuses, useDeleteEvent, useRounds,
 import dataProvider from '../../data/DrizzleDataProvider';
 import { PermissionsDisplay } from '../../rbac/PermissionsDisplay';
 import { Can } from '../../rbac/Can';
+import { useAbility } from '../../rbac/AbilityContext';
 
 type Props = {
   route: RouteProp<{ params: { tournamentName: string, isRemoteConnection?: boolean } }, 'params'>;
@@ -73,6 +74,7 @@ export const EventManagement = ({ route }: Props) => {
   const createEventMutation = useCreateEvent();
 
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const { ability } = useAbility();
 
   // Custom back button handling for remote connections
   useEffect(() => {
@@ -683,9 +685,8 @@ export const EventManagement = ({ route }: Props) => {
             </View>
         )}
 
-        {/* Use CASL's Can component to show the button only if user has permission */}
+        {/* Conditionally render Manage Officials button with Can tag */}
         <Can I="manage" a="Official">
-          {!isRemote && (
               <TouchableOpacity
                   style={styles.manageOfficialsButton}
                   onPress={() => 
@@ -697,18 +698,15 @@ export const EventManagement = ({ route }: Props) => {
               >
                   <Text style={styles.manageOfficialsText}>Manage Officials</Text>
               </TouchableOpacity>
-          )}
         </Can>
 
         {/* Use CASL's Can component to enable creating events only if user has permission */}
         <Can I="create" a="Event">
-          {!isRemote && (
               <Button 
                 title="Create Event" 
                 onPress={openCreateModal}
                 disabled={createEventMutation.isPending} 
               />
-          )}
         </Can>
 
         {eventsLoading ? (
@@ -751,14 +749,22 @@ export const EventManagement = ({ route }: Props) => {
                             const isStarted = eventStatuses && eventStatuses[event.id] === true;
                             console.log(`Event ${event.id} isStarted: ${isStarted}`);
 
-                            return isStarted
-                                ? handleOpenEvent(event.id)
-                                : confirmStartEvent(event.id);
+                            if (isStarted) {
+                                // Anyone can open a started event (read access)
+                                handleOpenEvent(event.id);
+                            } else if (ability.can('update', 'Event')) {
+                                // Only those with update permission can start an event
+                                confirmStartEvent(event.id);
+                            }
                         }}
+                        disabled={!(eventStatuses && eventStatuses[event.id] === true) && !ability.can('update', 'Event')}
                     >
-                      <Text style={styles.buttonText}>
-                        {eventStatuses && (eventStatuses[event.id] === true) ? 'Open' : 'Start'}
-                      </Text>
+                        <Text style={[
+                            styles.buttonText, 
+                            !(eventStatuses && eventStatuses[event.id] === true) && !ability.can('update', 'Event') && styles.disabledText
+                        ]}>
+                            {eventStatuses && (eventStatuses[event.id] === true) ? 'Open' : 'Start'}
+                        </Text>
                     </TouchableOpacity>
                     <TouchableOpacity
                         style={[styles.actionButton, styles.viewResultsButton]}
@@ -769,7 +775,7 @@ export const EventManagement = ({ route }: Props) => {
                     >
                     </TouchableOpacity>
 
-                    {!isRemote && (
+                    <Can I="delete" a="Event">
                         <TouchableOpacity
                             onPress={() => confirmRemoveEvent(event.id)}
                             style={styles.removeIconContainer}
@@ -777,7 +783,7 @@ export const EventManagement = ({ route }: Props) => {
                         >
                           <Text style={styles.removeIcon}>✖</Text>
                         </TouchableOpacity>
-                    )}
+                    </Can>
                   </View>
                 </View>
               ))
@@ -1168,6 +1174,13 @@ const styles = StyleSheet.create({
   },
   viewResultsButton: {
     backgroundColor: '#007AFF',
+  },
+  disabledButton: {
+    backgroundColor: '#ccc',
+    opacity: 0.7,
+  },
+  disabledText: {
+    color: '#999',
   },
 });
 

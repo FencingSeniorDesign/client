@@ -339,6 +339,8 @@ export async function dbDeleteFencerFromEventById(fencer: Fencer, event: Event):
 // Round Functions
 export async function dbMarkRoundAsComplete(roundId: number): Promise<void> {
   try {
+    console.log(`Attempting to mark round ${roundId} as complete`);
+    
     // First, get the round and event info
     const round = await db.select()
       .from(schema.rounds)
@@ -349,6 +351,8 @@ export async function dbMarkRoundAsComplete(roundId: number): Promise<void> {
       throw new Error(`Round with id ${roundId} not found`);
     }
     
+    console.log(`Found round ${roundId}, calculating seeding`);
+    
     // Calculate and save seeding from the round results
     await dbCalculateAndSaveSeedingFromRoundResults(round[0].eventid, roundId);
     
@@ -357,9 +361,10 @@ export async function dbMarkRoundAsComplete(roundId: number): Promise<void> {
       .set({ iscomplete: true })
       .where(eq(schema.rounds.id, roundId));
     
-    console.log(`Round ${roundId} marked as complete`);
+    console.log(`Round ${roundId} marked as complete successfully`);
   } catch (error) {
     console.error('Error marking round complete:', error);
+    throw error; // Rethrow the error so the mutation can properly handle it
   }
 }
 
@@ -905,6 +910,8 @@ export async function dbGetSeedingForRound(roundId: number): Promise<any[]> {
 export async function dbCalculateAndSaveSeedingFromRoundResults(eventId: number, roundId: number): Promise<void> {
   try {
     // Get all pools for the round
+    const pools = await dbGetPoolsForRound(roundId);
+    console.log(`Found ${pools.length} pools for round ${roundId}`);
     
     // For each pool, calculate stats for each fencer
     const poolResults = [];

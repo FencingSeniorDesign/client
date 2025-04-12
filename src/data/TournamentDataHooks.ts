@@ -100,11 +100,24 @@ export function useRoundStarted(roundId: number) {
 export function useRoundCompleted(roundId: number) {
   return useQuery({
     queryKey: queryKeys.roundCompleted(roundId),
-    queryFn: () => dataProvider.getRoundById(roundId), // Fetch the full round
+    queryFn: () => {
+      console.log(`Fetching completion status for round ID ${roundId}`);
+      return dataProvider.getRoundById(roundId);
+    }, // Fetch the full round
     enabled: !!roundId,
-    staleTime: dataProvider.isRemoteConnection() ? 5000 : 30000,
+    staleTime: 0, // Don't cache this at all - always refetch when requested
+    cacheTime: 0, // Don't keep old data in cache
+    refetchOnMount: true, // Always refetch when the component mounts
+    refetchOnWindowFocus: true, // Refetch when the window regains focus
+    refetchInterval: 3000, // Poll every 3 seconds to pick up changes
     // Note: iscomplete is still number in Round type, needs boolean conversion
-    select: (roundDetails) => roundDetails?.iscomplete === 1, // Select only the boolean status
+    select: (roundDetails) => {
+      console.log(`Round details for ${roundId}:`, roundDetails);
+      // Check for both numeric and boolean true values since the DB might return either
+      const isComplete = roundDetails?.iscomplete === true || roundDetails?.iscomplete === 1; 
+      console.log(`Round ${roundId} completion status: ${isComplete}`);
+      return isComplete;
+    }, // Select only the boolean status
   });
 }
 
@@ -411,10 +424,21 @@ export function useCompleteRound() {
     mutationFn: ({ roundId, eventId }: { roundId: number, eventId: number }) => {
       return dataProvider.completeRound(roundId);
     },
-    onSuccess: (_, { eventId }) => {
-      // Invalidate relevant queries after a round is completed
+    onSuccess: (_, { roundId, eventId }) => {
+      console.log(`Round ${roundId} successfully completed, invalidating queries`);
+      
+      // Invalidate specific round completion status
+      queryClient.invalidateQueries({ queryKey: queryKeys.roundCompleted(roundId) });
+      
+      // Invalidate the specific round data
+      queryClient.invalidateQueries({ queryKey: queryKeys.round(roundId) });
+      
+      // Invalidate all rounds for this event
       queryClient.invalidateQueries({ queryKey: queryKeys.rounds(eventId) });
+      
+      // Invalidate event statuses
       queryClient.invalidateQueries({ queryKey: queryKeys.eventStatuses });
+      
       // Also invalidate any pool or bout data that might exist for this event
       queryClient.invalidateQueries({ queryKey: ['pools'] });
       queryClient.invalidateQueries({ queryKey: ['bouts'] });
@@ -490,6 +514,7 @@ export function useRoundResultsData(roundId: number, eventId: number, currentRou
     interface PoolResult {
       poolid: number;
       stats: FencerStats[];
+      bouts: any[]; // Include bouts in results
     }
 
     const results: PoolResult[] = [];
@@ -552,10 +577,11 @@ export function useRoundResultsData(roundId: number, eventId: number, currentRou
       });
       stats.sort((a, b) => b.winRate - a.winRate);
 
-      // Add results for this pool
+      // Add results for this pool including bout data
       results.push({
         poolid: pool.poolid,
         stats,
+        bouts // Include the bout data directly in the results
       });
     }
 
