@@ -1,5 +1,6 @@
 // src/navigation/screens/BoutOrderPage.tsx
 import React, { useEffect, useState } from 'react';
+import { useAbility } from '../../rbac/AbilityContext';
 import {
     View,
     Text,
@@ -26,6 +27,10 @@ const BoutOrderPage: React.FC = () => {
     const route = useRoute<BoutOrderPageRouteProps>();
     const navigation = useNavigation<BoutOrderPageNavProp>();
     const { roundId, poolId, isRemote = false } = route.params;
+    const { ability } = useAbility();
+    
+    // Check if user has permission to score bouts
+    const canScoreBouts = ability.can('score', 'Bout');
 
     // Use React Query hooks, ensuring they respect remote status
     const { data: boutsData, isLoading: boutsLoading, error: boutsError } = useBoutsForPool(roundId, poolId);
@@ -35,13 +40,15 @@ const BoutOrderPage: React.FC = () => {
     const [bouts, setBouts] = useState<Bout[]>([]);
     const [fencers, setFencers] = useState<Fencer[]>([]);
     const [expandedBoutIndex, setExpandedBoutIndex] = useState<number | null>(null);
+    
+    // Scoring-related state (only used by referees)
     const [protectedScores, setProtectedScores] = useState<boolean>(false);
     const [alterModalVisible, setAlterModalVisible] = useState<boolean>(false);
     const [alterIndex, setAlterIndex] = useState<number | null>(null);
     const [alterScoreA, setAlterScoreA] = useState<string>('0');
     const [alterScoreB, setAlterScoreB] = useState<string>('0');
 
-    // Toggle for double stripping mode.
+    // Toggle for double stripping mode (only used by referees)
     const [doubleStripping, setDoubleStripping] = useState<boolean>(false);
     const activeCount = doubleStripping ? 2 : 1;
     const onDeckCount = doubleStripping ? 2 : 1;
@@ -138,12 +145,15 @@ const BoutOrderPage: React.FC = () => {
         return null;
     };
 
-    // All bouts (active or not) are interactive for altering scores when protectedScores is off.
+    // Handle bout expansion
     const handleBoutPress = (index: number) => {
         setExpandedBoutIndex(prev => (prev === index ? null : index));
     };
 
+    // Handle score submission - only called for referees
     const handleSubmitScores = async (index: number) => {
+        if (!canScoreBouts) return;
+        
         const bout = bouts[index];
         try {
             console.log(`Submitting scores for bout ${bout.id}: ${bout.scoreA}-${bout.scoreB}`);
@@ -164,7 +174,10 @@ const BoutOrderPage: React.FC = () => {
         }
     };
 
+    // Handle score changes in the input fields - only called for referees
     const handleScoreChange = (index: number, which: 'A' | 'B', val: string) => {
+        if (!canScoreBouts) return;
+        
         const intVal = parseInt(val, 10) || 0;
         const updatedBouts = bouts.map((b, i) => {
             if (i === index) {
@@ -175,17 +188,20 @@ const BoutOrderPage: React.FC = () => {
         setBouts(updatedBouts);
     };
 
-    // Allow altering scores regardless of bout status if protectedScores is off.
+    // Allow altering scores regardless of bout status if protectedScores is off (for referees only)
     const handleBoutLongPress = (index: number) => {
-        if (protectedScores) return;
+        if (!canScoreBouts || protectedScores) return;
+        
         setAlterIndex(index);
         setAlterScoreA(String(bouts[index].scoreA));
         setAlterScoreB(String(bouts[index].scoreB));
         setAlterModalVisible(true);
     };
 
+    // Save altered scores - only called for referees
     const handleAlterSave = async () => {
-        if (alterIndex === null) return;
+        if (!canScoreBouts || alterIndex === null) return;
+        
         const bout = bouts[alterIndex];
         const newScoreA = parseInt(alterScoreA, 10) || 0;
         const newScoreB = parseInt(alterScoreB, 10) || 0;
@@ -209,7 +225,10 @@ const BoutOrderPage: React.FC = () => {
         }
     };
 
+    // Open referee module - only called for referees
     const openRefModuleForBout = (index: number) => {
+        if (!canScoreBouts) return;
+        
         const bout = bouts[index];
         navigation.navigate('RefereeModule', {
             boutIndex: index,
@@ -237,8 +256,10 @@ const BoutOrderPage: React.FC = () => {
         });
     };
 
-    // Function to update every bout with random scores (0-5) and send the update to the database.
+    // Function to update every bout with random scores - only called for referees
     const handleRandomScores = async () => {
+        if (!canScoreBouts) return;
+        
         // Update each bout with random scores.
         const updatedBouts = await Promise.all(bouts.map(async (bout) => {
             const randomScoreA = Math.floor(Math.random() * 6); // generates 0-5
@@ -255,7 +276,7 @@ const BoutOrderPage: React.FC = () => {
                     poolId
                 });
                 console.log(`Random score update for bout ${bout.id} completed with result:`, result);
-                return { ...bout, scoreA: randomScoreA, scoreB: randomScoreB, status: 'completed' as 'completed' | 'pending' | 'active' };
+                return { ...bout, scoreA: randomScoreA, scoreB: randomScoreB, status: 'completed' } as Bout;
             } catch (error) {
                 console.error(`Error updating bout ${bout.id} with random scores:`, error);
                 Alert.alert("Error", `Failed to update bout ${bout.id} with random scores.`);
@@ -292,15 +313,15 @@ const BoutOrderPage: React.FC = () => {
         let winnerId: number | null = null;
         if (bout.status === 'completed') {
             if (bout.scoreA > bout.scoreB) {
-                winnerId = bout.fencerA.id || null;
+                winnerId = bout.fencerA.id ?? null;
             } else if (bout.scoreB > bout.scoreA) {
-                winnerId = bout.fencerB.id || null;
+                winnerId = bout.fencerB.id ?? null;
             }
         }
 
         // Apply styling for pending bouts based on pendingRank.
         let styleOverride = {};
-        if (bout.status === 'pending' && pendingRank !== null) {
+        if (bout.status === 'pending' && pendingRank !== null && canScoreBouts) {
             if (pendingRank < activeCount) {
                 styleOverride = { borderColor: green, borderWidth: 2 };
             } else if (pendingRank < activeCount + onDeckCount) {
@@ -336,35 +357,89 @@ const BoutOrderPage: React.FC = () => {
                         </Text>
                     </View>
                 </TouchableOpacity>
-                {expandedBoutIndex === index && bout.status === 'pending' && (
+                
+                {/* Details panel when a bout is expanded */}
+                {expandedBoutIndex === index && (
                     <View style={styles.scoreEntryContainer}>
-                        <Text style={styles.scoreEntryTitle}>Enter Scores</Text>
-                        <View style={styles.scoreRow}>
-                            <Text style={styles.scoreFencerLabel}>{bout.fencerA.fname}:</Text>
-                            <TextInput
-                                style={styles.scoreInput}
-                                keyboardType="numeric"
-                                value={String(bout.scoreA)}
-                                onChangeText={(val) => handleScoreChange(index, 'A', val)}
-                            />
-                        </View>
-                        <View style={styles.scoreRow}>
-                            <Text style={styles.scoreFencerLabel}>{bout.fencerB.fname}:</Text>
-                            <TextInput
-                                style={styles.scoreInput}
-                                keyboardType="numeric"
-                                value={String(bout.scoreB)}
-                                onChangeText={(val) => handleScoreChange(index, 'B', val)}
-                            />
-                        </View>
-                        <View style={styles.scoreButtonsRow}>
-                            <TouchableOpacity style={styles.enterButton} onPress={() => handleSubmitScores(index)}>
-                                <Text style={styles.enterButtonText}>Enter</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity style={styles.refModuleButton} onPress={() => openRefModuleForBout(index)}>
-                                <Text style={styles.refModuleButtonText}>Ref Module</Text>
-                            </TouchableOpacity>
-                        </View>
+                        {/* For referees with scoring permissions and pending bouts - show score entry */}
+                        {canScoreBouts && bout.status === 'pending' ? (
+                            <>
+                                <Text style={styles.scoreEntryTitle}>Enter Scores</Text>
+                                <View style={styles.scoreRow}>
+                                    <Text style={styles.scoreFencerLabel}>{bout.fencerA.lname}, {bout.fencerA.fname}:</Text>
+                                    <TextInput
+                                        style={styles.scoreInput}
+                                        keyboardType="numeric"
+                                        value={String(bout.scoreA)}
+                                        onChangeText={(val) => handleScoreChange(index, 'A', val)}
+                                    />
+                                </View>
+                                <View style={styles.scoreRow}>
+                                    <Text style={styles.scoreFencerLabel}>{bout.fencerB.lname}, {bout.fencerB.fname}:</Text>
+                                    <TextInput
+                                        style={styles.scoreInput}
+                                        keyboardType="numeric"
+                                        value={String(bout.scoreB)}
+                                        onChangeText={(val) => handleScoreChange(index, 'B', val)}
+                                    />
+                                </View>
+                                <View style={styles.scoreButtonsRow}>
+                                    <TouchableOpacity 
+                                        style={styles.enterButton} 
+                                        onPress={() => handleSubmitScores(index)}
+                                    >
+                                        <Text style={styles.enterButtonText}>Enter</Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity 
+                                        style={styles.refModuleButton} 
+                                        onPress={() => openRefModuleForBout(index)}
+                                    >
+                                        <Text style={styles.refModuleButtonText}>Ref Module</Text>
+                                    </TouchableOpacity>
+                                </View>
+                            </>
+                        ) : (
+                            // For viewers or completed bouts - show detailed info
+                            <View style={styles.boutDetailsContainer}>
+                                <Text style={styles.boutDetailsTitle}>
+                                    {bout.status === 'completed' ? 'Bout Result' : 'Pending Bout'}
+                                </Text>
+                                <View style={styles.fencerDetailRow}>
+                                    <Text style={[
+                                        styles.fencerDetailName, 
+                                        winnerId === bout.fencerA.id && styles.winnerDetailText
+                                    ]}>
+                                        {bout.fencerA.lname}, {bout.fencerA.fname}
+                                    </Text>
+                                    <Text style={[
+                                        styles.fencerDetailScore, 
+                                        winnerId === bout.fencerA.id && styles.winnerDetailText
+                                    ]}>
+                                        {bout.scoreA}
+                                    </Text>
+                                </View>
+                                <View style={styles.fencerDetailRow}>
+                                    <Text style={[
+                                        styles.fencerDetailName, 
+                                        winnerId === bout.fencerB.id && styles.winnerDetailText
+                                    ]}>
+                                        {bout.fencerB.lname}, {bout.fencerB.fname}
+                                    </Text>
+                                    <Text style={[
+                                        styles.fencerDetailScore, 
+                                        winnerId === bout.fencerB.id && styles.winnerDetailText
+                                    ]}>
+                                        {bout.scoreB}
+                                    </Text>
+                                </View>
+                                <Text style={styles.boutStatusText}>
+                                    {bout.status === 'completed' 
+                                        ? (winnerId ? `Winner: ${(winnerId === bout.fencerA.id ? bout.fencerA.lname : bout.fencerB.lname)}` : 'Tie') 
+                                        : 'Bout not yet scored'
+                                    }
+                                </Text>
+                            </View>
+                        )}
                     </View>
                 )}
             </View>
@@ -376,37 +451,50 @@ const BoutOrderPage: React.FC = () => {
             {/* Show connection status if in remote mode */}
             {isRemote && <ConnectionStatusBar compact={true} />}
 
-            {/* Header with double stripping toggle */}
+            {/* Header - double stripping toggle only shown to referees */}
             <View style={styles.header}>
-                <Text style={styles.headerTitle}>Bout Order</Text>
-                <TouchableOpacity
-                    style={styles.toggleButton}
-                    onPress={() => setDoubleStripping(prev => !prev)}
-                >
-                    <Text style={styles.toggleButtonText}>
-                        {doubleStripping ? 'Double Stripping On' : 'Double Stripping Off'}
-                    </Text>
-                </TouchableOpacity>
+                <Text style={styles.headerTitle}>
+                    {canScoreBouts ? 'Referee Mode' : 'View Bouts'}
+                </Text>
+                {canScoreBouts && (
+                    <TouchableOpacity
+                        style={styles.toggleButton}
+                        onPress={() => setDoubleStripping(prev => !prev)}
+                    >
+                        <Text style={styles.toggleButtonText}>
+                            {doubleStripping ? 'Double Stripping On' : 'Double Stripping Off'}
+                        </Text>
+                    </TouchableOpacity>
+                )}
             </View>
-            <View style={styles.toggleRow}>
-                <TouchableOpacity
-                    style={[styles.toggleButtonSmall, protectedScores && styles.toggleButtonActive]}
-                    onPress={() => setProtectedScores(!protectedScores)}
-                >
-                    <Text style={styles.toggleButtonText}>Protected Scores</Text>
-                </TouchableOpacity>
-            </View>
+            
+            {/* Protected scores toggle only shown to referees */}
+            {canScoreBouts && (
+                <View style={styles.toggleRow}>
+                    <TouchableOpacity
+                        style={[styles.toggleButtonSmall, protectedScores && styles.toggleButtonActive]}
+                        onPress={() => setProtectedScores(!protectedScores)}
+                    >
+                        <Text style={styles.toggleButtonText}>Protected Scores</Text>
+                    </TouchableOpacity>
+                </View>
+            )}
+            
             <ScrollView contentContainerStyle={styles.container}>
-                <Text style={styles.title}>Bout Order</Text>
+                <Text style={styles.title}>
+                    Pool Bouts
+                </Text>
                 {bouts.map((bout, index) => renderBoutWithRank(bout, index))}
             </ScrollView>
 
-            {/* Random Scores Button */}
-            <TouchableOpacity style={styles.randomScoresButton} onPress={handleRandomScores}>
-                <Text style={styles.randomScoresButtonText}>Random Scores</Text>
-            </TouchableOpacity>
+            {/* Random Scores Button - only shown to referees */}
+            {canScoreBouts && (
+                <TouchableOpacity style={styles.randomScoresButton} onPress={handleRandomScores}>
+                    <Text style={styles.randomScoresButtonText}>Random Scores</Text>
+                </TouchableOpacity>
+            )}
 
-            {/* Alter Scores Modal */}
+            {/* Alter Scores Modal - only used by referees */}
             <Modal visible={alterModalVisible} transparent animationType="fade">
                 <View style={styles.modalOverlay}>
                     <View style={styles.alterModalContent}>
@@ -430,10 +518,16 @@ const BoutOrderPage: React.FC = () => {
                             />
                         </View>
                         <View style={styles.scoreButtonsRow}>
-                            <TouchableOpacity style={styles.enterButton} onPress={handleAlterSave}>
+                            <TouchableOpacity 
+                                style={styles.enterButton} 
+                                onPress={handleAlterSave}
+                            >
                                 <Text style={styles.enterButtonText}>Save</Text>
                             </TouchableOpacity>
-                            <TouchableOpacity style={[styles.enterButton, { backgroundColor: '#666' }]} onPress={() => setAlterModalVisible(false)}>
+                            <TouchableOpacity 
+                                style={[styles.enterButton, { backgroundColor: '#666' }]} 
+                                onPress={() => setAlterModalVisible(false)}
+                            >
                                 <Text style={styles.enterButtonText}>Cancel</Text>
                             </TouchableOpacity>
                         </View>
@@ -647,6 +741,47 @@ const styles = StyleSheet.create({
         color: '#fff',
         fontSize: 16,
         fontWeight: '600',
+    },
+    // New styles for detailed bout view (for viewers)
+    boutDetailsContainer: {
+        padding: 12,
+        backgroundColor: '#f9f9f9',
+        borderRadius: 6,
+    },
+    boutDetailsTitle: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        marginBottom: 10,
+        textAlign: 'center',
+        color: navyBlue,
+    },
+    fencerDetailRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingVertical: 8,
+        borderBottomWidth: 1,
+        borderBottomColor: '#eee',
+    },
+    fencerDetailName: {
+        fontSize: 16,
+        fontWeight: '500',
+        flex: 1,
+    },
+    fencerDetailScore: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        paddingHorizontal: 12,
+    },
+    winnerDetailText: {
+        color: green,
+    },
+    boutStatusText: {
+        marginTop: 10,
+        fontSize: 14,
+        textAlign: 'center',
+        fontStyle: 'italic',
+        color: darkGrey,
     },
 });
 

@@ -1,4 +1,6 @@
-// src/networking/TournamentClient.ts - Updated with tournament data broadcasting
+// src/networking/TournamentClient.ts - Updated to use NDJSON format for streaming data
+// NDJSON (Newline Delimited JSON) provides improved streaming data handling by separating
+// JSON objects with newlines, allowing for simpler parsing and better error recovery
 import { EventEmitter } from 'events';
 import { Alert, Platform } from 'react-native';
 import TcpSocket from 'react-native-tcp-socket';
@@ -94,6 +96,7 @@ class TournamentClient extends EventEmitter {
                         console.log(`Sending join request with device ID: ${deviceId}`);
                         
                         // Send join request with device ID
+                        // Send join request WITHOUT requesting a specific role
                         this.sendMessageRaw(JSON.stringify({
                             type: 'join_request',
                             deviceId,
@@ -145,32 +148,24 @@ class TournamentClient extends EventEmitter {
                         // Append to buffer
                         buffer += dataStr;
                         
-                        // Try to process complete JSON objects
-                        let startIdx = 0;
-                        for (let i = 0; i < buffer.length; i++) {
-                            // Look for what might be the end of a JSON object
-                            if (buffer[i] === '}') {
+                        // Split by newlines and process each line (NDJSON format)
+                        const lines = buffer.split('\n');
+                        
+                        // Process all complete lines
+                        for (let i = 0; i < lines.length - 1; i++) {
+                            const line = lines[i].trim();
+                            if (line) {
                                 try {
-                                    // Try to parse from the current start index to this }
-                                    const possibleJson = buffer.substring(startIdx, i + 1);
-                                    const parsedData = JSON.parse(possibleJson);
-                                    
-                                    // If we get here, it parsed successfully
-                                    console.log(`Successfully parsed message from server: ${possibleJson.length} bytes`);
-                                    this.handleServerMessage(possibleJson);
-                                    
-                                    // Move start index to after this object
-                                    startIdx = i + 1;
-                                } catch (parseError) {
-                                    // Not valid JSON yet, continue searching
+                                    console.log(`Processing NDJSON line: ${line.length} bytes`);
+                                    this.handleServerMessage(line);
+                                } catch (error) {
+                                    console.error("Error processing NDJSON line:", error);
                                 }
                             }
                         }
                         
-                        // Remove processed messages from buffer
-                        if (startIdx > 0) {
-                            buffer = buffer.substring(startIdx);
-                        }
+                        // Keep the last potentially incomplete line in the buffer
+                        buffer = lines[lines.length - 1];
                         
                         // If buffer is getting too large without valid JSON, truncate it
                         if (buffer.length > 10000) {
@@ -310,7 +305,8 @@ class TournamentClient extends EventEmitter {
     private sendMessageRaw(messageStr: string): boolean {
         if (this.socket) {
             try {
-                this.socket.write(messageStr);
+                // Append newline character for NDJSON format
+                this.socket.write(messageStr + '\n');
                 return true;
             } catch (error) {
                 console.error('Error sending message:', error);
@@ -617,21 +613,38 @@ class TournamentClient extends EventEmitter {
 
     // Handle welcome message from server
     private handleWelcome(data: any): void {
+        console.log(`Received welcome message with tournament name: ${data.tournamentName}`);
+        
+        // Store the original tournament name
+        const tournamentName = data.tournamentName;
+        
         if (this.clientInfo) {
-            this.clientInfo.tournamentName = data.tournamentName;
+            if (tournamentName) {
+                console.log(`Using actual tournament name from server: ${tournamentName}`);
+                this.clientInfo.tournamentName = tournamentName;
+            } else {
+                console.log(`No tournament name provided in welcome message, using default`);
+                this.clientInfo.tournamentName = 'Tournament';
+            }
+            
             this.clientInfo.isConnected = true;
             AsyncStorage.setItem(CLIENT_INFO_KEY, JSON.stringify(this.clientInfo));
         }
-        this.emit('connected', data.tournamentName);
+        
+        this.emit('connected', tournamentName || 'Tournament');
 
         // Request tournament data after connecting
         this.requestTournamentData();
         
         // Immediately also request event list since that's what users see first
         // Make sure we're requesting events properly without requiring tournament name
+        console.log('Requesting events list after welcome message');
         this.sendMessage({
             type: 'get_events'
         });
+        
+        // Don't request event statuses if the server doesn't support this message type
+        // Based on server logs, the current server doesn't recognize 'get_event_statuses'
     }
 
     // Handle join response from server
@@ -644,15 +657,47 @@ class TournamentClient extends EventEmitter {
                 AsyncStorage.setItem('tournament_user_role', data.role)
                     .catch(error => console.error('Error storing user role:', error));
             }
+            // Removed the else block that defaulted to 'referee'
             
-            this.emit('joined', data.message);
+            // Check if we also received a tournament name in the join response
+            if (data.tournamentName && this.clientInfo) {
+                console.log(`Server provided tournament name: ${data.tournamentName}`);
+                this.clientInfo.tournamentName = data.tournamentName;
+                AsyncStorage.setItem(CLIENT_INFO_KEY, JSON.stringify(this.clientInfo));
+            } else if (this.clientInfo && this.clientInfo.tournamentData && this.clientInfo.tournamentData.tournamentName) {
+                // Use the tournament name from tournament data if available
+                console.log(`Using tournament name from tournament data: ${this.clientInfo.tournamentData.tournamentName}`);
+                this.clientInfo.tournamentName = this.clientInfo.tournamentData.tournamentName;
+                AsyncStorage.setItem(CLIENT_INFO_KEY, JSON.stringify(this.clientInfo));
+            }
+            
+            this.emit('joined', data.message); // Existing event
+
+            // Emit a new event when the server assigns a role
+            if (data.role) {
+              this.emit('roleAssigned', {
+                role: data.role,
+                tournamentName: this.clientInfo?.tournamentName
+              });
+            }
+            
+            // Explicitly request events after successful join
+            console.log('Requesting events list after successful join');
+            this.sendMessage({
+                type: 'get_events'
+            });
+            
+            // Don't request event statuses if the server doesn't support this message type
+            // Based on server logs, the current server doesn't recognize 'get_event_statuses'
 
             // Send any queued messages
             while (this.messageQueue.length > 0) {
                 const message = this.messageQueue.shift();
                 if (message && this.socket) {
                     try {
-                        this.socket.write(message);
+                        // Append newline character for NDJSON format if it doesn't already have one
+                        const messageWithNewline = message.endsWith('\n') ? message : message + '\n';
+                        this.socket.write(messageWithNewline);
                     } catch (error) {
                         console.error('Error sending queued message:', error);
                         // If we can't send, put it back in the queue
@@ -683,7 +728,16 @@ class TournamentClient extends EventEmitter {
     // Handle tournament data from server (complete tournament data)
     private handleTournamentData(data: any): void {
         if (this.clientInfo) {
+            // Store the tournament data
             this.clientInfo.tournamentData = data.tournamentData;
+            
+            // If we have a tournament name in the data, update the client info
+            if (data.tournamentData?.tournamentName && !this.clientInfo.tournamentName) {
+                console.log(`Updating tournament name from tournament_data: ${data.tournamentData.tournamentName}`);
+                this.clientInfo.tournamentName = data.tournamentData.tournamentName;
+            }
+            
+            // Save the updated client info
             AsyncStorage.setItem(CLIENT_INFO_KEY, JSON.stringify(this.clientInfo));
         }
         this.emit('tournamentData', data.tournamentData);

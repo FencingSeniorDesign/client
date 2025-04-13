@@ -3,9 +3,8 @@ import { and, count, countDistinct, eq, gt, like, or, sql, desc, isNull, isNotNu
 import { alias } from 'drizzle-orm/sqlite-core';
 import { db } from './DrizzleClient';
 import * as schema from './schema';
-import { buildPools } from "../navigation/utils/RoundAlgorithms";
-import { Fencer, Event, Tournament, Round, Bout } from "../navigation/navigation/types";
-import { calculateSeedingFromResults, calculatePreliminarySeeding } from '../navigation/utils/RoundAlgorithms';
+import { buildPools, calculateSeedingFromResults, calculatePreliminarySeeding } from "../navigation/utils/RoundAlgorithms";
+import type { Fencer, Event, Tournament, Round, Bout } from "../navigation/navigation/types";
 import { generateDoubleEliminationStructure, placeFencersInDoubleElimination } from '../navigation/utils/DoubleEliminationUtils';
 import { generateCompassDrawStructure, placeFencersInCompassDraw } from '../navigation/utils/CompassDrawUtils';
 
@@ -340,6 +339,8 @@ export async function dbDeleteFencerFromEventById(fencer: Fencer, event: Event):
 // Round Functions
 export async function dbMarkRoundAsComplete(roundId: number): Promise<void> {
   try {
+    console.log(`Attempting to mark round ${roundId} as complete`);
+    
     // First, get the round and event info
     const round = await db.select()
       .from(schema.rounds)
@@ -350,6 +351,8 @@ export async function dbMarkRoundAsComplete(roundId: number): Promise<void> {
       throw new Error(`Round with id ${roundId} not found`);
     }
     
+    console.log(`Found round ${roundId}, calculating seeding`);
+    
     // Calculate and save seeding from the round results
     await dbCalculateAndSaveSeedingFromRoundResults(round[0].eventid, roundId);
     
@@ -358,9 +361,10 @@ export async function dbMarkRoundAsComplete(roundId: number): Promise<void> {
       .set({ iscomplete: true })
       .where(eq(schema.rounds.id, roundId));
     
-    console.log(`Round ${roundId} marked as complete`);
+    console.log(`Round ${roundId} marked as complete successfully`);
   } catch (error) {
     console.error('Error marking round complete:', error);
+    throw error; // Rethrow the error so the mutation can properly handle it
   }
 }
 
@@ -907,6 +911,7 @@ export async function dbCalculateAndSaveSeedingFromRoundResults(eventId: number,
   try {
     // Get all pools for the round
     const pools = await dbGetPoolsForRound(roundId);
+    console.log(`Found ${pools.length} pools for round ${roundId}`);
     
     // For each pool, calculate stats for each fencer
     const poolResults = [];
@@ -977,7 +982,6 @@ export async function dbCalculateAndSaveSeedingFromRoundResults(eventId: number,
     }
     
     // Calculate seeding based on pool results
-    const { calculateSeedingFromResults } = require('../navigation/utils/RoundAlgorithms');
     const seeding = calculateSeedingFromResults(poolResults);
     
     // Save the seeding to the database
@@ -1300,7 +1304,6 @@ export async function dbInitializeRound(
 
     // If this is the first round, calculate preliminary seeding
     if (round.rorder === 1) {
-      const { calculatePreliminarySeeding } = require("../navigation/utils/RoundAlgorithms");
       seeding = calculatePreliminarySeeding(fencers);
       // Save the preliminary seeding to the database
       await dbSaveSeeding(event.id, round.id, seeding);
@@ -1323,7 +1326,6 @@ export async function dbInitializeRound(
       // If still no seeding found (unlikely), use preliminary seeding as a last resort
       if (!seeding || seeding.length === 0) {
         console.warn("No previous round results found, using preliminary seeding as fallback");
-        const { calculatePreliminarySeeding } = require("../navigation/utils/RoundAlgorithms");
         seeding = calculatePreliminarySeeding(fencers);
       }
 

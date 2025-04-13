@@ -24,6 +24,9 @@ import ConnectionStatusBar from '../../networking/components/ConnectionStatusBar
 import { useQueryClient } from '@tanstack/react-query';
 import { useEvents, useCreateEvent, useEventStatuses, useDeleteEvent, useRounds, useFencers, useInitializeRound, queryKeys } from '../../data/TournamentDataHooks';
 import dataProvider from '../../data/DrizzleDataProvider';
+import { PermissionsDisplay } from '../../rbac/PermissionsDisplay';
+import { Can } from '../../rbac/Can';
+import { useAbility } from '../../rbac/AbilityContext';
 
 type Props = {
   route: RouteProp<{ params: { tournamentName: string, isRemoteConnection?: boolean } }, 'params'>;
@@ -71,6 +74,7 @@ export const EventManagement = ({ route }: Props) => {
   const createEventMutation = useCreateEvent();
 
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const { ability } = useAbility();
 
   // Custom back button handling for remote connections
   useEffect(() => {
@@ -111,14 +115,33 @@ export const EventManagement = ({ route }: Props) => {
     if (isRemote) {
       const clientInfo = tournamentClient.getClientInfo();
       if (clientInfo) {
+        // Use the exact tournamentName from the client info rather than a default
+        // This ensures we're using the name the server provided
+        console.log(`Setting remote connection info with tournament name: ${clientInfo.tournamentName}`);
+        
+        // Update both the connection info and parameters used throughout the component
+        const actualTournamentName = clientInfo.tournamentName || tournamentName || 'Tournament';
+        
         setRemoteConnectionInfo({
-          tournamentName: clientInfo.tournamentName,
+          tournamentName: actualTournamentName,
           hostIp: clientInfo.hostIp,
           port: clientInfo.port
         });
+        
+        // Also explicitly request events list when in remote mode
+        if (isRemote && tournamentClient.isConnected()) {
+          console.log(`Requesting events list for tournament "${actualTournamentName}" from EventManagement component`);
+          tournamentClient.sendMessage({
+            type: 'get_events'
+          });
+          
+          // Don't send get_event_statuses if the server doesn't support it
+          // This is based on the server logs showing it doesn't recognize this type
+          // We'll handle status calculation differently
+        }
       }
     }
-  }, [isRemote]);
+  }, [isRemote, tournamentName]);
   
   // Connection alerts are now handled by the ConnectionAlertProvider in App.tsx
 
@@ -334,8 +357,8 @@ export const EventManagement = ({ route }: Props) => {
       });
       
       // Get the freshly fetched data from the cache
-      const fencers = queryClient.getQueryData(queryKeys.fencers(eventId));
-      const rounds = queryClient.getQueryData(queryKeys.rounds(eventId));
+      const fencers = queryClient.getQueryData<Fencer[]>(queryKeys.fencers(eventId));
+      const rounds = queryClient.getQueryData<Round[]>(queryKeys.rounds(eventId));
       
       if (!fencers || fencers.length === 0) {
         Alert.alert('Error', 'Cannot start event with no fencers. Please add fencers to this event.');
@@ -399,7 +422,7 @@ export const EventManagement = ({ route }: Props) => {
       });
       
       // Get the rounds from the query cache
-      const rounds = queryClient.getQueryData(queryKeys.rounds(eventId));
+      const rounds = queryClient.getQueryData<Round[]>(queryKeys.rounds(eventId));
       console.log('Retrieved rounds:', rounds);
 
       if (!rounds || rounds.length === 0) {
@@ -517,7 +540,7 @@ export const EventManagement = ({ route }: Props) => {
       console.log('Network info before starting server:', networkInfo);
       
       // Start the server
-      const tournament = { name: tournamentName };
+      const tournament = { name: tournamentName, isComplete: false }; // Add isComplete property
       const success = await tournamentServer.startServer(tournament);
       
       // Verify server actually started
@@ -580,8 +603,11 @@ export const EventManagement = ({ route }: Props) => {
   return (
       <ScrollView contentContainerStyle={styles.container}>
         <Text style={styles.title}>
-          {isRemote ? remoteConnectionInfo?.tournamentName || 'Remote Tournament' : 'Edit Tournament'}
+          {isRemote ? remoteConnectionInfo?.tournamentName || tournamentName || 'Tournament' : 'Edit Tournament'}
         </Text>
+
+        {/* Display user permissions */}
+        <PermissionsDisplay tournamentName={tournamentName} />
 
         <View style={styles.headerContainer}>
           <Text style={styles.tournamentName}>
@@ -659,27 +685,29 @@ export const EventManagement = ({ route }: Props) => {
             </View>
         )}
 
-        {!isRemote && (
-            <TouchableOpacity
-                style={styles.manageOfficialsButton}
-                onPress={() => 
-                    navigation.navigate('ManageOfficials', {
-                        tournamentName: tournamentName,
-                        isRemote: isRemote
-                    })
-                }
-            >
-                <Text style={styles.manageOfficialsText}>Manage Officials</Text>
-            </TouchableOpacity>
-        )}
+        {/* Conditionally render Manage Officials button with Can tag */}
+        <Can I="manage" a="Official">
+              <TouchableOpacity
+                  style={styles.manageOfficialsButton}
+                  onPress={() => 
+                      navigation.navigate('ManageOfficials', {
+                          tournamentName: tournamentName,
+                          isRemote: isRemote
+                      })
+                  }
+              >
+                  <Text style={styles.manageOfficialsText}>Manage Officials</Text>
+              </TouchableOpacity>
+        </Can>
 
-        {!isRemote && (
-            <Button 
-              title="Create Event" 
-              onPress={openCreateModal}
-              disabled={createEventMutation.isPending} 
-            />
-        )}
+        {/* Use CASL's Can component to enable creating events only if user has permission */}
+        <Can I="create" a="Event">
+              <Button 
+                title="Create Event" 
+                onPress={openCreateModal}
+                disabled={createEventMutation.isPending} 
+              />
+        </Can>
 
         {eventsLoading ? (
           <View style={styles.loadingContainer}>
@@ -701,18 +729,20 @@ export const EventManagement = ({ route }: Props) => {
                     {event.age} {event.gender} {event.weapon}
                   </Text>
                   <View style={styles.eventActions}>
-                    <TouchableOpacity
-                        style={[styles.actionButton, styles.flexAction]}
-                        onPress={() =>
-                            navigation.navigate('EventSettings', {
-                              event: event,
-                              onSave: handleSaveEventSettings,
-                              isRemote: isRemote
-                            })
-                        }
-                    >
-                      <Text style={styles.buttonText}>Edit</Text>
-                    </TouchableOpacity>
+                    <Can I="update" a="Event" this={event}>
+                      <TouchableOpacity
+                          style={[styles.actionButton, styles.flexAction]}
+                          onPress={() =>
+                              navigation.navigate('EventSettings', {
+                                event: event,
+                                onSave: handleSaveEventSettings,
+                                isRemote: isRemote
+                              })
+                          }
+                      >
+                        <Text style={styles.buttonText}>Edit</Text>
+                      </TouchableOpacity>
+                    </Can>
                     <TouchableOpacity
                         style={[styles.actionButton, styles.flexAction]}
                         onPress={() => {
@@ -721,14 +751,22 @@ export const EventManagement = ({ route }: Props) => {
                             const isStarted = eventStatuses && eventStatuses[event.id] === true;
                             console.log(`Event ${event.id} isStarted: ${isStarted}`);
 
-                            return isStarted
-                                ? handleOpenEvent(event.id)
-                                : confirmStartEvent(event.id);
+                            if (isStarted) {
+                                // Anyone can open a started event (read access)
+                                handleOpenEvent(event.id);
+                            } else if (ability.can('update', 'Event')) {
+                                // Only those with update permission can start an event
+                                confirmStartEvent(event.id);
+                            }
                         }}
+                        disabled={!(eventStatuses && eventStatuses[event.id] === true) && !ability.can('update', 'Event')}
                     >
-                      <Text style={styles.buttonText}>
-                        {eventStatuses && (eventStatuses[event.id] === true) ? 'Open' : 'Start'}
-                      </Text>
+                        <Text style={[
+                            styles.buttonText, 
+                            !(eventStatuses && eventStatuses[event.id] === true) && !ability.can('update', 'Event') && styles.disabledText
+                        ]}>
+                            {eventStatuses && (eventStatuses[event.id] === true) ? 'Open' : 'Start'}
+                        </Text>
                     </TouchableOpacity>
                     <TouchableOpacity
                         style={[styles.actionButton, styles.viewResultsButton]}
@@ -739,7 +777,7 @@ export const EventManagement = ({ route }: Props) => {
                     >
                     </TouchableOpacity>
 
-                    {!isRemote && (
+                    <Can I="delete" a="Event">
                         <TouchableOpacity
                             onPress={() => confirmRemoveEvent(event.id)}
                             style={styles.removeIconContainer}
@@ -747,7 +785,7 @@ export const EventManagement = ({ route }: Props) => {
                         >
                           <Text style={styles.removeIcon}>✖</Text>
                         </TouchableOpacity>
-                    )}
+                    </Can>
                   </View>
                 </View>
               ))
@@ -1138,6 +1176,13 @@ const styles = StyleSheet.create({
   },
   viewResultsButton: {
     backgroundColor: '#007AFF',
+  },
+  disabledButton: {
+    backgroundColor: '#ccc',
+    opacity: 0.7,
+  },
+  disabledText: {
+    color: '#999',
   },
 });
 

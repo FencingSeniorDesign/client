@@ -9,7 +9,8 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { dbDeleteTournament } from '../../db/DrizzleDatabaseUtils';
-import {Tournament} from "../navigation/types";
+import { Tournament } from "../navigation/types";
+import { useAbility } from '../../rbac/AbilityContext'; // Import useAbility
 
 interface TournamentListProps {
     tournaments: Tournament[];
@@ -23,9 +24,12 @@ export const TournamentList: React.FC<TournamentListProps> = ({
                                                                   isComplete,
                                                               }) => {
     const navigation = useNavigation();
+    const { setTournamentContext } = useAbility(); // Get the context setter function
 
     const handleTournamentPress = (tournamentName: string) => {
-        // @ts-ignore
+        console.log(`Setting tournament context for: ${tournamentName}`);
+        setTournamentContext(tournamentName); // Set the context before navigating
+        // @ts-ignore - Keep ignoring navigation type for now
         navigation.navigate('EventManagement', { tournamentName });
     };
 

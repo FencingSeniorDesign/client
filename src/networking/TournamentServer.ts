@@ -1,4 +1,6 @@
-// src/networking/TournamentServer.ts - With Zeroconf service discovery
+// src/networking/TournamentServer.ts - With Zeroconf service discovery and NDJSON format
+// NDJSON (Newline Delimited JSON) provides improved streaming data handling by separating
+// JSON objects with newlines, allowing for simpler parsing and better error recovery
 import TcpSocket from 'react-native-tcp-socket';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
@@ -93,32 +95,24 @@ class TournamentServer {
                         // Append to buffer
                         buffer += dataStr;
                         
-                        // Try to process complete JSON objects
-                        let startIdx = 0;
-                        for (let i = 0; i < buffer.length; i++) {
-                            // Look for what might be the end of a JSON object
-                            if (buffer[i] === '}') {
+                        // Split by newlines and process each line (NDJSON format)
+                        const lines = buffer.split('\n');
+                        
+                        // Process all complete lines
+                        for (let i = 0; i < lines.length - 1; i++) {
+                            const line = lines[i].trim();
+                            if (line) {
                                 try {
-                                    // Try to parse from the current start index to this }
-                                    const possibleJson = buffer.substring(startIdx, i + 1);
-                                    const parsedData = JSON.parse(possibleJson);
-                                    
-                                    // If we get here, it parsed successfully
-                                    console.log(`Successfully parsed message from ${clientId}: ${possibleJson}`);
-                                    this.handleClientMessage(clientId, possibleJson);
-                                    
-                                    // Move start index to after this object
-                                    startIdx = i + 1;
-                                } catch (parseError) {
-                                    // Not valid JSON yet, continue searching
+                                    console.log(`Processing NDJSON line from ${clientId}: ${line.length} bytes`);
+                                    this.handleClientMessage(clientId, line);
+                                } catch (error) {
+                                    console.error(`Error processing NDJSON line from ${clientId}:`, error);
                                 }
                             }
                         }
                         
-                        // Remove processed messages from buffer
-                        if (startIdx > 0) {
-                            buffer = buffer.substring(startIdx);
-                        }
+                        // Keep the last potentially incomplete line in the buffer
+                        buffer = lines[lines.length - 1];
                         
                         // If buffer is getting too large without valid JSON, truncate it
                         if (buffer.length > 10000) {
@@ -152,7 +146,7 @@ class TournamentServer {
                     socket.write(JSON.stringify({
                         type: 'welcome',
                         tournamentName: tournament.name
-                    }));
+                    }) + '\n'); // Add newline for NDJSON format
                 } catch (error) {
                     console.error('Error sending welcome message:', error);
                 }
@@ -368,22 +362,51 @@ class TournamentServer {
     }
 
     // Handle a join request from a client
-    private handleJoinRequest(clientId: string, data: any): void {
-        const client = this.clients.get(clientId);
-        if (client) {
-            // Respond to the join request
-            console.log(`Sending join response to ${clientId}`);
-            try {
-                client.write(JSON.stringify({
-                    type: 'join_response',
-                    success: true,
-                    message: `Successfully joined ${this.serverInfo?.tournamentName}`
-                }));
-            } catch (error) {
-                console.error('Error sending join response:', error);
-            }
+    async handleJoinRequest(clientId: string, data: any): Promise<void> {
+    const client = this.clients.get(clientId);
+    if (!client) return;
+
+    const deviceId = data.deviceId;
+    let assignedRole = 'viewer'; // Default role
+
+    if (deviceId) {
+      try {
+        // Dynamically import DB utils inside the async method
+        const { dbGetOfficialByDeviceId, dbGetRefereeByDeviceId } = require('../db/DrizzleDatabaseUtils');
+        
+        console.log(`[Server] Checking role for deviceId: ${deviceId}`);
+        const official = await dbGetOfficialByDeviceId(deviceId);
+        if (official) {
+          assignedRole = 'tournament_official';
+        } else {
+          const referee = await dbGetRefereeByDeviceId(deviceId);
+          if (referee) {
+            assignedRole = 'referee';
+          }
         }
+        console.log(`[Server] Assigned role: ${assignedRole} for deviceId: ${deviceId}`);
+      } catch (error) {
+        console.error(`[Server] Error checking role for deviceId ${deviceId}:`, error);
+        // Keep default 'viewer' role on error
+      }
+    } else {
+      console.warn(`[Server] No deviceId provided in join_request from ${clientId}. Assigning 'viewer' role.`);
     }
+
+    // Respond to the join request including the determined role
+    console.log(`[Server] Sending join response to ${clientId} with role: ${assignedRole}`);
+    try {
+      client.write(JSON.stringify({
+        type: 'join_response',
+        success: true,
+        message: `Successfully joined ${this.serverInfo?.tournamentName}`,
+        role: assignedRole, // Include the assigned role
+        tournamentName: this.serverInfo?.tournamentName // Also include tournament name
+      }) + '\n'); // Add newline for NDJSON format
+    } catch (error) {
+      console.error('[Server] Error sending join response:', error);
+    }
+  }
 
     // Handle a score update from a client
     private handleScoreUpdate(clientId: string, data: any): void {
@@ -442,7 +465,7 @@ class TournamentServer {
                 client.write(JSON.stringify({
                     type: 'tournament_data',
                     tournamentData: this.cachedTournamentData
-                }));
+                }) + '\n'); // Add newline for NDJSON format
                 console.log(`Tournament data sent to client ${clientId}`);
             }
         } catch (error) {
@@ -479,7 +502,7 @@ class TournamentServer {
                         type: 'events_list',
                         tournamentName,
                         events
-                    }));
+                    }) + '\n'); // Add newline for NDJSON format
                     console.log(`Events list sent to client ${clientId}: ${events.length} events`);
                 } catch (error) {
                     console.error(`Error sending events to client ${clientId}:`, error);
@@ -497,7 +520,7 @@ class TournamentServer {
                         tournamentName,
                         events: [], // Always an array
                         error: 'Failed to fetch events'
-                    }));
+                    }) + '\n'); // Add newline for NDJSON format
                 } catch (error) {
                     console.error(`Error sending error response to client ${clientId}:`, error);
                 }
@@ -531,7 +554,7 @@ class TournamentServer {
                         error: 'No eventId provided'
                     };
                     console.log(`Sending error rounds_list response to ${clientId}:`, JSON.stringify(errorResponse));
-                    client.write(JSON.stringify(errorResponse));
+                    client.write(JSON.stringify(errorResponse) + '\n'); // Add newline for NDJSON format
                 } catch (error) {
                     console.error(`Error sending error response to client ${clientId}:`, error);
                 }
@@ -565,7 +588,7 @@ class TournamentServer {
                         // Use setTimeout to ensure asynchronous sending, which can help with TCP buffer issues
                         setTimeout(() => {
                             try {
-                                client.write(responseText);
+                                client.write(responseText + '\n'); // Add newline for NDJSON format
                                 console.log(`✅ Rounds list sent to client ${clientId}`);
                             } catch (innerErr) {
                                 console.error(`Error in delayed send to client ${clientId}:`, innerErr);
@@ -597,7 +620,7 @@ class TournamentServer {
                         error: 'Failed to fetch rounds: ' + error.message
                     };
                     console.log(`Sending error rounds_list response:`, JSON.stringify(errorData));
-                    client.write(JSON.stringify(errorData));
+                    client.write(JSON.stringify(errorData) + '\n'); // Add newline for NDJSON format
                 } catch (sendError) {
                     console.error(`Error sending error response to client ${clientId}:`, sendError);
                 }
@@ -631,7 +654,7 @@ class TournamentServer {
                         error: 'No roundId provided'
                     };
                     console.log(`Sending error pools_list response to ${clientId}:`, JSON.stringify(errorResponse));
-                    client.write(JSON.stringify(errorResponse));
+                    client.write(JSON.stringify(errorResponse) + '\n'); // Add newline for NDJSON format
                 } catch (error) {
                     console.error(`Error sending error response to client ${clientId}:`, error);
                 }
@@ -664,7 +687,7 @@ class TournamentServer {
                         // Use setTimeout to ensure asynchronous sending, which can help with TCP buffer issues
                         setTimeout(() => {
                             try {
-                                client.write(responseText);
+                                client.write(responseText + '\n'); // Add newline for NDJSON format
                                 console.log(`✅ Pools list sent to client ${clientId}`);
                             } catch (innerErr) {
                                 console.error(`Error in delayed send to client ${clientId}:`, innerErr);
@@ -696,7 +719,7 @@ class TournamentServer {
                         error: 'Failed to fetch pools: ' + error.message
                     };
                     console.log(`Sending error pools_list response:`, JSON.stringify(errorData));
-                    client.write(JSON.stringify(errorData));
+                    client.write(JSON.stringify(errorData) + '\n'); // Add newline for NDJSON format
                 } catch (sendError) {
                     console.error(`Error sending error response to client ${clientId}:`, sendError);
                 }
@@ -733,7 +756,7 @@ class TournamentServer {
                         error: 'Missing roundId or poolId'
                     };
                     console.log(`Sending error pool_bouts_list response:`, JSON.stringify(errorResponse));
-                    client.write(JSON.stringify(errorResponse));
+                    client.write(JSON.stringify(errorResponse) + '\n'); // Add newline for NDJSON format
                 } catch (error) {
                     console.error(`Error sending error response to client ${clientId}:`, error);
                 }
@@ -767,7 +790,7 @@ class TournamentServer {
                         // Use setTimeout to ensure asynchronous sending, which can help with TCP buffer issues
                         setTimeout(() => {
                             try {
-                                client.write(responseText);
+                                client.write(responseText + '\n'); // Add newline for NDJSON format
                                 console.log(`✅ Pool bouts list sent to client ${clientId}`);
                             } catch (innerErr) {
                                 console.error(`Error in delayed send to client ${clientId}:`, innerErr);
@@ -800,7 +823,7 @@ class TournamentServer {
                         error: 'Failed to fetch pool bouts: ' + error.message
                     };
                     console.log(`Sending error pool_bouts_list response:`, JSON.stringify(errorData));
-                    client.write(JSON.stringify(errorData));
+                    client.write(JSON.stringify(errorData) + '\n'); // Add newline for NDJSON format
                 } catch (sendError) {
                     console.error(`Error sending error response to client ${clientId}:`, sendError);
                 }
@@ -835,7 +858,7 @@ class TournamentServer {
                         error: 'Missing roundId'
                     };
                     console.log(`Sending error response: ${JSON.stringify(errorResponse)}`);
-                    client.write(JSON.stringify(errorResponse));
+                    client.write(JSON.stringify(errorResponse) + '\n'); // Add newline for NDJSON format
                 } catch (error) {
                     console.error(`Error sending error response to client ${clientId}:`, error);
                 }
@@ -885,7 +908,7 @@ class TournamentServer {
                     // Use setTimeout to avoid any potential network issues
                     setTimeout(() => {
                         try {
-                            client.write(JSON.stringify(confirmationMessage));
+                            client.write(JSON.stringify(confirmationMessage) + '\n'); // Add newline for NDJSON format
                             console.log(`✅ Confirmation sent to client ${clientId}`);
                         } catch (innerErr) {
                             console.error(`Error in delayed confirmation send to ${clientId}:`, innerErr);
@@ -920,7 +943,7 @@ class TournamentServer {
                         error: 'Failed to complete round: ' + error.message
                     };
                     console.log(`Sending error response to client ${clientId}: ${JSON.stringify(errorMessage)}`);
-                    client.write(JSON.stringify(errorMessage));
+                    client.write(JSON.stringify(errorMessage) + '\n'); // Add newline for NDJSON format
                 } catch (sendError) {
                     console.error(`Error sending error response to client ${clientId}:`, sendError);
                 }
@@ -955,7 +978,7 @@ class TournamentServer {
                         error: 'Missing required data'
                     };
                     console.log(`Sending error response: ${JSON.stringify(errorResponse)}`);
-                    client.write(JSON.stringify(errorResponse));
+                    client.write(JSON.stringify(errorResponse) + '\n'); // Add newline for NDJSON format
                 } catch (error) {
                     console.error(`Error sending error response to client ${clientId}:`, error);
                 }
@@ -1010,7 +1033,7 @@ class TournamentServer {
                     // Use setTimeout to avoid any potential network issues
                     setTimeout(() => {
                         try {
-                            client.write(JSON.stringify(confirmationMessage));
+                            client.write(JSON.stringify(confirmationMessage) + '\n'); // Add newline for NDJSON format
                             console.log(`✅ Confirmation sent to client ${clientId}`);
                         } catch (innerErr) {
                             console.error(`Error in delayed confirmation send to ${clientId}:`, innerErr);
@@ -1048,7 +1071,7 @@ class TournamentServer {
                         error: 'Failed to update bout scores: ' + error.message
                     };
                     console.log(`Sending error response to client ${clientId}: ${JSON.stringify(errorMessage)}`);
-                    client.write(JSON.stringify(errorMessage));
+                    client.write(JSON.stringify(errorMessage) + '\n'); // Add newline for NDJSON format
                 } catch (sendError) {
                     console.error(`Error sending error response to client ${clientId}:`, sendError);
                 }
@@ -1058,7 +1081,7 @@ class TournamentServer {
 
     // Broadcast a message to all connected clients
     private broadcastMessage(message: any, excludeClientId?: string): void {
-        const messageStr = JSON.stringify(message);
+        const messageStr = JSON.stringify(message) + '\n'; // Add newline for NDJSON format
         for (const [clientId, client] of this.clients.entries()) {
             if (excludeClientId && clientId === excludeClientId) {
                 continue; // Skip the excluded client

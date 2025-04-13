@@ -4,29 +4,35 @@ import { StyleSheet, View, Text, Image, TouchableOpacity, Alert, ActivityIndicat
 import { CreateTournamentButton } from './CreateTournamentModal';
 import { TournamentList } from './TournamentListComponent';
 import { useNavigation } from '@react-navigation/native';
-import { Tournament } from "../navigation/types";
+import { NativeStackNavigationProp } from '@react-navigation/native-stack'; // Import navigation prop type
+import { Tournament, RootStackParamList } from "../navigation/types"; // Import RootStackParamList
 import { JoinTournamentModal } from './JoinTournamentModal';
 import tournamentClient from '../../networking/TournamentClient';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useOngoingTournaments, useCompletedTournaments } from '../../data/TournamentDataHooks';
+import { getDeviceId } from '../../networking/NetworkUtils';
+import { useAbility } from '../../rbac/AbilityContext'; // Import useAbility
 
 // Import the logo image
 import logo from '../../assets/logo.png';
 
 export function Home() {
-  const navigation = useNavigation();
+  // Explicitly type the navigation prop
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const queryClient = useQueryClient();
+  const { setTournamentContext } = useAbility(); // Get the context setter
   
   // State for join tournament modal
   const [joinModalVisible, setJoinModalVisible] = useState(false);
   const [connectedTournament, setConnectedTournament] = useState<string | null>(null);
+  const [deviceId, setDeviceId] = useState<string>('');
 
   // Use TanStack Query hooks for tournaments
   const ongoingTournamentsQuery = useOngoingTournaments();
   const completedTournamentsQuery = useCompletedTournaments();
 
-  // Check if we're connected to a tournament on load
+  // Check if we're connected to a tournament on load and get device ID
   useEffect(() => {
     const checkConnection = async () => {
       await tournamentClient.loadClientInfo();
@@ -34,6 +40,10 @@ export function Home() {
       if (clientInfo && clientInfo.isConnected) {
         setConnectedTournament(clientInfo.tournamentName);
       }
+
+      // Get and set device ID
+      const id = await getDeviceId();
+      setDeviceId(id);
     };
 
     checkConnection();
@@ -47,6 +57,7 @@ export function Home() {
   const handleDisconnect = async () => {
     await tournamentClient.disconnect();
     setConnectedTournament(null);
+    setTournamentContext(null); // Reset the ability context
     Alert.alert('Disconnected', 'You have disconnected from the tournament');
   };
   
@@ -117,8 +128,19 @@ export function Home() {
           </View>
         </View>
 
+        {/* Device ID display */}
+        <Text style={styles.deviceIdText}>Device ID: {deviceId}</Text>
+        
         {/* Referee Module Button */}
-        <TouchableOpacity style={styles.refereeButton} onPress={() => navigation.navigate('RefereeModule')}>
+        {/* TODO: Fix RefereeModule navigation - requires bout context. Using standard navigate with explicit typing. */}
+        <TouchableOpacity style={styles.refereeButton} onPress={() => navigation.navigate('RefereeModule', {
+            boutIndex: 0,
+            fencer1Name: 'Fencer A',
+            fencer2Name: 'Fencer B',
+            currentScore1: 0,
+            currentScore2: 0
+            /* onSaveScores: undefined - Optional */
+          })}>
           <MaterialIcons name="timer" size={24} color="#fff" style={styles.buttonIcon} />
           <Text style={styles.buttonText}>Referee Module</Text>
         </TouchableOpacity>
@@ -146,6 +168,12 @@ const styles = StyleSheet.create({
     width: 280,
     height: 140,
     marginBottom: 20,
+  },
+  deviceIdText: {
+    fontSize: 12,
+    color: '#666',
+    marginBottom: 5,
+    alignSelf: 'center',
   },
   buttonContainer: {
     width: '100%',
