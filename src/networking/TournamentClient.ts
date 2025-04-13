@@ -1,4 +1,6 @@
-// src/networking/TournamentClient.ts - Updated with tournament data broadcasting
+// src/networking/TournamentClient.ts - Updated to use NDJSON format for streaming data
+// NDJSON (Newline Delimited JSON) provides improved streaming data handling by separating
+// JSON objects with newlines, allowing for simpler parsing and better error recovery
 import { EventEmitter } from 'events';
 import { Alert, Platform } from 'react-native';
 import TcpSocket from 'react-native-tcp-socket';
@@ -146,32 +148,24 @@ class TournamentClient extends EventEmitter {
                         // Append to buffer
                         buffer += dataStr;
                         
-                        // Try to process complete JSON objects
-                        let startIdx = 0;
-                        for (let i = 0; i < buffer.length; i++) {
-                            // Look for what might be the end of a JSON object
-                            if (buffer[i] === '}') {
+                        // Split by newlines and process each line (NDJSON format)
+                        const lines = buffer.split('\n');
+                        
+                        // Process all complete lines
+                        for (let i = 0; i < lines.length - 1; i++) {
+                            const line = lines[i].trim();
+                            if (line) {
                                 try {
-                                    // Try to parse from the current start index to this }
-                                    const possibleJson = buffer.substring(startIdx, i + 1);
-                                    const parsedData = JSON.parse(possibleJson);
-                                    
-                                    // If we get here, it parsed successfully
-                                    console.log(`Successfully parsed message from server: ${possibleJson.length} bytes`);
-                                    this.handleServerMessage(possibleJson);
-                                    
-                                    // Move start index to after this object
-                                    startIdx = i + 1;
-                                } catch (parseError) {
-                                    // Not valid JSON yet, continue searching
+                                    console.log(`Processing NDJSON line: ${line.length} bytes`);
+                                    this.handleServerMessage(line);
+                                } catch (error) {
+                                    console.error("Error processing NDJSON line:", error);
                                 }
                             }
                         }
                         
-                        // Remove processed messages from buffer
-                        if (startIdx > 0) {
-                            buffer = buffer.substring(startIdx);
-                        }
+                        // Keep the last potentially incomplete line in the buffer
+                        buffer = lines[lines.length - 1];
                         
                         // If buffer is getting too large without valid JSON, truncate it
                         if (buffer.length > 10000) {
@@ -311,7 +305,8 @@ class TournamentClient extends EventEmitter {
     private sendMessageRaw(messageStr: string): boolean {
         if (this.socket) {
             try {
-                this.socket.write(messageStr);
+                // Append newline character for NDJSON format
+                this.socket.write(messageStr + '\n');
                 return true;
             } catch (error) {
                 console.error('Error sending message:', error);
@@ -700,7 +695,9 @@ class TournamentClient extends EventEmitter {
                 const message = this.messageQueue.shift();
                 if (message && this.socket) {
                     try {
-                        this.socket.write(message);
+                        // Append newline character for NDJSON format if it doesn't already have one
+                        const messageWithNewline = message.endsWith('\n') ? message : message + '\n';
+                        this.socket.write(messageWithNewline);
                     } catch (error) {
                         console.error('Error sending queued message:', error);
                         // If we can't send, put it back in the queue
