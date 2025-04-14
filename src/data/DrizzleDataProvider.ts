@@ -928,7 +928,7 @@ export class TournamentDataProvider {
   }
 
   /**
-   * Update pool bout scores
+   * Update pool bout scores and winner
    */
   async updatePoolBoutScores(
     boutId: number,
@@ -937,14 +937,15 @@ export class TournamentDataProvider {
     fencerAId: number,
     fencerBId: number,
     roundId?: number,
-    poolId?: number
+    poolId?: number,
+    winnerId?: number
   ): Promise<boolean> {
-    console.log(`[DataProvider] Updating pool bout ${boutId} score to ${scoreA}-${scoreB}, remote: ${this.isRemoteConnection()}`);
+    console.log(`[DataProvider] Updating pool bout ${boutId} score to ${scoreA}-${scoreB}, winner: ${winnerId}, remote: ${this.isRemoteConnection()}`);
 
     if (this.isRemoteConnection()) {
       try {
         // Send update pool bout scores request to server with round and pool IDs for targeted cache invalidation
-        tournamentClient.updatePoolBoutScores(boutId, scoreA, scoreB, fencerAId, fencerBId, roundId, poolId);
+        tournamentClient.updatePoolBoutScores(boutId, scoreA, scoreB, fencerAId, fencerBId, roundId, poolId, winnerId);
 
         // Wait for confirmation
         const response = await tournamentClient.waitForResponse('bout_scores_updated', 10000); // Increased timeout
@@ -960,7 +961,7 @@ export class TournamentDataProvider {
     // For local tournaments, update in database
     try {
       // Pass all parameters to the database utility
-      await dbUpdateBoutScores(boutId, scoreA, scoreB, fencerAId, fencerBId);
+      await dbUpdateBoutScores(boutId, scoreA, scoreB, fencerAId, fencerBId, winnerId);
 
       return true;
     } catch (error) {

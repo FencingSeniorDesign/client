@@ -647,7 +647,8 @@ export function useUpdatePoolBoutScores() {
       fencerAId,
       fencerBId,
       roundId,
-      poolId
+      poolId,
+      winnerId
     }: {
       boutId: number,
       scoreA: number,
@@ -655,10 +656,11 @@ export function useUpdatePoolBoutScores() {
       fencerAId: number,
       fencerBId: number,
       roundId?: number,
-      poolId?: number
+      poolId?: number,
+      winnerId: number
     }) => {
       // Pass roundId and poolId to data provider for targeted cache invalidation
-      return dataProvider.updatePoolBoutScores(boutId, scoreA, scoreB, fencerAId, fencerBId, roundId, poolId);
+      return dataProvider.updatePoolBoutScores(boutId, scoreA, scoreB, fencerAId, fencerBId, roundId, poolId, winnerId);
     },
     onSuccess: (result, variables) => {
       console.log(`useUpdatePoolBoutScores onSuccess with result:`, result);

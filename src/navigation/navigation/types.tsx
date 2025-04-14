@@ -93,6 +93,7 @@ export type Bout = {
     scoreB: number;
     status: 'pending' | 'active' | 'completed';
     boutOrderPosition?: number; // Position in the official bout order
+    winnerId?: number; // ID of the fencer who won the bout
 };
 
 

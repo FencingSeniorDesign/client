@@ -826,10 +826,25 @@ export async function dbUpdateBoutScores(
   scoreA: number,
   scoreB: number,
   fencerAId: number,
-  fencerBId: number
+  fencerBId: number,
+  winnerId?: number
 ): Promise<void> {
+  // Update individual fencer scores
   await dbUpdateBoutScore(boutId, fencerAId, scoreA);
   await dbUpdateBoutScore(boutId, fencerBId, scoreB);
+  
+  // Update the victor field in the bouts table if winner ID is provided
+  if (winnerId !== undefined) {
+    try {
+      await db.update(schema.bouts)
+        .set({ victor: winnerId })
+        .where(eq(schema.bouts.id, boutId));
+      console.log(`Updated victor for bout ${boutId} to fencer ${winnerId}`);
+    } catch (error) {
+      console.error('Error updating bout victor:', error);
+      throw error;
+    }
+  }
 }
 
 // Seeding Functions
