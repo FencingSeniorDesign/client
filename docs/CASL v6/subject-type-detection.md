@@ -3,8 +3,8 @@ title: Subject type detection
 categories: [guide]
 order: 50
 meta:
-  keywords: ~
-  description: ~
+    keywords: ~
+    description: ~
 ---
 
 Let's consider an example:
@@ -12,8 +12,8 @@ Let's consider an example:
 ```js @{data-filename="defineAbility.js"}
 import { defineAbility } from '@casl/ability';
 
-export default defineAbility((can) => {
-  can('read', 'Article');
+export default defineAbility(can => {
+    can('read', 'Article');
 });
 ```
 
@@ -56,9 +56,9 @@ ability.can('read', article); // true
 import ability from './defineAbility';
 
 class Article {
-  static get modelName() {
-    return 'Article'
-  }
+    static get modelName() {
+        return 'Article';
+    }
 }
 
 const article = new Article();
@@ -101,10 +101,10 @@ So, let's see what we mean for the 2nd option:
 import { subject } from '@casl/ability';
 
 export async function getArticles() {
-  const response = await fetch('/api/articles');
-  const body = await response.json();
+    const response = await fetch('/api/articles');
+    const body = await response.json();
 
-  return body.articles.map(article => subject('Article', article));
+    return body.articles.map(article => subject('Article', article));
 }
 ```
 
@@ -118,10 +118,10 @@ To make a code a bit more readable, you can alias `subject` to `a` or `an` depen
 import { subject as an } from '@casl/ability';
 
 export async function getArticles() {
-  const response = await fetch('/api/articles');
-  const body = await response.json();
+    const response = await fetch('/api/articles');
+    const body = await response.json();
 
-  return body.articles.map(object => an('Article', object)); // read as "an Article object"
+    return body.articles.map(object => an('Article', object)); // read as "an Article object"
 }
 ```
 
@@ -141,7 +141,7 @@ const { can, build } = new AbilityBuilder(createMongoAbility);
 can('read', 'Article');
 
 const ability = build({
-  detectSubjectType: object => object.__typename
+    detectSubjectType: object => object.__typename,
 });
 
 const article = { __typename: 'Article' };
@@ -155,11 +155,14 @@ The same can be achieved using `defineAbility` function:
 ```js
 import { defineAbility } from '@casl/ability';
 
-const ability = defineAbility((can) => {
-  can('read', 'Article');
-}, {
-  detectSubjectType: object => object.__typename
-});
+const ability = defineAbility(
+    can => {
+        can('read', 'Article');
+    },
+    {
+        detectSubjectType: object => object.__typename,
+    }
+);
 
 const article = { __typename: 'Article' };
 ability.can('read', article); // true
@@ -176,11 +179,14 @@ import { defineAbility } from '@casl/ability';
 
 class Article {}
 
-const ability = defineAbility((can) => {
-  can('read', Article);
-}, {
-  detectSubjectType: object => object.constructor
-});
+const ability = defineAbility(
+    can => {
+        can('read', Article);
+    },
+    {
+        detectSubjectType: object => object.constructor,
+    }
+);
 
 ability.can('read', new Article()); // true
 ability.can('read', Article); // true
@@ -198,7 +204,7 @@ const { can, build } = new AbilityBuilder(createMongoAbility);
 can('read', Article);
 
 const ability = build({
-  detectSubjectType: object => object.constructor
+    detectSubjectType: object => object.constructor,
 });
 
 ability.can('read', new Article()); // true
@@ -221,8 +227,8 @@ const { can, build } = new AbilityBuilder<AppAbility>(createMongoAbility);
 can('read', Article);
 
 const ability = build({
-  // if you don't use permission specific types, you can cast return value to `SubjectType` type
-  detectSubjectType: object => object.constructor as ExtractSubjectType<Subjects>
+    // if you don't use permission specific types, you can cast return value to `SubjectType` type
+    detectSubjectType: object => object.constructor as ExtractSubjectType<Subjects>,
 });
 
 ability.can('read', new Article()); // true

@@ -1,15 +1,8 @@
 import React from 'react';
-import {
-    StyleSheet,
-    View,
-    FlatList,
-    Text,
-    TouchableOpacity,
-    Alert,
-} from 'react-native';
+import { StyleSheet, View, FlatList, Text, TouchableOpacity, Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { dbDeleteTournament } from '../../db/DrizzleDatabaseUtils';
-import { Tournament } from "../navigation/types";
+import { Tournament } from '../navigation/types';
 import { useAbility } from '../../rbac/AbilityContext'; // Import useAbility
 
 interface TournamentListProps {
@@ -18,11 +11,7 @@ interface TournamentListProps {
     isComplete: boolean; // Add isComplete as a prop
 }
 
-export const TournamentList: React.FC<TournamentListProps> = ({
-                                                                  tournaments,
-                                                                  onTournamentDeleted,
-                                                                  isComplete,
-                                                              }) => {
+export const TournamentList: React.FC<TournamentListProps> = ({ tournaments, onTournamentDeleted, isComplete }) => {
     const navigation = useNavigation();
     const { setTournamentContext } = useAbility(); // Get the context setter function
 
@@ -34,46 +23,36 @@ export const TournamentList: React.FC<TournamentListProps> = ({
     };
 
     const handleDelete = async (tournamentName: string) => {
-        Alert.alert(
-            'Delete Tournament',
-            `Are you sure you want to delete "${tournamentName}"?`,
-            [
-                {
-                    text: 'Cancel',
-                    style: 'cancel',
+        Alert.alert('Delete Tournament', `Are you sure you want to delete "${tournamentName}"?`, [
+            {
+                text: 'Cancel',
+                style: 'cancel',
+            },
+            {
+                text: 'Delete',
+                style: 'destructive',
+                onPress: async () => {
+                    try {
+                        await dbDeleteTournament(tournamentName);
+                        onTournamentDeleted(); // Refresh the tournament list
+                    } catch (error) {
+                        Alert.alert('Error', 'Failed to delete the tournament');
+                        console.error(error);
+                    }
                 },
-                {
-                    text: 'Delete',
-                    style: 'destructive',
-                    onPress: async () => {
-                        try {
-                            await dbDeleteTournament(tournamentName);
-                            onTournamentDeleted(); // Refresh the tournament list
-                        } catch (error) {
-                            Alert.alert('Error', 'Failed to delete the tournament');
-                            console.error(error);
-                        }
-                    },
-                },
-            ]
-        );
+            },
+        ]);
     };
 
     const renderTournament = ({ item }: { item: Tournament }) => (
         <View style={styles.tournamentContainer}>
             <TouchableOpacity
-                style={[
-                    styles.tournamentItem,
-                    isComplete && styles.tournamentHistoryButton,
-                ]}
+                style={[styles.tournamentItem, isComplete && styles.tournamentHistoryButton]}
                 onPress={() => handleTournamentPress(item.name)}
             >
                 <Text style={styles.tournamentName}>{item.name}</Text>
             </TouchableOpacity>
-            <TouchableOpacity
-                style={styles.deleteButton}
-                onPress={() => handleDelete(item.name)}
-            >
+            <TouchableOpacity style={styles.deleteButton} onPress={() => handleDelete(item.name)}>
                 <Text style={styles.deleteButtonText}>✖</Text>
             </TouchableOpacity>
         </View>
@@ -87,7 +66,7 @@ export const TournamentList: React.FC<TournamentListProps> = ({
                 <FlatList
                     data={tournaments}
                     renderItem={renderTournament}
-                    keyExtractor={(item) => item.name.toString()}
+                    keyExtractor={item => item.name.toString()}
                     contentContainerStyle={{ flexGrow: 1 }}
                 />
             )}

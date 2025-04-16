@@ -5,18 +5,14 @@ import TcpSocket from 'react-native-tcp-socket';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 import { Tournament, Event } from '../navigation/navigation/types';
-import { 
-    getLocalIpAddress, 
-    publishTournamentService, 
-    unpublishTournamentService 
-} from './NetworkUtils';
-import { 
-    dbListEvents, 
-    dbGetRoundsForEvent, 
-    dbGetPoolsForRound, 
-    dbGetBoutsForPool, 
+import { getLocalIpAddress, publishTournamentService, unpublishTournamentService } from './NetworkUtils';
+import {
+    dbListEvents,
+    dbGetRoundsForEvent,
+    dbGetPoolsForRound,
+    dbGetBoutsForPool,
     dbUpdateBoutScores,
-    dbMarkRoundAsComplete
+    dbMarkRoundAsComplete,
 } from '../db/DrizzleDatabaseUtils';
 
 // Constants
@@ -55,12 +51,12 @@ class TournamentServer {
                 tournamentName: tournament.name,
                 hostIp: localIp || '0.0.0.0', // Use the actual IP if available
                 port: DEFAULT_PORT,
-                isActive: true
+                isActive: true,
             };
 
             // Cache tournament data for quick responses
             await this.refreshTournamentData(tournament.name);
-            
+
             // Invalidate any existing cache for this tournament if queryClient is available
             if (this.queryClient) {
                 console.log(`🔄 Invalidating cache for tournament ${tournament.name} on server start`);
@@ -72,13 +68,13 @@ class TournamentServer {
             // Create TCP server without specifying a host to avoid interface errors
             // This will bind to all available interfaces
             const options = {
-                port: DEFAULT_PORT
+                port: DEFAULT_PORT,
                 // Deliberately not specifying host to avoid interface errors
             };
 
             console.log('Creating server with options:', JSON.stringify(options));
 
-            this.server = TcpSocket.createServer((socket) => {
+            this.server = TcpSocket.createServer(socket => {
                 const clientId = `${socket.remoteAddress}:${socket.remotePort}`;
                 console.log(`Client connected: ${clientId}`);
 
@@ -86,18 +82,18 @@ class TournamentServer {
 
                 // Handle data received from client
                 let buffer = ''; // Buffer to accumulate partial messages
-                
-                socket.on('data', (data) => {
+
+                socket.on('data', data => {
                     try {
                         const dataStr = data.toString();
                         console.log(`Raw data received from ${clientId}: ${dataStr.length} bytes`);
-                        
+
                         // Append to buffer
                         buffer += dataStr;
-                        
+
                         // Split by newlines and process each line (NDJSON format)
                         const lines = buffer.split('\n');
-                        
+
                         // Process all complete lines
                         for (let i = 0; i < lines.length - 1; i++) {
                             const line = lines[i].trim();
@@ -110,13 +106,15 @@ class TournamentServer {
                                 }
                             }
                         }
-                        
+
                         // Keep the last potentially incomplete line in the buffer
                         buffer = lines[lines.length - 1];
-                        
+
                         // If buffer is getting too large without valid JSON, truncate it
                         if (buffer.length > 10000) {
-                            console.error(`Buffer for client ${clientId} too large (${buffer.length} bytes), truncating`);
+                            console.error(
+                                `Buffer for client ${clientId} too large (${buffer.length} bytes), truncating`
+                            );
                             buffer = buffer.substring(buffer.length - 5000); // Keep last 5000 chars
                         }
                     } catch (error) {
@@ -131,7 +129,7 @@ class TournamentServer {
                 });
 
                 // Handle errors
-                socket.on('error', (error) => {
+                socket.on('error', error => {
                     console.error(`Error with client ${clientId}:`, error);
                     this.clients.delete(clientId);
                     try {
@@ -143,10 +141,12 @@ class TournamentServer {
 
                 // Send welcome message
                 try {
-                    socket.write(JSON.stringify({
-                        type: 'welcome',
-                        tournamentName: tournament.name
-                    }) + '\n'); // Add newline for NDJSON format
+                    socket.write(
+                        JSON.stringify({
+                            type: 'welcome',
+                            tournamentName: tournament.name,
+                        }) + '\n'
+                    ); // Add newline for NDJSON format
                 } catch (error) {
                     console.error('Error sending welcome message:', error);
                 }
@@ -162,7 +162,7 @@ class TournamentServer {
             // Start listening without specifying a host
             this.server.listen(options, () => {
                 console.log(`Tournament server started for ${tournament.name} on port ${DEFAULT_PORT}`);
-                
+
                 // Register the service with Zeroconf
                 this.publishService(tournament.name);
             });
@@ -183,13 +183,13 @@ class TournamentServer {
             // Pass the actual tournament name directly without modifications
             // The networking utils will handle making it unique internally
             const success = publishTournamentService(tournamentName, DEFAULT_PORT);
-            
+
             if (success) {
                 console.log(`Published Zeroconf service for tournament: ${tournamentName}`);
             } else {
                 console.warn(`Zeroconf service publishing failed for tournament: ${tournamentName}`);
                 console.log('Local network discovery may be limited, but direct IP connections will still work');
-                
+
                 // Since Zeroconf failed, we should show the IP address prominently
                 this.logServerConnectionInfo();
             }
@@ -198,7 +198,7 @@ class TournamentServer {
             this.logServerConnectionInfo();
         }
     }
-    
+
     // Log information about how to connect to this server
     private async logServerConnectionInfo(): Promise<void> {
         if (this.serverInfo) {
@@ -222,7 +222,7 @@ class TournamentServer {
                 // Notify all clients that the server is shutting down
                 this.broadcastMessage({
                     type: 'server_closing',
-                    message: 'Tournament server is shutting down'
+                    message: 'Tournament server is shutting down',
                 });
 
                 // Close all client connections
@@ -237,7 +237,7 @@ class TournamentServer {
 
                 // Clear cached data
                 this.cachedTournamentData = null;
-                
+
                 // Invalidate all cached tournament data if queryClient is available
                 if (this.queryClient && this.serverInfo?.tournamentName) {
                     console.log(`🔄 Invalidating all tournament cache on server stop`);
@@ -287,8 +287,10 @@ class TournamentServer {
         try {
             // Check if we need to refresh (based on time since last update)
             const now = Date.now();
-            if (this.cachedTournamentData &&
-                now - this.tournamentDataLastUpdated < this.tournamentDataRefreshInterval) {
+            if (
+                this.cachedTournamentData &&
+                now - this.tournamentDataLastUpdated < this.tournamentDataRefreshInterval
+            ) {
                 return; // Use cached data if it's recent enough
             }
 
@@ -296,19 +298,21 @@ class TournamentServer {
             const events = await dbListEvents(tournamentName);
 
             // For each event, fetch its rounds
-            const eventsWithRounds = await Promise.all(events.map(async (event) => {
-                const rounds = await dbGetRoundsForEvent(event.id);
-                return {
-                    ...event,
-                    rounds
-                };
-            }));
+            const eventsWithRounds = await Promise.all(
+                events.map(async event => {
+                    const rounds = await dbGetRoundsForEvent(event.id);
+                    return {
+                        ...event,
+                        rounds,
+                    };
+                })
+            );
 
             // Cache the data
             this.cachedTournamentData = {
                 tournamentName,
                 events: eventsWithRounds,
-                lastUpdated: now
+                lastUpdated: now,
             };
 
             this.tournamentDataLastUpdated = now;
@@ -363,68 +367,70 @@ class TournamentServer {
 
     // Handle a join request from a client
     async handleJoinRequest(clientId: string, data: any): Promise<void> {
-    const client = this.clients.get(clientId);
-    if (!client) return;
+        const client = this.clients.get(clientId);
+        if (!client) return;
 
-    const deviceId = data.deviceId;
-    let assignedRole = 'viewer'; // Default role
+        const deviceId = data.deviceId;
+        let assignedRole = 'viewer'; // Default role
 
-    if (deviceId) {
-      try {
-        // Dynamically import DB utils inside the async method
-        const { dbGetOfficialByDeviceId, dbGetRefereeByDeviceId } = require('../db/DrizzleDatabaseUtils');
-        
-        console.log(`[Server] Checking role for deviceId: ${deviceId}`);
-        const official = await dbGetOfficialByDeviceId(deviceId);
-        if (official) {
-          assignedRole = 'tournament_official';
+        if (deviceId) {
+            try {
+                // Dynamically import DB utils inside the async method
+                const { dbGetOfficialByDeviceId, dbGetRefereeByDeviceId } = require('../db/DrizzleDatabaseUtils');
+
+                console.log(`[Server] Checking role for deviceId: ${deviceId}`);
+                const official = await dbGetOfficialByDeviceId(deviceId);
+                if (official) {
+                    assignedRole = 'tournament_official';
+                } else {
+                    const referee = await dbGetRefereeByDeviceId(deviceId);
+                    if (referee) {
+                        assignedRole = 'referee';
+                    }
+                }
+                console.log(`[Server] Assigned role: ${assignedRole} for deviceId: ${deviceId}`);
+            } catch (error) {
+                console.error(`[Server] Error checking role for deviceId ${deviceId}:`, error);
+                // Keep default 'viewer' role on error
+            }
         } else {
-          const referee = await dbGetRefereeByDeviceId(deviceId);
-          if (referee) {
-            assignedRole = 'referee';
-          }
+            console.warn(`[Server] No deviceId provided in join_request from ${clientId}. Assigning 'viewer' role.`);
         }
-        console.log(`[Server] Assigned role: ${assignedRole} for deviceId: ${deviceId}`);
-      } catch (error) {
-        console.error(`[Server] Error checking role for deviceId ${deviceId}:`, error);
-        // Keep default 'viewer' role on error
-      }
-    } else {
-      console.warn(`[Server] No deviceId provided in join_request from ${clientId}. Assigning 'viewer' role.`);
-    }
 
-    // Respond to the join request including the determined role
-    console.log(`[Server] Sending join response to ${clientId} with role: ${assignedRole}`);
-    try {
-      client.write(JSON.stringify({
-        type: 'join_response',
-        success: true,
-        message: `Successfully joined ${this.serverInfo?.tournamentName}`,
-        role: assignedRole, // Include the assigned role
-        tournamentName: this.serverInfo?.tournamentName // Also include tournament name
-      }) + '\n'); // Add newline for NDJSON format
-    } catch (error) {
-      console.error('[Server] Error sending join response:', error);
+        // Respond to the join request including the determined role
+        console.log(`[Server] Sending join response to ${clientId} with role: ${assignedRole}`);
+        try {
+            client.write(
+                JSON.stringify({
+                    type: 'join_response',
+                    success: true,
+                    message: `Successfully joined ${this.serverInfo?.tournamentName}`,
+                    role: assignedRole, // Include the assigned role
+                    tournamentName: this.serverInfo?.tournamentName, // Also include tournament name
+                }) + '\n'
+            ); // Add newline for NDJSON format
+        } catch (error) {
+            console.error('[Server] Error sending join response:', error);
+        }
     }
-  }
 
     // Handle a score update from a client
     private handleScoreUpdate(clientId: string, data: any): void {
         // Handle score update and broadcast to all clients
         console.log(`Broadcasting score update from ${clientId}`);
-        
+
         // Apply server-side cache invalidation if queryClient is available
         if (this.queryClient) {
             console.log(`🔄 Performing server-side cache invalidation for bout ${data.boutId}`);
-            
+
             // Perform targeted invalidation if poolId and roundId are available
             if (data.poolId !== undefined && data.roundId !== undefined) {
                 console.log(`🔄 Targeted invalidation for pool ${data.poolId} in round ${data.roundId}`);
-                this.queryClient.invalidateQueries({ 
-                    queryKey: ['bouts', 'pool', data.roundId, data.poolId] 
+                this.queryClient.invalidateQueries({
+                    queryKey: ['bouts', 'pool', data.roundId, data.poolId],
                 });
-                this.queryClient.invalidateQueries({ 
-                    queryKey: ['pools', data.roundId] 
+                this.queryClient.invalidateQueries({
+                    queryKey: ['pools', data.roundId],
                 });
             } else {
                 // Otherwise do broader invalidation
@@ -435,14 +441,14 @@ class TournamentServer {
         } else {
             console.log(`⚠️ No queryClient available for server-side cache invalidation`);
         }
-        
+
         this.broadcastMessage({
             type: 'score_update',
             boutId: data.boutId,
             scoreA: data.scoreA,
             scoreB: data.scoreB,
             poolId: data.poolId,
-            roundId: data.roundId
+            roundId: data.roundId,
         });
     }
 
@@ -462,10 +468,12 @@ class TournamentServer {
             // Send data to the requesting client
             const client = this.clients.get(clientId);
             if (client) {
-                client.write(JSON.stringify({
-                    type: 'tournament_data',
-                    tournamentData: this.cachedTournamentData
-                }) + '\n'); // Add newline for NDJSON format
+                client.write(
+                    JSON.stringify({
+                        type: 'tournament_data',
+                        tournamentData: this.cachedTournamentData,
+                    }) + '\n'
+                ); // Add newline for NDJSON format
                 console.log(`Tournament data sent to client ${clientId}`);
             }
         } catch (error) {
@@ -487,7 +495,7 @@ class TournamentServer {
 
             // Extract just the events data, ensure it's an array
             let events = this.cachedTournamentData?.events || [];
-            
+
             // Extra safety check to ensure events is always an array
             if (!Array.isArray(events)) {
                 console.warn(`Events data is not an array, converting to empty array. Data was:`, events);
@@ -498,11 +506,13 @@ class TournamentServer {
             const client = this.clients.get(clientId);
             if (client) {
                 try {
-                    client.write(JSON.stringify({
-                        type: 'events_list',
-                        tournamentName,
-                        events
-                    }) + '\n'); // Add newline for NDJSON format
+                    client.write(
+                        JSON.stringify({
+                            type: 'events_list',
+                            tournamentName,
+                            events,
+                        }) + '\n'
+                    ); // Add newline for NDJSON format
                     console.log(`Events list sent to client ${clientId}: ${events.length} events`);
                 } catch (error) {
                     console.error(`Error sending events to client ${clientId}:`, error);
@@ -515,19 +525,21 @@ class TournamentServer {
             const client = this.clients.get(clientId);
             if (client) {
                 try {
-                    client.write(JSON.stringify({
-                        type: 'events_list',
-                        tournamentName,
-                        events: [], // Always an array
-                        error: 'Failed to fetch events'
-                    }) + '\n'); // Add newline for NDJSON format
+                    client.write(
+                        JSON.stringify({
+                            type: 'events_list',
+                            tournamentName,
+                            events: [], // Always an array
+                            error: 'Failed to fetch events',
+                        }) + '\n'
+                    ); // Add newline for NDJSON format
                 } catch (error) {
                     console.error(`Error sending error response to client ${clientId}:`, error);
                 }
             }
         }
     }
-    
+
     /**
      * Handles a request for rounds data for a specific event
      */
@@ -536,13 +548,13 @@ class TournamentServer {
             console.error('No server info available');
             return;
         }
-        
+
         console.log(`🔄 Handling get_rounds request from client ${clientId}, data:`, JSON.stringify(data));
-        
+
         const eventId = data.eventId;
         if (!eventId) {
             console.error('No eventId provided in get_rounds request');
-            
+
             // Send error response
             const client = this.clients.get(clientId);
             if (client) {
@@ -551,7 +563,7 @@ class TournamentServer {
                         type: 'rounds_list',
                         eventId: eventId,
                         rounds: [],
-                        error: 'No eventId provided'
+                        error: 'No eventId provided',
                     };
                     console.log(`Sending error rounds_list response to ${clientId}:`, JSON.stringify(errorResponse));
                     client.write(JSON.stringify(errorResponse) + '\n'); // Add newline for NDJSON format
@@ -561,14 +573,14 @@ class TournamentServer {
             }
             return;
         }
-        
+
         try {
             // Fetch rounds from database directly rather than using cached data
             // This ensures we have the most up-to-date rounds information
             console.log(`🔍 Fetching rounds for event ${eventId}...`);
             const rounds = await dbGetRoundsForEvent(eventId);
             console.log(`✅ Fetched ${rounds.length} rounds for event ${eventId}`);
-            
+
             // Send rounds to the requesting client
             const client = this.clients.get(clientId);
             if (client) {
@@ -577,14 +589,16 @@ class TournamentServer {
                     const responseData = {
                         type: 'rounds_list',
                         eventId: eventId,
-                        rounds: Array.isArray(rounds) ? rounds : []
+                        rounds: Array.isArray(rounds) ? rounds : [],
                     };
-                    
+
                     // Verify rounds is serializable
                     try {
                         const responseText = JSON.stringify(responseData);
-                        console.log(`🔄 Sending rounds_list response to client ${clientId}: ${rounds.length} rounds (${responseText.length} bytes)`);
-                        
+                        console.log(
+                            `🔄 Sending rounds_list response to client ${clientId}: ${rounds.length} rounds (${responseText.length} bytes)`
+                        );
+
                         // Use setTimeout to ensure asynchronous sending, which can help with TCP buffer issues
                         setTimeout(() => {
                             try {
@@ -596,7 +610,7 @@ class TournamentServer {
                         }, 0);
                     } catch (jsonError) {
                         console.error(`Error stringifying rounds response:`, jsonError);
-                        throw new Error("Failed to serialize rounds response");
+                        throw new Error('Failed to serialize rounds response');
                     }
                 } catch (error) {
                     console.error(`Error sending rounds to client ${clientId}:`, error);
@@ -608,7 +622,7 @@ class TournamentServer {
             }
         } catch (error) {
             console.error(`❌ Error handling get_rounds request for event ${eventId}:`, error);
-            
+
             // Send error response with empty array
             const client = this.clients.get(clientId);
             if (client) {
@@ -616,8 +630,8 @@ class TournamentServer {
                     const errorData = {
                         type: 'rounds_list',
                         eventId: eventId,
-                        rounds: [], 
-                        error: 'Failed to fetch rounds: ' + error.message
+                        rounds: [],
+                        error: 'Failed to fetch rounds: ' + error.message,
                     };
                     console.log(`Sending error rounds_list response:`, JSON.stringify(errorData));
                     client.write(JSON.stringify(errorData) + '\n'); // Add newline for NDJSON format
@@ -627,7 +641,7 @@ class TournamentServer {
             }
         }
     }
-    
+
     /**
      * Handles a request for pools data for a specific round
      */
@@ -636,13 +650,13 @@ class TournamentServer {
             console.error('No server info available');
             return;
         }
-        
+
         console.log(`🔄 Handling get_pools request from client ${clientId}, data:`, JSON.stringify(data));
-        
+
         const roundId = data.roundId;
         if (!roundId) {
             console.error('No roundId provided in get_pools request');
-            
+
             // Send error response
             const client = this.clients.get(clientId);
             if (client) {
@@ -651,7 +665,7 @@ class TournamentServer {
                         type: 'pools_list',
                         roundId: roundId,
                         pools: [],
-                        error: 'No roundId provided'
+                        error: 'No roundId provided',
                     };
                     console.log(`Sending error pools_list response to ${clientId}:`, JSON.stringify(errorResponse));
                     client.write(JSON.stringify(errorResponse) + '\n'); // Add newline for NDJSON format
@@ -661,13 +675,13 @@ class TournamentServer {
             }
             return;
         }
-        
+
         try {
             // Fetch pools from database
             console.log(`🔍 Fetching pools for round ${roundId}...`);
             const pools = await dbGetPoolsForRound(roundId);
             console.log(`✅ Fetched ${pools.length} pools for round ${roundId}`);
-            
+
             // Send pools to the requesting client
             const client = this.clients.get(clientId);
             if (client) {
@@ -676,14 +690,16 @@ class TournamentServer {
                     const responseData = {
                         type: 'pools_list',
                         roundId: roundId,
-                        pools: Array.isArray(pools) ? pools : []
+                        pools: Array.isArray(pools) ? pools : [],
                     };
-                    
+
                     // Verify pools is serializable
                     try {
                         const responseText = JSON.stringify(responseData);
-                        console.log(`🔄 Sending pools_list response to client ${clientId}: ${pools.length} pools (${responseText.length} bytes)`);
-                        
+                        console.log(
+                            `🔄 Sending pools_list response to client ${clientId}: ${pools.length} pools (${responseText.length} bytes)`
+                        );
+
                         // Use setTimeout to ensure asynchronous sending, which can help with TCP buffer issues
                         setTimeout(() => {
                             try {
@@ -695,7 +711,7 @@ class TournamentServer {
                         }, 0);
                     } catch (jsonError) {
                         console.error(`Error stringifying pools response:`, jsonError);
-                        throw new Error("Failed to serialize pools response");
+                        throw new Error('Failed to serialize pools response');
                     }
                 } catch (error) {
                     console.error(`Error sending pools to client ${clientId}:`, error);
@@ -707,7 +723,7 @@ class TournamentServer {
             }
         } catch (error) {
             console.error(`❌ Error handling get_pools request for round ${roundId}:`, error);
-            
+
             // Send error response with empty array
             const client = this.clients.get(clientId);
             if (client) {
@@ -715,8 +731,8 @@ class TournamentServer {
                     const errorData = {
                         type: 'pools_list',
                         roundId: roundId,
-                        pools: [], 
-                        error: 'Failed to fetch pools: ' + error.message
+                        pools: [],
+                        error: 'Failed to fetch pools: ' + error.message,
                     };
                     console.log(`Sending error pools_list response:`, JSON.stringify(errorData));
                     client.write(JSON.stringify(errorData) + '\n'); // Add newline for NDJSON format
@@ -726,7 +742,7 @@ class TournamentServer {
             }
         }
     }
-    
+
     /**
      * Handles a request for bouts data for a specific pool
      */
@@ -735,15 +751,15 @@ class TournamentServer {
             console.error('No server info available');
             return;
         }
-        
+
         console.log(`🔄 Handling get_pool_bouts request from client ${clientId}, data:`, JSON.stringify(data));
-        
+
         const roundId = data.roundId;
         const poolId = data.poolId;
-        
+
         if (!roundId || poolId === undefined) {
             console.error('Missing roundId or poolId in get_pool_bouts request');
-            
+
             // Send error response
             const client = this.clients.get(clientId);
             if (client) {
@@ -753,7 +769,7 @@ class TournamentServer {
                         roundId: roundId,
                         poolId: poolId,
                         bouts: [],
-                        error: 'Missing roundId or poolId'
+                        error: 'Missing roundId or poolId',
                     };
                     console.log(`Sending error pool_bouts_list response:`, JSON.stringify(errorResponse));
                     client.write(JSON.stringify(errorResponse) + '\n'); // Add newline for NDJSON format
@@ -763,13 +779,13 @@ class TournamentServer {
             }
             return;
         }
-        
+
         try {
             // Fetch bouts from database
             console.log(`🔍 Fetching bouts for pool ${poolId} in round ${roundId}...`);
             const bouts = await dbGetBoutsForPool(roundId, poolId);
             console.log(`✅ Fetched ${bouts.length} bouts for pool ${poolId} in round ${roundId}`);
-            
+
             // Send bouts to the requesting client
             const client = this.clients.get(clientId);
             if (client) {
@@ -779,14 +795,16 @@ class TournamentServer {
                         type: 'pool_bouts_list',
                         roundId: roundId,
                         poolId: poolId,
-                        bouts: Array.isArray(bouts) ? bouts : []
+                        bouts: Array.isArray(bouts) ? bouts : [],
                     };
-                    
+
                     // Verify bouts is serializable
                     try {
                         const responseText = JSON.stringify(responseData);
-                        console.log(`🔄 Sending pool_bouts_list response to client ${clientId}: ${bouts.length} bouts (${responseText.length} bytes)`);
-                        
+                        console.log(
+                            `🔄 Sending pool_bouts_list response to client ${clientId}: ${bouts.length} bouts (${responseText.length} bytes)`
+                        );
+
                         // Use setTimeout to ensure asynchronous sending, which can help with TCP buffer issues
                         setTimeout(() => {
                             try {
@@ -798,7 +816,7 @@ class TournamentServer {
                         }, 0);
                     } catch (jsonError) {
                         console.error(`Error stringifying pool bouts response:`, jsonError);
-                        throw new Error("Failed to serialize pool bouts response");
+                        throw new Error('Failed to serialize pool bouts response');
                     }
                 } catch (error) {
                     console.error(`Error sending pool bouts to client ${clientId}:`, error);
@@ -810,7 +828,7 @@ class TournamentServer {
             }
         } catch (error) {
             console.error(`❌ Error handling get_pool_bouts request for pool ${poolId}:`, error);
-            
+
             // Send error response with empty array
             const client = this.clients.get(clientId);
             if (client) {
@@ -820,7 +838,7 @@ class TournamentServer {
                         roundId: roundId,
                         poolId: poolId,
                         bouts: [], // Always an array
-                        error: 'Failed to fetch pool bouts: ' + error.message
+                        error: 'Failed to fetch pool bouts: ' + error.message,
                     };
                     console.log(`Sending error pool_bouts_list response:`, JSON.stringify(errorData));
                     client.write(JSON.stringify(errorData) + '\n'); // Add newline for NDJSON format
@@ -830,7 +848,7 @@ class TournamentServer {
             }
         }
     }
-    
+
     /**
      * Handles completing a round
      */
@@ -839,14 +857,14 @@ class TournamentServer {
             console.error('No server info available');
             return;
         }
-        
+
         console.log(`🔄 Handling complete_round from client ${clientId}, data:`, JSON.stringify(data));
-        
+
         const { roundId, eventId } = data;
-        
+
         if (!roundId) {
             console.error('Missing roundId in complete_round request');
-            
+
             // Send error response
             const client = this.clients.get(clientId);
             if (client) {
@@ -855,7 +873,7 @@ class TournamentServer {
                         type: 'round_completed',
                         roundId,
                         success: false,
-                        error: 'Missing roundId'
+                        error: 'Missing roundId',
                     };
                     console.log(`Sending error response: ${JSON.stringify(errorResponse)}`);
                     client.write(JSON.stringify(errorResponse) + '\n'); // Add newline for NDJSON format
@@ -865,34 +883,34 @@ class TournamentServer {
             }
             return;
         }
-        
+
         try {
             // Mark the round as complete in the database
             console.log(`🔍 Marking round ${roundId} as complete...`);
             await dbMarkRoundAsComplete(roundId);
             console.log(`✅ Round ${roundId} marked as complete`);
-            
+
             // Apply server-side cache invalidation if queryClient is available
             if (this.queryClient) {
                 console.log(`🔄 Performing server-side cache invalidation for completed round ${roundId}`);
-                
+
                 // Invalidate rounds queries
                 this.queryClient.invalidateQueries({ queryKey: ['rounds'] });
-                
+
                 // If eventId is provided, do targeted invalidation
                 if (eventId) {
                     console.log(`🔄 Targeted invalidation for event ${eventId}`);
                     this.queryClient.invalidateQueries({ queryKey: ['rounds', eventId] });
                     this.queryClient.invalidateQueries({ queryKey: ['events', { eventId }] });
                 }
-                
+
                 // Invalidate pools and bouts for this round
                 this.queryClient.invalidateQueries({ queryKey: ['pools', roundId] });
                 this.queryClient.invalidateQueries({ queryKey: ['bouts', roundId] });
             } else {
                 console.log(`⚠️ No queryClient available for server-side cache invalidation`);
             }
-            
+
             // Send confirmation to the requesting client
             const client = this.clients.get(clientId);
             if (client) {
@@ -901,10 +919,12 @@ class TournamentServer {
                         type: 'round_completed',
                         roundId,
                         eventId,
-                        success: true
+                        success: true,
                     };
-                    console.log(`🔄 Sending confirmation to client ${clientId}: ${JSON.stringify(confirmationMessage)}`);
-                    
+                    console.log(
+                        `🔄 Sending confirmation to client ${clientId}: ${JSON.stringify(confirmationMessage)}`
+                    );
+
                     // Use setTimeout to avoid any potential network issues
                     setTimeout(() => {
                         try {
@@ -919,19 +939,18 @@ class TournamentServer {
                     throw error;
                 }
             }
-            
+
             // Broadcast the round completion to all clients
             const broadcastMessage = {
                 type: 'round_completed_broadcast',
                 roundId,
-                eventId
+                eventId,
             };
             console.log(`🔄 Broadcasting round completion to all clients: ${JSON.stringify(broadcastMessage)}`);
             this.broadcastMessage(broadcastMessage);
-            
         } catch (error) {
             console.error(`❌ Error handling complete_round request:`, error);
-            
+
             // Send error response
             const client = this.clients.get(clientId);
             if (client) {
@@ -940,7 +959,7 @@ class TournamentServer {
                         type: 'round_completed',
                         roundId,
                         success: false,
-                        error: 'Failed to complete round: ' + error.message
+                        error: 'Failed to complete round: ' + error.message,
                     };
                     console.log(`Sending error response to client ${clientId}: ${JSON.stringify(errorMessage)}`);
                     client.write(JSON.stringify(errorMessage) + '\n'); // Add newline for NDJSON format
@@ -950,7 +969,7 @@ class TournamentServer {
             }
         }
     }
-    
+
     /**
      * Handles updating scores for a pool bout
      */
@@ -959,14 +978,14 @@ class TournamentServer {
             console.error('No server info available');
             return;
         }
-        
+
         console.log(`🔄 Handling update_pool_bout_scores from client ${clientId}, data:`, JSON.stringify(data));
-        
+
         const { boutId, scoreA, scoreB, fencerAId, fencerBId, roundId, poolId } = data;
-        
+
         if (!boutId || scoreA === undefined || scoreB === undefined || !fencerAId || !fencerBId) {
             console.error('Missing required data in update_pool_bout_scores request');
-            
+
             // Send error response
             const client = this.clients.get(clientId);
             if (client) {
@@ -975,7 +994,7 @@ class TournamentServer {
                         type: 'bout_scores_updated',
                         boutId: boutId,
                         success: false,
-                        error: 'Missing required data'
+                        error: 'Missing required data',
                     };
                     console.log(`Sending error response: ${JSON.stringify(errorResponse)}`);
                     client.write(JSON.stringify(errorResponse) + '\n'); // Add newline for NDJSON format
@@ -985,25 +1004,27 @@ class TournamentServer {
             }
             return;
         }
-        
+
         try {
             // Update bout scores in database using the correct function with all parameters
-            console.log(`🔍 Updating bout ${boutId} scores to ${scoreA}-${scoreB} in database with fencers ${fencerAId} and ${fencerBId}...`);
+            console.log(
+                `🔍 Updating bout ${boutId} scores to ${scoreA}-${scoreB} in database with fencers ${fencerAId} and ${fencerBId}...`
+            );
             await dbUpdateBoutScores(boutId, scoreA, scoreB, fencerAId, fencerBId);
             console.log(`✅ Updated scores for bout ${boutId} to ${scoreA}-${scoreB}`);
-            
+
             // Apply server-side cache invalidation if queryClient is available
             if (this.queryClient) {
                 console.log(`🔄 Performing server-side cache invalidation for bout ${boutId}`);
-                
+
                 // Perform targeted invalidation if poolId and roundId are available
                 if (poolId !== undefined && roundId !== undefined) {
                     console.log(`🔄 Targeted invalidation for pool ${poolId} in round ${roundId}`);
-                    this.queryClient.invalidateQueries({ 
-                        queryKey: ['bouts', 'pool', roundId, poolId] 
+                    this.queryClient.invalidateQueries({
+                        queryKey: ['bouts', 'pool', roundId, poolId],
                     });
-                    this.queryClient.invalidateQueries({ 
-                        queryKey: ['pools', roundId] 
+                    this.queryClient.invalidateQueries({
+                        queryKey: ['pools', roundId],
                     });
                 } else {
                     // Otherwise do broader invalidation
@@ -1014,22 +1035,24 @@ class TournamentServer {
             } else {
                 console.log(`⚠️ No queryClient available for server-side cache invalidation`);
             }
-            
+
             // First send confirmation to the requesting client
             const client = this.clients.get(clientId);
             if (client) {
                 try {
                     const confirmationMessage = {
-                        type: 'bout_scores_updated',  // This is what the client is waiting for
+                        type: 'bout_scores_updated', // This is what the client is waiting for
                         boutId: boutId,
                         scoreA: scoreA,
                         scoreB: scoreB,
                         roundId: roundId, // Include roundId for targeted cache invalidation
-                        poolId: poolId,   // Include poolId for targeted cache invalidation
-                        success: true
+                        poolId: poolId, // Include poolId for targeted cache invalidation
+                        success: true,
                     };
-                    console.log(`🔄 Sending confirmation to client ${clientId}: ${JSON.stringify(confirmationMessage)}`);
-                    
+                    console.log(
+                        `🔄 Sending confirmation to client ${clientId}: ${JSON.stringify(confirmationMessage)}`
+                    );
+
                     // Use setTimeout to avoid any potential network issues
                     setTimeout(() => {
                         try {
@@ -1044,22 +1067,22 @@ class TournamentServer {
                     throw error;
                 }
             }
-            
+
             // Then broadcast the update to ALL clients
             // This ensures everyone gets the update
             const broadcastMessage = {
-                type: 'bout_score_updated',  // This is for UI updates in listening clients
+                type: 'bout_score_updated', // This is for UI updates in listening clients
                 boutId: boutId,
                 scoreA: scoreA,
                 scoreB: scoreB,
                 poolId: poolId, // Include poolId if available for better client handling
-                roundId: roundId // Include roundId if available for better client handling
+                roundId: roundId, // Include roundId if available for better client handling
             };
             console.log(`🔄 Broadcasting bout score update to all clients: ${JSON.stringify(broadcastMessage)}`);
             this.broadcastMessage(broadcastMessage);
         } catch (error) {
             console.error(`❌ Error handling update_pool_bout_scores request:`, error);
-            
+
             // Send error response
             const client = this.clients.get(clientId);
             if (client) {
@@ -1068,7 +1091,7 @@ class TournamentServer {
                         type: 'bout_scores_updated',
                         boutId: boutId,
                         success: false,
-                        error: 'Failed to update bout scores: ' + error.message
+                        error: 'Failed to update bout scores: ' + error.message,
                     };
                     console.log(`Sending error response to client ${clientId}: ${JSON.stringify(errorMessage)}`);
                     client.write(JSON.stringify(errorMessage) + '\n'); // Add newline for NDJSON format
@@ -1106,36 +1129,36 @@ class TournamentServer {
             type: 'tournament_update',
             tournamentName: this.serverInfo?.tournamentName,
             timestamp: new Date().toISOString(),
-            data
+            data,
         };
 
         // Apply server-side cache invalidation if queryClient is available
         if (this.queryClient && this.serverInfo?.tournamentName) {
             console.log(`🔄 Performing server-side cache invalidation for tournament update`);
-            
+
             // Invalidate tournament data
-            this.queryClient.invalidateQueries({ 
-                queryKey: ['tournament', this.serverInfo.tournamentName] 
+            this.queryClient.invalidateQueries({
+                queryKey: ['tournament', this.serverInfo.tournamentName],
             });
-            
+
             // Invalidate events data
-            this.queryClient.invalidateQueries({ 
-                queryKey: ['events', this.serverInfo.tournamentName] 
+            this.queryClient.invalidateQueries({
+                queryKey: ['events', this.serverInfo.tournamentName],
             });
-            
+
             // If update contains specific data, perform targeted invalidation
             if (data.eventId) {
-                this.queryClient.invalidateQueries({ 
-                    queryKey: ['event', data.eventId] 
+                this.queryClient.invalidateQueries({
+                    queryKey: ['event', data.eventId],
                 });
             }
-            
+
             if (data.roundId) {
-                this.queryClient.invalidateQueries({ 
-                    queryKey: ['round', data.roundId] 
+                this.queryClient.invalidateQueries({
+                    queryKey: ['round', data.roundId],
                 });
-                this.queryClient.invalidateQueries({ 
-                    queryKey: ['pools', data.roundId] 
+                this.queryClient.invalidateQueries({
+                    queryKey: ['pools', data.roundId],
                 });
             }
         } else {
@@ -1164,7 +1187,7 @@ class TournamentServer {
     getConnectedClientCount(): number {
         return this.clients.size;
     }
-    
+
     // Set the query client for server-side cache invalidation
     setQueryClient(client: any): void {
         this.queryClient = client;

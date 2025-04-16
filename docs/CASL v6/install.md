@@ -3,13 +3,13 @@ title: Installation
 categories: [guide]
 order: 0
 meta:
-  keywords: ~
-  description: ~
+    keywords: ~
+    description: ~
 ---
 
 ## Requirements
 
-CASL is isomorphic, so can be used in browsers and in Nodejs environments. It requires ES5 compatible environment and  `Map` class from ES6, that means the lowest supported version of Internet Explorer is IE11 and the lowest Nodejs version is 8.x. But we strongly recommend to use the latest Node.js environment and browsers because their JS VM works much faster.
+CASL is isomorphic, so can be used in browsers and in Nodejs environments. It requires ES5 compatible environment and `Map` class from ES6, that means the lowest supported version of Internet Explorer is IE11 and the lowest Nodejs version is 8.x. But we strongly recommend to use the latest Node.js environment and browsers because their JS VM works much faster.
 
 Additionally, `@casl/vue` and `@casl/aurelia` use [ES6 WeakMap](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/WeakMap), so it requires either polyfill or newer versions of browsers.
 
@@ -19,15 +19,15 @@ CASL follows [Semantic Versioning](https://semver.org/) in all its official proj
 
 ## Official packages and its versions
 
-| Project           | Status                               | Description |
-|-------------------|--------------------------------------|-------------|
-| [@casl/ability]   | [![@casl/ability-status]][@casl/ability-package]   | CASL's core package |
-| [@casl/mongoose]  | [![@casl/mongoose-status]][@casl/mongoose-package] | integration with [Mongoose][mongoose] |
-| [@casl/prisma]  | [![@casl/prisma-status]][@casl/prisma-package] | integration with [Prisma][prisma] |
-| [@casl/angular]   | [![@casl/angular-status]][@casl/angular-package]   | integration with  [Angular][angular] |
-| [@casl/react]     | [![@casl/react-status]][@casl/react-package]       | integration with  [React][react] |
-| [@casl/vue]       | [![@casl/vue-status]][@casl/vue-package]           | integration with  [Vue][vue] |
-| [@casl/aurelia]   | [![@casl/aurelia-status]][@casl/aurelia-package]   | integration with  [Aurelia][aurelia] |
+| Project          | Status                                             | Description                           |
+| ---------------- | -------------------------------------------------- | ------------------------------------- |
+| [@casl/ability]  | [![@casl/ability-status]][@casl/ability-package]   | CASL's core package                   |
+| [@casl/mongoose] | [![@casl/mongoose-status]][@casl/mongoose-package] | integration with [Mongoose][mongoose] |
+| [@casl/prisma]   | [![@casl/prisma-status]][@casl/prisma-package]     | integration with [Prisma][prisma]     |
+| [@casl/angular]  | [![@casl/angular-status]][@casl/angular-package]   | integration with [Angular][angular]   |
+| [@casl/react]    | [![@casl/react-status]][@casl/react-package]       | integration with [React][react]       |
+| [@casl/vue]      | [![@casl/vue-status]][@casl/vue-package]           | integration with [Vue][vue]           |
+| [@casl/aurelia]  | [![@casl/aurelia-status]][@casl/aurelia-package]   | integration with [Aurelia][aurelia]   |
 
 [@casl/ability]: ../intro
 [@casl/mongoose]: ../../package/casl-mongoose
@@ -36,7 +36,6 @@ CASL follows [Semantic Versioning](https://semver.org/) in all its official proj
 [@casl/react]: ../../package/casl-react
 [@casl/vue]: ../../package/casl-vue
 [@casl/aurelia]: ../../package/casl-aurelia
-
 [@casl/ability-status]: https://img.shields.io/npm/v/@casl/ability.svg
 [@casl/mongoose-status]: https://img.shields.io/npm/v/@casl/mongoose.svg
 [@casl/prisma-status]: https://img.shields.io/npm/v/@casl/prisma.svg
@@ -44,7 +43,6 @@ CASL follows [Semantic Versioning](https://semver.org/) in all its official proj
 [@casl/react-status]: https://img.shields.io/npm/v/@casl/react.svg
 [@casl/vue-status]: https://img.shields.io/npm/v/@casl/vue.svg
 [@casl/aurelia-status]: https://img.shields.io/npm/v/@casl/aurelia.svg
-
 [@casl/ability-package]: https://www.npmjs.com/package/@casl/ability
 [@casl/mongoose-package]: https://www.npmjs.com/package/@casl/mongoose
 [@casl/prisma-package]: https://www.npmjs.com/package/@casl/prisma
@@ -52,14 +50,12 @@ CASL follows [Semantic Versioning](https://semver.org/) in all its official proj
 [@casl/react-package]: https://www.npmjs.com/package/@casl/react
 [@casl/vue-package]: https://www.npmjs.com/package/@casl/vue
 [@casl/aurelia-package]: https://www.npmjs.com/package/@casl/aurelia
-
 [mongoose]: http://mongoosejs.com/
 [vue]: https://vuejs.org
 [angular]: https://angular.io/
 [react]: https://reactjs.org/
 [aurelia]: http://aurelia.io
 [prisma]: https://www.prisma.io/
-
 
 ## 3rd party packages
 
@@ -118,13 +114,13 @@ Simply [download CASL from CDN](https://cdn.jsdelivr.net/npm/@casl/ability) and 
 
 In the `dist/` [directory of the NPM package](https://cdn.jsdelivr.net/npm/@casl/ability/dist/) you will find many different builds of CASL.js. Here’s an overview of the difference between them:
 
-| Build           | Description                          |
-|-----------------|--------------------------------------|
-| es6m/index.mjs    | minified ES6 code with ES modules support. Intended for bundlers (e.g., [rollup], [webpack]) to create bundle for modern browsers or modern Nodejs version that support ES modules |
-| es6c/index.js    | minified ES6 code with Commonjs modules support. Intended for modern nodejs environments that support ES6 but doesn't support ES modules |
-| es5m/index.js   | minified ES5 code with ES modules support. Should be used by bundlers (e.g., [rollup], [webpack]) to tree shake the module and skip babel's transpile process |
-| umd/index.js    | **deprecated**, minified ES5 code with UMD. Intended for AMD apps and simple prototypes in a browser |
-| types           | contains [typescript] type declaration files |
+| Build          | Description                                                                                                                                                                        |
+| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| es6m/index.mjs | minified ES6 code with ES modules support. Intended for bundlers (e.g., [rollup], [webpack]) to create bundle for modern browsers or modern Nodejs version that support ES modules |
+| es6c/index.js  | minified ES6 code with Commonjs modules support. Intended for modern nodejs environments that support ES6 but doesn't support ES modules                                           |
+| es5m/index.js  | minified ES5 code with ES modules support. Should be used by bundlers (e.g., [rollup], [webpack]) to tree shake the module and skip babel's transpile process                      |
+| umd/index.js   | **deprecated**, minified ES5 code with UMD. Intended for AMD apps and simple prototypes in a browser                                                                               |
+| types          | contains [typescript] type declaration files                                                                                                                                       |
 
 [rollup]: https://rollupjs.org/guide/en/
 [webpack]: https://webpack.js.org/

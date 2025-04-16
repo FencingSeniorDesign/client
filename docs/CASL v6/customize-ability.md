@@ -3,8 +3,8 @@ title: Customize Ability
 categories: [advanced]
 order: 65
 meta:
-  keywords: ~
-  description: ~
+    keywords: ~
+    description: ~
 ---
 
 CASL was built with extensibility in mind and this allows you to extend conditions with custom operators, provide custom field matchers and even use your own implementation to match conditions (e.g., using functions or [json-schema])! Let's see how
@@ -20,24 +20,19 @@ Let's see an example of how to add `$nor` operator. To do this, we will use `bui
 [$nor]: https://docs.mongodb.com/manual/reference/operator/query/nor/
 
 ```ts
-import {
-  createMongoAbility,
-  AbilityBuilder,
-  Abilities,
-  buildMongoQueryMatcher,
-} from '@casl/ability';
+import { createMongoAbility, AbilityBuilder, Abilities, buildMongoQueryMatcher } from '@casl/ability';
 import { $nor, nor } from '@ucast/mongo2js';
 
 const conditionsMatcher = buildMongoQueryMatcher({ $nor }, { nor });
 
 export default function defineAbilityFor(user: any) {
-  const { can, build } = new AbilityBuilder(createMongoAbility);
+    const { can, build } = new AbilityBuilder(createMongoAbility);
 
-  can('read', 'Article', {
-    $nor: [{ private: true }, { authorId: user.id }]
-  });
+    can('read', 'Article', {
+        $nor: [{ private: true }, { authorId: user.id }],
+    });
 
-  return build({ conditionsMatcher });
+    return build({ conditionsMatcher });
 }
 ```
 
@@ -85,23 +80,18 @@ Conditions matcher is a factory function that accepts `rule.conditions` and retu
 Let's implement the matcher that allows to use a function as conditions matcher:
 
 ```ts
-import {
-  PureAbility,
-  AbilityBuilder,
-  AbilityTuple,
-  MatchConditions,
-} from '@casl/ability';
+import { PureAbility, AbilityBuilder, AbilityTuple, MatchConditions } from '@casl/ability';
 
 type AppAbility = PureAbility<AbilityTuple, MatchConditions>;
 const lambdaMatcher = (matchConditions: MatchConditions) => matchConditions;
 
 export default function defineAbilityFor(user: any): AppAbility {
-  const { can, build } = new AbilityBuilder<AppAbility>(PureAbility);
+    const { can, build } = new AbilityBuilder<AppAbility>(PureAbility);
 
-  can('read', 'Article', ({ authorId }) => authorId === user.id);
-  can('read', 'Article', ({ status }) => ['draft', 'published'].includes(status));
+    can('read', 'Article', ({ authorId }) => authorId === user.id);
+    can('read', 'Article', ({ status }) => ['draft', 'published'].includes(status));
 
-  return build({ conditionsMatcher: lambdaMatcher });
+    return build({ conditionsMatcher: lambdaMatcher });
 }
 ```
 
@@ -123,10 +113,10 @@ import { createMongoAbility, AbilityBuilder, FieldMatcher } from '@casl/ability'
 export const fieldMatcher: FieldMatcher = fields => field => fields.includes(field);
 
 export default function defineAbilityFor(user: any) {
-  const { can, build } = new AbilityBuilder(createMongoAbility);
+    const { can, build } = new AbilityBuilder(createMongoAbility);
 
-  can('read', 'Article', ['title', 'content']);
+    can('read', 'Article', ['title', 'content']);
 
-  return build({ fieldMatcher });
+    return build({ fieldMatcher });
 }
 ```

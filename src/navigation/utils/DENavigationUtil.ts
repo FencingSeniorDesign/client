@@ -3,7 +3,6 @@ import { NavigationProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList, Event, Round } from '../navigation/types';
 
-
 /**
  * Utility function to navigate to the appropriate DE page
  * based on the format of the round
@@ -38,7 +37,7 @@ export function navigateToDEPage(
                 event,
                 currentRoundIndex,
                 roundId: round.id,
-                isRemote
+                isRemote,
             });
             break;
         case 'double':
@@ -46,7 +45,7 @@ export function navigateToDEPage(
                 event,
                 currentRoundIndex,
                 roundId: round.id,
-                isRemote
+                isRemote,
             });
             break;
         case 'compass':
@@ -54,7 +53,7 @@ export function navigateToDEPage(
                 event,
                 currentRoundIndex,
                 roundId: round.id,
-                isRemote
+                isRemote,
             });
             break;
         default:
@@ -64,7 +63,7 @@ export function navigateToDEPage(
                 event,
                 currentRoundIndex,
                 roundId: round.id,
-                isRemote
+                isRemote,
             });
     }
 }
@@ -105,7 +104,9 @@ export function getDEFormatDescription(format: string | undefined): string {
 /**
  * Returns the DE bracket screen name based on format
  */
-export function getDEScreenName(format: string | undefined): 'DEBracketPage' | 'DoubleEliminationPage' | 'CompassDrawPage' {
+export function getDEScreenName(
+    format: string | undefined
+): 'DEBracketPage' | 'DoubleEliminationPage' | 'CompassDrawPage' {
     switch (format) {
         case 'single':
             return 'DEBracketPage';

@@ -1,12 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import {
-    View,
-    Text,
-    StyleSheet,
-    ScrollView,
-    TouchableOpacity,
-    ActivityIndicator,
-} from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useRoute, RouteProp, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList, Event, Fencer, Round } from '../navigation/types';
@@ -74,8 +67,8 @@ const TournamentResultsPage: React.FC = () => {
                 const eventData = await dataProvider.getEventById(eventId);
                 setEvent(eventData);
             } catch (err) {
-                console.error("Error fetching event data:", err);
-                setError("Failed to load event data");
+                console.error('Error fetching event data:', err);
+                setError('Failed to load event data');
             }
         };
 
@@ -94,7 +87,7 @@ const TournamentResultsPage: React.FC = () => {
                 const selectedRound = rounds[selectedRoundIndex];
 
                 if (!selectedRound) {
-                    setError("Round not found");
+                    setError('Round not found');
                     setLoading(false);
                     return;
                 }
@@ -107,8 +100,8 @@ const TournamentResultsPage: React.FC = () => {
                     await fetchDEResults(selectedRound);
                 }
             } catch (err) {
-                console.error("Error fetching round results:", err);
-                setError("Failed to load round results");
+                console.error('Error fetching round results:', err);
+                setError('Failed to load round results');
             } finally {
                 setLoading(false);
             }
@@ -210,16 +203,19 @@ const TournamentResultsPage: React.FC = () => {
             const seeding = await dataProvider.getSeedingForRound(round.id);
 
             // Map to track fencer statistics
-            const fencerStatsMap = new Map<number, {
-                fencer: Fencer;
-                bouts: number;
-                victories: number;
-                touchesScored: number;
-                touchesReceived: number;
-                finalPlace?: number;
-                lastRoundReached: number;
-                seed: number;
-            }>();
+            const fencerStatsMap = new Map<
+                number,
+                {
+                    fencer: Fencer;
+                    bouts: number;
+                    victories: number;
+                    touchesScored: number;
+                    touchesReceived: number;
+                    finalPlace?: number;
+                    lastRoundReached: number;
+                    seed: number;
+                }
+            >();
 
             // Initialize fencer stats from seeding
             seeding.forEach(({ fencer, seed }) => {
@@ -230,7 +226,7 @@ const TournamentResultsPage: React.FC = () => {
                     touchesScored: 0,
                     touchesReceived: 0,
                     lastRoundReached: 0,
-                    seed
+                    seed,
                 });
             });
 
@@ -291,7 +287,7 @@ const TournamentResultsPage: React.FC = () => {
                     touchesReceived: stats.touchesReceived,
                     indicator: stats.touchesScored - stats.touchesReceived,
                     lastRoundReached: stats.lastRoundReached,
-                    seed: stats.seed
+                    seed: stats.seed,
                 };
             });
 
@@ -319,8 +315,8 @@ const TournamentResultsPage: React.FC = () => {
             setDEResults(results);
             setPoolResults([]);
         } catch (err) {
-            console.error("Error fetching DE results:", err);
-            setError("Failed to load direct elimination results");
+            console.error('Error fetching DE results:', err);
+            setError('Failed to load direct elimination results');
         }
     };
 
@@ -331,16 +327,10 @@ const TournamentResultsPage: React.FC = () => {
                 {rounds.map((round, index) => (
                     <TouchableOpacity
                         key={round.id}
-                        style={[
-                            styles.tab,
-                            selectedRoundIndex === index && styles.activeTab
-                        ]}
+                        style={[styles.tab, selectedRoundIndex === index && styles.activeTab]}
                         onPress={() => setSelectedRoundIndex(index)}
                     >
-                        <Text style={[
-                            styles.tabText,
-                            selectedRoundIndex === index && styles.activeTabText
-                        ]}>
+                        <Text style={[styles.tabText, selectedRoundIndex === index && styles.activeTabText]}>
                             {round.type === 'pool' ? `Pool Round ${index + 1}` : `DE Round ${index + 1}`}
                         </Text>
                     </TouchableOpacity>
@@ -423,12 +413,10 @@ const TournamentResultsPage: React.FC = () => {
                     <Text style={styles.tableHeaderCell}>TR</Text>
                     <Text style={styles.tableHeaderCell}>Ind</Text>
                 </View>
-                {deResults.map((result) => (
+                {deResults.map(result => (
                     <View key={result.fencer.id} style={styles.tableRow}>
                         <View style={[styles.tableCellContainer, { flex: 0.5 }]}>
-                            <Text style={styles.tableCell}>
-                                {result.place}
-                            </Text>
+                            <Text style={styles.tableCell}>{result.place}</Text>
                             {renderMedal(result.place)}
                         </View>
                         <Text style={[styles.tableCell, { flex: 2 }]}>
@@ -460,9 +448,7 @@ const TournamentResultsPage: React.FC = () => {
         if (error || roundsError) {
             return (
                 <View style={styles.errorContainer}>
-                    <Text style={styles.errorText}>
-                        {error || "Failed to load round results"}
-                    </Text>
+                    <Text style={styles.errorText}>{error || 'Failed to load round results'}</Text>
                 </View>
             );
         }
@@ -485,7 +471,8 @@ const TournamentResultsPage: React.FC = () => {
                     </Text>
                     {selectedRound.type === 'de' && (
                         <Text style={styles.formatInfoText}>
-                            Format: {selectedRound.deformat.charAt(0).toUpperCase() + selectedRound.deformat.slice(1)} Elimination
+                            Format: {selectedRound.deformat.charAt(0).toUpperCase() + selectedRound.deformat.slice(1)}{' '}
+                            Elimination
                         </Text>
                     )}
                 </View>
@@ -509,14 +496,9 @@ const TournamentResultsPage: React.FC = () => {
 
             {renderRoundTabs()}
 
-            <ScrollView contentContainerStyle={styles.contentContainer}>
-                {renderContent()}
-            </ScrollView>
+            <ScrollView contentContainerStyle={styles.contentContainer}>{renderContent()}</ScrollView>
 
-            <TouchableOpacity
-                style={styles.backButton}
-                onPress={() => navigation.goBack()}
-            >
+            <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
                 <Text style={styles.backButtonText}>Back to Event</Text>
             </TouchableOpacity>
         </View>

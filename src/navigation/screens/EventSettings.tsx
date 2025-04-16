@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef, useEffect } from "react";
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
     View,
     Text,
@@ -9,16 +9,16 @@ import {
     Alert,
     ActivityIndicator,
     Platform,
-} from "react-native";
-import { RouteProp, useNavigation } from "@react-navigation/native";
-import { Event, Fencer, Round, Club } from "../navigation/types";
-import * as DocumentPicker from "expo-document-picker";
-import ClubAutocomplete from "../../components/ui/ClubAutocomplete";
-import * as FileSystem from "expo-file-system";
+} from 'react-native';
+import { RouteProp, useNavigation } from '@react-navigation/native';
+import { Event, Fencer, Round, Club } from '../navigation/types';
+import * as DocumentPicker from 'expo-document-picker';
+import ClubAutocomplete from '../../components/ui/ClubAutocomplete';
+import * as FileSystem from 'expo-file-system';
 // Import our custom picker component instead of the native one
-import CustomPickerComponent from "../../components/ui/CustomPicker";
+import CustomPickerComponent from '../../components/ui/CustomPicker';
 const { CustomPicker, FencerCreationControls } = CustomPickerComponent;
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from '@tanstack/react-query';
 import {
     useFencers,
     useRounds,
@@ -29,7 +29,7 @@ import {
     useAddRound,
     useUpdateRound,
     useDeleteRound,
-} from "../../data/TournamentDataHooks";
+} from '../../data/TournamentDataHooks';
 
 // ----- Pool Configuration Helper Types and Functions -----
 interface PoolConfiguration {
@@ -63,11 +63,11 @@ function calculatePoolConfigurations(totalFencers: number): PoolConfiguration[] 
 function formatPoolLabel(config: PoolConfiguration): string {
     const { pools, baseSize, extraPools } = config;
     if (extraPools === 0) {
-        return `${pools} ${pools === 1 ? "pool" : "pools"} of ${baseSize} fencers`;
+        return `${pools} ${pools === 1 ? 'pool' : 'pools'} of ${baseSize} fencers`;
     } else {
         const evenPools = pools - extraPools;
-        const extraLabel = `${extraPools} ${extraPools === 1 ? "pool" : "pools"} of ${baseSize + 1} fencers`;
-        const evenLabel = `${evenPools} ${evenPools === 1 ? "pool" : "pools"} of ${baseSize} fencers`;
+        const extraLabel = `${extraPools} ${extraPools === 1 ? 'pool' : 'pools'} of ${baseSize + 1} fencers`;
+        const evenLabel = `${evenPools} ${evenPools === 1 ? 'pool' : 'pools'} of ${baseSize} fencers`;
         return `${extraLabel}, ${evenLabel}`;
     }
 }
@@ -76,7 +76,7 @@ function formatPoolLabel(config: PoolConfiguration): string {
 
 type EventSettingsRouteProp = RouteProp<
     { params: { event: Event; onSave: (updatedEvent: Event) => void; isRemote?: boolean } },
-    "params"
+    'params'
 >;
 
 type Props = {
@@ -100,22 +100,16 @@ export const EventSettings = ({ route }: Props) => {
     const [event] = useState<Event>({ ...initialEvent });
     const initialWeapon = initialEvent.weapon.toLowerCase();
     const [selectedWeapon, setSelectedWeapon] = useState<string>(initialWeapon);
-    const [fencerFirstName, setFencerFirstName] = useState<string>("");
-    const [fencerLastName, setFencerLastName] = useState<string>("");
-    const [fencerClub, setFencerClub] = useState<string>("");
+    const [fencerFirstName, setFencerFirstName] = useState<string>('');
+    const [fencerLastName, setFencerLastName] = useState<string>('');
+    const [fencerClub, setFencerClub] = useState<string>('');
     const [fencerClubId, setFencerClubId] = useState<number | undefined>(undefined);
-    const [fencerClubAbbreviation, setFencerClubAbbreviation] = useState<string>("");
+    const [fencerClubAbbreviation, setFencerClubAbbreviation] = useState<string>('');
 
     // TanStack Query hooks
-    const {
-        data: fencers = [],
-        isLoading: fencersLoading
-    } = useFencers(event);
+    const { data: fencers = [], isLoading: fencersLoading } = useFencers(event);
 
-    const {
-        data: rounds = [],
-        isLoading: roundsLoading
-    } = useRounds(event.id);
+    const { data: rounds = [], isLoading: roundsLoading } = useRounds(event.id);
 
     // Mutations
     const addFencerMutation = useAddFencer();
@@ -126,87 +120,81 @@ export const EventSettings = ({ route }: Props) => {
     const deleteRoundMutation = useDeleteRound();
 
     // --- Round Reordering Logic ---
-    const handleMoveRound = useCallback(async (roundId: number, direction: 'up' | 'down') => {
-        const currentIndex = rounds.findIndex(r => r.id === roundId);
-        if (currentIndex === -1) return; // Round not found
+    const handleMoveRound = useCallback(
+        async (roundId: number, direction: 'up' | 'down') => {
+            const currentIndex = rounds.findIndex(r => r.id === roundId);
+            if (currentIndex === -1) return; // Round not found
 
-        const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+            const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
 
-        // Check bounds
-        if (targetIndex < 0 || targetIndex >= rounds.length) return;
+            // Check bounds
+            if (targetIndex < 0 || targetIndex >= rounds.length) return;
 
-        // Create a new ordered array for optimistic update (optional but good UX)
-        const newOrderedRounds = [...rounds];
-        const [movedRound] = newOrderedRounds.splice(currentIndex, 1);
-        newOrderedRounds.splice(targetIndex, 0, movedRound);
+            // Create a new ordered array for optimistic update (optional but good UX)
+            const newOrderedRounds = [...rounds];
+            const [movedRound] = newOrderedRounds.splice(currentIndex, 1);
+            newOrderedRounds.splice(targetIndex, 0, movedRound);
 
-        // Optimistically update the UI before database calls
-        queryClient.setQueryData(['rounds', event.id], newOrderedRounds.map((r, index) => ({ ...r, rorder: index + 1 })));
+            // Optimistically update the UI before database calls
+            queryClient.setQueryData(
+                ['rounds', event.id],
+                newOrderedRounds.map((r, index) => ({ ...r, rorder: index + 1 }))
+            );
 
-        // Prepare updates for the database
-        const updates: Promise<any>[] = [];
-        newOrderedRounds.forEach((round, index) => {
-            const newOrder = index + 1;
-            // Only update if the order actually changed
-            if (round.rorder !== newOrder) {
-                updates.push(updateRoundMutation.mutateAsync({ ...round, rorder: newOrder }));
+            // Prepare updates for the database
+            const updates: Promise<any>[] = [];
+            newOrderedRounds.forEach((round, index) => {
+                const newOrder = index + 1;
+                // Only update if the order actually changed
+                if (round.rorder !== newOrder) {
+                    updates.push(updateRoundMutation.mutateAsync({ ...round, rorder: newOrder }));
+                }
+            });
+
+            try {
+                await Promise.all(updates);
+                // Invalidate to refetch and confirm the order from the source of truth
+                queryClient.invalidateQueries({ queryKey: ['rounds', event.id] });
+            } catch (error) {
+                console.error('Failed to reorder rounds:', error);
+                Alert.alert('Error', 'Failed to save the new round order.');
+                // Revert optimistic update on failure
+                queryClient.setQueryData(['rounds', event.id], rounds);
             }
-        });
-
-        try {
-            await Promise.all(updates);
-            // Invalidate to refetch and confirm the order from the source of truth
-            queryClient.invalidateQueries({ queryKey: ['rounds', event.id] });
-        } catch (error) {
-            console.error("Failed to reorder rounds:", error);
-            Alert.alert("Error", "Failed to save the new round order.");
-            // Revert optimistic update on failure
-            queryClient.setQueryData(['rounds', event.id], rounds);
-        }
-
-    }, [rounds, updateRoundMutation, queryClient, event.id]);
+        },
+        [rounds, updateRoundMutation, queryClient, event.id]
+    );
     // --- End Round Reordering Logic ---
 
-
     // States for ratings and years
-    const [epeeRating, setEpeeRating] = useState<string>("U");
+    const [epeeRating, setEpeeRating] = useState<string>('U');
     const [epeeYear, setEpeeYear] = useState<number>(new Date().getFullYear());
-    const [foilRating, setFoilRating] = useState<string>("U");
+    const [foilRating, setFoilRating] = useState<string>('U');
     const [foilYear, setFoilYear] = useState<number>(new Date().getFullYear());
-    const [saberRating, setSaberRating] = useState<string>("U");
+    const [saberRating, setSaberRating] = useState<string>('U');
     const [saberYear, setSaberYear] = useState<number>(new Date().getFullYear());
 
     // Search state for fencers
-    const [searchQuery, setSearchQuery] = useState<string>("");
+    const [searchQuery, setSearchQuery] = useState<string>('');
     const { data: fencerSuggestions = [], isLoading: searchLoading } = useSearchFencers(searchQuery);
 
     // Round management states
     const [showRoundTypeOptions, setShowRoundTypeOptions] = useState<boolean>(false);
     const [expandedConfigIndex, setExpandedConfigIndex] = useState<number | null>(null);
-    const [promotionInputText, setPromotionInputText] = useState<string>(""); // State for promotion % input
+    const [promotionInputText, setPromotionInputText] = useState<string>(''); // State for promotion % input
 
     // Dropdown states
     const [fencingDropdownOpen, setFencingDropdownOpen] = useState<boolean>(false);
     const [roundDropdownOpen, setRoundDropdownOpen] = useState<boolean>(false);
 
     // Pool configurations - using React.useMemo to avoid unnecessary recalculations
-    const poolConfigurations = React.useMemo(() =>
-            calculatePoolConfigurations(fencers?.length || 0),
+    const poolConfigurations = React.useMemo(
+        () => calculatePoolConfigurations(fencers?.length || 0),
         [fencers?.length]
     );
 
-    const currentRating =
-        selectedWeapon === "epee"
-            ? epeeRating
-            : selectedWeapon === "foil"
-                ? foilRating
-                : saberRating;
-    const currentYear =
-        selectedWeapon === "epee"
-            ? epeeYear
-            : selectedWeapon === "foil"
-                ? foilYear
-                : saberYear;
+    const currentRating = selectedWeapon === 'epee' ? epeeRating : selectedWeapon === 'foil' ? foilRating : saberRating;
+    const currentYear = selectedWeapon === 'epee' ? epeeYear : selectedWeapon === 'foil' ? foilYear : saberYear;
 
     // Fencer functions
     const handleAddFencer = React.useCallback(() => {
@@ -228,14 +216,14 @@ export const EventSettings = ({ route }: Props) => {
         createFencerMutation.mutate({
             fencer: newFencer,
             event,
-            addToEvent: true
+            addToEvent: true,
         });
-setFencerFirstName("");
-setFencerLastName("");
-setFencerClub("");
-setFencerClubId(undefined);
-setFencerClubAbbreviation("");
-        setFencerLastName("");
+        setFencerFirstName('');
+        setFencerLastName('');
+        setFencerClub('');
+        setFencerClubId(undefined);
+        setFencerClubAbbreviation('');
+        setFencerLastName('');
     }, [
         fencerFirstName,
         fencerLastName,
@@ -249,32 +237,32 @@ setFencerClubAbbreviation("");
         saberRating,
         saberYear,
         createFencerMutation,
-        event
+        event,
     ]);
 
     const handleUploadCSV = React.useCallback(async () => {
         try {
-            const result = await DocumentPicker.getDocumentAsync({ type: "text/csv" });
-            if ("uri" in result && result.uri) {
+            const result = await DocumentPicker.getDocumentAsync({ type: 'text/csv' });
+            if ('uri' in result && result.uri) {
                 //@ts-ignore
                 const csvString = await FileSystem.readAsStringAsync(result.uri);
-                const lines = csvString.split("\n");
+                const lines = csvString.split('\n');
 
                 // Process CSV data
                 for (const line of lines) {
                     const trimmedLine = line.trim();
                     if (!trimmedLine) continue;
 
-                    const parts = trimmedLine.split(",").map((p) => p.trim());
+                    const parts = trimmedLine.split(',').map(p => p.trim());
                     if (parts.length >= 2 && parts[0] && parts[1]) {
                         const newFencer: Fencer = {
                             fname: parts[0],
                             lname: parts[1],
-                            erating: "U",
+                            erating: 'U',
                             eyear: 0,
-                            frating: "U",
+                            frating: 'U',
                             fyear: 0,
-                            srating: "U",
+                            srating: 'U',
                             syear: 0,
                         };
 
@@ -282,30 +270,56 @@ setFencerClubAbbreviation("");
                         await createFencerMutation.mutateAsync({
                             fencer: newFencer,
                             event,
-                            addToEvent: true
+                            addToEvent: true,
                         });
                     }
                 }
 
-                Alert.alert("Success", "Fencers imported successfully");
+                Alert.alert('Success', 'Fencers imported successfully');
             }
         } catch (error) {
-            console.error("Error reading CSV file:", error);
-            Alert.alert("Error", "Failed to import fencers from CSV");
+            console.error('Error reading CSV file:', error);
+            Alert.alert('Error', 'Failed to import fencers from CSV');
         }
     }, [createFencerMutation, event]);
 
     // Function to add random fencers
     const addRandomFencers = async (count: number) => {
         const firstNames = [
-            "Alice", "Bob", "Charlie", "David", "Eve", "Faythe", "Grace",
-            "Heidi", "Ivan", "Judy", "Mallory", "Niaj", "Olivia", "Peggy", "Trent"
+            'Alice',
+            'Bob',
+            'Charlie',
+            'David',
+            'Eve',
+            'Faythe',
+            'Grace',
+            'Heidi',
+            'Ivan',
+            'Judy',
+            'Mallory',
+            'Niaj',
+            'Olivia',
+            'Peggy',
+            'Trent',
         ];
         const lastNames = [
-            "Anderson", "Brown", "Clark", "Davis", "Evans", "Franklin", "Garcia",
-            "Harris", "Iverson", "Johnson", "King", "Lewis", "Martinez", "Nelson", "Olsen"
+            'Anderson',
+            'Brown',
+            'Clark',
+            'Davis',
+            'Evans',
+            'Franklin',
+            'Garcia',
+            'Harris',
+            'Iverson',
+            'Johnson',
+            'King',
+            'Lewis',
+            'Martinez',
+            'Nelson',
+            'Olsen',
         ];
-        const ratings = ["A", "B", "C", "D", "E", "U"];
+        const ratings = ['A', 'B', 'C', 'D', 'E', 'U'];
         const currentYear = new Date().getFullYear();
 
         // Create a set of full names from existing fencers (using lowercase for consistency)
@@ -335,11 +349,11 @@ setFencerClubAbbreviation("");
                 fname: randomFirstName,
                 lname: randomLastName,
                 erating: randomEpeeRating,
-                eyear: randomEpeeRating === "U" ? 0 : currentYear,
+                eyear: randomEpeeRating === 'U' ? 0 : currentYear,
                 frating: randomFoilRating,
-                fyear: randomFoilRating === "U" ? 0 : currentYear,
+                fyear: randomFoilRating === 'U' ? 0 : currentYear,
                 srating: randomSaberRating,
-                syear: randomSaberRating === "U" ? 0 : currentYear,
+                syear: randomSaberRating === 'U' ? 0 : currentYear,
             };
 
             await createFencerMutation.mutateAsync({
@@ -351,17 +365,16 @@ setFencerClubAbbreviation("");
         }
 
         if (addedCount < count) {
-            Alert.alert("Warning", "Not enough unique fencer names available to add all requested random fencers.");
+            Alert.alert('Warning', 'Not enough unique fencer names available to add all requested random fencers.');
         }
     };
-
 
     // Handler for Random Fill button
     // Add these state variables near the other state declarations:
     const [showRandomFillInput, setShowRandomFillInput] = useState(false);
-    const [randomFillInput, setRandomFillInput] = useState("");
+    const [randomFillInput, setRandomFillInput] = useState('');
 
-// Replace the previous handleRandomFill with the following:
+    // Replace the previous handleRandomFill with the following:
     const handleRandomFill = () => {
         // Toggle the dropdown input view
         setShowRandomFillInput(!showRandomFillInput);
@@ -370,61 +383,70 @@ setFencerClubAbbreviation("");
     const handleRandomFillGo = async () => {
         const count = parseInt(randomFillInput, 10);
         if (isNaN(count) || count <= 0) {
-            Alert.alert("Invalid input", "Please enter a valid number greater than 0.");
+            Alert.alert('Invalid input', 'Please enter a valid number greater than 0.');
             return;
         }
         try {
             await addRandomFencers(count);
-            Alert.alert("Success", `${count} random fencers added.`);
-            setRandomFillInput("");
+            Alert.alert('Success', `${count} random fencers added.`);
+            setRandomFillInput('');
             setShowRandomFillInput(false);
         } catch (error) {
-            Alert.alert("Error", "Failed to add random fencers.");
+            Alert.alert('Error', 'Failed to add random fencers.');
         }
     };
 
     // Define formatRatingString first
-    const formatRatingString = React.useCallback((fencer: Fencer): string => {
-        if (!fencer) return '';
+    const formatRatingString = React.useCallback(
+        (fencer: Fencer): string => {
+            if (!fencer) return '';
 
-        let rating = "";
-        let year = 0;
-        switch (event.weapon.toLowerCase()) {
-            case "epee":
-                rating = fencer.erating || "";
-                year = fencer.eyear || 0;
-                break;
-            case "foil":
-                rating = fencer.frating || "";
-                year = fencer.fyear || 0;
-                break;
-            case "saber":
-                rating = fencer.srating || "";
-                year = fencer.syear || 0;
-                break;
-            default:
-                break;
-        }
-        const yearStr = rating !== "U" ? year.toString().slice(2) : "";
-        return `${rating}${yearStr}`;
-    }, [event.weapon]);
+            let rating = '';
+            let year = 0;
+            switch (event.weapon.toLowerCase()) {
+                case 'epee':
+                    rating = fencer.erating || '';
+                    year = fencer.eyear || 0;
+                    break;
+                case 'foil':
+                    rating = fencer.frating || '';
+                    year = fencer.fyear || 0;
+                    break;
+                case 'saber':
+                    rating = fencer.srating || '';
+                    year = fencer.syear || 0;
+                    break;
+                default:
+                    break;
+            }
+            const yearStr = rating !== 'U' ? year.toString().slice(2) : '';
+            return `${rating}${yearStr}`;
+        },
+        [event.weapon]
+    );
 
     // Then define handleRemoveFencer
-    const handleRemoveFencer = React.useCallback((fencer: Fencer, event: Event) => {
-        removeFencerMutation.mutate({ fencer, event });
-    }, [removeFencerMutation]);
+    const handleRemoveFencer = React.useCallback(
+        (fencer: Fencer, event: Event) => {
+            removeFencerMutation.mutate({ fencer, event });
+        },
+        [removeFencerMutation]
+    );
 
     // Define handleAddFencerFromSearch first
-    const handleAddFencerFromSearch = React.useCallback((fencer: Fencer) => {
-        addFencerMutation.mutate({ fencer, event });
-        setSearchQuery("");
-    }, [addFencerMutation, event, setSearchQuery]);
+    const handleAddFencerFromSearch = React.useCallback(
+        (fencer: Fencer) => {
+            addFencerMutation.mutate({ fencer, event });
+            setSearchQuery('');
+        },
+        [addFencerMutation, event, setSearchQuery]
+    );
 
     // Then define renderFencers
     const renderFencers = React.useCallback(() => {
         if (!fencers || !Array.isArray(fencers)) return null;
 
-        return fencers.map((fencer) => (
+        return fencers.map(fencer => (
             <View key={fencer.id} style={styles.fencerRow}>
                 <Text style={styles.fencerItem}>
                     {fencer.lname}, {fencer.fname}
@@ -446,7 +468,7 @@ setFencerClubAbbreviation("");
     const renderFencerSuggestions = React.useCallback(() => {
         if (!fencerSuggestions || !Array.isArray(fencerSuggestions)) return null;
 
-        return fencerSuggestions.map((fencer) => (
+        return fencerSuggestions.map(fencer => (
             <TouchableOpacity
                 key={fencer.id}
                 onPress={() => handleAddFencerFromSearch(fencer)}
@@ -464,7 +486,7 @@ setFencerClubAbbreviation("");
 
     // Add refs array for round items
     const roundItemRefs = useRef<Array<View | null>>([]);
-    
+
     // Effect to scroll to expanded round config
     useEffect(() => {
         if (expandedConfigIndex !== null && roundItemRefs.current[expandedConfigIndex]) {
@@ -475,85 +497,97 @@ setFencerClubAbbreviation("");
                     (_, y) => {
                         scrollViewRef.current?.scrollTo({ y: y - 50, animated: true });
                     },
-                    () => console.error("Failed to measure layout")
+                    () => console.error('Failed to measure layout')
                 );
             });
         }
     }, [expandedConfigIndex]);
 
-    const toggleRoundConfig = useCallback((index: number) => {
-        const newIndex = expandedConfigIndex === index ? null : index;
-        setExpandedConfigIndex(newIndex);
-        // Initialize input text when expanding a pool round config
-        if (newIndex !== null && rounds[newIndex]?.type === 'pool') {
-            setPromotionInputText(rounds[newIndex].promotionpercent?.toString() || "100");
-        }
-    }, [expandedConfigIndex, rounds]);
+    const toggleRoundConfig = useCallback(
+        (index: number) => {
+            const newIndex = expandedConfigIndex === index ? null : index;
+            setExpandedConfigIndex(newIndex);
+            // Initialize input text when expanding a pool round config
+            if (newIndex !== null && rounds[newIndex]?.type === 'pool') {
+                setPromotionInputText(rounds[newIndex].promotionpercent?.toString() || '100');
+            }
+        },
+        [expandedConfigIndex, rounds]
+    );
 
     // Handler for selecting a pool configuration for a specific round
-    const handleSelectPoolConfiguration = useCallback((config: PoolConfiguration, roundIndex: number) => {
-        const round = rounds[roundIndex];
-        if (!round) return;
+    const handleSelectPoolConfiguration = useCallback(
+        (config: PoolConfiguration, roundIndex: number) => {
+            const round = rounds[roundIndex];
+            if (!round) return;
 
-        // Get pool size based on the configuration
-        const expectedPoolSize = config.extraPools > 0 ? config.baseSize + 1 : config.baseSize;
+            // Get pool size based on the configuration
+            const expectedPoolSize = config.extraPools > 0 ? config.baseSize + 1 : config.baseSize;
 
-        // Update the round with the new pool configuration
-        const updatedRound = {
-            ...round,
-            poolcount: config.pools,
-            poolsize: expectedPoolSize
-        };
+            // Update the round with the new pool configuration
+            const updatedRound = {
+                ...round,
+                poolcount: config.pools,
+                poolsize: expectedPoolSize,
+            };
 
-        updateRoundMutation.mutate(updatedRound);
-    }, [rounds, updateRoundMutation]);
+            updateRoundMutation.mutate(updatedRound);
+        },
+        [rounds, updateRoundMutation]
+    );
 
     // Handler to add a new round. Creates a new round object with default values.
-    const handleAddRound = useCallback((roundType: 'pool' | 'de') => {
-        const newRound = {
-            eventid: event.id,
-            rorder: rounds.length + 1, // Append at the end
-            type: roundType,
-            promotionpercent: roundType === 'pool' ? 100 : 0,
-            targetbracket: roundType === 'pool' ? 0 : 0,
-            usetargetbracket: 0 as 0 | 1, // Use literal 0 and assert type
-            deformat: roundType === 'de' ? 'single' : '',
-            detablesize: roundType === 'de' ? 0 : 0,
-            iscomplete: 0,
-            poolcount: roundType === 'pool' ? 0 : undefined, // Use undefined instead of null
-            poolsize: roundType === 'pool' ? 0 : undefined, // Use undefined instead of null
-            poolsoption: roundType === 'pool' ? 'promotion' : undefined,
-            isstarted: false // Use boolean false for isstarted
-        };
+    const handleAddRound = useCallback(
+        (roundType: 'pool' | 'de') => {
+            const newRound = {
+                eventid: event.id,
+                rorder: rounds.length + 1, // Append at the end
+                type: roundType,
+                promotionpercent: roundType === 'pool' ? 100 : 0,
+                targetbracket: roundType === 'pool' ? 0 : 0,
+                usetargetbracket: 0 as 0 | 1, // Use literal 0 and assert type
+                deformat: roundType === 'de' ? 'single' : '',
+                detablesize: roundType === 'de' ? 0 : 0,
+                iscomplete: 0,
+                poolcount: roundType === 'pool' ? 0 : undefined, // Use undefined instead of null
+                poolsize: roundType === 'pool' ? 0 : undefined, // Use undefined instead of null
+                poolsoption: roundType === 'pool' ? 'promotion' : undefined,
+                isstarted: false, // Use boolean false for isstarted
+            };
 
-        addRoundMutation.mutate(newRound as Partial<Round>); // Assert as Partial<Round>
-        
-        // Scroll to the new rounds section immediately after mutation
-        requestAnimationFrame(() => {
-            scrollViewRef.current?.scrollToEnd({ animated: true });
-        });
-    }, [event.id, rounds.length, addRoundMutation]);
+            addRoundMutation.mutate(newRound as Partial<Round>); // Assert as Partial<Round>
+
+            // Scroll to the new rounds section immediately after mutation
+            requestAnimationFrame(() => {
+                scrollViewRef.current?.scrollToEnd({ animated: true });
+            });
+        },
+        [event.id, rounds.length, addRoundMutation]
+    );
 
     // Handler to update a round immediately after a change
-    const handleUpdateRound = React.useCallback((updatedRound: Round) => {
-        updateRoundMutation.mutate(updatedRound);
-    }, [updateRoundMutation]);
+    const handleUpdateRound = React.useCallback(
+        (updatedRound: Round) => {
+            updateRoundMutation.mutate(updatedRound);
+        },
+        [updateRoundMutation]
+    );
 
     // Handler to delete a round
-    const handleDeleteRound = React.useCallback((roundId: number) => {
-        deleteRoundMutation.mutate({ roundId, eventId: event.id });
-    }, [deleteRoundMutation, event.id]);
+    const handleDeleteRound = React.useCallback(
+        (roundId: number) => {
+            deleteRoundMutation.mutate({ roundId, eventId: event.id });
+        },
+        [deleteRoundMutation, event.id]
+    );
 
     // Create refs for scrolling
     const scrollViewRef = useRef<ScrollView>(null);
     const roundsDropdownRef = useRef<View>(null);
     const roundTypeMenuRef = useRef<View>(null);
-    
+
     return (
-        <ScrollView 
-            ref={scrollViewRef}
-            style={styles.container} 
-            contentContainerStyle={styles.content}>
+        <ScrollView ref={scrollViewRef} style={styles.container} contentContainerStyle={styles.content}>
             <Text style={styles.title}>Edit Event Settings</Text>
 
             {/* Fencing Management Dropdown */}
@@ -614,30 +648,32 @@ setFencerClubAbbreviation("");
                             setSelectedWeapon={setSelectedWeapon}
                             currentRating={currentRating}
                             currentYear={currentYear}
-                            handleRatingChange={(itemValue: string) => { // Added type for itemValue
-                                if (selectedWeapon === "epee") {
+                            handleRatingChange={(itemValue: string) => {
+                                // Added type for itemValue
+                                if (selectedWeapon === 'epee') {
                                     setEpeeRating(itemValue);
-                                    setEpeeYear((prevYear) =>
-                                        itemValue === "U" ? 0 : prevYear || new Date().getFullYear()
+                                    setEpeeYear(prevYear =>
+                                        itemValue === 'U' ? 0 : prevYear || new Date().getFullYear()
                                     );
-                                } else if (selectedWeapon === "foil") {
+                                } else if (selectedWeapon === 'foil') {
                                     setFoilRating(itemValue);
-                                    setFoilYear((prevYear) =>
-                                        itemValue === "U" ? 0 : prevYear || new Date().getFullYear()
+                                    setFoilYear(prevYear =>
+                                        itemValue === 'U' ? 0 : prevYear || new Date().getFullYear()
                                     );
-                                } else if (selectedWeapon === "saber") {
+                                } else if (selectedWeapon === 'saber') {
                                     setSaberRating(itemValue);
-                                    setSaberYear((prevYear) =>
-                                        itemValue === "U" ? 0 : prevYear || new Date().getFullYear()
+                                    setSaberYear(prevYear =>
+                                        itemValue === 'U' ? 0 : prevYear || new Date().getFullYear()
                                     );
                                 }
                             }}
-                            handleYearChange={(itemValue: number) => { // Added type for itemValue
-                                if (selectedWeapon === "epee") {
+                            handleYearChange={(itemValue: number) => {
+                                // Added type for itemValue
+                                if (selectedWeapon === 'epee') {
                                     setEpeeYear(itemValue);
-                                } else if (selectedWeapon === "foil") {
+                                } else if (selectedWeapon === 'foil') {
                                     setFoilYear(itemValue);
-                                } else if (selectedWeapon === "saber") {
+                                } else if (selectedWeapon === 'saber') {
                                     setSaberYear(itemValue);
                                 }
                             }}
@@ -657,10 +693,7 @@ setFencerClubAbbreviation("");
                             )}
                         </TouchableOpacity>
                         {/* New Random Fill Button */}
-                        <TouchableOpacity
-                            onPress={handleRandomFill}
-                            style={styles.randomFillButton}
-                        >
+                        <TouchableOpacity onPress={handleRandomFill} style={styles.randomFillButton}>
                             <Text style={styles.randomFillButtonText}>Random fill</Text>
                         </TouchableOpacity>
                         {showRandomFillInput && (
@@ -672,15 +705,11 @@ setFencerClubAbbreviation("");
                                     onChangeText={setRandomFillInput}
                                     keyboardType="numeric"
                                 />
-                                <TouchableOpacity
-                                    onPress={handleRandomFillGo}
-                                    style={styles.randomFillGoButton}
-                                >
+                                <TouchableOpacity onPress={handleRandomFillGo} style={styles.randomFillGoButton}>
                                     <Text style={styles.randomFillGoButtonText}>Go</Text>
                                 </TouchableOpacity>
                             </View>
                         )}
-
                     </View>
                     <View style={styles.fencerListContainer}>
                         <Text style={styles.fencerListHeader}>Current Fencers: {fencers.length}</Text>
@@ -718,7 +747,7 @@ setFencerClubAbbreviation("");
                                 (_, y) => {
                                     scrollViewRef.current?.scrollTo({ y: y - 20, animated: true });
                                 },
-                                () => console.error("Failed to measure layout")
+                                () => console.error('Failed to measure layout')
                             );
                         });
                     }
@@ -727,9 +756,7 @@ setFencerClubAbbreviation("");
                 <Text style={styles.dropdownHeaderText}>Round Management</Text>
             </TouchableOpacity>
             {roundDropdownOpen && (
-                <View 
-                    ref={roundsDropdownRef}
-                    style={styles.dropdownContent}>
+                <View ref={roundsDropdownRef} style={styles.dropdownContent}>
                     {roundsLoading ? (
                         <View style={styles.loadingContainer}>
                             <ActivityIndicator size="small" color="#001f3f" /> {/* Changed size to small */}
@@ -738,30 +765,47 @@ setFencerClubAbbreviation("");
                     ) : rounds.length > 0 ? (
                         <View style={styles.roundsList}>
                             {rounds.map((round, idx) => (
-                                <View 
-                                    key={round.id} 
-                                    ref={el => roundItemRefs.current[idx] = el}
-                                    style={styles.roundItem}>
+                                <View
+                                    key={round.id}
+                                    ref={el => (roundItemRefs.current[idx] = el)}
+                                    style={styles.roundItem}
+                                >
                                     <View style={styles.roundItemRow}>
-                                         <View style={styles.dragHandle}>
-                                             {/* <Text style={styles.dragIcon}>☰</Text> */}
-                                             <TouchableOpacity
-                                                 style={styles.moveButton}
-                                                 onPress={() => handleMoveRound(round.id, 'up')}
-                                                 disabled={idx === 0 || updateRoundMutation.isPending} // Disable up for first item or while updating
-                                             >
-                                                 <Text style={[styles.moveButtonText, (idx === 0 || updateRoundMutation.isPending) && styles.moveButtonTextDisabled]}>↑</Text>
-                                             </TouchableOpacity>
-                                             <TouchableOpacity
-                                                 style={styles.moveButton}
-                                                 onPress={() => handleMoveRound(round.id, 'down')}
-                                                 disabled={idx === rounds.length - 1 || updateRoundMutation.isPending} // Disable down for last item or while updating
-                                             >
-                                                 <Text style={[styles.moveButtonText, (idx === rounds.length - 1 || updateRoundMutation.isPending) && styles.moveButtonTextDisabled]}>↓</Text>
-                                             </TouchableOpacity>
-                                         </View>
+                                        <View style={styles.dragHandle}>
+                                            {/* <Text style={styles.dragIcon}>☰</Text> */}
+                                            <TouchableOpacity
+                                                style={styles.moveButton}
+                                                onPress={() => handleMoveRound(round.id, 'up')}
+                                                disabled={idx === 0 || updateRoundMutation.isPending} // Disable up for first item or while updating
+                                            >
+                                                <Text
+                                                    style={[
+                                                        styles.moveButtonText,
+                                                        (idx === 0 || updateRoundMutation.isPending) &&
+                                                            styles.moveButtonTextDisabled,
+                                                    ]}
+                                                >
+                                                    ↑
+                                                </Text>
+                                            </TouchableOpacity>
+                                            <TouchableOpacity
+                                                style={styles.moveButton}
+                                                onPress={() => handleMoveRound(round.id, 'down')}
+                                                disabled={idx === rounds.length - 1 || updateRoundMutation.isPending} // Disable down for last item or while updating
+                                            >
+                                                <Text
+                                                    style={[
+                                                        styles.moveButtonText,
+                                                        (idx === rounds.length - 1 || updateRoundMutation.isPending) &&
+                                                            styles.moveButtonTextDisabled,
+                                                    ]}
+                                                >
+                                                    ↓
+                                                </Text>
+                                            </TouchableOpacity>
+                                        </View>
                                         <Text style={styles.roundLabelText}>
-                                            {round.type === "pool" ? "Pools Round" : "DE Round"}
+                                            {round.type === 'pool' ? 'Pools Round' : 'DE Round'}
                                         </Text>
                                         <View style={styles.roundItemActions}>
                                             <TouchableOpacity
@@ -780,16 +824,20 @@ setFencerClubAbbreviation("");
                                     </View>
                                     {expandedConfigIndex === idx && (
                                         <View style={styles.roundConfig}>
-                                            {round.type === "pool" ? (
+                                            {round.type === 'pool' ? (
                                                 <View>
                                                     <View style={styles.configToggle}>
                                                         <TouchableOpacity
                                                             style={[
                                                                 styles.configOptionButton,
-                                                                round.poolsoption === "promotion" && styles.configOptionSelected,
+                                                                round.poolsoption === 'promotion' &&
+                                                                    styles.configOptionSelected,
                                                             ]}
                                                             onPress={() => {
-                                                                const updatedRound: Round = { ...round, poolsoption: "promotion" }; // Explicit type
+                                                                const updatedRound: Round = {
+                                                                    ...round,
+                                                                    poolsoption: 'promotion',
+                                                                }; // Explicit type
                                                                 handleUpdateRound(updatedRound);
                                                             }}
                                                         >
@@ -798,17 +846,21 @@ setFencerClubAbbreviation("");
                                                         <TouchableOpacity
                                                             style={[
                                                                 styles.configOptionButton,
-                                                                round.poolsoption === "target" && styles.configOptionSelected,
+                                                                round.poolsoption === 'target' &&
+                                                                    styles.configOptionSelected,
                                                             ]}
                                                             onPress={() => {
-                                                                const updatedRound: Round = { ...round, poolsoption: "target" }; // Explicit type
+                                                                const updatedRound: Round = {
+                                                                    ...round,
+                                                                    poolsoption: 'target',
+                                                                }; // Explicit type
                                                                 handleUpdateRound(updatedRound);
                                                             }}
                                                         >
                                                             <Text style={styles.configOptionText}>Target Bracket</Text>
                                                         </TouchableOpacity>
                                                     </View>
-                                                    {round.poolsoption === "promotion" ? (
+                                                    {round.poolsoption === 'promotion' ? (
                                                         <TextInput
                                                             style={styles.configInput}
                                                             keyboardType="numeric"
@@ -820,25 +872,26 @@ setFencerClubAbbreviation("");
                                                                 const percent = parseInt(promotionInputText) || 0;
                                                                 const updatedRound = {
                                                                     ...round,
-                                                                    promotionpercent: percent
+                                                                    promotionpercent: percent,
                                                                 };
                                                                 handleUpdateRound(updatedRound);
                                                             }}
                                                         />
                                                     ) : (
                                                         <View style={styles.targetSelector}>
-                                                            {[8, 16, 32, 64, 128, 256].map((size) => (
+                                                            {[8, 16, 32, 64, 128, 256].map(size => (
                                                                 <TouchableOpacity
                                                                     key={size}
                                                                     style={[
                                                                         styles.targetButton,
-                                                                        round.targetbracket === size && styles.targetButtonSelected,
+                                                                        round.targetbracket === size &&
+                                                                            styles.targetButtonSelected,
                                                                     ]}
                                                                     onPress={() => {
                                                                         const updatedRound = {
                                                                             ...round,
                                                                             poolsoption: round.poolsoption, // Explicitly include poolsoption
-                                                                            targetbracket: size
+                                                                            targetbracket: size,
                                                                         };
                                                                         handleUpdateRound(updatedRound);
                                                                     }}
@@ -852,10 +905,14 @@ setFencerClubAbbreviation("");
                                                         <Text style={styles.configTitle}>Pool Configurations</Text>
                                                         {poolConfigurations.map((config, index) => {
                                                             // Determine the expected poolsize based on this config.
-                                                            const expectedPoolSize = config.extraPools > 0 ? config.baseSize + 1 : config.baseSize;
+                                                            const expectedPoolSize =
+                                                                config.extraPools > 0
+                                                                    ? config.baseSize + 1
+                                                                    : config.baseSize;
                                                             // Check if the current round's pool configuration matches this one.
                                                             const isSelected =
-                                                                round.poolcount === config.pools && round.poolsize === expectedPoolSize;
+                                                                round.poolcount === config.pools &&
+                                                                round.poolsize === expectedPoolSize;
                                                             return (
                                                                 <TouchableOpacity
                                                                     key={index}
@@ -872,34 +929,45 @@ setFencerClubAbbreviation("");
                                                                         handleUpdateRound(updatedRound);
                                                                     }}
                                                                 >
-                                                                    <Text style={styles.poolConfigButtonText}>{formatPoolLabel(config)}</Text>
+                                                                    <Text style={styles.poolConfigButtonText}>
+                                                                        {formatPoolLabel(config)}
+                                                                    </Text>
                                                                 </TouchableOpacity>
                                                             );
                                                         })}
                                                     </View>
-
                                                 </View>
                                             ) : (
                                                 <View style={styles.deConfig}>
                                                     <Text style={styles.configLabel}>Elimination Format:</Text>
                                                     <View style={styles.deFormatContainer}>
-                                                        {["single", "double", "compass"].map((format) => (
+                                                        {['single', 'double', 'compass'].map(format => (
                                                             <TouchableOpacity
                                                                 key={format}
                                                                 style={[
                                                                     styles.deFormatButton,
-                                                                    round.deformat === format && styles.deFormatButtonSelected,
+                                                                    round.deformat === format &&
+                                                                        styles.deFormatButtonSelected,
                                                                 ]}
                                                                 onPress={() => {
                                                                     // Assert format type for deformat
-                                                                    const updatedRound: Round = { ...round, deformat: format as 'single' | 'double' | 'compass' };
+                                                                    const updatedRound: Round = {
+                                                                        ...round,
+                                                                        deformat: format as
+                                                                            | 'single'
+                                                                            | 'double'
+                                                                            | 'compass',
+                                                                    };
                                                                     handleUpdateRound(updatedRound);
                                                                 }}
                                                             >
-                                                                <Text style={[
-                                                                    styles.deFormatButtonText,
-                                                                    round.deformat === format && styles.deFormatButtonTextSelected
-                                                                ]}>
+                                                                <Text
+                                                                    style={[
+                                                                        styles.deFormatButtonText,
+                                                                        round.deformat === format &&
+                                                                            styles.deFormatButtonTextSelected,
+                                                                    ]}
+                                                                >
                                                                     {format.charAt(0).toUpperCase() + format.slice(1)}
                                                                 </Text>
                                                             </TouchableOpacity>
@@ -911,23 +979,32 @@ setFencerClubAbbreviation("");
                                                     <View style={styles.deFormatInfo}>
                                                         {round.deformat === 'single' && (
                                                             <Text style={styles.deFormatDescription}>
-                                                                Single elimination: Fencers are eliminated after one loss. The bracket size will be automatically determined based on the number of registered fencers.
+                                                                Single elimination: Fencers are eliminated after one
+                                                                loss. The bracket size will be automatically determined
+                                                                based on the number of registered fencers.
                                                             </Text>
                                                         )}
                                                         {round.deformat === 'double' && (
                                                             <Text style={styles.deFormatDescription}>
-                                                                Double elimination: Fencers continue in a losers bracket after first loss. All fencers get at least two bouts before elimination. The bracket size will be automatically determined.
+                                                                Double elimination: Fencers continue in a losers bracket
+                                                                after first loss. All fencers get at least two bouts
+                                                                before elimination. The bracket size will be
+                                                                automatically determined.
                                                             </Text>
                                                         )}
                                                         {round.deformat === 'compass' && (
                                                             <Text style={styles.deFormatDescription}>
-                                                                Compass format: All fencers continue in different brackets based on when they lose. This format maximizes the number of bouts per fencer. Bracket size will be calculated automatically.
+                                                                Compass format: All fencers continue in different
+                                                                brackets based on when they lose. This format maximizes
+                                                                the number of bouts per fencer. Bracket size will be
+                                                                calculated automatically.
                                                             </Text>
                                                         )}
                                                     </View>
 
                                                     <Text style={styles.fencerCountNote}>
-                                                        The bracket will be sized as the smallest power of 2 (8, 16, 32, 64, etc.) that can accommodate all registered fencers.
+                                                        The bracket will be sized as the smallest power of 2 (8, 16, 32,
+                                                        64, etc.) that can accommodate all registered fencers.
                                                     </Text>
                                                 </View>
                                             )}
@@ -953,7 +1030,7 @@ setFencerClubAbbreviation("");
                                         (_, y) => {
                                             scrollViewRef.current?.scrollTo({ y: y - 20, animated: true });
                                         },
-                                        () => console.error("Failed to measure layout")
+                                        () => console.error('Failed to measure layout')
                                     );
                                 });
                             }
@@ -962,13 +1039,11 @@ setFencerClubAbbreviation("");
                         <Text style={styles.addRoundButtonText}>Add Round</Text>
                     </TouchableOpacity>
                     {showRoundTypeOptions && (
-                        <View 
-                            ref={roundTypeMenuRef}
-                            style={styles.roundTypeMenu}>
+                        <View ref={roundTypeMenuRef} style={styles.roundTypeMenu}>
                             <TouchableOpacity
                                 style={styles.roundTypeChoice}
                                 onPress={() => {
-                                    handleAddRound("pool");
+                                    handleAddRound('pool');
                                     setShowRoundTypeOptions(false);
                                 }}
                             >
@@ -977,7 +1052,7 @@ setFencerClubAbbreviation("");
                             <TouchableOpacity
                                 style={styles.roundTypeChoice}
                                 onPress={() => {
-                                    handleAddRound("de");
+                                    handleAddRound('de');
                                     setShowRoundTypeOptions(false);
                                 }}
                             >
@@ -990,9 +1065,11 @@ setFencerClubAbbreviation("");
                         <View style={styles.pendingActionContainer}>
                             <ActivityIndicator size="small" color="#001f3f" />
                             <Text style={styles.pendingActionText}>
-                                {addRoundMutation.isPending ? "Adding round..." :
-                                    updateRoundMutation.isPending ? "Updating round..." :
-                                        "Deleting round..."}
+                                {addRoundMutation.isPending
+                                    ? 'Adding round...'
+                                    : updateRoundMutation.isPending
+                                      ? 'Updating round...'
+                                      : 'Deleting round...'}
                             </Text>
                         </View>
                     )}
@@ -1004,15 +1081,15 @@ setFencerClubAbbreviation("");
 
 export default EventSettings;
 
-const navyBlue = "#000080";
-const white = "#ffffff";
-const greyAccent = "#cccccc";
-const lightRed = "#ff9999";
+const navyBlue = '#000080';
+const white = '#ffffff';
+const greyAccent = '#cccccc';
+const lightRed = '#ff9999';
 
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: "#f7f7f7",
+        backgroundColor: '#f7f7f7',
     },
     content: {
         padding: 20,
@@ -1052,57 +1129,57 @@ const styles = StyleSheet.create({
     },
     title: {
         fontSize: 26,
-        fontWeight: "bold",
+        fontWeight: 'bold',
         marginBottom: 20,
-        textAlign: "center",
-        color: "#001f3f",
+        textAlign: 'center',
+        color: '#001f3f',
     },
     dropdownHeader: {
-        backgroundColor: "#001f3f",
+        backgroundColor: '#001f3f',
         padding: 15,
         borderRadius: 8,
         marginBottom: 5,
     },
     dropdownHeaderText: {
-        color: "#fff",
+        color: '#fff',
         fontSize: 18,
-        fontWeight: "600",
+        fontWeight: '600',
     },
     dropdownContent: {
-        backgroundColor: "#fff",
+        backgroundColor: '#fff',
         padding: 15,
         borderRadius: 8,
         marginBottom: 20,
     },
     section: {
-        backgroundColor: "#fff",
+        backgroundColor: '#fff',
         padding: 15,
         borderRadius: 8,
         marginBottom: 20,
     },
     sectionTitle: {
         fontSize: 18,
-        fontWeight: "600",
+        fontWeight: '600',
         marginBottom: 10,
-        color: "#001f3f",
+        color: '#001f3f',
     },
     input: {
         borderWidth: 1,
-        borderColor: "#ccc",
+        borderColor: '#ccc',
         borderRadius: 6,
         padding: 10,
         marginBottom: 10,
         fontSize: 16,
-        backgroundColor: "#fff",
+        backgroundColor: '#fff',
     },
     inputLabel: {
         fontSize: 16,
         marginBottom: 5,
-        color: "#001f3f",
+        color: '#001f3f',
     },
     row: {
-        flexDirection: "row",
-        justifyContent: "space-between",
+        flexDirection: 'row',
+        justifyContent: 'space-between',
     },
     pickerLeft: {
         flex: 1,
@@ -1124,57 +1201,57 @@ const styles = StyleSheet.create({
         color: navyBlue,
     },
     fencerRow: {
-        flexDirection: "row",
-        justifyContent: "space-between",
-        alignItems: "center",
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
         marginBottom: 5,
     },
     fencerItem: {
         fontSize: 16,
-        color: "#001f3f",
+        color: '#001f3f',
     },
     removeFencerButton: {
-        backgroundColor: "#d9534f",
+        backgroundColor: '#d9534f',
         paddingHorizontal: 8,
         paddingVertical: 2,
         borderRadius: 4,
     },
     removeFencerText: {
-        color: "#fff",
+        color: '#fff',
         fontSize: 14,
     },
     note: {
-        fontStyle: "italic",
-        color: "#777",
+        fontStyle: 'italic',
+        color: '#777',
     },
     saveButtonText: {
-        color: "green",
+        color: 'green',
         fontSize: 18,
-        fontWeight: "bold",
-        textAlign: "center",
+        fontWeight: 'bold',
+        textAlign: 'center',
     },
     errorContainer: {
         flex: 1,
-        justifyContent: "center",
-        alignItems: "center",
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     errorText: {
-        color: "red",
+        color: 'red',
         fontSize: 18,
     },
     fencerListContainer: {
         marginTop: 10,
         padding: 10,
         borderWidth: 1,
-        borderColor: "#ccc",
+        borderColor: '#ccc',
         borderRadius: 6,
-        backgroundColor: "#fafafa",
+        backgroundColor: '#fafafa',
     },
     fencerListHeader: {
         fontSize: 16,
-        fontWeight: "600",
+        fontWeight: '600',
         marginBottom: 8,
-        color: "#001f3f",
+        color: '#001f3f',
     },
     roundItem: {
         borderWidth: 1,
@@ -1185,13 +1262,13 @@ const styles = StyleSheet.create({
         backgroundColor: white,
     },
     roundItemRow: {
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "space-between",
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
     },
     dragHandle: {
-        flexDirection: "row",
-        alignItems: "center",
+        flexDirection: 'row',
+        alignItems: 'center',
     },
     dragIcon: {
         fontSize: 20,
@@ -1200,21 +1277,21 @@ const styles = StyleSheet.create({
     moveButton: {
         paddingHorizontal: 4,
     },
-     moveButtonText: {
-         fontSize: 20, // Increased size for better touch target
-         color: navyBlue, // Use theme color
-         paddingHorizontal: 5, // Add some horizontal padding
-     },
-     moveButtonTextDisabled: {
+    moveButtonText: {
+        fontSize: 20, // Increased size for better touch target
+        color: navyBlue, // Use theme color
+        paddingHorizontal: 5, // Add some horizontal padding
+    },
+    moveButtonTextDisabled: {
         color: greyAccent, // Grey out when disabled
-     },
+    },
     roundLabelText: {
         flex: 1,
         fontSize: 16,
-        fontWeight: "600",
+        fontWeight: '600',
     },
     roundItemActions: {
-        flexDirection: "row",
+        flexDirection: 'row',
     },
     removeRoundButton: {
         paddingHorizontal: 8,
@@ -1222,7 +1299,7 @@ const styles = StyleSheet.create({
     },
     removeRoundButtonText: {
         fontSize: 18,
-        color: "red",
+        color: 'red',
     },
     configButton: {
         paddingHorizontal: 8,
@@ -1245,8 +1322,8 @@ const styles = StyleSheet.create({
         borderColor: greyAccent,
     },
     targetSelector: {
-        flexDirection: "row",
-        justifyContent: "space-around",
+        flexDirection: 'row',
+        justifyContent: 'space-around',
     },
     targetButton: {
         padding: 8,
@@ -1260,11 +1337,11 @@ const styles = StyleSheet.create({
     },
     targetButtonText: {
         fontSize: 14,
-        color: "#000",
+        color: '#000',
     },
     configToggle: {
-        flexDirection: "row",
-        justifyContent: "space-around",
+        flexDirection: 'row',
+        justifyContent: 'space-around',
         marginBottom: 8,
     },
     configOptionButton: {
@@ -1273,55 +1350,55 @@ const styles = StyleSheet.create({
         paddingVertical: 8,
         marginHorizontal: 4,
         borderRadius: 4,
-        alignItems: "center",
+        alignItems: 'center',
     },
     configOptionSelected: {
         backgroundColor: navyBlue,
     },
     configOptionText: {
         fontSize: 14,
-        color: "#000",
+        color: '#000',
     },
     configInput: {
         borderWidth: 1,
-        borderColor: "#ccc",
+        borderColor: '#ccc',
         borderRadius: 4,
         padding: 8,
         fontSize: 14,
     },
     addFencerButton: {
-        backgroundColor: "#001f3f",
+        backgroundColor: '#001f3f',
         paddingVertical: 10,
         paddingHorizontal: 15,
         borderRadius: 6,
-        alignItems: "center",
+        alignItems: 'center',
         marginVertical: 5,
     },
     addFencerButtonText: {
-        color: "#fff",
+        color: '#fff',
         fontSize: 16,
-        fontWeight: "600",
+        fontWeight: '600',
     },
     uploadCSVText: {
-        color: "#001f3f",
+        color: '#001f3f',
         fontSize: 16,
-        textAlign: "center",
-        textDecorationLine: "underline",
+        textAlign: 'center',
+        textDecorationLine: 'underline',
     },
     addRoundButton: {
-        width: "100%",
+        width: '100%',
         borderWidth: 2,
         borderColor: navyBlue,
         paddingVertical: 14,
         borderRadius: 5,
-        alignItems: "center",
+        alignItems: 'center',
         marginBottom: 15,
         marginTop: 5,
     },
     addRoundButtonText: {
         color: navyBlue,
         fontSize: 16,
-        fontWeight: "600",
+        fontWeight: '600',
     },
     poolConfigContainer: {
         marginTop: 10,
@@ -1329,25 +1406,25 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: greyAccent,
         borderRadius: 6,
-        backgroundColor: "#fafafa",
+        backgroundColor: '#fafafa',
     },
     poolConfigButton: {
         paddingVertical: 8,
         paddingHorizontal: 12,
-        backgroundColor: "#001f3f",
+        backgroundColor: '#001f3f',
         borderRadius: 4,
         marginVertical: 4,
     },
     poolConfigButtonText: {
-        color: "#fff",
+        color: '#fff',
         fontSize: 14,
-        textAlign: "center",
+        textAlign: 'center',
     },
     configTitle: {
         fontSize: 16,
-        fontWeight: "600",
+        fontWeight: '600',
         marginBottom: 8,
-        color: "#001f3f",
+        color: '#001f3f',
     },
     roundTypeMenu: {
         flexDirection: 'row',
@@ -1355,7 +1432,7 @@ const styles = StyleSheet.create({
         marginBottom: 15,
     },
     poolConfigButtonSelected: {
-        backgroundColor: "#28a745",
+        backgroundColor: '#28a745',
     },
     configLabel: {
         fontSize: 16,
@@ -1413,17 +1490,17 @@ const styles = StyleSheet.create({
     // Styles for custom picker are now imported from the component
     // New styles for the Random Fill button
     randomFillButton: {
-        backgroundColor: "#28a745",
+        backgroundColor: '#28a745',
         paddingVertical: 10,
         paddingHorizontal: 15,
         borderRadius: 6,
-        alignItems: "center",
+        alignItems: 'center',
         marginVertical: 5,
     },
     randomFillButtonText: {
-        color: "#fff",
+        color: '#fff',
         fontSize: 16,
-        fontWeight: "600",
+        fontWeight: '600',
     },
     // Styles for the Random Fill dropdown input
     randomFillDropdown: {
@@ -1445,16 +1522,15 @@ const styles = StyleSheet.create({
         paddingHorizontal: 8,
     },
     randomFillGoButton: {
-        backgroundColor: "#28a745",
+        backgroundColor: '#28a745',
         paddingVertical: 10,
         paddingHorizontal: 15,
         borderRadius: 6,
         marginLeft: 10,
     },
     randomFillGoButtonText: {
-        color: "#fff",
+        color: '#fff',
         fontSize: 16,
-        fontWeight: "600",
+        fontWeight: '600',
     },
-
 });

@@ -3,8 +3,8 @@ title: Debugging and testing
 categories: [advanced]
 order: 70
 meta:
-  keywords: ~
-  description: ~
+    keywords: ~
+    description: ~
 ---
 
 Sometimes it may be a bit complicated to understand why some action in the app is forbidden for a particular user. In this guide, you will learn common pitfalls and ways to investigate the underlying reasons. Let's start.
@@ -16,8 +16,8 @@ Sometimes it may be a bit complicated to understand why some action in the app i
 ```js
 import { defineAbility } from '@casl/ability';
 
-const ability = defineAbility((can) => {
-  can('read', 'Article');
+const ability = defineAbility(can => {
+    can('read', 'Article');
 });
 
 const rule = ability.relevantRuleFor('read', 'Article'); // instance of internal `Rule` class
@@ -37,8 +37,8 @@ import { defineAbility, subject } from '@casl/ability';
 export const article = subject.bind(null, 'Article');
 export const user = { id: 1 };
 export const ability = defineAbility((can, cannot) => {
-  can('read', 'Article', { authorId: user.id });
-  cannot('read', 'Article', { private: true })
+    can('read', 'Article', { authorId: user.id });
+    cannot('read', 'Article', { private: true });
 });
 ```
 
@@ -67,9 +67,9 @@ Another way to understand why the action is forbidden is to use [Forbidden reaso
 import { defineAbility, subject } from '@casl/ability';
 
 export const article = subject.bind(null, 'Article');
-export const ability = defineAbility((can) => {
-  can('read', 'Article');
-  cannot('read', 'Article', { private: true }).because('Private content is protected by law');
+export const ability = defineAbility(can => {
+    can('read', 'Article');
+    cannot('read', 'Article', { private: true }).because('Private content is protected by law');
 });
 
 const rule = ability.relevantRuleFor('read', 'Article'); // instance of internal `Rule` class
@@ -98,16 +98,16 @@ export const article = subject.bind(null, 'Article');
  * And we need to test it, not ability checks!
  */
 export function defineRulesFor(user) {
-  const { can, cannot, rules } = new AbilityBuilder(createMongoAbility);
+    const { can, cannot, rules } = new AbilityBuilder(createMongoAbility);
 
-  if (user.isAdmin) {
-    can('manage', 'all');
-  } else {
-    can('read', 'Article');
-    cannot('read', 'Article', { private: true });
-  }
+    if (user.isAdmin) {
+        can('manage', 'all');
+    } else {
+        can('read', 'Article');
+        cannot('read', 'Article', { private: true });
+    }
 
-  return rules;
+    return rules;
 }
 
 export const defineAbilityFor = user => createMongoAbility(defineRulesFor(user));
@@ -119,32 +119,30 @@ Now we want to ensure that admin users can do anything and other can only read n
 import { defineRulesFor } from './defineAbility';
 
 describe('Permissions', () => {
-  let user;
+    let user;
 
-  describe('when user is an admin', () => {
-    beforeEach(() => {
-      user = { isAdmin: true };
+    describe('when user is an admin', () => {
+        beforeEach(() => {
+            user = { isAdmin: true };
+        });
+
+        it('can do anything', () => {
+            expect(defineRulesFor(user)).to.deep.equal([{ action: 'manage', subject: 'all' }]);
+        });
     });
 
-    it('can do anything', () => {
-      expect(defineRulesFor(user)).to.deep.equal([
-        { action: 'manage', subject: 'all' }
-      ]);
-    });
-  });
+    describe('when user is a regular user', () => {
+        beforeEach(() => {
+            user = { isRegular: true };
+        });
 
-  describe('when user is a regular user', () => {
-    beforeEach(() => {
-      user = { isRegular: true };
+        it('can read non private article', () => {
+            expect(defineRulesFor(user)).to.deep.contain([
+                { action: 'read', subject: 'Article' },
+                { action: 'read', subject: 'Article', conditions: { private: true }, inverted: true },
+            ]);
+        });
     });
-
-    it('can read non private article', () => {
-      expect(defineRulesFor(user)).to.deep.contain([
-        { action: 'read', subject: 'Article' },
-        { action: 'read', subject: 'Article', conditions: { private: true }, inverted: true }
-      ]);
-    });
-  });
 });
 ```
 
@@ -156,15 +154,15 @@ Rules logic is very expressive and you can achieve the same results using a diff
 import { AbilityBuilder, createMongoAbility } from '@casl/ability';
 
 export function defineRulesFor(user) {
-  const { can, cannot, rules } = new AbilityBuilder(createMongoAbility);
+    const { can, cannot, rules } = new AbilityBuilder(createMongoAbility);
 
-  if (user.isAdmin) {
-    can('manage', 'all');
-  } else {
-    can('read', 'Article', { private: false });
-  }
+    if (user.isAdmin) {
+        can('manage', 'all');
+    } else {
+        can('read', 'Article', { private: false });
+    }
 
-  return rules;
+    return rules;
 }
 ```
 
@@ -176,33 +174,33 @@ Permissions logic is quite important, so the correct way to test it is to test p
 import { defineAbilityFor, article } from './defineAbility';
 
 describe('Permissions', () => {
-  let user;
-  let ability;
+    let user;
+    let ability;
 
-  describe('when user is an admin', () => {
-    beforeEach(() => {
-      user = { isAdmin: true };
-      ability = defineAbilityFor(user);
+    describe('when user is an admin', () => {
+        beforeEach(() => {
+            user = { isAdmin: true };
+            ability = defineAbilityFor(user);
+        });
+
+        it('can do anything', () => {
+            expect(ability.can('manage', 'all')).to.be.true;
+        });
     });
 
-    it('can do anything', () => {
-      expect(ability.can('manage', 'all')).to.be.true;
-    });
-  });
+    describe('when user is a regular user', () => {
+        beforeEach(() => {
+            user = { isRegular: true };
+            ability = defineAbilityFor(user);
+        });
 
-  describe('when user is a regular user', () => {
-    beforeEach(() => {
-      user = { isRegular: true };
-      ability = defineAbilityFor(user);
+        it('can read non private article', () => {
+            expect(ability.can('read', 'Article')).to.be.true;
+            expect(ability.can('read', article({ title: 'test' }))).to.be.false; // because no private field
+            expect(ability.can('read', article({ title: 'test', private: false }))).to.be.true;
+            expect(ability.can('read', article({ private: true }))).to.be.false;
+        });
     });
-
-    it('can read non private article', () => {
-      expect(ability.can('read', 'Article')).to.be.true;
-      expect(ability.can('read', article({ title: 'test' }))).to.be.false; // because no private field
-      expect(ability.can('read', article({ title: 'test', private: false }))).to.be.true;
-      expect(ability.can('read', article({ private: true }))).to.be.false;
-    });
-  });
 });
 ```
 

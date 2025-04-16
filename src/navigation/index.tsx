@@ -7,7 +7,7 @@ import { EventSettings } from './screens/EventSettings';
 import { RefereeModule } from './screens/RefereeModule/RefereeModule';
 import PoolsPage from './screens/PoolsPage';
 import BoutOrderPage from './screens/BoutOrderPage';
-import RoundResults from "./screens/RoundResults";
+import RoundResults from './screens/RoundResults';
 import DEBracketPage from './screens/DEBracketPage';
 import DoubleEliminationPage from './screens/DoubleEliminationPage';
 import CompassDrawPage from './screens/CompassDrawPage';
@@ -15,78 +15,79 @@ import ManageOfficials from './screens/ManageOfficials';
 import TournamentResultsPage from './screens/TournamentResultsPage'; // Add this import
 
 const RootStack = createNativeStackNavigator({
-  screens: {
-    HomeTabs: {
-      screen: Home,
-      options: {
-        title: 'Home',
-        headerShown: false,
-      },
+    screens: {
+        HomeTabs: {
+            screen: Home,
+            options: {
+                title: 'Home',
+                headerShown: false,
+            },
+        },
+        EventManagement: {
+            screen: EventManagement,
+            options: {
+                title: 'Edit Tournament',
+            },
+        },
+        EventSettings: {
+            screen: EventSettings,
+            options: {
+                title: 'Event Settings',
+            },
+        },
+        RefereeModule: {
+            screen: RefereeModule,
+            options: {
+                title: 'Referee Module',
+            },
+        },
+        PoolsPage: {
+            screen: PoolsPage,
+            options: {
+                title: 'Pools',
+            },
+        },
+        BoutOrderPage: {
+            screen: BoutOrderPage,
+            options: {
+                title: 'Bout Order',
+            },
+        },
+        RoundResults: {
+            screen: RoundResults,
+        },
+        DEBracketPage: {
+            screen: DEBracketPage,
+            options: {
+                title: 'Single Elimination',
+            },
+        },
+        DoubleEliminationPage: {
+            screen: DoubleEliminationPage,
+            options: {
+                title: 'Double Elimination',
+            },
+        },
+        CompassDrawPage: {
+            screen: CompassDrawPage,
+            options: {
+                title: 'Compass Draw',
+            },
+        },
+        ManageOfficials: {
+            screen: ManageOfficials,
+            options: {
+                title: 'Manage Officials',
+            },
+        },
+        TournamentResultsPage: {
+            // Add this new screen
+            screen: TournamentResultsPage,
+            options: {
+                title: 'Tournament Results',
+            },
+        },
     },
-    EventManagement: {
-      screen: EventManagement,
-      options: {
-        title: 'Edit Tournament',
-      },
-    },
-    EventSettings: {
-      screen: EventSettings,
-      options: {
-        title: 'Event Settings',
-      },
-    },
-    RefereeModule: {
-      screen: RefereeModule,
-      options: {
-        title: 'Referee Module',
-      },
-    },
-    PoolsPage: {
-      screen: PoolsPage,
-      options: {
-        title: 'Pools',
-      },
-    },
-    BoutOrderPage: {
-      screen: BoutOrderPage,
-      options: {
-        title: 'Bout Order',
-      },
-    },
-    RoundResults: {
-      screen: RoundResults,
-    },
-    DEBracketPage: {
-      screen: DEBracketPage,
-      options: {
-        title: 'Single Elimination',
-      },
-    },
-    DoubleEliminationPage: {
-      screen: DoubleEliminationPage,
-      options: {
-        title: 'Double Elimination',
-      },
-    },
-    CompassDrawPage: {
-      screen: CompassDrawPage,
-      options: {
-        title: 'Compass Draw',
-      },
-    },
-    ManageOfficials: {
-      screen: ManageOfficials,
-      options: {
-        title: 'Manage Officials',
-      },
-    },
-    TournamentResultsPage: { // Add this new screen
-      screen: TournamentResultsPage,
-      options: {
-        title: 'Tournament Results',
-      },
-    }
-  },
 });
 
 // Create the static navigation with the stack

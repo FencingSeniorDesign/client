@@ -1,14 +1,6 @@
 // src/navigation/screens/RefereeModule/RefereeModule.tsx with networking support
 import React, { useState, useRef, useEffect } from 'react';
-import {
-    View,
-    Text,
-    TouchableOpacity,
-    Pressable,
-    StyleSheet,
-    Modal,
-    Alert,
-} from 'react-native';
+import { View, Text, TouchableOpacity, Pressable, StyleSheet, Modal, Alert } from 'react-native';
 import { CustomTimeModal } from './CustomTimeModal';
 import { usePersistentState } from '../../../hooks/usePersistentStateHook';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
@@ -173,7 +165,7 @@ export function RefereeModule() {
                 type: 'update_scores',
                 boutId: boutId,
                 scoreA: fencer === 1 ? newScore : fencer1Score,
-                scoreB: fencer === 2 ? newScore : fencer2Score
+                scoreB: fencer === 2 ? newScore : fencer2Score,
             };
 
             if (isHost) {
@@ -280,11 +272,7 @@ export function RefereeModule() {
                 elements.push(
                     <View
                         key={type}
-                        style={[
-                            styles.cardIndicator,
-                            styles.aggregatedIndicator,
-                            { backgroundColor: type },
-                        ]}
+                        style={[styles.cardIndicator, styles.aggregatedIndicator, { backgroundColor: type }]}
                     >
                         <Text style={[styles.cardCountText, { color: type === 'yellow' ? '#000' : '#fff' }]}>
                             {count}x
@@ -306,20 +294,16 @@ export function RefereeModule() {
     // (Optional) A long-press on the passivity timer can still show an alert to revert it
     const handlePassivityTimerLongPress = () => {
         if (savedPassivityTime !== null) {
-            Alert.alert(
-                "Revert Timer",
-                `Revert timer to ${formatTime(savedPassivityTime)}?`,
-                [
-                    { text: "Cancel", style: "cancel" },
-                    {
-                        text: "Revert",
-                        onPress: () => {
-                            setPassivityTime(savedPassivityTime);
-                            setSavedPassivityTime(null);
-                        },
+            Alert.alert('Revert Timer', `Revert timer to ${formatTime(savedPassivityTime)}?`, [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                    text: 'Revert',
+                    onPress: () => {
+                        setPassivityTime(savedPassivityTime);
+                        setSavedPassivityTime(null);
                     },
-                ]
-            );
+                },
+            ]);
         }
     };
 
@@ -336,8 +320,8 @@ export function RefereeModule() {
                             ? kawaiiModeStyles.timerRunning
                             : styles.timerRunning
                         : kawaiiMode
-                            ? kawaiiModeStyles.timerStopped
-                            : styles.timerStopped,
+                          ? kawaiiModeStyles.timerStopped
+                          : styles.timerStopped,
                 ]}
                 onPress={toggleTimer}
                 onLongPress={() => setModalVisible(true)}
@@ -346,9 +330,7 @@ export function RefereeModule() {
                     {formatTime(time)}
                 </Text>
                 <Pressable onLongPress={handlePassivityTimerLongPress}>
-                    <Text style={styles.passivityTimerText}>
-                        {formatTime(passivityTime)}
-                    </Text>
+                    <Text style={styles.passivityTimerText}>{formatTime(passivityTime)}</Text>
                 </Pressable>
                 <Text style={[styles.timerStatus, isRunning ? styles.timerStatusRunning : styles.timerStatusStopped]}>
                     {isRunning ? 'Tap to pause, hold for options' : 'Tap to start, hold for options'}
@@ -357,12 +339,8 @@ export function RefereeModule() {
 
             <View style={styles.scoreContainer}>
                 <View style={styles.fencerContainer}>
-                    <View style={styles.cardsContainer}>
-                        {renderAggregatedCards(fencer1Cards)}
-                    </View>
-                    <Text style={styles.fencerLabel}>
-                        {kawaiiMode ? 'Kitten 1' : getLastName(fencer1Name)}
-                    </Text>
+                    <View style={styles.cardsContainer}>{renderAggregatedCards(fencer1Cards)}</View>
+                    <Text style={styles.fencerLabel}>{kawaiiMode ? 'Kitten 1' : getLastName(fencer1Name)}</Text>
                     <Text style={styles.scoreText}>{fencer1Score}</Text>
                     <View style={styles.buttonContainer}>
                         <TouchableOpacity
@@ -381,12 +359,8 @@ export function RefereeModule() {
                 </View>
 
                 <View style={styles.fencerContainer}>
-                    <View style={styles.cardsContainer}>
-                        {renderAggregatedCards(fencer2Cards)}
-                    </View>
-                    <Text style={styles.fencerLabel}>
-                        {kawaiiMode ? 'Kitten 2' : getLastName(fencer2Name)}
-                    </Text>
+                    <View style={styles.cardsContainer}>{renderAggregatedCards(fencer2Cards)}</View>
+                    <Text style={styles.fencerLabel}>{kawaiiMode ? 'Kitten 2' : getLastName(fencer2Name)}</Text>
                     <Text style={styles.scoreText}>{fencer2Score}</Text>
                     <View style={styles.buttonContainer}>
                         <TouchableOpacity
@@ -438,9 +412,7 @@ export function RefereeModule() {
                         <View style={styles.modalContainer}>
                             {removalMode ? (
                                 <>
-                                    <Text style={styles.modalText}>
-                                        Remove {selectedCard} card from:
-                                    </Text>
+                                    <Text style={styles.modalText}>Remove {selectedCard} card from:</Text>
                                     <View style={styles.modalButtonContainer}>
                                         <TouchableOpacity style={styles.modalButton} onPress={() => removeCard(1)}>
                                             <Text style={styles.modalButtonText}>Left</Text>
@@ -464,7 +436,10 @@ export function RefereeModule() {
                                     </View>
                                 </>
                             )}
-                            <TouchableOpacity style={styles.modalCloseButton} onPress={() => setShowCardActionModal(false)}>
+                            <TouchableOpacity
+                                style={styles.modalCloseButton}
+                                onPress={() => setShowCardActionModal(false)}
+                            >
                                 <Text style={styles.modalCloseButtonText}>Cancel</Text>
                             </TouchableOpacity>
                         </View>
@@ -474,21 +449,33 @@ export function RefereeModule() {
 
             <View style={styles.cardButtonsContainer}>
                 <Pressable
-                    style={({ pressed }) => [styles.cardButton, { backgroundColor: 'yellow' }, pressed && styles.pressedButton]}
+                    style={({ pressed }) => [
+                        styles.cardButton,
+                        { backgroundColor: 'yellow' },
+                        pressed && styles.pressedButton,
+                    ]}
                     onPress={() => handleCardPress('yellow', false)}
                     onLongPress={() => handleCardPress('yellow', true)}
                 >
                     <Text style={styles.cardButtonText}>Yellow</Text>
                 </Pressable>
                 <Pressable
-                    style={({ pressed }) => [styles.cardButton, { backgroundColor: 'red' }, pressed && styles.pressedButton]}
+                    style={({ pressed }) => [
+                        styles.cardButton,
+                        { backgroundColor: 'red' },
+                        pressed && styles.pressedButton,
+                    ]}
                     onPress={() => handleCardPress('red', false)}
                     onLongPress={() => handleCardPress('red', true)}
                 >
                     <Text style={styles.cardButtonText}>Red</Text>
                 </Pressable>
                 <Pressable
-                    style={({ pressed }) => [styles.cardButton, { backgroundColor: 'black' }, pressed && styles.pressedButton]}
+                    style={({ pressed }) => [
+                        styles.cardButton,
+                        { backgroundColor: 'black' },
+                        pressed && styles.pressedButton,
+                    ]}
                     onPress={() => handleCardPress('black', false)}
                     onLongPress={() => handleCardPress('black', true)}
                 >

@@ -3,14 +3,15 @@ title: TypeScript Support
 categories: [advanced]
 order: 60
 meta:
-  keywords: ~
-  description: ~
+    keywords: ~
+    description: ~
 ---
 
 CASL is written in [TypeScript] and this brings several benefits:
-* better safety as you can control what actions and subjects can be used
-* better IDE integration as you can get hints on what classes you can use and arguments you need to pass inside
-* easier library support, we can forget about synchronization issues between `.d.ts` and `.js` files
+
+- better safety as you can control what actions and subjects can be used
+- better IDE integration as you can get hints on what classes you can use and arguments you need to pass inside
+- easier library support, we can forget about synchronization issues between `.d.ts` and `.js` files
 
 [TypeScript]: https://typescriptlang.org/
 
@@ -43,8 +44,8 @@ const ability = new createMongoAbility();
 
 These types are enough to protect you from passing wrong arguments but you can go further and make them even stricter. To illustrate how, let's consider a blog application, which has `User`, `Article` and `Comment` entities with the next user's permissions:
 
-* can `create`, `update`, `delete` own `Article` or `Comment`
-* can `read` any `Article`, any `Comment` and any `User`
+- can `create`, `update`, `delete` own `Article` or `Comment`
+- can `read` any `Article`, any `Comment` and any `User`
 
 So, let's translate this to CASL by specifying all possible actions and all possible subjects as generic parameters:
 
@@ -79,21 +80,21 @@ You can also specify interfaces as subjects:
 import { createMongoAbility } from '@casl/ability';
 
 interface Article {
-  id: number
-  title: string
-  content: string
-  authorId: number
+    id: number;
+    title: string;
+    content: string;
+    authorId: number;
 }
 
 interface User {
-  id: number
-  name: string
+    id: number;
+    name: string;
 }
 
 interface Comment {
-  id: number
-  content: string
-  authorId: number
+    id: number;
+    content: string;
+    authorId: number;
 }
 
 type Action = 'create' | 'read' | 'update' | 'delete';
@@ -103,7 +104,7 @@ const ability = createMongoAbility<[Action, Subject]>();
 
 ability.can('read', 'Article');
 ability.can('write', 'Article'); // error because non-existing action name
-ability.can('update', 'Coment') // error because of typo
+ability.can('update', 'Coment'); // error because of typo
 ```
 
 and classes:
@@ -112,10 +113,10 @@ and classes:
 import { createMongoAbility } from '@casl/ability';
 
 class Article {
-  id: number
-  title: string
-  content: string
-  authorId: number
+    id: number;
+    title: string;
+    content: string;
+    authorId: number;
 }
 
 type Action = 'create' | 'read' | 'update' | 'delete';
@@ -205,10 +206,10 @@ const builder = new AbilityBuilder(createMongoAbility);
 
 Thanks to this `AbilityBuilder` can infer all needed types from `Ability` types. This is especially useful when we define `AppAbility` because then we will have IDE hints and type safety for:
 
-* specified action
-* specified subject type
-* **properties used in conditions**
-* **specified fields**
+- specified action
+- specified subject type
+- **properties used in conditions**
+- **specified fields**
 
 We can use either tagged interfaces (supports `kind`, `__typename` and `__caslSubjectType__` tag fields) or classes:
 
@@ -226,13 +227,13 @@ If we need to define conditions based on nested fields, we can do this by defini
 import { MongoAbility, createMongoAbility } from '@casl/ability';
 
 interface User {
-  kind: 'User'
-  id: number
-  name: string
-  address: {
-    street: string
-    building: string
-  }
+    kind: 'User';
+    id: number;
+    name: string;
+    address: {
+        street: string;
+        building: string;
+    };
 }
 
 type AppAbility = MongoAbility<['read', User | 'User']>;
@@ -240,12 +241,12 @@ type AppAbility = MongoAbility<['read', User | 'User']>;
 const { can } = new AbilityBuilder<AppAbility>(createMongoAbility);
 
 type FlatUser = User & {
-  'address.street': User['address']['street']
+    'address.street': User['address']['street'];
 };
 
 can<FlatUser>('read', 'Post', { 'address.street': 'test' });
 // It also works for fields
-can<FlatUser>('read', 'Post', ['address.street'], { 'address.street': 'test' })
+can<FlatUser>('read', 'Post', ['address.street'], { 'address.street': 'test' });
 ```
 
 ## Useful type helpers
@@ -260,14 +261,12 @@ import { MongoAbility, RawRuleOf, RawRuleFrom, MongoQuery } from '@casl/ability'
 type AppAbilities = ['read' | 'update', 'Article'];
 type AppAbility = MongoAbility<AppAbilities>;
 
-const rawRules: RawRuleOf<AppAbility>[] = [
-  { action: 'read', subject: 'Article' }
-];
+const rawRules: RawRuleOf<AppAbility>[] = [{ action: 'read', subject: 'Article' }];
 
 // or
 type AppRawRule = RawRuleFrom<AppAbilities, MongoQuery>;
 async function getRulesFromDb(): Promise<AppRawRule[]> {
-  // implementation
+    // implementation
 }
 ```
 
@@ -297,7 +296,7 @@ These 2 types represents any `PureAbility` instance and any `MongoAbility` insta
 
 ```ts
 export class AbilityBuilder<T extends AnyAbility = AnyAbility> {
-  // implementation details
+    // implementation details
 }
 ```
 
@@ -305,9 +304,9 @@ export class AbilityBuilder<T extends AnyAbility = AnyAbility> {
 
 There are 2 types that represents built-in mongo operators:
 
-* `MongoQuery<T>` is an actual mongo query.\
+- `MongoQuery<T>` is an actual mongo query.\
   Is used as a conditions restriction in `PureAbility` created by `createMongoAbility` factory function.
-* `MongoQueryOperators<T>` represents supported MongoDB operators and it's a union of `MongoQueryFieldOperators<T>` and `MongoQueryTopLevelOperators<T>` that represent supported field and document level operators respectively
+- `MongoQueryOperators<T>` represents supported MongoDB operators and it's a union of `MongoQueryFieldOperators<T>` and `MongoQueryTopLevelOperators<T>` that represent supported field and document level operators respectively
 
 ### ForcedSubject
 

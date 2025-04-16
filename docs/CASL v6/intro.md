@@ -3,8 +3,8 @@ title: Introduction
 categories: [guide]
 order: 10
 meta:
-  keywords: ~
-  description: ~
+    keywords: ~
+    description: ~
 ---
 
 [![@casl/ability NPM version](https://badge.fury.io/js/%40casl%2Fability.svg)](https://badge.fury.io/js/%40casl%2Fability)
@@ -45,8 +45,8 @@ At the core of CASL is a system that enables us to declaratively define and chec
 import { defineAbility } from '@casl/ability';
 
 export default defineAbility((can, cannot) => {
-  can('manage', 'all');
-  cannot('delete', 'User');
+    can('manage', 'all');
+    cannot('delete', 'User');
 });
 ```
 
@@ -61,11 +61,11 @@ Now let's try to check permissions
 ```js @{data-filename="app.js"}
 import ability from './defineAbility.js';
 
-ability.can('read', 'Post') // true
-ability.can('read', 'User') // true
-ability.can('update', 'User') // true
-ability.can('delete', 'User') // false
-ability.cannot('delete', 'User') // true
+ability.can('read', 'Post'); // true
+ability.can('read', 'User'); // true
+ability.can('update', 'User'); // true
+ability.can('delete', 'User'); // false
+ability.cannot('delete', 'User'); // true
 ```
 
 In the example above, the `MongoAbility` instance allows us to check permissions in a pretty readable way. By the way, all these examples demonstrate checking permissions based on a subject type (i.e. an object type or class), but CASL really shines when you need to restrict objects based on their attributes (i.e. properties).
@@ -76,25 +76,26 @@ The most common requirement for mid-sized apps is the ability to limit users so 
 
 Before diving into the details, let's first consider requirements for the permissions of a blog website. In such a blog, a user
 
-* can `read` any `Article`
-* can `update` own `Article`'s
-* can `create` a `Comment` for any Article
-* can `update` own `Comment`
+- can `read` any `Article`
+- can `update` own `Article`'s
+- can `create` a `Comment` for any Article
+- can `update` own `Comment`
 
 Let's translate this to CASL:
 
 ```js @{data-filename="defineAbility.js"}
 import { defineAbility } from '@casl/ability';
 
-export default (user) => defineAbility((can) => {
-  can('read', 'Article');
+export default user =>
+    defineAbility(can => {
+        can('read', 'Article');
 
-  if (user.isLoggedIn) {
-    can('update', 'Article', { authorId: user.id });
-    can('create', 'Comment');
-    can('update', 'Comment', { authorId: user.id });
-  }
-});
+        if (user.isLoggedIn) {
+            can('update', 'Article', { authorId: user.id });
+            can('create', 'Comment');
+            can('update', 'Comment', { authorId: user.id });
+        }
+    });
 ```
 
 Do you see how real business requirements are easily translated to code? Now let's check them!
@@ -119,9 +120,9 @@ Let's get back to our example and define classes for `Article` and `Comment` ent
 
 ```js @{data-filename="entities.js"}
 class Entity {
-  constructor(attrs) {
-    Object.assign(this, attrs);
-  }
+    constructor(attrs) {
+        Object.assign(this, attrs);
+    }
 }
 
 export class Article extends Entity {}
@@ -151,10 +152,10 @@ const ownArticle = new Article({ authorId: user.id });
 const anotherArticle = new Article({ authorId: 2 });
 const ability = defineAbilityFor(user);
 
-ability.can('read', 'Article') // true
-ability.can('update', 'Article') // true
-ability.can('update', ownArticle) // true
-ability.can('update', anotherArticle) // false, we can't update articles which were not written by us
+ability.can('read', 'Article'); // true
+ability.can('update', 'Article'); // true
+ability.can('update', ownArticle); // true
+ability.can('update', anotherArticle); // false, we can't update articles which were not written by us
 ```
 
 > Despite the fact that `can` and `cannot` functions in `defineAbility` callback are similar to `can` and `cannot` methods of `MongoAbility` class, they have completely different purposes and accept different arguments. See [Make `can` API less confusing](../../cookbook/less-confusing-can-api) if it confuses you.
@@ -171,10 +172,10 @@ You can define the same pair of action and subject with different conditions mul
 import { defineAbility } from '@casl/ability';
 
 export default function defineAbilityFor(user) {
-  return defineAbility((can) => {
-    can('read', 'Article', { published: true });
-    can('read', 'Article', { published: false, sharedWith: user.id });
-  });
+    return defineAbility(can => {
+        can('read', 'Article', { published: true });
+        can('read', 'Article', { published: false, sharedWith: user.id });
+    });
 }
 ```
 
@@ -189,14 +190,15 @@ Sometimes you may need to restrict which fields a user can access. For example, 
 ```js @{data-filename="defineAbility.js"}
 import { defineAbility } from '@casl/ability';
 
-export default (user) => defineAbility((can) => {
-  can('read', 'Article');
-  can('update', 'Article', ['title', 'description'], { authorId: user.id })
+export default user =>
+    defineAbility(can => {
+        can('read', 'Article');
+        can('update', 'Article', ['title', 'description'], { authorId: user.id });
 
-  if (user.isModerator) {
-    can('update', 'Article', ['published'])
-  }
-});
+        if (user.isModerator) {
+            can('update', 'Article', ['published']);
+        }
+    });
 ```
 
 Here we defined that any user can update `title` and `description` fields of their own `Article`s and only moderators can update `published` field.
@@ -214,10 +216,10 @@ const ownArticle = new Article({ authorId: moderator.id });
 const foreignArticle = new Article({ authorId: 10 });
 const ability = defineAbilityFor(moderator);
 
-ability.can('read', 'Article') // true
-ability.can('update', 'Article', 'published') // true
-ability.can('update', ownArticle, 'published') // true
-ability.can('update', foreignArticle, 'title') // false
+ability.can('read', 'Article'); // true
+ability.can('update', 'Article', 'published'); // true
+ability.can('update', ownArticle, 'published'); // true
+ability.can('update', foreignArticle, 'title'); // false
 ```
 
 > For more complex cases, you can use nested fields and wildcards, see [Restricting field access](../restricting-fields) for details
@@ -230,8 +232,8 @@ Let's consider a simple example where user can publish articles:
 import { defineAbility } from '@casl/ability';
 import { Article } from './entities';
 
-const ability = defineAbility((can) => {
-  can('read', 'Article', { published: true })
+const ability = defineAbility(can => {
+    can('read', 'Article', { published: true });
 });
 const article = new Article({ published: true });
 
@@ -253,8 +255,8 @@ This is interpreted as "user can read ALL articles and user can update ALL artic
 
 **But CASL is different!** It allows us to ask different questions to our permissions. So, when you check on a
 
-* subject, you ask "can I read THIS article?"
-* subject type, you ask "can I read SOME article?" (i.e., at least one article)
+- subject, you ask "can I read THIS article?"
+- subject type, you ask "can I read SOME article?" (i.e., at least one article)
 
 It's very useful when you don't have an instance to check but know its type (for example, during creation), so this allows your app to fail fast.
 
@@ -270,8 +272,8 @@ To define an inverted rule, you need to use the 2nd argument in the callback of 
 import { defineAbility } from '@casl/ability';
 
 const ability = defineAbility((can, cannot) => {
-  can('manage', 'all');
-  cannot('delete', 'all');
+    can('manage', 'all');
+    cannot('delete', 'all');
 });
 
 ability.can('read', 'Post'); // true
@@ -280,16 +282,16 @@ ability.can('delete', 'Post'); // false
 
 As you should know direct rules are checked by logical `OR` on the other hand inverted ones are checked by logical `AND`. So, in the example above user:
 
-* can do anything on all entities
-* and cannot delete any entity
+- can do anything on all entities
+- and cannot delete any entity
 
 When defining direct and inverted rules for the same pair of action and subject the order of rules matters: `cannot` declarations should follow after `can`, otherwise they will be overridden by `can`. For example, let's disallow to read all private objects (those that have property `private = true`):
 
 ```js
 const user = { id: 1 };
 const ability = defineAbility((can, cannot) => {
-  cannot('read', 'all', { private: true });
-  can('read', 'all', { authorId: user.id });
+    cannot('read', 'all', { private: true });
+    can('read', 'all', { authorId: user.id });
 });
 
 ability.can('read', { private: true }); // false
@@ -307,9 +309,8 @@ The good point about inverted rules is that they help to explicitly forbid parti
 import { defineAbility } from '@casl/ability';
 
 export default defineAbility((can, cannot) => {
-  can('read', 'all');
-  cannot('read', 'all', { private: true })
-    .because('You are not allowed to read private information');
+    can('read', 'all');
+    cannot('read', 'all', { private: true }).because('You are not allowed to read private information');
 });
 ```
 
@@ -320,13 +321,13 @@ import { ForbiddenError } from '@casl/ability';
 import ability from './defineAbility';
 
 try {
-  ForbiddenError.from(ability).throwUnlessCan('read', { private: true })
+    ForbiddenError.from(ability).throwUnlessCan('read', { private: true });
 } catch (error) {
-  if (error instanceof ForbiddenError) {
-    console.log(error.message); // You are not allowed to read private information
-  }
+    if (error instanceof ForbiddenError) {
+        console.log(error.message); // You are not allowed to read private information
+    }
 
-  throw error
+    throw error;
 }
 ```
 
@@ -340,8 +341,9 @@ Sometimes, especially in frontend application development, we need to update `Ab
 import ability from './defineAbility';
 
 ability.update([]); // forbids everything
-ability.update([ // switch to readonly mode
-  { action: 'read', subject: 'all' }
+ability.update([
+    // switch to readonly mode
+    { action: 'read', subject: 'all' },
 ]);
 ```
 
@@ -362,11 +364,11 @@ To track when rules are updated, we can subscribe to `update` (before ability is
 
 ```js
 const unsubscribe = ability.on('update', ({ rules, target }) => {
-  // `rules` is an array passed to `update` method
-  // `target` is a PureAbility instance that triggered event
-})
+    // `rules` is an array passed to `update` method
+    // `target` is a PureAbility instance that triggered event
+});
 
-unsubscribe() // removes subscription
+unsubscribe(); // removes subscription
 ```
 
 ## What else?

@@ -28,11 +28,14 @@ class TournamentClient extends EventEmitter {
     private maxReconnectAttempts: number = 5;
     // Make this public so manual disconnects can set it to prevent alerts
     public isShowingDisconnectAlert: boolean = false;
-    private responsePromises: Map<string, {
-        resolve: (data: any) => void;
-        reject: (error: any) => void;
-        timeoutId: NodeJS.Timeout;
-    }> = new Map();
+    private responsePromises: Map<
+        string,
+        {
+            resolve: (data: any) => void;
+            reject: (error: any) => void;
+            timeoutId: NodeJS.Timeout;
+        }
+    > = new Map();
 
     constructor() {
         super();
@@ -48,16 +51,16 @@ class TournamentClient extends EventEmitter {
 
             // Try to resolve hostname or use IP directly
             let resolvedHost = hostIp;
-            
+
             // Check if this is a hostname rather than an IP address
             if (!/^\d+\.\d+\.\d+\.\d+$/.test(hostIp)) {
                 console.log(`Host appears to be a hostname: ${hostIp}`);
-                
+
                 // If hostname is from mDNS and missing .local suffix, add it
                 if (!hostIp.includes('.')) {
                     console.log(`Adding .local suffix to hostname: ${hostIp}`);
                     resolvedHost = `${hostIp}.local`;
-                } 
+                }
                 // If it has .local already, use it as is
                 else if (hostIp.endsWith('.local')) {
                     console.log(`Using hostname with .local suffix: ${hostIp}`);
@@ -78,7 +81,7 @@ class TournamentClient extends EventEmitter {
                     host: resolvedHost,
                     port: port,
                     tls: false,
-                    timeout: CONNECTION_TIMEOUT
+                    timeout: CONNECTION_TIMEOUT,
                 };
 
                 console.log('Creating socket with options:', JSON.stringify(options));
@@ -94,20 +97,22 @@ class TournamentClient extends EventEmitter {
                         const clientId = await getClientId();
 
                         console.log(`Sending join request with device ID: ${deviceId}`);
-                        
+
                         // Send join request with device ID
                         // Send join request WITHOUT requesting a specific role
-                        this.sendMessageRaw(JSON.stringify({
-                            type: 'join_request',
-                            deviceId,
-                            clientId: clientId
-                        }));
+                        this.sendMessageRaw(
+                            JSON.stringify({
+                                type: 'join_request',
+                                deviceId,
+                                clientId: clientId,
+                            })
+                        );
 
                         this.clientInfo = {
-                            tournamentName: '',  // Will be updated when server responds
+                            tournamentName: '', // Will be updated when server responds
                             hostIp,
                             port,
-                            isConnected: true
+                            isConnected: true,
                         };
 
                         // Save client info to AsyncStorage
@@ -117,19 +122,19 @@ class TournamentClient extends EventEmitter {
                         resolve(true);
                     });
                 } catch (error) {
-                    console.error("Error creating socket connection:", error);
+                    console.error('Error creating socket connection:', error);
                     reject(error);
                     return;
                 }
 
                 // Set timeout for connection
                 const connectionTimeout = setTimeout(() => {
-                    console.log("Connection timeout reached!");
+                    console.log('Connection timeout reached!');
                     if (this.socket) {
                         try {
                             this.socket.destroy();
                         } catch (e) {
-                            console.error("Error destroying socket on timeout:", e);
+                            console.error('Error destroying socket on timeout:', e);
                         }
                         this.socket = null;
                     }
@@ -138,19 +143,19 @@ class TournamentClient extends EventEmitter {
 
                 // Handle data received from server
                 let buffer = ''; // Buffer to accumulate partial messages
-                
+
                 this.socket.on('data', (data: Buffer) => {
                     clearTimeout(connectionTimeout);
                     try {
                         const dataStr = data.toString();
                         console.log(`Raw data received from server: ${dataStr.length} bytes`);
-                        
+
                         // Append to buffer
                         buffer += dataStr;
-                        
+
                         // Split by newlines and process each line (NDJSON format)
                         const lines = buffer.split('\n');
-                        
+
                         // Process all complete lines
                         for (let i = 0; i < lines.length - 1; i++) {
                             const line = lines[i].trim();
@@ -159,21 +164,21 @@ class TournamentClient extends EventEmitter {
                                     console.log(`Processing NDJSON line: ${line.length} bytes`);
                                     this.handleServerMessage(line);
                                 } catch (error) {
-                                    console.error("Error processing NDJSON line:", error);
+                                    console.error('Error processing NDJSON line:', error);
                                 }
                             }
                         }
-                        
+
                         // Keep the last potentially incomplete line in the buffer
                         buffer = lines[lines.length - 1];
-                        
+
                         // If buffer is getting too large without valid JSON, truncate it
                         if (buffer.length > 10000) {
                             console.error(`Server message buffer too large (${buffer.length} bytes), truncating`);
                             buffer = buffer.substring(buffer.length - 5000); // Keep last 5000 chars
                         }
                     } catch (error) {
-                        console.error("Error processing data from server:", error);
+                        console.error('Error processing data from server:', error);
                     }
                 });
 
@@ -186,7 +191,7 @@ class TournamentClient extends EventEmitter {
                         try {
                             this.socket.destroy();
                         } catch (e) {
-                            console.error("Error destroying socket on close:", e);
+                            console.error('Error destroying socket on close:', e);
                         }
                         this.socket = null;
                     }
@@ -213,7 +218,7 @@ class TournamentClient extends EventEmitter {
                         try {
                             this.socket.destroy();
                         } catch (e) {
-                            console.error("Error destroying socket on error:", e);
+                            console.error('Error destroying socket on error:', e);
                         }
                         this.socket = null;
                     }
@@ -233,18 +238,16 @@ class TournamentClient extends EventEmitter {
             // Show a single disconnect alert if not already showing
             if (!this.isShowingDisconnectAlert) {
                 this.isShowingDisconnectAlert = true;
-                Alert.alert(
-                    'Tournament Connection',
-                    'The connection to the tournament server was lost.',
-                    [{ 
-                        text: 'OK', 
+                Alert.alert('Tournament Connection', 'The connection to the tournament server was lost.', [
+                    {
+                        text: 'OK',
                         onPress: () => {
                             this.isShowingDisconnectAlert = false;
-                        } 
-                    }]
-                );
+                        },
+                    },
+                ]);
             }
-            
+
             this.responsePromises.forEach((handlers, type) => {
                 clearTimeout(handlers.timeoutId);
                 handlers.reject(new Error('Disconnected from server'));
@@ -255,7 +258,7 @@ class TournamentClient extends EventEmitter {
                 try {
                     this.socket.destroy();
                 } catch (e) {
-                    console.error("Error destroying socket on disconnect:", e);
+                    console.error('Error destroying socket on disconnect:', e);
                 }
                 this.socket = null;
             }
@@ -283,7 +286,6 @@ class TournamentClient extends EventEmitter {
             return false;
         }
     }
-
 
     // Check if client is connected
     isConnected(): boolean {
@@ -323,25 +325,25 @@ class TournamentClient extends EventEmitter {
     // Request tournament data from server - called automatically on connection
     requestTournamentData(): boolean {
         return this.sendMessage({
-            type: 'request_tournament_data'
+            type: 'request_tournament_data',
         });
     }
-    
+
     // Request to initialize a round (start it)
     requestInitializeRound(eventId: number, roundId: number): boolean {
         return this.sendMessage({
             type: 'initialize_round',
             eventId,
-            roundId
+            roundId,
         });
     }
-    
+
     // Request pools for a specific round
     requestPools(roundId: number): boolean {
         console.log(`Sending get_pools request for round ${roundId}`);
         const result = this.sendMessage({
             type: 'get_pools',
-            roundId
+            roundId,
         });
         if (result) {
             console.log(`Successfully sent get_pools message for round ${roundId}`);
@@ -350,14 +352,14 @@ class TournamentClient extends EventEmitter {
         }
         return result;
     }
-    
+
     // Request bouts for a specific pool
     requestPoolBouts(roundId: number, poolId: number): boolean {
         console.log(`Sending get_pool_bouts request for pool ${poolId} in round ${roundId}`);
         const result = this.sendMessage({
             type: 'get_pool_bouts',
             roundId,
-            poolId
+            poolId,
         });
         if (result) {
             console.log(`Successfully sent get_pool_bouts message for pool ${poolId} in round ${roundId}`);
@@ -366,15 +368,15 @@ class TournamentClient extends EventEmitter {
         }
         return result;
     }
-    
+
     // Update pool bout scores with winner ID for ties
     updatePoolBoutScores(
-        boutId: number, 
-        scoreA: number, 
-        scoreB: number, 
-        fencerAId: number, 
-        fencerBId: number, 
-        roundId?: number, 
+        boutId: number,
+        scoreA: number,
+        scoreB: number,
+        fencerAId: number,
+        fencerBId: number,
+        roundId?: number,
         poolId?: number,
         winnerId?: number
     ): boolean {
@@ -387,16 +389,16 @@ class TournamentClient extends EventEmitter {
             fencerAId,
             fencerBId,
             roundId, // Include roundId if available for targeted cache invalidation
-            poolId,  // Include poolId if available for targeted cache invalidation
-            winnerId // Include winnerId to handle ties
+            poolId, // Include poolId if available for targeted cache invalidation
+            winnerId, // Include winnerId to handle ties
         });
-        
+
         if (result) {
             console.log(`Successfully sent update_pool_bout_scores for bout ${boutId}`);
         } else {
             console.error(`Failed to send update_pool_bout_scores for bout ${boutId}`);
         }
-        
+
         return result;
     }
 
@@ -404,7 +406,10 @@ class TournamentClient extends EventEmitter {
     private handleServerMessage(message: string): void {
         try {
             const data = JSON.parse(message);
-            console.log(`Processing message of type: ${data.type}, message:`, message.slice(0, 200) + (message.length > 200 ? '...' : ''));
+            console.log(
+                `Processing message of type: ${data.type}, message:`,
+                message.slice(0, 200) + (message.length > 200 ? '...' : '')
+            );
 
             // Validate and normalize events data if present
             if (data.type === 'events_list' && data.events !== undefined) {
@@ -418,7 +423,9 @@ class TournamentClient extends EventEmitter {
 
             // PRE-PROCESS POOLS LIST
             if (data.type === 'pools_list') {
-                console.log(`IMPORTANT: Received pools_list for round ${data.roundId} with ${data.pools?.length || 0} pools`);
+                console.log(
+                    `IMPORTANT: Received pools_list for round ${data.roundId} with ${data.pools?.length || 0} pools`
+                );
                 if (!Array.isArray(data.pools)) {
                     console.warn('pools_list has invalid pools property, fixing...');
                     data.pools = [];
@@ -427,13 +434,15 @@ class TournamentClient extends EventEmitter {
 
             // PRE-PROCESS POOL BOUTS LIST
             if (data.type === 'pool_bouts_list') {
-                console.log(`IMPORTANT: Received pool_bouts_list for pool ${data.poolId} in round ${data.roundId} with ${data.bouts?.length || 0} bouts`);
+                console.log(
+                    `IMPORTANT: Received pool_bouts_list for pool ${data.poolId} in round ${data.roundId} with ${data.bouts?.length || 0} bouts`
+                );
                 if (!Array.isArray(data.bouts)) {
                     console.warn('pool_bouts_list has invalid bouts property, fixing...');
                     data.bouts = [];
                 }
             }
-            
+
             // CRITICAL: Process waiting promises BEFORE event handling
             const promiseHandlers = this.responsePromises.get(data.type);
             if (promiseHandlers) {
@@ -482,7 +491,9 @@ class TournamentClient extends EventEmitter {
                     console.log(`Received event_statuses update`);
                     break;
                 case 'rounds_list':
-                    console.log(`Received rounds_list for event ${data.eventId} with ${data.rounds?.length || 0} rounds`);
+                    console.log(
+                        `Received rounds_list for event ${data.eventId} with ${data.rounds?.length || 0} rounds`
+                    );
                     break;
                 case 'round_added':
                 case 'round_updated':
@@ -494,14 +505,18 @@ class TournamentClient extends EventEmitter {
                     break;
                 case 'pools_list':
                     console.log(`Received pools_list for round ${data.roundId} with ${data.pools?.length || 0} pools`);
-                    console.log(`Pools data:`, JSON.stringify(data.pools?.slice(0, 1)));  // Log first pool as example
+                    console.log(`Pools data:`, JSON.stringify(data.pools?.slice(0, 1))); // Log first pool as example
                     break;
                 case 'fencers_list':
-                    console.log(`Received fencers_list for event ${data.eventId} with ${data.fencers?.length || 0} fencers`);
+                    console.log(
+                        `Received fencers_list for event ${data.eventId} with ${data.fencers?.length || 0} fencers`
+                    );
                     break;
                 case 'pool_bouts_list':
-                    console.log(`Received pool_bouts_list for pool ${data.poolId} in round ${data.roundId} with ${data.bouts?.length || 0} bouts`);
-                    console.log(`Pool bouts data:`, JSON.stringify(data.bouts?.slice(0, 1)));  // Log first bout as example
+                    console.log(
+                        `Received pool_bouts_list for pool ${data.poolId} in round ${data.roundId} with ${data.bouts?.length || 0} bouts`
+                    );
+                    console.log(`Pool bouts data:`, JSON.stringify(data.bouts?.slice(0, 1))); // Log first bout as example
                     break;
                 case 'bracket_data':
                     console.log(`Received bracket data for round ${data.roundId}`);
@@ -513,7 +528,9 @@ class TournamentClient extends EventEmitter {
                     console.log(`Received confirmation that bout ${data.boutId} scores were updated: ${data.success}`);
                     break;
                 case 'event_status':
-                    console.log(`Received event status for event ${data.eventId}: ${data.isStarted ? 'Started' : 'Not Started'}`);
+                    console.log(
+                        `Received event status for event ${data.eventId}: ${data.isStarted ? 'Started' : 'Not Started'}`
+                    );
                     break;
                 case 'round_initialized':
                     console.log(`Round ${data.roundId} for event ${data.eventId} has been initialized`);
@@ -538,11 +555,11 @@ class TournamentClient extends EventEmitter {
 
     async waitForResponse(type: string, timeout: number = 10000): Promise<any> {
         console.log(`Waiting for response of type: ${type} with timeout ${timeout}ms`);
-        
+
         // If we already have a pending promise for this type, reuse it instead of rejecting
         if (this.responsePromises.has(type)) {
             console.log(`Reusing existing promise for ${type}`);
-            
+
             // Create a new promise that will resolve when the original one does
             return new Promise((resolve, reject) => {
                 const existingHandler = this.responsePromises.get(type);
@@ -551,18 +568,18 @@ class TournamentClient extends EventEmitter {
                     reject(new Error(`Promise handler for ${type} disappeared`));
                     return;
                 }
-                
+
                 // Create a wrapper around the existing handler
                 const originalResolve = existingHandler.resolve;
-                existingHandler.resolve = (data) => {
+                existingHandler.resolve = data => {
                     // Call the original resolver
                     originalResolve(data);
                     // Also resolve this promise
                     resolve(data);
                 };
-                
+
                 const originalReject = existingHandler.reject;
-                existingHandler.reject = (error) => {
+                existingHandler.reject = error => {
                     // Call the original reject
                     originalReject(error);
                     // Also reject this promise
@@ -573,7 +590,7 @@ class TournamentClient extends EventEmitter {
 
         return new Promise((resolve, reject) => {
             console.log(`Setting up new promise for response type: ${type}`);
-            
+
             // Create a timeout to reject the promise if no response comes
             const timeoutId = setTimeout(() => {
                 console.error(`Timeout reached for response type: ${type} after ${timeout}ms`);
@@ -586,19 +603,19 @@ class TournamentClient extends EventEmitter {
 
             // Store the promise handlers
             this.responsePromises.set(type, {
-                resolve: (data) => {
+                resolve: data => {
                     console.log(`Resolving response for ${type}:`, JSON.stringify(data));
                     clearTimeout(timeoutId);
                     this.responsePromises.delete(type);
                     resolve(data);
                 },
-                reject: (error) => {
+                reject: error => {
                     console.error(`Error in response for ${type}:`, error);
                     clearTimeout(timeoutId);
                     this.responsePromises.delete(type);
                     reject(error);
                 },
-                timeoutId
+                timeoutId,
             });
 
             // If we're not connected, reject immediately
@@ -616,10 +633,10 @@ class TournamentClient extends EventEmitter {
     // Handle welcome message from server
     private handleWelcome(data: any): void {
         console.log(`Received welcome message with tournament name: ${data.tournamentName}`);
-        
+
         // Store the original tournament name
         const tournamentName = data.tournamentName;
-        
+
         if (this.clientInfo) {
             if (tournamentName) {
                 console.log(`Using actual tournament name from server: ${tournamentName}`);
@@ -628,23 +645,23 @@ class TournamentClient extends EventEmitter {
                 console.log(`No tournament name provided in welcome message, using default`);
                 this.clientInfo.tournamentName = 'Tournament';
             }
-            
+
             this.clientInfo.isConnected = true;
             AsyncStorage.setItem(CLIENT_INFO_KEY, JSON.stringify(this.clientInfo));
         }
-        
+
         this.emit('connected', tournamentName || 'Tournament');
 
         // Request tournament data after connecting
         this.requestTournamentData();
-        
+
         // Immediately also request event list since that's what users see first
         // Make sure we're requesting events properly without requiring tournament name
         console.log('Requesting events list after welcome message');
         this.sendMessage({
-            type: 'get_events'
+            type: 'get_events',
         });
-        
+
         // Don't request event statuses if the server doesn't support this message type
         // Based on server logs, the current server doesn't recognize 'get_event_statuses'
     }
@@ -656,39 +673,46 @@ class TournamentClient extends EventEmitter {
             if (data.role) {
                 console.log(`Server assigned role: ${data.role}`);
                 // Store role in AsyncStorage for future reference
-                AsyncStorage.setItem('tournament_user_role', data.role)
-                    .catch(error => console.error('Error storing user role:', error));
+                AsyncStorage.setItem('tournament_user_role', data.role).catch(error =>
+                    console.error('Error storing user role:', error)
+                );
             }
             // Removed the else block that defaulted to 'referee'
-            
+
             // Check if we also received a tournament name in the join response
             if (data.tournamentName && this.clientInfo) {
                 console.log(`Server provided tournament name: ${data.tournamentName}`);
                 this.clientInfo.tournamentName = data.tournamentName;
                 AsyncStorage.setItem(CLIENT_INFO_KEY, JSON.stringify(this.clientInfo));
-            } else if (this.clientInfo && this.clientInfo.tournamentData && this.clientInfo.tournamentData.tournamentName) {
+            } else if (
+                this.clientInfo &&
+                this.clientInfo.tournamentData &&
+                this.clientInfo.tournamentData.tournamentName
+            ) {
                 // Use the tournament name from tournament data if available
-                console.log(`Using tournament name from tournament data: ${this.clientInfo.tournamentData.tournamentName}`);
+                console.log(
+                    `Using tournament name from tournament data: ${this.clientInfo.tournamentData.tournamentName}`
+                );
                 this.clientInfo.tournamentName = this.clientInfo.tournamentData.tournamentName;
                 AsyncStorage.setItem(CLIENT_INFO_KEY, JSON.stringify(this.clientInfo));
             }
-            
+
             this.emit('joined', data.message); // Existing event
 
             // Emit a new event when the server assigns a role
             if (data.role) {
-              this.emit('roleAssigned', {
-                role: data.role,
-                tournamentName: this.clientInfo?.tournamentName
-              });
+                this.emit('roleAssigned', {
+                    role: data.role,
+                    tournamentName: this.clientInfo?.tournamentName,
+                });
             }
-            
+
             // Explicitly request events after successful join
             console.log('Requesting events list after successful join');
             this.sendMessage({
-                type: 'get_events'
+                type: 'get_events',
             });
-            
+
             // Don't request event statuses if the server doesn't support this message type
             // Based on server logs, the current server doesn't recognize 'get_event_statuses'
 
@@ -718,7 +742,7 @@ class TournamentClient extends EventEmitter {
         this.emit('scoreUpdate', {
             boutId: data.boutId,
             scoreA: data.scoreA,
-            scoreB: data.scoreB
+            scoreB: data.scoreB,
         });
     }
 
@@ -732,13 +756,13 @@ class TournamentClient extends EventEmitter {
         if (this.clientInfo) {
             // Store the tournament data
             this.clientInfo.tournamentData = data.tournamentData;
-            
+
             // If we have a tournament name in the data, update the client info
             if (data.tournamentData?.tournamentName && !this.clientInfo.tournamentName) {
                 console.log(`Updating tournament name from tournament_data: ${data.tournamentData.tournamentName}`);
                 this.clientInfo.tournamentName = data.tournamentData.tournamentName;
             }
-            
+
             // Save the updated client info
             AsyncStorage.setItem(CLIENT_INFO_KEY, JSON.stringify(this.clientInfo));
         }
@@ -748,7 +772,7 @@ class TournamentClient extends EventEmitter {
     // Handle server closing message
     private handleServerClosing(data: any): void {
         console.log('Server is closing:', data.message);
-        
+
         // Let the disconnect method show the alert
         this.disconnect();
     }
@@ -794,8 +818,9 @@ class TournamentClient extends EventEmitter {
 
                 // If we were previously connected, try to reconnect
                 if (this.clientInfo?.isConnected) {
-                    this.connectToServer(this.clientInfo.hostIp, this.clientInfo.port)
-                        .catch(error => console.error('Failed to reconnect:', error));
+                    this.connectToServer(this.clientInfo.hostIp, this.clientInfo.port).catch(error =>
+                        console.error('Failed to reconnect:', error)
+                    );
                 }
 
                 return this.clientInfo;

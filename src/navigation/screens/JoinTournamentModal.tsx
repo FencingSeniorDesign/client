@@ -14,13 +14,13 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import tournamentClient from '../../networking/TournamentClient';
-import { 
-    isValidIpAddress, 
-    isValidPort, 
-    startServerDiscovery, 
+import {
+    isValidIpAddress,
+    isValidPort,
+    startServerDiscovery,
     stopServerDiscovery,
     serverDiscovery,
-    DiscoveredServer
+    DiscoveredServer,
 } from '../../networking/NetworkUtils';
 import { RootStackParamList } from '../navigation/types';
 
@@ -30,17 +30,13 @@ interface JoinTournamentModalProps {
     onJoinSuccess: (tournamentName: string) => void;
 }
 
-export const JoinTournamentModal: React.FC<JoinTournamentModalProps> = ({
-    visible,
-    onClose,
-    onJoinSuccess,
-}) => {
+export const JoinTournamentModal: React.FC<JoinTournamentModalProps> = ({ visible, onClose, onJoinSuccess }) => {
     // States for manual connection
     const [hostIp, setHostIp] = useState('');
     const [port, setPort] = useState('9001');
     const [connecting, setConnecting] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    
+
     // States for server discovery
     const [showManualEntry, setShowManualEntry] = useState(false); // Start with server discovery as default
     const [discoveredServers, setDiscoveredServers] = useState<DiscoveredServer[]>([]);
@@ -96,15 +92,15 @@ export const JoinTournamentModal: React.FC<JoinTournamentModalProps> = ({
             const clientInfo = tournamentClient.getClientInfo();
             if (clientInfo) {
                 // Explicitly request events list from the server
-                console.log("Requesting events list after successful connection");
+                console.log('Requesting events list after successful connection');
                 tournamentClient.sendMessage({
-                    type: 'get_events'
+                    type: 'get_events',
                 });
-                
+
                 // Also request event statuses to ensure the UI is properly updated
                 tournamentClient.sendMessage({
                     type: 'get_event_statuses',
-                    eventIds: [] // Empty array to get all event statuses
+                    eventIds: [], // Empty array to get all event statuses
                 });
 
                 // Notify parent component
@@ -114,7 +110,7 @@ export const JoinTournamentModal: React.FC<JoinTournamentModalProps> = ({
                 // with the tournament name from the connection
                 navigation.navigate('EventManagement', {
                     tournamentName: clientInfo.tournamentName || 'Tournament',
-                    isRemoteConnection: true  // Flag to indicate this is a remote connection
+                    isRemoteConnection: true, // Flag to indicate this is a remote connection
                 });
 
                 // Close the modal after navigation is triggered
@@ -208,29 +204,21 @@ export const JoinTournamentModal: React.FC<JoinTournamentModalProps> = ({
 
     // Sort servers by name
     const sortedServers = useMemo(() => {
-        return [...discoveredServers].sort((a, b) => 
-            a.tournamentName.localeCompare(b.tournamentName));
+        return [...discoveredServers].sort((a, b) => a.tournamentName.localeCompare(b.tournamentName));
     }, [discoveredServers]);
 
     // Render a discovered server item
     const renderServerItem = ({ item }: { item: DiscoveredServer }) => (
-        <TouchableOpacity
-            style={styles.serverItem}
-            onPress={() => handleSelectServer(item)}
-            disabled={connecting}
-        >
+        <TouchableOpacity style={styles.serverItem} onPress={() => handleSelectServer(item)} disabled={connecting}>
             <Text style={styles.serverName}>{item.tournamentName}</Text>
-            <Text style={styles.serverAddress}>{item.hostIp}:{item.port}</Text>
+            <Text style={styles.serverAddress}>
+                {item.hostIp}:{item.port}
+            </Text>
         </TouchableOpacity>
     );
 
     return (
-        <Modal
-            visible={visible}
-            transparent={true}
-            animationType="slide"
-            onRequestClose={onClose}
-        >
+        <Modal visible={visible} transparent={true} animationType="slide" onRequestClose={onClose}>
             <View style={styles.modalContainer}>
                 <View style={styles.modalContent}>
                     <Text style={styles.modalTitle}>Join Tournament</Text>
@@ -244,8 +232,8 @@ export const JoinTournamentModal: React.FC<JoinTournamentModalProps> = ({
                                 <Text style={styles.sectionTitle}>Available Tournaments</Text>
                             ) : (
                                 <Text style={styles.emptyText}>
-                                    {isDiscovering 
-                                        ? 'Searching for tournaments...' 
+                                    {isDiscovering
+                                        ? 'Searching for tournaments...'
                                         : 'No tournaments found on your network.\nYou may need to enter the IP address manually.'}
                                 </Text>
                             )}
@@ -253,15 +241,11 @@ export const JoinTournamentModal: React.FC<JoinTournamentModalProps> = ({
                             <FlatList
                                 data={sortedServers}
                                 renderItem={renderServerItem}
-                                keyExtractor={(item) => `${item.hostIp}:${item.port}`}
+                                keyExtractor={item => `${item.hostIp}:${item.port}`}
                                 style={styles.serverList}
-                                contentContainerStyle={
-                                    sortedServers.length === 0 ? styles.emptyListContent : undefined
-                                }
+                                contentContainerStyle={sortedServers.length === 0 ? styles.emptyListContent : undefined}
                                 ListEmptyComponent={
-                                    isDiscovering ? (
-                                        <ActivityIndicator size="large" color="#001f3f" />
-                                    ) : null
+                                    isDiscovering ? <ActivityIndicator size="large" color="#001f3f" /> : null
                                 }
                             />
 
@@ -280,11 +264,7 @@ export const JoinTournamentModal: React.FC<JoinTournamentModalProps> = ({
                             </View>
 
                             <View style={styles.buttonContainer}>
-                                <TouchableOpacity
-                                    style={styles.cancelButton}
-                                    onPress={onClose}
-                                    disabled={connecting}
-                                >
+                                <TouchableOpacity style={styles.cancelButton} onPress={onClose} disabled={connecting}>
                                     <Text style={styles.buttonText}>Cancel</Text>
                                 </TouchableOpacity>
 

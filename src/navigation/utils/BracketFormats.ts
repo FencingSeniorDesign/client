@@ -21,22 +21,23 @@ export const DE_FORMATS: DEFormatInfo[] = [
         name: 'Single Elimination',
         description: 'Standard tournament bracket. Fencers are eliminated after one loss.',
         minFencers: 2,
-        maxFencers: 256
+        maxFencers: 256,
     },
     {
         id: 'double',
         name: 'Double Elimination',
         description: 'Fencers continue in a losers bracket after their first loss, providing a second chance.',
         minFencers: 4,
-        maxFencers: 64  // Practical upper limit for a tournament app
+        maxFencers: 64, // Practical upper limit for a tournament app
     },
     {
         id: 'compass',
         name: 'Compass Draw',
-        description: 'Four separate brackets (East, North, West, South) based on when fencers lose, allowing all to fence a full set of bouts.',
+        description:
+            'Four separate brackets (East, North, West, South) based on when fencers lose, allowing all to fence a full set of bouts.',
         minFencers: 4,
-        maxFencers: 64
-    }
+        maxFencers: 64,
+    },
 ];
 
 /**
@@ -61,22 +62,31 @@ export function getBracketSize(fencerCount: number): number {
  */
 export function getRoundName(tableOf: number, roundIndex: number, isFinals: boolean = false): string {
     if (isFinals) {
-        return roundIndex === 0 ? "Finals" : "Bracket Reset";
+        return roundIndex === 0 ? 'Finals' : 'Bracket Reset';
     }
 
     const roundsTotal = Math.log2(tableOf);
     const reverseIndex = roundsTotal - roundIndex - 1;
 
     switch (reverseIndex) {
-        case 0: return "Finals";
-        case 1: return "Semi-Finals";
-        case 2: return "Quarter-Finals";
-        case 3: return "Round of 16";
-        case 4: return "Round of 32";
-        case 5: return "Round of 64";
-        case 6: return "Round of 128";
-        case 7: return "Round of 256";
-        default: return `Round ${roundIndex + 1}`;
+        case 0:
+            return 'Finals';
+        case 1:
+            return 'Semi-Finals';
+        case 2:
+            return 'Quarter-Finals';
+        case 3:
+            return 'Round of 16';
+        case 4:
+            return 'Round of 32';
+        case 5:
+            return 'Round of 64';
+        case 6:
+            return 'Round of 128';
+        case 7:
+            return 'Round of 256';
+        default:
+            return `Round ${roundIndex + 1}`;
     }
 }
 

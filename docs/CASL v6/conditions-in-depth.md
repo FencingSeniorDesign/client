@@ -3,8 +3,8 @@ title: Conditions in Depth
 categories: [guide]
 order: 30
 meta:
-  keywords: ~
-  description: ~
+    keywords: ~
+    description: ~
 ---
 
 Thanks to [ucast](https://github.com/stalniy/ucast), we can define permissions using [MongoDB query language](http://docs.mongodb.org/manual/reference/operator/query/).
@@ -16,8 +16,8 @@ import { defineAbility } from '@casl/ability';
 
 const today = new Date().setHours(0, 0, 0, 0);
 
-export default defineAbility((can) => {
-  can('read', 'Article', { createdAt: { $lte: today } })
+export default defineAbility(can => {
+    can('read', 'Article', { createdAt: { $lte: today } });
 });
 ```
 
@@ -26,8 +26,8 @@ Or let's allow to read articles that are in `review` or `published`:
 ```js
 import { defineAbility } from '@casl/ability';
 
-export default defineAbility((can) => {
-  can('read', 'Article', { status: { $in: ['review', 'published'] } })
+export default defineAbility(can => {
+    can('read', 'Article', { status: { $in: ['review', 'published'] } });
 });
 ```
 
@@ -49,15 +49,15 @@ Let's see at examples of queries:
 
 ```js
 const queries = [
-  { private: true }, // (1)
-  { private: false, hidden: false }, // (2)
-  { private: { $exists: true } },
-  { status: { $in: ['review', 'inProgress'] } },
-  { price: { $gte: 10, $lte: 50 } }, // (3)
-  { tags: { $all: ['permission', 'casl'] } },
-  { email: { $regex: /@gmail.com$/i } },
-  { 'cities.address': { $elemMatch: { postalCode: { $regex: /^AB/ } } } } // (4)
-]
+    { private: true }, // (1)
+    { private: false, hidden: false }, // (2)
+    { private: { $exists: true } },
+    { status: { $in: ['review', 'inProgress'] } },
+    { price: { $gte: 10, $lte: 50 } }, // (3)
+    { tags: { $all: ['permission', 'casl'] } },
+    { email: { $regex: /@gmail.com$/i } },
+    { 'cities.address': { $elemMatch: { postalCode: { $regex: /^AB/ } } } }, // (4)
+];
 ```
 
 We can combine any amount of fields inside single query, all their restrictions are tested according to `AND` logic. If we do not specify operator, the query uses `$eq` operator (equality operator). So, a query like `(2)` matches objects if their `private` and `hidden` property values equal to `false` (i.e., `!object.private && !object.hidden`).
@@ -120,11 +120,11 @@ When you define rules with conditions, the last are converted to functions that 
 ```js @{data-filename="defineAbility.js"}
 import { defaultAbility } from '@casl/ability';
 
-export default defaultAbility((can) => {
-  can('read', 'Article', {
-    createdAt: { $lte: new Date() },
-    status: { $in: ['review', 'published'] }
-  })
+export default defaultAbility(can => {
+    can('read', 'Article', {
+        createdAt: { $lte: new Date() },
+        status: { $in: ['review', 'published'] },
+    });
 });
 ```
 
@@ -132,10 +132,10 @@ The example above says that article can be read if it's in review or published a
 
 ```js @{data-filename="entities.js"}
 export class Article {
-  constructor(status, createdAt) {
-    this.status = status;
-    this.createdAt = createdAt;
-  }
+    constructor(status, createdAt) {
+        this.status = status;
+        this.createdAt = createdAt;
+    }
 }
 ```
 
@@ -172,15 +172,15 @@ Suppose we have an `Article` object which has a property `status`. We want to re
 ```js
 import { defineAbility } from '@casl/ability';
 
-const ability = defineAbility((can) => {
-  can('read', 'Article', { status: { $in: ['published', 'inReview'] } });
+const ability = defineAbility(can => {
+    can('read', 'Article', { status: { $in: ['published', 'inReview'] } });
 });
 
 class Article {
-  constructor(title, status) {
-    this.title = title;
-    this.status = status;
-  }
+    constructor(title, status) {
+        this.title = title;
+        this.status = status;
+    }
 }
 
 const article = new Article('CASL', 'published');
@@ -194,15 +194,15 @@ Suppose we have an `Article` object which has a property `categories`. We want t
 ```js
 import { defineAbility } from '@casl/ability';
 
-const ability = defineAbility((can) => {
-  can('read', 'Article', { categories: 'javascript' });
+const ability = defineAbility(can => {
+    can('read', 'Article', { categories: 'javascript' });
 });
 
 class Article {
-  constructor(title, categories) {
-    this.title = title;
-    this.categories = categories;
-  }
+    constructor(title, categories) {
+        this.title = title;
+        this.categories = categories;
+    }
 }
 
 const article = new Article('CASL', ['javascript', 'acl']);
@@ -216,15 +216,15 @@ Suppose we have an `Article` object which has a property `categories`. We want t
 ```js
 import { defineAbility } from '@casl/ability';
 
-const ability = defineAbility((can) => {
-  can('read', 'Article', { categories: { $in: ['javascript', 'frontend'] } });
+const ability = defineAbility(can => {
+    can('read', 'Article', { categories: { $in: ['javascript', 'frontend'] } });
 });
 
 class Article {
-  constructor(title, categories) {
-    this.title = title;
-    this.categories = categories;
-  }
+    constructor(title, categories) {
+        this.title = title;
+        this.categories = categories;
+    }
 }
 
 const article = new Article('CASL', ['javascript', 'acl']);
@@ -238,17 +238,17 @@ Suppose we have an `Address` object which has property `country` which is an obj
 ```js
 import { defineAbility } from '@casl/ability';
 
-const ability = defineAbility((can) => {
-  can('read', 'Address', { 'country.isoCode': 'UA' });
+const ability = defineAbility(can => {
+    can('read', 'Address', { 'country.isoCode': 'UA' });
 });
 
 class Address {
-  constructor(isoCode, name) {
-    this.country = {
-      isoCode: isoCode,
-      name: name,
+    constructor(isoCode, name) {
+        this.country = {
+            isoCode: isoCode,
+            name: name,
+        };
     }
-  }
 }
 
 const address = new Address('UA', 'Ukraine');
@@ -263,24 +263,24 @@ Suppose we have a wishlist of products in some e-shop and we want to share wishl
 import { defineAbility } from '@casl/ability';
 
 const user = { id: 1 };
-const ability = defineAbility((can) => {
-  can('update', 'WishlistItem', {
-    sharedWith: {
-      $elemMatch: { permission: 'update', userId: user.id }
-    }
-  });
+const ability = defineAbility(can => {
+    can('update', 'WishlistItem', {
+        sharedWith: {
+            $elemMatch: { permission: 'update', userId: user.id },
+        },
+    });
 });
 
 class WishlistItem {
-  constructor(title, sharedWith) {
-    this.title = title;
-    this.sharedWith = sharedWith;
-  }
+    constructor(title, sharedWith) {
+        this.title = title;
+        this.sharedWith = sharedWith;
+    }
 }
 
 const wishlistItem = new WishlistItem('CASL in Action', [
-  { permission: 'read', userId: 2 },
-  { permission: 'update', userId: 1 },
+    { permission: 'read', userId: 2 },
+    { permission: 'update', userId: 1 },
 ]);
 ability.can('update', wishlistItem); // true
 ```

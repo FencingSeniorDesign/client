@@ -3,8 +3,8 @@ title: Ability to database query
 categories: [advanced]
 order: 75
 meta:
-  keywords: ~
-  description: ~
+    keywords: ~
+    description: ~
 ---
 
 Sometimes you need to restrict which records are returned from the database based on what the user is able to do in the app. `@casl/ability/extra` provides `rulesToQuery` helper function which helps to convert rules into a particular database's query. This function accepts 4 arguments:
@@ -75,29 +75,32 @@ Then, we can use this function to define static method or scope in your model. H
 const { Model, DataTypes } = require('sequelize');
 const { accessibleBy } = require('./toSequelizeQuery');
 
-module.exports = (sequelize) => {
-  class Article extends Model {
-    static accessibleBy = accessibleBy;
-  }
-
-  Article.init({
-    title: {
-      type: DataTypes.STRING,
-      allowNull: false
-    },
-    published: {
-      type: DataTypes.BOOLEAN,
-      allowNull: false,
-      defaultValue: false
+module.exports = sequelize => {
+    class Article extends Model {
+        static accessibleBy = accessibleBy;
     }
-    // other columns' definitions
-  }, {
-    sequelize,
-    modelName: Article.name,
-  });
 
-  return Article;
-}
+    Article.init(
+        {
+            title: {
+                type: DataTypes.STRING,
+                allowNull: false,
+            },
+            published: {
+                type: DataTypes.BOOLEAN,
+                allowNull: false,
+                defaultValue: false,
+            },
+            // other columns' definitions
+        },
+        {
+            sequelize,
+            modelName: Article.name,
+        }
+    );
+
+    return Article;
+};
 ```
 
 Now we can fetch accessible records using our static method:
@@ -111,10 +114,10 @@ const sequelize = new Sequelize('sqlite::memory');
 const Article = defineArticle(sequelize);
 
 async function main() {
-  const ability = defineAbility(can => can('read', Article, { published: true }));
-  const articles = await Article.accessibleBy(ability);
+    const ability = defineAbility(can => can('read', Article, { published: true }));
+    const articles = await Article.accessibleBy(ability);
 
-  console.log(articles);
+    console.log(articles);
 }
 
 main().catch(console.error);

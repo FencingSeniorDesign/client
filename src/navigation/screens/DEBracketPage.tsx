@@ -1,14 +1,6 @@
 // src/navigation/screens/DEBracketPage.tsx
 import React, { useState, useEffect } from 'react';
-import {
-    View,
-    Text,
-    StyleSheet,
-    ScrollView,
-    TouchableOpacity,
-    Alert,
-    ActivityIndicator,
-} from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import { useRoute, RouteProp, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList, Event, Fencer, Round } from '../navigation/types';
@@ -19,7 +11,6 @@ import {
     dbUpdateDEBoutAndAdvanceWinner,
     dbGetDETableSize,
     dbIsDERoundComplete, // Add this import
-
 } from '../../db/DrizzleDatabaseUtils';
 
 type DEBracketPageParams = {
@@ -101,7 +92,7 @@ const DEBracketPage: React.FC = () => {
                 // 3. Get all bouts for this round
                 const bouts = await dbGetDEBouts(roundId);
                 console.log(`Fetched ${bouts.length} DE bouts for round ${roundId}`);
-                
+
                 // 4. Check if the round is complete
                 const roundComplete = await dbIsDERoundComplete(roundId);
                 setIsRoundComplete(roundComplete);
@@ -126,7 +117,7 @@ const DEBracketPage: React.FC = () => {
             console.log('No bouts to process, returning empty bracket');
             return { rounds: [] };
         }
-        
+
         // Calculate number of rounds based on table size
         const numRounds = Math.log2(tableSize);
         const rounds: DEBracketRound[] = [];
@@ -147,34 +138,40 @@ const DEBracketPage: React.FC = () => {
                     id: bout.id,
                     tableOf: bout.tableof,
                     boutIndex: j,
-                    fencerA: bout.lfencer ? {
-                        id: bout.lfencer,
-                        fname: (bout.left_fname !== null && bout.left_fname !== undefined) ? bout.left_fname : '',
-                        lname: (bout.left_lname !== null && bout.left_lname !== undefined) ? bout.left_lname : '',
-                        erating: 'U',
-                        eyear: 0,
-                        frating: 'U',
-                        fyear: 0,
-                        srating: 'U',
-                        syear: 0
-                    } : undefined,
-                    fencerB: bout.rfencer ? {
-                        id: bout.rfencer,
-                        fname: (bout.right_fname !== null && bout.right_fname !== undefined) ? bout.right_fname : '',
-                        lname: (bout.right_lname !== null && bout.right_lname !== undefined) ? bout.right_lname : '',
-                        erating: 'U',
-                        eyear: 0,
-                        frating: 'U',
-                        fyear: 0,
-                        srating: 'U',
-                        syear: 0
-                    } : undefined,
+                    fencerA: bout.lfencer
+                        ? {
+                              id: bout.lfencer,
+                              fname: bout.left_fname !== null && bout.left_fname !== undefined ? bout.left_fname : '',
+                              lname: bout.left_lname !== null && bout.left_lname !== undefined ? bout.left_lname : '',
+                              erating: 'U',
+                              eyear: 0,
+                              frating: 'U',
+                              fyear: 0,
+                              srating: 'U',
+                              syear: 0,
+                          }
+                        : undefined,
+                    fencerB: bout.rfencer
+                        ? {
+                              id: bout.rfencer,
+                              fname:
+                                  bout.right_fname !== null && bout.right_fname !== undefined ? bout.right_fname : '',
+                              lname:
+                                  bout.right_lname !== null && bout.right_lname !== undefined ? bout.right_lname : '',
+                              erating: 'U',
+                              eyear: 0,
+                              frating: 'U',
+                              fyear: 0,
+                              srating: 'U',
+                              syear: 0,
+                          }
+                        : undefined,
                     scoreA: bout.left_score !== null ? bout.left_score : undefined,
                     scoreB: bout.right_score !== null ? bout.right_score : undefined,
                     winner: bout.victor,
                     isBye: !bout.lfencer || !bout.rfencer,
                     seedA: bout.seed_left,
-                    seedB: bout.seed_right
+                    seedB: bout.seed_right,
                 });
             }
 
@@ -204,9 +201,9 @@ const DEBracketPage: React.FC = () => {
 
             // Validate fencer data before proceeding
             if (!bout.fencerA.id || !bout.fencerB.id) {
-                console.error('Invalid fencer data - missing IDs', { 
-                    fencerAId: bout.fencerA.id, 
-                    fencerBId: bout.fencerB.id 
+                console.error('Invalid fencer data - missing IDs', {
+                    fencerAId: bout.fencerA.id,
+                    fencerBId: bout.fencerB.id,
                 });
                 Alert.alert('Error', 'Invalid fencer data. Please refresh and try again.');
                 return;
@@ -226,13 +223,7 @@ const DEBracketPage: React.FC = () => {
                 onSaveScores: async (score1: number, score2: number) => {
                     try {
                         // Update bout scores and advance winner
-                        await dbUpdateDEBoutAndAdvanceWinner(
-                            bout.id,
-                            score1,
-                            score2,
-                            bout.fencerA.id,
-                            bout.fencerB.id
-                        );
+                        await dbUpdateDEBoutAndAdvanceWinner(bout.id, score1, score2, bout.fencerA.id, bout.fencerB.id);
 
                         // Refresh to show updated scores and advancement
                         setRefreshKey(prev => prev + 1);
@@ -251,7 +242,7 @@ const DEBracketPage: React.FC = () => {
     const handleViewResults = () => {
         navigation.navigate('TournamentResultsPage', {
             eventId: event.id,
-            isRemote
+            isRemote,
         });
     };
 
@@ -295,53 +286,31 @@ const DEBracketPage: React.FC = () => {
 
         return (
             <TouchableOpacity
-                style={[
-                    styles.boutContainer,
-                    isBye && styles.byeBout,
-                    boutCompleted && styles.completedBout,
-                ]}
+                style={[styles.boutContainer, isBye && styles.byeBout, boutCompleted && styles.completedBout]}
                 onPress={() => handleBoutPress(bout)}
                 disabled={isBye}
             >
                 <View style={styles.fencerRow}>
                     <View style={styles.fencerInfo}>
-                        <Text style={[
-                            styles.seedText,
-                            bout.seedA !== undefined && styles.seedVisible
-                        ]}>
+                        <Text style={[styles.seedText, bout.seedA !== undefined && styles.seedVisible]}>
                             {bout.seedA !== undefined ? `(${bout.seedA})` : ''}
                         </Text>
-                        <Text style={[
-                            styles.fencerName,
-                            fencerAWon && styles.winnerText,
-                            isBye && styles.byeText
-                        ]}>
+                        <Text style={[styles.fencerName, fencerAWon && styles.winnerText, isBye && styles.byeText]}>
                             {fencerAName}
                         </Text>
                     </View>
-                    <Text style={styles.fencerScore}>
-                        {bout.scoreA !== undefined ? bout.scoreA : '-'}
-                    </Text>
+                    <Text style={styles.fencerScore}>{bout.scoreA !== undefined ? bout.scoreA : '-'}</Text>
                 </View>
                 <View style={styles.fencerRow}>
                     <View style={styles.fencerInfo}>
-                        <Text style={[
-                            styles.seedText,
-                            bout.seedB !== undefined && styles.seedVisible
-                        ]}>
+                        <Text style={[styles.seedText, bout.seedB !== undefined && styles.seedVisible]}>
                             {bout.seedB !== undefined ? `(${bout.seedB})` : ''}
                         </Text>
-                        <Text style={[
-                            styles.fencerName,
-                            fencerBWon && styles.winnerText,
-                            isBye && styles.byeText
-                        ]}>
+                        <Text style={[styles.fencerName, fencerBWon && styles.winnerText, isBye && styles.byeText]}>
                             {fencerBName}
                         </Text>
                     </View>
-                    <Text style={styles.fencerScore}>
-                        {bout.scoreB !== undefined ? bout.scoreB : '-'}
-                    </Text>
+                    <Text style={styles.fencerScore}>{bout.scoreB !== undefined ? bout.scoreB : '-'}</Text>
                 </View>
             </TouchableOpacity>
         );
@@ -377,19 +346,14 @@ const DEBracketPage: React.FC = () => {
 
             {/* Add View Results button if this is the final round and it's complete */}
             {isRoundComplete && isFinalRound && (
-                <TouchableOpacity
-                    style={styles.viewResultsButton}
-                    onPress={handleViewResults}
-                >
+                <TouchableOpacity style={styles.viewResultsButton} onPress={handleViewResults}>
                     <Text style={styles.viewResultsButtonText}>View Tournament Results</Text>
                 </TouchableOpacity>
             )}
 
             {bracketData.rounds.map((round, index) => (
                 <View key={index} style={styles.roundContainer}>
-                    <Text style={styles.roundTitle}>
-                        {getRoundName(round.tableOf)}
-                    </Text>
+                    <Text style={styles.roundTitle}>{getRoundName(round.tableOf)}</Text>
                     <View style={styles.boutsContainer}>
                         {round.matches.map((bout, boutIndex) => (
                             <View key={boutIndex} style={styles.boutWrapper}>
@@ -406,15 +370,24 @@ const DEBracketPage: React.FC = () => {
 // Helper function to get round name based on tableOf value
 function getRoundName(tableOf: number): string {
     switch (tableOf) {
-        case 2: return "Finals";
-        case 4: return "Semi-Finals";
-        case 8: return "Quarter-Finals";
-        case 16: return "Table of 16";
-        case 32: return "Table of 32";
-        case 64: return "Table of 64";
-        case 128: return "Table of 128";
-        case 256: return "Table of 256";
-        default: return `Table of ${tableOf}`;
+        case 2:
+            return 'Finals';
+        case 4:
+            return 'Semi-Finals';
+        case 8:
+            return 'Quarter-Finals';
+        case 16:
+            return 'Table of 16';
+        case 32:
+            return 'Table of 32';
+        case 64:
+            return 'Table of 64';
+        case 128:
+            return 'Table of 128';
+        case 256:
+            return 'Table of 256';
+        default:
+            return `Table of ${tableOf}`;
     }
 }
 

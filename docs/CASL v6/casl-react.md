@@ -22,50 +22,58 @@ pnpm add @casl/react @casl/ability
 
 It accepts children and 6 properties:
 
-* `do` - name of the action (e.g., `read`, `update`). Has an alias `I`
-* `on` - checked subject. Has `a`, `an`, `this` aliases
-* `field` - checked field
+- `do` - name of the action (e.g., `read`, `update`). Has an alias `I`
+- `on` - checked subject. Has `a`, `an`, `this` aliases
+- `field` - checked field
 
-  ```jsx
-  export default ({ post }) => <Can I="read" this={post} field="title">
-    Yes, you can do this! ;)
-  </Can>
-  ```
+    ```jsx
+    export default ({ post }) => (
+        <Can I="read" this={post} field="title">
+            Yes, you can do this! ;)
+        </Can>
+    );
+    ```
 
-* `not` - inverts ability check and show UI if user cannot do some action:
+- `not` - inverts ability check and show UI if user cannot do some action:
 
-  ```jsx
-  export default () => <Can not I="create" a="Post">
-    You are not allowed to create a post
-  </Can>
-  ```
+    ```jsx
+    export default () => (
+        <Can not I="create" a="Post">
+            You are not allowed to create a post
+        </Can>
+    );
+    ```
 
-* `passThrough` - renders children in spite of what `ability.can` returns. This is useful for creating custom components based on `Can`. For example, if you need to disable button based on user permissions:
+- `passThrough` - renders children in spite of what `ability.can` returns. This is useful for creating custom components based on `Can`. For example, if you need to disable button based on user permissions:
 
-  ```jsx
-  export default () => (
-    <Can I="create" a="Post" passThrough>
-      {allowed => <button disabled={!allowed}>Save</button>}
-    </Can>
-  )
-  ```
+    ```jsx
+    export default () => (
+        <Can I="create" a="Post" passThrough>
+            {allowed => <button disabled={!allowed}>Save</button>}
+        </Can>
+    );
+    ```
 
-* `ability` - an instance of `Ability` which will be used to check permissions
-* `children` - elements to hide or render. May be either a render function:
+- `ability` - an instance of `Ability` which will be used to check permissions
+- `children` - elements to hide or render. May be either a render function:
 
-  ```jsx
-  export default () => <Can I="create" a="Post" ability={ability}>
-    {() => <button onClick={this.createPost}>Create Post</button>}
-  </Can>
-  ```
+    ```jsx
+    export default () => (
+        <Can I="create" a="Post" ability={ability}>
+            {() => <button onClick={this.createPost}>Create Post</button>}
+        </Can>
+    );
+    ```
 
-  or React elements:
+    or React elements:
 
-  ```jsx
-  export default () => <Can I="create" a="Post" ability={ability}>
-    <button onClick={this.createPost}>Create Post</button>
-  </Can>
-  ```
+    ```jsx
+    export default () => (
+        <Can I="create" a="Post" ability={ability}>
+            <button onClick={this.createPost}>Create Post</button>
+        </Can>
+    );
+    ```
 
 > it's better to pass children as a render function because it will not create additional React elements if user doesn't have ability to do some action (in the case above `create Post`)
 
@@ -75,25 +83,26 @@ Don't be scared by the amount of properties component takes, we will talk about 
 
 It'd be inconvenient to pass `ability` in every `Can` component. That's why there are 2 function which allow to bind `Can` to use a particular instance of `Ability`:
 
-* `createCanBoundTo`\
+- `createCanBoundTo`\
   This function was created to support version of React < 16.4.0, those versions doesn't have [Context API][react-ctx-api]. Can be used like this:
 
-  ```js @{data-filename="Can.js"}
-  import { createCanBoundTo } from '@casl/react';
-  import ability from './ability';
+    ```js @{data-filename="Can.js"}
+    import { createCanBoundTo } from '@casl/react';
+    import ability from './ability';
 
-  export const Can = createCanBoundTo(ability);
-  ```
-* `createContextualCan`\
+    export const Can = createCanBoundTo(ability);
+    ```
+
+- `createContextualCan`\
   This function is created to support [React's Context API][react-ctx-api] and can be used like this:
 
-  ```js @{data-filename="Can.js"}
-  import { createContext } from 'react';
-  import { createContextualCan } from '@casl/react';
+    ```js @{data-filename="Can.js"}
+    import { createContext } from 'react';
+    import { createContextualCan } from '@casl/react';
 
-  export const AbilityContext = createContext();
-  export const Can = createContextualCan(AbilityContext.Consumer);
-  ```
+    export const AbilityContext = createContext();
+    export const Can = createContextualCan(AbilityContext.Consumer);
+    ```
 
 The 2 methods are almost the same, the 2nd one is slightly better because it will allow you to provide different `Ability` instances to different parts of your app and inject ability using [`contextType` static property](https://reactjs.org/docs/context.html#classcontexttype). Choose your way based on the version of React you use.
 
@@ -102,15 +111,15 @@ The 2 methods are almost the same, the 2nd one is slightly better because it wil
 To finalize things, we need to provide an instance of `Ability` via `AbilityContext.Provider`:
 
 ```jsx @{data-filename="App.jsx"}
-import { AbilityContext } from './Can'
-import ability from './ability'
+import { AbilityContext } from './Can';
+import ability from './ability';
 
 export default function App({ props }) {
-  return (
-    <AbilityContext.Provider value={ability}>
-      <TodoApp />
-    </AbilityContext.Provider>
-  )
+    return (
+        <AbilityContext.Provider value={ability}>
+            <TodoApp />
+        </AbilityContext.Provider>
+    );
 }
 ```
 
@@ -119,21 +128,21 @@ export default function App({ props }) {
 and use our `Can` component:
 
 ```jsx
-import React, { Component } from 'react'
-import { Can } from './Can'
+import React, { Component } from 'react';
+import { Can } from './Can';
 
 export class TodoApp extends Component {
-  createTodo = () => {
-    // implement logic to show new todo form
-  };
+    createTodo = () => {
+        // implement logic to show new todo form
+    };
 
-  render() {
-    return (
-      <Can I="create" a="Todo">
-        <button onClick={this.createTodo}>Create Todo</button>
-      </Can>
-    )
-  }
+    render() {
+        return (
+            <Can I="create" a="Todo">
+                <button onClick={this.createTodo}>Create Todo</button>
+            </Can>
+        );
+    }
 }
 ```
 
@@ -142,22 +151,19 @@ export class TodoApp extends Component {
 Sometimes the logic in a component may be a bit complicated, so you can't use `<Can>` component. In such cases, you can use [React's `contextType` component property](https://reactjs.org/docs/context.html#classcontexttype):
 
 ```jsx
-import React, { Component } from 'react'
-import { AbilityContext } from './Can'
+import React, { Component } from 'react';
+import { AbilityContext } from './Can';
 
 export class TodoApp extends Component {
-  createTodo = () => {
-    // logic to show new todo form
-  };
+    createTodo = () => {
+        // logic to show new todo form
+    };
 
-  render() {
-    return (
-      <div>
-        {this.context.can('create', 'Todo') &&
-          <button onClick={this.createTodo}>Create Todo</button>}
-      </div>
-    );
-  }
+    render() {
+        return (
+            <div>{this.context.can('create', 'Todo') && <button onClick={this.createTodo}>Create Todo</button>}</div>
+        );
+    }
 }
 
 TodoApp.contextType = AbilityContext;
@@ -167,19 +173,16 @@ or `useContext` hook:
 
 ```jsx
 import React, { useContext } from 'react';
-import { AbilityContext } from './Can'
+import { AbilityContext } from './Can';
 
 export default () => {
-  const createTodo = () => { /* logic to show new todo form */ };
-  const ability = useContext(AbilityContext);
+    const createTodo = () => {
+        /* logic to show new todo form */
+    };
+    const ability = useContext(AbilityContext);
 
-  return (
-    <div>
-      {ability.can('create', 'Todo') &&
-        <button onClick={createTodo}>Create Todo</button>}
-    </div>
-  );
-}
+    return <div>{ability.can('create', 'Todo') && <button onClick={createTodo}>Create Todo</button>}</div>;
+};
 ```
 
 In that case, you need to create a new `Ability` instance when you want to update user permissions (don't use `update` method, it won't trigger re-rendering in this case) or you need to force re-render the whole app.
@@ -188,19 +191,16 @@ To make things easier, `@casl/react` provides `useAbility` hook that accepts `Re
 
 ```jsx
 import { useAbility } from '@casl/react';
-import { AbilityContext } from './Can'
+import { AbilityContext } from './Can';
 
 export default () => {
-  const createTodo = () => { /* logic to show new todo form */ };
-  const ability = useAbility(AbilityContext);
+    const createTodo = () => {
+        /* logic to show new todo form */
+    };
+    const ability = useAbility(AbilityContext);
 
-  return (
-    <div>
-      {ability.can('create', 'Todo') &&
-        <button onClick={createTodo}>Create Todo</button>}
-    </div>
-  );
-}
+    return <div>{ability.can('create', 'Todo') && <button onClick={createTodo}>Create Todo</button>}</div>;
+};
 ```
 
 ### Usage note on React < 16.4 with TypeScript
@@ -209,7 +209,7 @@ If you use TypeScript and React < 16.4 make sure to create a file `contextAPIPat
 
 ```ts
 declare module 'react' {
-  export type Consumer<T> = any;
+    export type Consumer<T> = any;
 }
 ```
 
@@ -217,11 +217,11 @@ and include it in your `tscofig.json`, otherwise your app won't compile:
 
 ```json
 {
-  // other configuration options
-  "include": [
-    "src/**/*",
-    "./contextAPIPatch.d.ts" // <-- add this line
-  ]
+    // other configuration options
+    "include": [
+        "src/**/*",
+        "./contextAPIPatch.d.ts" // <-- add this line
+    ]
 }
 ```
 
@@ -237,28 +237,36 @@ export default () => <Can I="create" a="Post">
 
 There are several other property aliases which allow to construct a readable question:
 
-* use `a` (or `an`) alias when you check by Type
+- use `a` (or `an`) alias when you check by Type
 
-  ```jsx
-  export default () => <Can I="read" a="Post">...</Can>
-  ```
+    ```jsx
+    export default () => (
+        <Can I="read" a="Post">
+            ...
+        </Can>
+    );
+    ```
 
-* use `this` alias instead of `a` when you check action on a particular instance. So, the question can be read as "Can I read this *particular* post?"
+- use `this` alias instead of `a` when you check action on a particular instance. So, the question can be read as "Can I read this _particular_ post?"
 
-  ```jsx
-  // `this.props.post` is an instance of `Post` class (i.e., model instance)
-  export default () => <Can I="read" this={this.props.post}>...</Can>
-  ```
+    ```jsx
+    // `this.props.post` is an instance of `Post` class (i.e., model instance)
+    export default () => (
+        <Can I="read" this={this.props.post}>
+            ...
+        </Can>
+    );
+    ```
 
-* use `do` and `on` if you are bored and don't want to make your code more readable ;)
+- use `do` and `on` if you are bored and don't want to make your code more readable ;)
 
-  ```jsx
-  // `this.props.post` is an instance of `Post` class (i.e., model instance)
-  export default () => <Can do="read" on={this.props.post}>...</Can>
+    ```jsx
+    // `this.props.post` is an instance of `Post` class (i.e., model instance)
+    export default () => <Can do="read" on={this.props.post}>...</Can>
 
-  // or per field check
-  export default () => <Can do="read" on={this.props.post} field="title">...</Can>
-  ```
+    // or per field check
+    export default () => <Can do="read" on={this.props.post} field="title">...</Can>
+    ```
 
 ## TypeScript support
 

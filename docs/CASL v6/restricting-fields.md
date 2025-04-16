@@ -3,8 +3,8 @@ title: Restricting fields access
 categories: [guide]
 order: 40
 meta:
-  keywords: ~
-  description: ~
+    keywords: ~
+    description: ~
 ---
 
 Sometimes you may need to restrict which fields a user can access. For example, let's allow only moderators to publish `Article`:
@@ -13,16 +13,16 @@ Sometimes you may need to restrict which fields a user can access. For example, 
 import { AbilityBuilder, createMongoAbility } from '@casl/ability';
 
 export default function defineAbilityFor(user) {
-  const { can, rules } = new AbilityBuilder(createMongoAbility);
+    const { can, rules } = new AbilityBuilder(createMongoAbility);
 
-  can('read', 'Article');
-  can('update', 'Article', ['title', 'description'], { authorId: user.id });
+    can('read', 'Article');
+    can('update', 'Article', ['title', 'description'], { authorId: user.id });
 
-  if (user.isModerator) {
-    can('update', 'Article', ['published']);
-  }
+    if (user.isModerator) {
+        can('update', 'Article', ['published']);
+    }
 
-  return createMongoAbility(rules);
+    return createMongoAbility(rules);
 }
 ```
 
@@ -42,12 +42,12 @@ defineAbilityFor(moderator).can('update', 'Article', 'published'); // true
 
 ```js @{data-filename="entities.js"}
 export class Article {
-  constructor(title, description, authorId) {
-    this.title = title;
-    this.description = description;
-    this.authorId = authorId;
-    this.published = false;
-  }
+    constructor(title, description, authorId) {
+        this.title = title;
+        this.description = description;
+        this.authorId = authorId;
+        this.published = false;
+    }
 }
 ```
 
@@ -69,8 +69,8 @@ ability.can('update', 'Article', 'title'); // true!
 
 So, the last check returned `true` and at the first sight it seems wrong! But it's not. Similarly to [checking logic](../intro#checking-logic) without fields, we ask different questions:
 
-* when we check on particular `Article` instance, we are asking **can user update this article's title**
-* and when we check on subject type, we are asking **can user update title of at least one article?**
+- when we check on particular `Article` instance, we are asking **can user update this article's title**
+- and when we check on subject type, we are asking **can user update title of at least one article?**
 
 Another way to check permissions is to extract all permitted fields from `PureAbility` instance using `permittedFieldsOf` helper from `@casl/ability/extra` sub-module. The same checking logic applies here:
 
@@ -87,7 +87,7 @@ fields = permittedFieldsOf(ability, 'update', anotherArticle, options); // []
 fields = permittedFieldsOf(ability, 'update', 'Article', options); // ['title', 'description'] !
 
 if (fields.includes('published')) {
-  // do something if can update published field
+    // do something if can update published field
 }
 ```
 
@@ -107,9 +107,9 @@ import { permittedFieldsOf } from '@casl/ability/extra';
 // the same code from app.js
 
 const reqBody = {
-  title: 'CASL',
-  description: 'powerful',
-  published: true, // only moderators are allowed to change this field!
+    title: 'CASL',
+    description: 'powerful',
+    published: true, // only moderators are allowed to change this field!
 };
 const fields = permittedFieldsOf(ability, 'update', ownArticle, options);
 const rawArticle = pick(reqBody, fields); // { title: 'CASL', description: 'powerful' }
@@ -126,8 +126,8 @@ CASL allows you to define permissions on nested fields, to do this just use dot 
 ```js
 import { defineAbility } from '@casl/ability';
 
-export default defineAbility((can) => {
-  can('read', 'User', ['address.city', 'address.street']);
+export default defineAbility(can => {
+    can('read', 'User', ['address.city', 'address.street']);
 });
 ```
 
@@ -138,8 +138,8 @@ It's also possible to define permissions for fields using patterns. You can use 
 ```js
 import { defineAbility } from '@casl/ability';
 
-const ability = defineAbility((can) => {
-  can('read', 'User', ['address.**']);
+const ability = defineAbility(can => {
+    can('read', 'User', ['address.**']);
 });
 
 ability.can('read', 'User', 'address'); // true
@@ -152,8 +152,8 @@ Or you can give access to only first level of nested fields:
 ```js
 import { defineAbility } from '@casl/ability';
 
-const ability = defineAbility((can) => {
-  can('read', 'User', ['address.*']);
+const ability = defineAbility(can => {
+    can('read', 'User', ['address.*']);
 });
 
 ability.can('read', 'User', 'address'); // true
@@ -166,8 +166,8 @@ Or you can give access to top level fields using pattern. Suppose `User` instanc
 ```js
 import { defineAbility } from '@casl/ability';
 
-const ability = defineAbility((can) => {
-  can('read', 'User', ['street*']);
+const ability = defineAbility(can => {
+    can('read', 'User', ['street*']);
 });
 
 ability.can('read', 'User', 'street'); // true
@@ -177,33 +177,33 @@ ability.can('read', 'User', 'street2'); // true
 
 ### Field patterns table
 
-| Pattern         | Example      | Result    |
-| --------------- | -------------| --------- |
-| address.*       |
-|                 | `ability.can('read', 'User', 'address')`           | `true`  |
-|                 | `ability.can('read', 'User', 'address.city')`      | `true`  |
-|                 | `ability.can('read', 'User', 'address.city.name')` | `false` |
-| address.**      |
-|                 | `ability.can('read', 'User', 'address')`           | `true` |
-|                 | `ability.can('read', 'User', 'address.city')`      | `true` |
-|                 | `ability.can('read', 'User', 'address.city.name')` | `true` |
-|                 | `ability.can('read', 'User', 'address.city.location.lat')` | `true` |
-| address.*.name  |
-|                 | `ability.can('read', 'User', 'address.*.name')`    | `true` |
-|                 | `ability.can('read', 'User', 'address.city.name')` | `true` |
-|                 | `ability.can('read', 'User', 'address.city.location.name')` | `false` |
-| address.**.name |
-|                 | `ability.can('read', 'User', 'address.*.name')`    | `true` |
-|                 | `ability.can('read', 'User', 'address.city.name')` | `true` |
-|                 | `ability.can('read', 'User', 'address.city.location.name')` | `true` |
-| *.name          |
-|                 | `ability.can('read', 'User', '*.name')`            | `true` |
-|                 | `ability.can('read', 'User', 'city.name')`         | `true` |
-|                 | `ability.can('read', 'User', 'address.city.name')` | `false` |
-|                 | `ability.can('read', 'User', 'address.city.location.name')` | `false` |
-| **.name         |
-|                 | `ability.can('read', 'User', '*.name')`            | `true` |
-|                 | `ability.can('read', 'User', 'city.name')`         | `true` |
-|                 | `ability.can('read', 'User', 'address.city.name')` | `true` |
-|                 | `ability.can('read', 'User', 'address.city.location.name')` | `true` |
-|                 | `ability.can('read', 'User', 'address.city.code')` | `false` |
+| Pattern           | Example                                                     | Result  |
+| ----------------- | ----------------------------------------------------------- | ------- |
+| address.\*        |
+|                   | `ability.can('read', 'User', 'address')`                    | `true`  |
+|                   | `ability.can('read', 'User', 'address.city')`               | `true`  |
+|                   | `ability.can('read', 'User', 'address.city.name')`          | `false` |
+| address.\*\*      |
+|                   | `ability.can('read', 'User', 'address')`                    | `true`  |
+|                   | `ability.can('read', 'User', 'address.city')`               | `true`  |
+|                   | `ability.can('read', 'User', 'address.city.name')`          | `true`  |
+|                   | `ability.can('read', 'User', 'address.city.location.lat')`  | `true`  |
+| address.\*.name   |
+|                   | `ability.can('read', 'User', 'address.*.name')`             | `true`  |
+|                   | `ability.can('read', 'User', 'address.city.name')`          | `true`  |
+|                   | `ability.can('read', 'User', 'address.city.location.name')` | `false` |
+| address.\*\*.name |
+|                   | `ability.can('read', 'User', 'address.*.name')`             | `true`  |
+|                   | `ability.can('read', 'User', 'address.city.name')`          | `true`  |
+|                   | `ability.can('read', 'User', 'address.city.location.name')` | `true`  |
+| \*.name           |
+|                   | `ability.can('read', 'User', '*.name')`                     | `true`  |
+|                   | `ability.can('read', 'User', 'city.name')`                  | `true`  |
+|                   | `ability.can('read', 'User', 'address.city.name')`          | `false` |
+|                   | `ability.can('read', 'User', 'address.city.location.name')` | `false` |
+| \*\*.name         |
+|                   | `ability.can('read', 'User', '*.name')`                     | `true`  |
+|                   | `ability.can('read', 'User', 'city.name')`                  | `true`  |
+|                   | `ability.can('read', 'User', 'address.city.name')`          | `true`  |
+|                   | `ability.can('read', 'User', 'address.city.location.name')` | `true`  |
+|                   | `ability.can('read', 'User', 'address.city.code')`          | `false` |

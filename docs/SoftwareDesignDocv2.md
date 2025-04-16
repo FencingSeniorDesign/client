@@ -1,49 +1,50 @@
 # Software Design Document
+
 # TournaFence Tournament Management Application
 
 ## Table of Contents
 
 1. [Document History](#1-document-history)
 2. [Introduction](#2-introduction)
-   1. [Purpose](#21-purpose)
-   2. [Scope](#22-scope)
-   3. [Design Goals](#23-design-goals)
-   4. [Definitions](#24-definitions)
-   5. [References](#25-references)
+    1. [Purpose](#21-purpose)
+    2. [Scope](#22-scope)
+    3. [Design Goals](#23-design-goals)
+    4. [Definitions](#24-definitions)
+    5. [References](#25-references)
 3. [System Overview](#3-system-overview)
-   1. [Technologies Used](#31-technologies-used)
-   2. [Architecture Diagram](#32-architecture-diagram)
-   3. [Sequence Diagrams](#33-sequence-diagrams)
+    1. [Technologies Used](#31-technologies-used)
+    2. [Architecture Diagram](#32-architecture-diagram)
+    3. [Sequence Diagrams](#33-sequence-diagrams)
 4. [Detailed Architecture](#4-detailed-architecture)
-   1. [Key Components and Interactions](#41-key-components-and-interactions)
-      1. [Application Initialization](#411-application-initialization)
-      2. [Tournament Creation Flow](#412-tournament-creation-flow)
-      3. [Event Management](#413-event-management)
-      4. [Event Settings Configuration](#414-event-settings-configuration)
-      5. [Pool Management](#415-pool-management)
-      6. [Direct Elimination Management](#416-direct-elimination-management)
-      7. [Double Elimination Flow](#417-double-elimination-flow)
-      8. [Compass Draw Flow](#418-compass-draw-flow)
-      9. [Referee Module Flow](#419-referee-module-flow)
-   2. [Component Architecture](#42-component-architecture)
-      1. [Home Screen](#421-home-screen)
-      2. [Event Management](#422-event-management)
-      3. [Event Settings](#423-event-settings)
-      4. [Pools Page](#424-pools-page)
-      5. [Bout Order Page](#425-bout-order-page)
-      6. [Referee Module](#426-referee-module)
-      7. [Bracket Pages](#427-bracket-pages)
+    1. [Key Components and Interactions](#41-key-components-and-interactions)
+        1. [Application Initialization](#411-application-initialization)
+        2. [Tournament Creation Flow](#412-tournament-creation-flow)
+        3. [Event Management](#413-event-management)
+        4. [Event Settings Configuration](#414-event-settings-configuration)
+        5. [Pool Management](#415-pool-management)
+        6. [Direct Elimination Management](#416-direct-elimination-management)
+        7. [Double Elimination Flow](#417-double-elimination-flow)
+        8. [Compass Draw Flow](#418-compass-draw-flow)
+        9. [Referee Module Flow](#419-referee-module-flow)
+    2. [Component Architecture](#42-component-architecture)
+        1. [Home Screen](#421-home-screen)
+        2. [Event Management](#422-event-management)
+        3. [Event Settings](#423-event-settings)
+        4. [Pools Page](#424-pools-page)
+        5. [Bout Order Page](#425-bout-order-page)
+        6. [Referee Module](#426-referee-module)
+        7. [Bracket Pages](#427-bracket-pages)
 5. [Data Model](#5-data-model)
-   1. [Database Schema](#51-database-schema)
+    1. [Database Schema](#51-database-schema)
 6. [Traceability Matrix](#6-traceability-matrix)
 
 ## 1. Document History
 
-| Version | Date       | Description                            | Author                 |
-|---------|------------|----------------------------------------|------------------------|
-| 1.0     | 2024-11-21 | Added intro section                    | Ben Neeman             |
-| 1.1     | 2024-11-24 | Revise Design Goals                    | Luka Specter           |
-| 1.2     | 2025-03-09 | Swap to markdown for MermaidJS support | Luka Specter |
+| Version | Date       | Description                            | Author                      |
+| ------- | ---------- | -------------------------------------- | --------------------------- |
+| 1.0     | 2024-11-21 | Added intro section                    | Ben Neeman                  |
+| 1.1     | 2024-11-24 | Revise Design Goals                    | Luka Specter                |
+| 1.2     | 2025-03-09 | Swap to markdown for MermaidJS support | Luka Specter                |
 | 1.3     | 2025-03-10 | Add diagrams                           | Luka Specter, Ruchika Mehta |
 | 1.4     | 2025-03-16 | Final revisions                        | Luka Specter, Ruchika Mehta |
 
@@ -56,15 +57,16 @@ This Software Design Document (SDD) describes the architectural and detailed des
 ### 2.2 Overview
 
 This project involves the development of a comprehensive software solution for fencing tournament management. It supports multiple tournament formats such as pool bouts and direct elimination tables, and integrates features for fencer seeding, score tracking, and referee actions. Key functionalities include:
-* Tournament Creation: Auto-generation or user-defined naming of tournaments, adding fencers, seeding, and tournament structure setup.
-* Tournament Viewing: Real-time viewing of pool results, bout order, direct elimination tables, and fencer rankings.
-* Bout Refereeing: A user-friendly module allowing referees to track bout scores, assign penalties, control timers, and enforce rules.
-* Scoring Box: A modular scoring box that adheres to USA Fencing rules, providing visual and auditory feedback for scored touches and optional Bluetooth connectivity for automatic score and time synchronization.
 
+- Tournament Creation: Auto-generation or user-defined naming of tournaments, adding fencers, seeding, and tournament structure setup.
+- Tournament Viewing: Real-time viewing of pool results, bout order, direct elimination tables, and fencer rankings.
+- Bout Refereeing: A user-friendly module allowing referees to track bout scores, assign penalties, control timers, and enforce rules.
+- Scoring Box: A modular scoring box that adheres to USA Fencing rules, providing visual and auditory feedback for scored touches and optional Bluetooth connectivity for automatic score and time synchronization.
 
 ### 2.3 Scope
 
 TournaFence is designed to handle all aspects of fencing tournament management, including:
+
 - Tournament creation and configuration
 - Event management within tournaments
 - Fencer and referee registration
@@ -75,22 +77,22 @@ TournaFence is designed to handle all aspects of fencing tournament management, 
 
 ### 2.4 Definitions
 
-| Term | Definition |
-|------|------------|
-| DE   | Direct Elimination |
-| UI   | User Interface |
-| API  | Application Programming Interface |
-| SRS  | Software Requirements Specification |
-| DB   | Database |
-| SQLite | Self-contained, serverless, zero-configuration, transactional SQL database engine |
-| JSX  | JavaScript XML (syntax extension for JavaScript) |
-| Props | Properties passed to React components |
-| State | Object representing component data that can change over time |
-| Hook | Functions that let you use React state and features |
-| Pool | Group of fencers who fence round-robin bouts against each other |
-| Bout | Individual fencing match between two fencers |
-| Seeding | The ranking of fencers for placement in tournament brackets |
-| Tableau | Bracket structure for direct elimination rounds |
+| Term    | Definition                                                                        |
+| ------- | --------------------------------------------------------------------------------- |
+| DE      | Direct Elimination                                                                |
+| UI      | User Interface                                                                    |
+| API     | Application Programming Interface                                                 |
+| SRS     | Software Requirements Specification                                               |
+| DB      | Database                                                                          |
+| SQLite  | Self-contained, serverless, zero-configuration, transactional SQL database engine |
+| JSX     | JavaScript XML (syntax extension for JavaScript)                                  |
+| Props   | Properties passed to React components                                             |
+| State   | Object representing component data that can change over time                      |
+| Hook    | Functions that let you use React state and features                               |
+| Pool    | Group of fencers who fence round-robin bouts against each other                   |
+| Bout    | Individual fencing match between two fencers                                      |
+| Seeding | The ranking of fencers for placement in tournament brackets                       |
+| Tableau | Bracket structure for direct elimination rounds                                   |
 
 ### 2.5 References
 
@@ -106,67 +108,49 @@ TournaFence is designed to handle all aspects of fencing tournament management, 
 
 The TournaFence application is built using modern cross-platform mobile development technologies:
 
-| Technology | Version | Purpose |
-|------------|---------|---------|
-| React | 18.3.1 | JavaScript library for building user interfaces |
-| React Native | 0.76.7 | Framework for building native mobile apps using React |
-| TypeScript | 5.7.2 | Typed JavaScript that compiles to plain JavaScript |
-| Expo | 52.0.33 | Framework and platform for universal React applications |
-| Expo SQLite | 15.1.2 | SQLite database for local data storage |
-| React Navigation | 7.0.12 | Routing and navigation for React Native apps |
-| Async Storage | 1.23.1 | AsyncStorage implementation for React Native |
+| Technology       | Version | Purpose                                                 |
+| ---------------- | ------- | ------------------------------------------------------- |
+| React            | 18.3.1  | JavaScript library for building user interfaces         |
+| React Native     | 0.76.7  | Framework for building native mobile apps using React   |
+| TypeScript       | 5.7.2   | Typed JavaScript that compiles to plain JavaScript      |
+| Expo             | 52.0.33 | Framework and platform for universal React applications |
+| Expo SQLite      | 15.1.2  | SQLite database for local data storage                  |
+| React Navigation | 7.0.12  | Routing and navigation for React Native apps            |
+| Async Storage    | 1.23.1  | AsyncStorage implementation for React Native            |
 
 ### 3.2 Architecture Diagram
 
 The TournaFence application follows a three-tier architecture with clear separation between the presentation layer, business logic layer, and data persistence layer.
 
-[//]: # (```mermaid)
-
-[//]: # (graph TD)
-
-[//]: # (    A[User Interface Layer] --> B[Business Logic Layer])
-
-[//]: # (    B --> C[Data Persistence Layer])
-
-[//]: # (    )
-[//]: # (    subgraph "User Interface Layer")
-
-[//]: # (        A1[Screen Components])
-
-[//]: # (        A2[Navigation Components])
-
-[//]: # (        A3[Reusable UI Components])
-
-[//]: # (    end)
-
-[//]: # (    )
-[//]: # (    subgraph "Business Logic Layer")
-
-[//]: # (        B1[Tournament Format Utils])
-
-[//]: # (        B2[Bracket Generation])
-
-[//]: # (        B3[Scoring Algorithms])
-
-[//]: # (        B4[Round Management])
-
-[//]: # (    end)
-
-[//]: # (    )
-[//]: # (    subgraph "Data Persistence Layer")
-
-[//]: # (        C1[SQLite Database])
-
-[//]: # (        C2[Database Utilities])
-
-[//]: # (    end)
-[//]: # (```)
+[//]: # '```mermaid'
+[//]: # 'graph TD'
+[//]: # '    A[User Interface Layer] --> B[Business Logic Layer]'
+[//]: # '    B --> C[Data Persistence Layer]'
+[//]: # '    '
+[//]: # '    subgraph "User Interface Layer"'
+[//]: # '        A1[Screen Components]'
+[//]: # '        A2[Navigation Components]'
+[//]: # '        A3[Reusable UI Components]'
+[//]: # '    end'
+[//]: # '    '
+[//]: # '    subgraph "Business Logic Layer"'
+[//]: # '        B1[Tournament Format Utils]'
+[//]: # '        B2[Bracket Generation]'
+[//]: # '        B3[Scoring Algorithms]'
+[//]: # '        B4[Round Management]'
+[//]: # '    end'
+[//]: # '    '
+[//]: # '    subgraph "Data Persistence Layer"'
+[//]: # '        C1[SQLite Database]'
+[//]: # '        C2[Database Utilities]'
+[//]: # '    end'
+[//]: # '```'
 
 ```mermaid
 graph TD
     A[User Interface Layer] --> B[Business Logic Layer]
     B --> C[Data Persistence Layer]
-    
+
     subgraph "User Interface Layer"
         A1[Screen Components]
         A2[Navigation Components]
@@ -174,11 +158,12 @@ graph TD
     end
 
 ```
+
 ```mermaid
 graph TD
     A[User Interface Layer] --> B[Business Logic Layer]
     B --> C[Data Persistence Layer]
-    
+
     subgraph "Business Logic Layer"
         B1[Tournament Format Utils]
         B2[Bracket Generation]
@@ -187,17 +172,17 @@ graph TD
     end
 
 ```
+
 ```mermaid
 graph TD
     A[User Interface Layer] --> B[Business Logic Layer]
     B --> C[Data Persistence Layer]
-    
+
     subgraph "Data Persistence Layer"
         C1[SQLite Database]
         C2[Database Utilities]
     end
 ```
-
 
 The application employs several design principles and patterns:
 
@@ -251,7 +236,7 @@ sequenceDiagram
     participant Modal as CreateTournamentModal
     participant DB as TournamentDatabaseUtils
     participant SQLite as SQLite Database
-    
+
     User->>Home: Press "Create Tournament"
     Home->>Modal: Open modal
     Modal-->>User: Display tournament form
@@ -286,14 +271,14 @@ sequenceDiagram
     participant EventForm as Event Creation Form
     participant DB as TournamentDatabaseUtils
     participant SQLite as SQLite Database
-    
+
     User->>EventMgmt: Select tournament
     EventMgmt->>DB: dbListEvents(tournamentName)
     DB->>SQLite: Execute SELECT query
     SQLite-->>DB: Return events
     DB-->>EventMgmt: Event list
     EventMgmt-->>User: Display events
-    
+
     User->>EventMgmt: Press "Create Event"
     EventMgmt->>EventForm: Open event form
     EventForm-->>User: Display form
@@ -320,7 +305,7 @@ sequenceDiagram
     participant Settings as EventSettings
     participant DB as TournamentDatabaseUtils
     participant SQLite as SQLite Database
-    
+
     User->>Events: Select "Configure" on event
     Events->>Settings: Navigate with eventId
     Settings->>DB: dbGetEvent(eventId)
@@ -328,7 +313,7 @@ sequenceDiagram
     SQLite-->>DB: Return event details
     DB-->>Settings: Event configuration
     Settings-->>User: Display settings form
-    
+
     User->>Settings: Modify settings (format, participants)
     User->>Settings: Press "Save"
     Settings->>DB: dbUpdateEventSettings(eventId, settings)
@@ -336,14 +321,14 @@ sequenceDiagram
     SQLite-->>DB: Settings updated
     DB-->>Settings: Return success
     Settings-->>User: Confirm successful update
-    
+
     User->>Settings: Press "Start Event"
     Settings->>DB: dbInitializeRound(eventId, format)
     DB->>SQLite: Execute multiple SQL operations
     Note over DB,SQLite: Create round, assign fencers, generate bouts
     SQLite-->>DB: Round initialized
     DB-->>Settings: Return roundId
-    
+
     alt Pool Format
         Settings->>User: Navigate to Pools Page
     else Single Elimination
@@ -369,7 +354,7 @@ sequenceDiagram
     participant Pools as PoolsPage
     participant DB as TournamentDatabaseUtils
     participant SQLite as SQLite Database
-    
+
     User->>Pools: View pools for round
     Pools->>DB: dbGetPoolAssignments(roundId)
     DB->>SQLite: Execute SELECT query
@@ -390,7 +375,7 @@ sequenceDiagram
     participant Referee as RefereeModule
     participant DB as TournamentDatabaseUtils
     participant SQLite as SQLite Database
-    
+
     User->>Pools: Select "View Bout Order"
     Pools->>BoutOrder: Navigate with pool data
     BoutOrder->>DB: dbGetBoutsForPool(roundId, poolId)
@@ -398,7 +383,7 @@ sequenceDiagram
     SQLite-->>DB: Return bouts
     DB-->>BoutOrder: Bout order data
     BoutOrder-->>User: Display bout order
-    
+
     User->>BoutOrder: Select bout to referee
     BoutOrder->>Referee: Navigate with boutId
     Referee->>DB: dbGetBoutDetails(boutId)
@@ -406,7 +391,7 @@ sequenceDiagram
     SQLite-->>DB: Return bout details
     DB-->>Referee: Bout and fencer information
     Referee-->>User: Display referee interface
-    
+
     User->>Referee: Complete scoring bout
     Referee->>DB: dbUpdateBoutScore(boutId, leftScore, rightScore, victorId)
     DB->>SQLite: Execute UPDATE query
@@ -426,14 +411,14 @@ sequenceDiagram
     participant Pools as PoolsPage
     participant DB as TournamentDatabaseUtils
     participant SQLite as SQLite Database
-    
+
     User->>Pools: Select "Complete Pool"
     Pools->>DB: dbCompletePool(roundId, poolId)
     DB->>SQLite: Execute UPDATE queries
     SQLite-->>DB: Pool marked complete
     DB-->>Pools: Return success
     Pools-->>User: Update pool status
-    
+
     User->>Pools: Select "Calculate Results"
     Pools->>DB: dbCalculatePoolResults(roundId)
     DB->>SQLite: Execute complex query operations
@@ -455,7 +440,7 @@ sequenceDiagram
     participant Referee as RefereeModule
     participant DB as TournamentDatabaseUtils
     participant SQLite as SQLite Database
-    
+
     User->>Results: View pool results
     Results->>DB: dbCreateDERound(eventId, format)
     DB->>SQLite: Execute multiple SQL operations
@@ -463,13 +448,13 @@ sequenceDiagram
     SQLite-->>DB: DE round created
     DB-->>Results: Return roundId
     Results->>DEPage: Navigate to DE bracket
-    
+
     DEPage->>DB: dbGetDEBracket(roundId)
     DB->>SQLite: Execute SELECT query
     SQLite-->>DB: Return bracket data
     DB-->>DEPage: Bracket structure
     DEPage-->>User: Display bracket visualization
-    
+
     User->>DEPage: Select bout to referee
     DEPage->>Referee: Navigate with boutId
     Referee->>DB: dbGetBoutDetails(boutId)
@@ -477,18 +462,18 @@ sequenceDiagram
     SQLite-->>DB: Return bout details
     DB-->>Referee: Bout and fencer information
     Referee-->>User: Display referee interface
-    
+
     User->>Referee: Complete scoring bout
     Referee->>DB: dbUpdateBoutScore(boutId, leftScore, rightScore, victorId)
     DB->>SQLite: Execute UPDATE query
     SQLite-->>DB: Bout updated
-    
+
     alt Bracket Advancement Needed
         DB->>SQLite: Execute advancement query
         Note over DB,SQLite: Update next bout with winner
         SQLite-->>DB: Advancement completed
     end
-    
+
     DB-->>Referee: Return success
     Referee-->>DEPage: Return to bracket
     DEPage->>DB: dbGetDEBracket(roundId)
@@ -511,7 +496,7 @@ sequenceDiagram
     participant Utils as DoubleEliminationUtils
     participant DB as TournamentDatabaseUtils
     participant SQLite as SQLite Database
-    
+
     User->>DEPage: View double elimination bracket
     DEPage->>Utils: generateDoubleEliminationStructure(fencers)
     Utils-->>DEPage: Bracket structure
@@ -533,7 +518,7 @@ sequenceDiagram
     participant Referee as RefereeModule
     participant DB as TournamentDatabaseUtils
     participant SQLite as SQLite Database
-    
+
     User->>DEPage: Select bout to referee
     DEPage->>Referee: Navigate with boutId
     Referee->>DB: dbGetBoutDetails(boutId)
@@ -541,7 +526,7 @@ sequenceDiagram
     SQLite-->>DB: Return bout details
     DB-->>Referee: Bout and fencer information
     Referee-->>User: Display referee interface
-    
+
     User->>Referee: Complete scoring bout
     Referee->>DB: dbUpdateBoutScore(boutId, leftScore, rightScore, victorId)
     DB->>SQLite: Execute UPDATE query
@@ -560,16 +545,16 @@ sequenceDiagram
     participant SQLite as SQLite Database
     participant DEPage as DoubleEliminationPage
     participant User
-    
+
     DB->>Utils: handleDoubleEliminationAdvancement(boutId, victorId, bracketType)
     Utils->>DB: dbAdvanceFencer(nextBoutId, position, fencerId)
-    
+
     alt Loser moves to Losers Bracket
         Utils->>DB: dbMoveFencerToLosersBracket(boutId, loserId)
         DB->>SQLite: Execute UPDATE operations
         SQLite-->>DB: Fencer moved to losers bracket
     end
-    
+
     DB-->>Referee: Return success
     Referee-->>DEPage: Return to brackets
     DEPage->>DB: dbGetDEBracketBouts(roundId)
@@ -592,7 +577,7 @@ sequenceDiagram
     participant Utils as CompassDrawUtils
     participant DB as TournamentDatabaseUtils
     participant SQLite as SQLite Database
-    
+
     User->>CDPage: View compass draw
     CDPage->>Utils: generateCompassDrawStructure(fencers)
     Utils-->>CDPage: Bracket structure
@@ -614,7 +599,7 @@ sequenceDiagram
     participant Referee as RefereeModule
     participant DB as TournamentDatabaseUtils
     participant SQLite as SQLite Database
-    
+
     User->>CDPage: Select bout to referee
     CDPage->>Referee: Navigate with boutId
     Referee->>DB: dbGetBoutDetails(boutId)
@@ -622,7 +607,7 @@ sequenceDiagram
     SQLite-->>DB: Return bout details
     DB-->>Referee: Bout and fencer information
     Referee-->>User: Display referee interface
-    
+
     User->>Referee: Complete scoring bout
     Referee->>DB: dbUpdateBoutScore(boutId, leftScore, rightScore, victorId)
     DB->>SQLite: Execute UPDATE query
@@ -641,16 +626,16 @@ sequenceDiagram
     participant SQLite as SQLite Database
     participant CDPage as CompassDrawPage
     participant User
-    
+
     DB->>Utils: handleCompassDrawAdvancement(boutId, victorId, direction)
     Utils->>DB: dbAdvanceFencer(nextBoutId, position, fencerId)
-    
+
     alt Loser moves to different direction
         Utils->>DB: dbMoveFencerToDirection(boutId, loserId, newDirection)
         DB->>SQLite: Execute UPDATE operations
         SQLite-->>DB: Fencer moved to appropriate bracket
     end
-    
+
     DB-->>Referee: Return success
     Referee-->>CDPage: Return to compass draw
     CDPage->>DB: dbGetCompassDrawBouts(roundId)
@@ -672,7 +657,7 @@ sequenceDiagram
     participant Referee as RefereeModule
     participant DB as TournamentDatabaseUtils
     participant SQLite as SQLite Database
-    
+
     User->>Referee: Open bout for scoring
     alt Standalone mode
         Referee-->>User: Display empty scoring interface
@@ -694,7 +679,7 @@ sequenceDiagram
     participant User
     participant Referee as RefereeModule
     participant TimeModal as CustomTimeModal
-    
+
     User->>Referee: Set custom time
     Referee->>TimeModal: Open time selection modal
     TimeModal-->>User: Display time options
@@ -704,22 +689,22 @@ sequenceDiagram
     end
     TimeModal-->>Referee: Return selected time
     Referee-->>User: Update timer display
-    
+
     User->>Referee: Start bout timer
     Referee-->>User: Timer counts down
-    
+
     User->>Referee: Add score to left fencer
     Referee-->>User: Update left score
-    
+
     User->>Referee: Add score to right fencer
     Referee-->>User: Update right score
-    
+
     User->>Referee: Assign card
     Referee-->>User: Display card on fencer UI
-    
+
     User->>Referee: Start passivity timer
     Referee-->>User: Passivity timer counts down
-    
+
     User->>Referee: Stop main timer
     Referee-->>User: Timer stops
 ```
@@ -734,9 +719,9 @@ sequenceDiagram
     participant Referee as RefereeModule
     participant DB as TournamentDatabaseUtils
     participant SQLite as SQLite Database
-    
+
     User->>Referee: Complete bout
-    
+
     alt Tournament mode
         Referee->>DB: dbUpdateBoutScore(boutId, leftScore, rightScore, victorId)
         DB->>SQLite: Execute UPDATE query
@@ -769,7 +754,7 @@ classDiagram
         +openRefereeModule(): void
         +render(): JSX.Element
     }
-    
+
     class CreateTournamentModal {
         -tournamentName: string
         -isVisible: boolean
@@ -780,14 +765,14 @@ classDiagram
         +dismiss(): void
         +render(): JSX.Element
     }
-    
+
     class TournamentListComponent {
         -tournaments: Tournament[]
         -title: string
         -onSelect(tournament: Tournament): void
         +render(): JSX.Element
     }
-    
+
     Home --> CreateTournamentModal: opens
     Home --> TournamentListComponent: displays ongoing tournaments
     Home --> TournamentListComponent: displays completed tournaments
@@ -796,6 +781,7 @@ classDiagram
 The Home screen is the entry point of the application, providing access to tournament management features. It maintains lists of ongoing and completed tournaments, and allows the user to create new tournaments or select existing ones.
 
 ##### 4.2.1.1 Home
+
 ```mermaid
 classDiagram
     class Home {
@@ -813,46 +799,47 @@ classDiagram
 
 ###### 4.2.1.1.1 Attributes
 
-| Name | Access | Type | Description |
-|------|--------|------|-------------|
-| tournamentList | private | Tournament[] | Complete list of all tournaments in the system |
-| ongoingTournaments | private | Tournament[] | List of tournaments that are currently in progress |
-| completedTournaments | private | Tournament[] | List of tournaments that have been completed |
-| modalVisible | private | boolean | Flag controlling visibility of the create tournament modal |
+| Name                 | Access  | Type         | Description                                                |
+| -------------------- | ------- | ------------ | ---------------------------------------------------------- |
+| tournamentList       | private | Tournament[] | Complete list of all tournaments in the system             |
+| ongoingTournaments   | private | Tournament[] | List of tournaments that are currently in progress         |
+| completedTournaments | private | Tournament[] | List of tournaments that have been completed               |
+| modalVisible         | private | boolean      | Flag controlling visibility of the create tournament modal |
 
 ###### 4.2.1.1.2 Methods
 
-| Name: | loadTournaments |
-|-----------|--------------------------------------------------|
-| **Input:** | None |
-| **Output:** | void |
+| Name:            | loadTournaments                                                                 |
+| ---------------- | ------------------------------------------------------------------------------- |
+| **Input:**       | None                                                                            |
+| **Output:**      | void                                                                            |
 | **Description:** | Retrieves tournament data from the database and populates the tournament lists. |
 
-| Name: | createTournament |
-|-----------|--------------------------------------------------|
-| **Input:** | None |
-| **Output:** | void |
+| Name:            | createTournament                                         |
+| ---------------- | -------------------------------------------------------- |
+| **Input:**       | None                                                     |
+| **Output:**      | void                                                     |
 | **Description:** | Shows the create tournament modal dialog for user input. |
 
-| Name: | selectTournament |
-|-----------|--------------------------------------------------|
-| **Input:** | Tournament tournament : The tournament to be selected |
-| **Output:** | void |
+| Name:            | selectTournament                                                      |
+| ---------------- | --------------------------------------------------------------------- |
+| **Input:**       | Tournament tournament : The tournament to be selected                 |
+| **Output:**      | void                                                                  |
 | **Description:** | Navigates to the Event Management screen for the selected tournament. |
 
-| Name: | openRefereeModule |
-|-----------|--------------------------------------------------|
-| **Input:** | None |
-| **Output:** | void |
+| Name:            | openRefereeModule                                                             |
+| ---------------- | ----------------------------------------------------------------------------- |
+| **Input:**       | None                                                                          |
+| **Output:**      | void                                                                          |
 | **Description:** | Opens the referee module in standalone mode for practice or unofficial bouts. |
 
-| Name: | render |
-|-----------|--------------------------------------------------|
-| **Input:** | None |
-| **Output:** | JSX.Element |
+| Name:            | render                                                               |
+| ---------------- | -------------------------------------------------------------------- |
+| **Input:**       | None                                                                 |
+| **Output:**      | JSX.Element                                                          |
 | **Description:** | Renders the home screen UI with tournament lists and action buttons. |
 
 ##### 4.2.1.2 CreateTournamentModal
+
 ```mermaid
 classDiagram
     class CreateTournamentModal {
@@ -869,45 +856,46 @@ classDiagram
 
 ###### 4.2.1.2.1 Attributes
 
-| Name | Access | Type | Description |
-|------|--------|------|-------------|
-| tournamentName | private | string | Name input for the new tournament |
-| isVisible | private | boolean | Controls modal visibility |
-| error | private | string\|null | Holds validation or persistence error messages |
+| Name           | Access  | Type         | Description                                    |
+| -------------- | ------- | ------------ | ---------------------------------------------- |
+| tournamentName | private | string       | Name input for the new tournament              |
+| isVisible      | private | boolean      | Controls modal visibility                      |
+| error          | private | string\|null | Holds validation or persistence error messages |
 
 ###### 4.2.1.2.2 Methods
 
-| Name: | setTournamentName |
-|-----------|--------------------------------------------------|
-| **Input:** | string name : The name to set for the tournament |
-| **Output:** | void |
+| Name:            | setTournamentName                                  |
+| ---------------- | -------------------------------------------------- |
+| **Input:**       | string name : The name to set for the tournament   |
+| **Output:**      | void                                               |
 | **Description:** | Updates the tournament name state with user input. |
 
-| Name: | validateName |
-|-----------|--------------------------------------------------|
-| **Input:** | None |
-| **Output:** | boolean |
+| Name:            | validateName                                                              |
+| ---------------- | ------------------------------------------------------------------------- |
+| **Input:**       | None                                                                      |
+| **Output:**      | boolean                                                                   |
 | **Description:** | Validates the tournament name for uniqueness and formatting requirements. |
 
-| Name: | createTournament |
-|-----------|--------------------------------------------------|
-| **Input:** | None |
-| **Output:** | void |
+| Name:            | createTournament                                                  |
+| ---------------- | ----------------------------------------------------------------- |
+| **Input:**       | None                                                              |
+| **Output:**      | void                                                              |
 | **Description:** | Creates a new tournament with the specified name in the database. |
 
-| Name: | dismiss |
-|-----------|--------------------------------------------------|
-| **Input:** | None |
-| **Output:** | void |
+| Name:            | dismiss                                  |
+| ---------------- | ---------------------------------------- |
+| **Input:**       | None                                     |
+| **Output:**      | void                                     |
 | **Description:** | Closes the modal without saving changes. |
 
-| Name: | render |
-|-----------|--------------------------------------------------|
-| **Input:** | None |
-| **Output:** | JSX.Element |
+| Name:            | render                                                             |
+| ---------------- | ------------------------------------------------------------------ |
+| **Input:**       | None                                                               |
+| **Output:**      | JSX.Element                                                        |
 | **Description:** | Renders the modal dialog with name input field and action buttons. |
 
 ##### 4.2.1.3 TournamentListComponent
+
 ```mermaid
 classDiagram
     class TournamentListComponent {
@@ -920,18 +908,18 @@ classDiagram
 
 ###### 4.2.1.3.1 Attributes
 
-| Name | Access | Type | Description |
-|------|--------|------|-------------|
-| tournaments | private | Tournament[] | List of tournaments to display |
-| title | private | string | Section title for the tournament list |
-| onSelect | private | function | Callback function when a tournament is selected |
+| Name        | Access  | Type         | Description                                     |
+| ----------- | ------- | ------------ | ----------------------------------------------- |
+| tournaments | private | Tournament[] | List of tournaments to display                  |
+| title       | private | string       | Section title for the tournament list           |
+| onSelect    | private | function     | Callback function when a tournament is selected |
 
 ###### 4.2.1.3.2 Methods
 
-| Name: | render |
-|-----------|--------------------------------------------------|
-| **Input:** | None |
-| **Output:** | JSX.Element |
+| Name:            | render                                                             |
+| ---------------- | ------------------------------------------------------------------ |
+| **Input:**       | None                                                               |
+| **Output:**      | JSX.Element                                                        |
 | **Description:** | Renders the tournament list with headers and selection capability. |
 
 #### 4.2.2 Event Management
@@ -949,7 +937,7 @@ classDiagram
         +startEvent(event: Event): void
         +render(): JSX.Element
     }
-    
+
     class EventItem {
         -event: Event
         -onStart(event: Event): void
@@ -957,7 +945,7 @@ classDiagram
         -onEdit(event: Event): void
         +render(): JSX.Element
     }
-    
+
     class CreateEventModal {
         -eventName: string
         -weapon: string
@@ -974,7 +962,7 @@ classDiagram
         +dismiss(): void
         +render(): JSX.Element
     }
-    
+
     EventManagement --> EventItem: displays
     EventManagement --> CreateEventModal: opens
     EventManagement --> TournamentDatabaseUtils: uses
@@ -983,6 +971,7 @@ classDiagram
 The Event Management screen displays and manages events within a selected tournament. It allows users to create, delete, and start events.
 
 ##### 4.2.2.1 EventManagement
+
 ```mermaid
 classDiagram
     class EventManagement {
@@ -1000,46 +989,47 @@ classDiagram
 
 ###### 4.2.2.1.1 Attributes
 
-| Name | Access | Type | Description |
-|------|--------|------|-------------|
-| tournamentName | private | string | Name of the selected tournament |
-| events | private | Event[] | List of events within the tournament |
-| loading | private | boolean | Indicates if data is being loaded |
-| modalVisible | private | boolean | Controls visibility of the create event modal |
+| Name           | Access  | Type    | Description                                   |
+| -------------- | ------- | ------- | --------------------------------------------- |
+| tournamentName | private | string  | Name of the selected tournament               |
+| events         | private | Event[] | List of events within the tournament          |
+| loading        | private | boolean | Indicates if data is being loaded             |
+| modalVisible   | private | boolean | Controls visibility of the create event modal |
 
 ###### 4.2.2.1.2 Methods
 
-| Name: | loadEvents |
-|-----------|--------------------------------------------------|
-| **Input:** | None |
-| **Output:** | void |
+| Name:            | loadEvents                                                       |
+| ---------------- | ---------------------------------------------------------------- |
+| **Input:**       | None                                                             |
+| **Output:**      | void                                                             |
 | **Description:** | Fetches event data for the current tournament from the database. |
 
-| Name: | createEvent |
-|-----------|--------------------------------------------------|
-| **Input:** | EventData eventData : The data for the new event |
-| **Output:** | void |
+| Name:            | createEvent                                                        |
+| ---------------- | ------------------------------------------------------------------ |
+| **Input:**       | EventData eventData : The data for the new event                   |
+| **Output:**      | void                                                               |
 | **Description:** | Creates a new event with the specified parameters in the database. |
 
-| Name: | deleteEvent |
-|-----------|--------------------------------------------------|
-| **Input:** | number eventId : The identifier of the event to delete |
-| **Output:** | void |
+| Name:            | deleteEvent                                            |
+| ---------------- | ------------------------------------------------------ |
+| **Input:**       | number eventId : The identifier of the event to delete |
+| **Output:**      | void                                                   |
 | **Description:** | Deletes an event from the database after confirmation. |
 
-| Name: | startEvent |
-|-----------|--------------------------------------------------|
-| **Input:** | Event event : The event to start or configure |
-| **Output:** | void |
+| Name:            | startEvent                                                               |
+| ---------------- | ------------------------------------------------------------------------ |
+| **Input:**       | Event event : The event to start or configure                            |
+| **Output:**      | void                                                                     |
 | **Description:** | Navigates to the event settings screen to configure and start the event. |
 
-| Name: | render |
-|-----------|--------------------------------------------------|
-| **Input:** | None |
-| **Output:** | JSX.Element |
+| Name:            | render                                                                   |
+| ---------------- | ------------------------------------------------------------------------ |
+| **Input:**       | None                                                                     |
+| **Output:**      | JSX.Element                                                              |
 | **Description:** | Renders the event management screen with event list and control buttons. |
 
 ##### 4.2.2.2 EventItem
+
 ```mermaid
 classDiagram
     class EventItem {
@@ -1053,22 +1043,23 @@ classDiagram
 
 ###### 4.2.2.2.1 Attributes
 
-| Name | Access | Type | Description |
-|------|--------|------|-------------|
-| event | private | Event | The event data to display |
-| onStart | private | function | Callback when user starts the event |
+| Name     | Access  | Type     | Description                          |
+| -------- | ------- | -------- | ------------------------------------ |
+| event    | private | Event    | The event data to display            |
+| onStart  | private | function | Callback when user starts the event  |
 | onDelete | private | function | Callback when user deletes the event |
-| onEdit | private | function | Callback when user edits the event |
+| onEdit   | private | function | Callback when user edits the event   |
 
 ###### 4.2.2.2.2 Methods
 
-| Name: | render |
-|-----------|--------------------------------------------------|
-| **Input:** | None |
-| **Output:** | JSX.Element |
+| Name:            | render                                                                  |
+| ---------------- | ----------------------------------------------------------------------- |
+| **Input:**       | None                                                                    |
+| **Output:**      | JSX.Element                                                             |
 | **Description:** | Renders an individual event item with event details and action buttons. |
 
 ##### 4.2.2.3 CreateEventModal
+
 ```mermaid
 classDiagram
     class CreateEventModal {
@@ -1091,63 +1082,63 @@ classDiagram
 
 ###### 4.2.2.3.1 Attributes
 
-| Name | Access | Type | Description |
-|------|--------|------|-------------|
-| eventName | private | string | Name input for the new event |
-| weapon | private | string | Selected weapon type (foil, epee, saber) |
-| gender | private | string | Selected gender category (mixed, men, women) |
-| ageClass | private | string | Selected age classification (senior, junior, etc.) |
-| isVisible | private | boolean | Controls modal visibility |
-| error | private | string\|null | Holds validation or persistence error messages |
+| Name      | Access  | Type         | Description                                        |
+| --------- | ------- | ------------ | -------------------------------------------------- |
+| eventName | private | string       | Name input for the new event                       |
+| weapon    | private | string       | Selected weapon type (foil, epee, saber)           |
+| gender    | private | string       | Selected gender category (mixed, men, women)       |
+| ageClass  | private | string       | Selected age classification (senior, junior, etc.) |
+| isVisible | private | boolean      | Controls modal visibility                          |
+| error     | private | string\|null | Holds validation or persistence error messages     |
 
 ###### 4.2.2.3.2 Methods
 
-| Name: | setEventName |
-|-----------|--------------------------------------------------|
-| **Input:** | string name : The name to set for the event |
-| **Output:** | void |
+| Name:            | setEventName                                  |
+| ---------------- | --------------------------------------------- |
+| **Input:**       | string name : The name to set for the event   |
+| **Output:**      | void                                          |
 | **Description:** | Updates the event name state with user input. |
 
-| Name: | setWeapon |
-|-----------|--------------------------------------------------|
-| **Input:** | string weapon : The weapon type to set |
-| **Output:** | void |
-| **Description:** | Updates the weapon type selection. |
+| Name:            | setWeapon                              |
+| ---------------- | -------------------------------------- |
+| **Input:**       | string weapon : The weapon type to set |
+| **Output:**      | void                                   |
+| **Description:** | Updates the weapon type selection.     |
 
-| Name: | setGender |
-|-----------|--------------------------------------------------|
-| **Input:** | string gender : The gender category to set |
-| **Output:** | void |
-| **Description:** | Updates the gender category selection. |
+| Name:            | setGender                                  |
+| ---------------- | ------------------------------------------ |
+| **Input:**       | string gender : The gender category to set |
+| **Output:**      | void                                       |
+| **Description:** | Updates the gender category selection.     |
 
-| Name: | setAgeClass |
-|-----------|--------------------------------------------------|
-| **Input:** | string ageClass : The age classification to set |
-| **Output:** | void |
-| **Description:** | Updates the age classification selection. |
+| Name:            | setAgeClass                                     |
+| ---------------- | ----------------------------------------------- |
+| **Input:**       | string ageClass : The age classification to set |
+| **Output:**      | void                                            |
+| **Description:** | Updates the age classification selection.       |
 
-| Name: | validateEvent |
-|-----------|--------------------------------------------------|
-| **Input:** | None |
-| **Output:** | boolean |
+| Name:            | validateEvent                                                           |
+| ---------------- | ----------------------------------------------------------------------- |
+| **Input:**       | None                                                                    |
+| **Output:**      | boolean                                                                 |
 | **Description:** | Validates event data to ensure all required fields are properly filled. |
 
-| Name: | createEvent |
-|-----------|--------------------------------------------------|
-| **Input:** | None |
-| **Output:** | void |
+| Name:            | createEvent                                                        |
+| ---------------- | ------------------------------------------------------------------ |
+| **Input:**       | None                                                               |
+| **Output:**      | void                                                               |
 | **Description:** | Creates a new event with the specified parameters in the database. |
 
-| Name: | dismiss |
-|-----------|--------------------------------------------------|
-| **Input:** | None |
-| **Output:** | void |
+| Name:            | dismiss                                  |
+| ---------------- | ---------------------------------------- |
+| **Input:**       | None                                     |
+| **Output:**      | void                                     |
 | **Description:** | Closes the modal without saving changes. |
 
-| Name: | render |
-|-----------|--------------------------------------------------|
-| **Input:** | None |
-| **Output:** | JSX.Element |
+| Name:            | render                                                               |
+| ---------------- | -------------------------------------------------------------------- |
+| **Input:**       | None                                                                 |
+| **Output:**      | JSX.Element                                                          |
 | **Description:** | Renders the modal dialog with event input fields and action buttons. |
 
 #### 4.2.3 Event Settings
@@ -1172,25 +1163,25 @@ classDiagram
         +startEvent(): void
         +render(): JSX.Element
     }
-    
+
     class FencerList {
         -fencers: Fencer[]
         -onRemove(fencerId: number): void
         +render(): JSX.Element
     }
-    
+
     class RefereeList {
         -referees: Referee[]
         -onRemove(refereeId: number): void
         +render(): JSX.Element
     }
-    
+
     class FormatSelection {
         -selectedFormat: string
         -onFormatChange(format: string): void
         +render(): JSX.Element
     }
-    
+
     EventSettings --> FencerList: displays
     EventSettings --> RefereeList: displays
     EventSettings --> FormatSelection: displays
@@ -1200,6 +1191,7 @@ classDiagram
 The Event Settings screen configures all aspects of an event before it begins, including format selection, participant management, and referee assignment.
 
 ##### 4.2.3.1 EventSettings
+
 ```mermaid
 classDiagram
     class EventSettings {
@@ -1224,78 +1216,79 @@ classDiagram
 
 ###### 4.2.3.1.1 Attributes
 
-| Name | Access | Type | Description |
-|------|--------|------|-------------|
-| eventId | private | number | Identifier of the event being configured |
-| event | private | Event | Complete event data object |
-| tournamentName | private | string | Name of the parent tournament |
-| fencers | private | Fencer[] | List of fencers assigned to the event |
-| referees | private | Referee[] | List of referees assigned to the event |
-| loading | private | boolean | Indicates if data is being loaded |
+| Name           | Access  | Type      | Description                              |
+| -------------- | ------- | --------- | ---------------------------------------- |
+| eventId        | private | number    | Identifier of the event being configured |
+| event          | private | Event     | Complete event data object               |
+| tournamentName | private | string    | Name of the parent tournament            |
+| fencers        | private | Fencer[]  | List of fencers assigned to the event    |
+| referees       | private | Referee[] | List of referees assigned to the event   |
+| loading        | private | boolean   | Indicates if data is being loaded        |
 
 ###### 4.2.3.1.2 Methods
 
-| Name: | loadEventDetails |
-|-----------|--------------------------------------------------|
-| **Input:** | None |
-| **Output:** | void |
+| Name:            | loadEventDetails                                                                         |
+| ---------------- | ---------------------------------------------------------------------------------------- |
+| **Input:**       | None                                                                                     |
+| **Output:**      | void                                                                                     |
 | **Description:** | Fetches event details from the database including basic information and format settings. |
 
-| Name: | loadFencers |
-|-----------|--------------------------------------------------|
-| **Input:** | None |
-| **Output:** | void |
+| Name:            | loadFencers                                            |
+| ---------------- | ------------------------------------------------------ |
+| **Input:**       | None                                                   |
+| **Output:**      | void                                                   |
 | **Description:** | Fetches the list of fencers registered for this event. |
 
-| Name: | loadReferees |
-|-----------|--------------------------------------------------|
-| **Input:** | None |
-| **Output:** | void |
+| Name:            | loadReferees                                         |
+| ---------------- | ---------------------------------------------------- |
+| **Input:**       | None                                                 |
+| **Output:**      | void                                                 |
 | **Description:** | Fetches the list of referees assigned to this event. |
 
-| Name: | addFencer |
-|-----------|--------------------------------------------------|
-| **Input:** | Fencer fencer : The fencer to add to the event |
-| **Output:** | void |
+| Name:            | addFencer                                                           |
+| ---------------- | ------------------------------------------------------------------- |
+| **Input:**       | Fencer fencer : The fencer to add to the event                      |
+| **Output:**      | void                                                                |
 | **Description:** | Adds a fencer to the event and persists the change in the database. |
 
-| Name: | removeFencer |
-|-----------|--------------------------------------------------|
-| **Input:** | number fencerId : The identifier of the fencer to remove |
-| **Output:** | void |
+| Name:            | removeFencer                                              |
+| ---------------- | --------------------------------------------------------- |
+| **Input:**       | number fencerId : The identifier of the fencer to remove  |
+| **Output:**      | void                                                      |
 | **Description:** | Removes a fencer from the event and updates the database. |
 
-| Name: | addReferee |
-|-----------|--------------------------------------------------|
-| **Input:** | Referee referee : The referee to add to the event |
-| **Output:** | void |
+| Name:            | addReferee                                                           |
+| ---------------- | -------------------------------------------------------------------- |
+| **Input:**       | Referee referee : The referee to add to the event                    |
+| **Output:**      | void                                                                 |
 | **Description:** | Adds a referee to the event and persists the change in the database. |
 
-| Name: | removeReferee |
-|-----------|--------------------------------------------------|
-| **Input:** | number refereeId : The identifier of the referee to remove |
-| **Output:** | void |
+| Name:            | removeReferee                                              |
+| ---------------- | ---------------------------------------------------------- |
+| **Input:**       | number refereeId : The identifier of the referee to remove |
+| **Output:**      | void                                                       |
 | **Description:** | Removes a referee from the event and updates the database. |
 
-| Name: | updateEventSettings |
-|-----------|--------------------------------------------------|
-| **Input:** | EventSettings settings : The updated event settings |
-| **Output:** | void |
+| Name:            | updateEventSettings                                              |
+| ---------------- | ---------------------------------------------------------------- |
+| **Input:**       | EventSettings settings : The updated event settings              |
+| **Output:**      | void                                                             |
 | **Description:** | Updates the event configuration including format and parameters. |
 
-| Name: | startEvent |
-|-----------|--------------------------------------------------|
-| **Input:** | None |
-| **Output:** | void |
+| Name:            | startEvent                                                                                           |
+| ---------------- | ---------------------------------------------------------------------------------------------------- |
+| **Input:**       | None                                                                                                 |
+| **Output:**      | void                                                                                                 |
 | **Description:** | Initializes the event with current settings and navigates to the appropriate screen based on format. |
 
-| Name: | render |
-|-----------|--------------------------------------------------|
-| **Input:** | None |
-| **Output:** | JSX.Element |
+| Name:            | render                                                                                  |
+| ---------------- | --------------------------------------------------------------------------------------- |
+| **Input:**       | None                                                                                    |
+| **Output:**      | JSX.Element                                                                             |
 | **Description:** | Renders the event settings screen with all configuration options and participant lists. |
 
 ##### 4.2.3.2 FencerList
+
 ```mermaid
 classDiagram
     class FencerList {
@@ -1307,20 +1300,21 @@ classDiagram
 
 ###### 4.2.3.2.1 Attributes
 
-| Name | Access | Type | Description |
-|------|--------|------|-------------|
-| fencers | private | Fencer[] | List of fencers to display |
+| Name     | Access  | Type     | Description                                |
+| -------- | ------- | -------- | ------------------------------------------ |
+| fencers  | private | Fencer[] | List of fencers to display                 |
 | onRemove | private | function | Callback function when a fencer is removed |
 
 ###### 4.2.3.2.2 Methods
 
-| Name: | render |
-|-----------|--------------------------------------------------|
-| **Input:** | None |
-| **Output:** | JSX.Element |
+| Name:            | render                                                                 |
+| ---------------- | ---------------------------------------------------------------------- |
+| **Input:**       | None                                                                   |
+| **Output:**      | JSX.Element                                                            |
 | **Description:** | Renders the list of fencers with their information and remove buttons. |
 
 ##### 4.2.3.3 RefereeList
+
 ```mermaid
 classDiagram
     class RefereeList {
@@ -1332,20 +1326,21 @@ classDiagram
 
 ###### 4.2.3.3.1 Attributes
 
-| Name | Access | Type | Description |
-|------|--------|------|-------------|
-| referees | private | Referee[] | List of referees to display |
-| onRemove | private | function | Callback function when a referee is removed |
+| Name     | Access  | Type      | Description                                 |
+| -------- | ------- | --------- | ------------------------------------------- |
+| referees | private | Referee[] | List of referees to display                 |
+| onRemove | private | function  | Callback function when a referee is removed |
 
 ###### 4.2.3.3.2 Methods
 
-| Name: | render |
-|-----------|--------------------------------------------------|
-| **Input:** | None |
-| **Output:** | JSX.Element |
+| Name:            | render                                                                  |
+| ---------------- | ----------------------------------------------------------------------- |
+| **Input:**       | None                                                                    |
+| **Output:**      | JSX.Element                                                             |
 | **Description:** | Renders the list of referees with their information and remove buttons. |
 
 ##### 4.2.3.4 FormatSelection
+
 ```mermaid
 classDiagram
     class FormatSelection {
@@ -1357,17 +1352,17 @@ classDiagram
 
 ###### 4.2.3.4.1 Attributes
 
-| Name | Access | Type | Description |
-|------|--------|------|-------------|
-| selectedFormat | private | string | Currently selected tournament format |
+| Name           | Access  | Type     | Description                              |
+| -------------- | ------- | -------- | ---------------------------------------- |
+| selectedFormat | private | string   | Currently selected tournament format     |
 | onFormatChange | private | function | Callback function when format is changed |
 
 ###### 4.2.3.4.2 Methods
 
-| Name: | render |
-|-----------|--------------------------------------------------|
-| **Input:** | None |
-| **Output:** | JSX.Element |
+| Name:            | render                                                                                                                  |
+| ---------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| **Input:**       | None                                                                                                                    |
+| **Output:**      | JSX.Element                                                                                                             |
 | **Description:** | Renders the format selection controls with options for pools, single elimination, double elimination, and compass draw. |
 
 #### 4.2.4 Pools Page
@@ -1385,7 +1380,7 @@ classDiagram
         +calculateResults(): void
         +render(): JSX.Element
     }
-    
+
     class PoolDisplay {
         -pool: Pool
         -fencers: PoolFencer[]
@@ -1394,13 +1389,13 @@ classDiagram
         -onComplete(): void
         +render(): JSX.Element
     }
-    
+
     class PoolTable {
         -fencers: PoolFencer[]
         -boutResults: BoutResult[]
         +render(): JSX.Element
     }
-    
+
     PoolsPage --> PoolDisplay: contains
     PoolDisplay --> PoolTable: contains
     PoolsPage --> TournamentDatabaseUtils: uses
@@ -1410,6 +1405,7 @@ classDiagram
 The Pools Page manages pool assignments, bout scheduling, and pool completion in a tournament round.
 
 ##### 4.2.4.1 PoolsPage
+
 ```mermaid
 classDiagram
     class PoolsPage {
@@ -1427,46 +1423,47 @@ classDiagram
 
 ###### 4.2.4.1.1 Attributes
 
-| Name | Access | Type | Description |
-|------|--------|------|-------------|
-| eventId | private | number | Identifier of the event containing the pools |
-| roundId | private | number | Identifier of the current round |
-| pools | private | Pool[] | List of pools in the current round |
-| loading | private | boolean | Indicates if data is being loaded |
+| Name    | Access  | Type    | Description                                  |
+| ------- | ------- | ------- | -------------------------------------------- |
+| eventId | private | number  | Identifier of the event containing the pools |
+| roundId | private | number  | Identifier of the current round              |
+| pools   | private | Pool[]  | List of pools in the current round           |
+| loading | private | boolean | Indicates if data is being loaded            |
 
 ###### 4.2.4.1.2 Methods
 
-| Name: | loadPools |
-|-----------|--------------------------------------------------|
-| **Input:** | None |
-| **Output:** | void |
+| Name:            | loadPools                                                   |
+| ---------------- | ----------------------------------------------------------- |
+| **Input:**       | None                                                        |
+| **Output:**      | void                                                        |
 | **Description:** | Fetches pool assignments and fencer data from the database. |
 
-| Name: | viewBoutOrder |
-|-----------|--------------------------------------------------|
-| **Input:** | number poolId : The identifier of the pool to view |
-| **Output:** | void |
+| Name:            | viewBoutOrder                                           |
+| ---------------- | ------------------------------------------------------- |
+| **Input:**       | number poolId : The identifier of the pool to view      |
+| **Output:**      | void                                                    |
 | **Description:** | Navigates to the Bout Order page for the selected pool. |
 
-| Name: | completePool |
-|-----------|--------------------------------------------------|
-| **Input:** | number poolId : The identifier of the pool to mark as complete |
-| **Output:** | void |
+| Name:            | completePool                                                           |
+| ---------------- | ---------------------------------------------------------------------- |
+| **Input:**       | number poolId : The identifier of the pool to mark as complete         |
+| **Output:**      | void                                                                   |
 | **Description:** | Marks a pool as complete in the database after all bouts are finished. |
 
-| Name: | calculateResults |
-|-----------|--------------------------------------------------|
-| **Input:** | None |
-| **Output:** | void |
+| Name:            | calculateResults                                                                               |
+| ---------------- | ---------------------------------------------------------------------------------------------- |
+| **Input:**       | None                                                                                           |
+| **Output:**      | void                                                                                           |
 | **Description:** | Calculates rankings, victory indicators, and seeding for the next round based on pool results. |
 
-| Name: | render |
-|-----------|--------------------------------------------------|
-| **Input:** | None |
-| **Output:** | JSX.Element |
+| Name:            | render                                                             |
+| ---------------- | ------------------------------------------------------------------ |
+| **Input:**       | None                                                               |
+| **Output:**      | JSX.Element                                                        |
 | **Description:** | Renders the pools page with all pool displays and control buttons. |
 
 ##### 4.2.4.2 PoolDisplay
+
 ```mermaid
 classDiagram
     class PoolDisplay {
@@ -1481,23 +1478,24 @@ classDiagram
 
 ###### 4.2.4.2.1 Attributes
 
-| Name | Access | Type | Description |
-|------|--------|------|-------------|
-| pool | private | Pool | The pool data to display |
-| fencers | private | PoolFencer[] | List of fencers assigned to this pool |
-| isComplete | private | boolean | Indicates if the pool has been marked as complete |
-| onViewBoutOrder | private | function | Callback when user views bout order |
-| onComplete | private | function | Callback when user marks pool as complete |
+| Name            | Access  | Type         | Description                                       |
+| --------------- | ------- | ------------ | ------------------------------------------------- |
+| pool            | private | Pool         | The pool data to display                          |
+| fencers         | private | PoolFencer[] | List of fencers assigned to this pool             |
+| isComplete      | private | boolean      | Indicates if the pool has been marked as complete |
+| onViewBoutOrder | private | function     | Callback when user views bout order               |
+| onComplete      | private | function     | Callback when user marks pool as complete         |
 
 ###### 4.2.4.2.2 Methods
 
-| Name: | render |
-|-----------|--------------------------------------------------|
-| **Input:** | None |
-| **Output:** | JSX.Element |
+| Name:            | render                                                                  |
+| ---------------- | ----------------------------------------------------------------------- |
+| **Input:**       | None                                                                    |
+| **Output:**      | JSX.Element                                                             |
 | **Description:** | Renders a single pool component with header, table, and action buttons. |
 
 ##### 4.2.4.3 PoolTable
+
 ```mermaid
 classDiagram
     class PoolTable {
@@ -1509,17 +1507,17 @@ classDiagram
 
 ###### 4.2.4.3.1 Attributes
 
-| Name | Access | Type | Description |
-|------|--------|------|-------------|
-| fencers | private | PoolFencer[] | List of fencers in the pool |
+| Name        | Access  | Type         | Description                               |
+| ----------- | ------- | ------------ | ----------------------------------------- |
+| fencers     | private | PoolFencer[] | List of fencers in the pool               |
 | boutResults | private | BoutResult[] | Results of bouts that have been completed |
 
 ###### 4.2.4.3.2 Methods
 
-| Name: | render |
-|-----------|--------------------------------------------------|
-| **Input:** | None |
-| **Output:** | JSX.Element |
+| Name:            | render                                                                |
+| ---------------- | --------------------------------------------------------------------- |
+| **Input:**       | None                                                                  |
+| **Output:**      | JSX.Element                                                           |
 | **Description:** | Renders the pool table grid showing fencer matchups and bout results. |
 
 #### 4.2.5 Bout Order Page
@@ -1535,7 +1533,7 @@ classDiagram
         +selectBout(boutId: number): void
         +render(): JSX.Element
     }
-    
+
     class BoutItem {
         -bout: Bout
         -leftFencer: Fencer
@@ -1544,7 +1542,7 @@ classDiagram
         -onSelect(): void
         +render(): JSX.Element
     }
-    
+
     BoutOrderPage --> BoutItem: displays
     BoutOrderPage --> TournamentDatabaseUtils: uses
 ```
@@ -1552,6 +1550,7 @@ classDiagram
 The Bout Order Page displays the sequence of bouts in a pool and allows referees to select bouts for scoring.
 
 ##### 4.2.5.1 BoutOrderPage
+
 ```mermaid
 classDiagram
     class BoutOrderPage {
@@ -1567,34 +1566,35 @@ classDiagram
 
 ###### 4.2.5.1.1 Attributes
 
-| Name | Access | Type | Description |
-|------|--------|------|-------------|
-| roundId | private | number | Identifier of the current round |
-| poolId | private | number | Identifier of the selected pool |
-| bouts | private | Bout[] | List of bouts in the selected pool |
-| loading | private | boolean | Indicates if data is being loaded |
+| Name    | Access  | Type    | Description                        |
+| ------- | ------- | ------- | ---------------------------------- |
+| roundId | private | number  | Identifier of the current round    |
+| poolId  | private | number  | Identifier of the selected pool    |
+| bouts   | private | Bout[]  | List of bouts in the selected pool |
+| loading | private | boolean | Indicates if data is being loaded  |
 
 ###### 4.2.5.1.2 Methods
 
-| Name: | loadBouts |
-|-----------|--------------------------------------------------|
-| **Input:** | None |
-| **Output:** | void |
+| Name:            | loadBouts                                                  |
+| ---------------- | ---------------------------------------------------------- |
+| **Input:**       | None                                                       |
+| **Output:**      | void                                                       |
 | **Description:** | Fetches bout data for the selected pool from the database. |
 
-| Name: | selectBout |
-|-----------|--------------------------------------------------|
-| **Input:** | number boutId : The identifier of the bout to referee |
-| **Output:** | void |
+| Name:            | selectBout                                              |
+| ---------------- | ------------------------------------------------------- |
+| **Input:**       | number boutId : The identifier of the bout to referee   |
+| **Output:**      | void                                                    |
 | **Description:** | Navigates to the Referee Module with the selected bout. |
 
-| Name: | render |
-|-----------|--------------------------------------------------|
-| **Input:** | None |
-| **Output:** | JSX.Element |
+| Name:            | render                                                              |
+| ---------------- | ------------------------------------------------------------------- |
+| **Input:**       | None                                                                |
+| **Output:**      | JSX.Element                                                         |
 | **Description:** | Renders the bout order page with all bouts in recommended sequence. |
 
 ##### 4.2.5.2 BoutItem
+
 ```mermaid
 classDiagram
     class BoutItem {
@@ -1609,20 +1609,20 @@ classDiagram
 
 ###### 4.2.5.2.1 Attributes
 
-| Name | Access | Type | Description |
-|------|--------|------|-------------|
-| bout | private | Bout | The bout data to display |
-| leftFencer | private | Fencer | Left side fencer information |
-| rightFencer | private | Fencer | Right side fencer information |
-| status | private | string | Current status of the bout (pending, complete) |
-| onSelect | private | function | Callback when the bout is selected for refereeing |
+| Name        | Access  | Type     | Description                                       |
+| ----------- | ------- | -------- | ------------------------------------------------- |
+| bout        | private | Bout     | The bout data to display                          |
+| leftFencer  | private | Fencer   | Left side fencer information                      |
+| rightFencer | private | Fencer   | Right side fencer information                     |
+| status      | private | string   | Current status of the bout (pending, complete)    |
+| onSelect    | private | function | Callback when the bout is selected for refereeing |
 
 ###### 4.2.5.2.2 Methods
 
-| Name: | render |
-|-----------|--------------------------------------------------|
-| **Input:** | None |
-| **Output:** | JSX.Element |
+| Name:            | render                                                              |
+| ---------------- | ------------------------------------------------------------------- |
+| **Input:**       | None                                                                |
+| **Output:**      | JSX.Element                                                         |
 | **Description:** | Renders a single bout item with fencer names and status indicators. |
 
 #### 4.2.6 Referee Module
@@ -1653,7 +1653,7 @@ classDiagram
         +saveBoutResult(): void
         +render(): JSX.Element
     }
-    
+
     class CustomTimeModal {
         -isVisible: boolean
         -minutes: number
@@ -1665,7 +1665,7 @@ classDiagram
         -onCancel(): void
         +render(): JSX.Element
     }
-    
+
     class ScoreDisplay {
         -leftScore: number
         -rightScore: number
@@ -1676,7 +1676,7 @@ classDiagram
         -onScoreChange(fencer: 'left'|'right', change: number): void
         +render(): JSX.Element
     }
-    
+
     class TimerDisplay {
         -time: number
         -isActive: boolean
@@ -1685,7 +1685,7 @@ classDiagram
         -criticalThreshold: number
         +render(): JSX.Element
     }
-    
+
     RefereeModule --> CustomTimeModal: opens
     RefereeModule --> ScoreDisplay: contains
     RefereeModule --> TimerDisplay: contains
@@ -1695,6 +1695,7 @@ classDiagram
 The Referee Module provides comprehensive bout management tools for scoring, timing, and recording fencing bouts.
 
 ##### 4.2.6.1 RefereeModule
+
 ```mermaid
 classDiagram
     class RefereeModule {
@@ -1725,89 +1726,90 @@ classDiagram
 
 ###### 4.2.6.1.1 Attributes
 
-| Name | Access | Type | Description |
-|------|--------|------|-------------|
-| boutId | private | number\|null | Identifier of the bout being refereed (null in standalone mode) |
-| boutTime | private | number | Current bout time in seconds |
-| leftScore | private | number | Score of the left fencer |
-| rightScore | private | number | Score of the right fencer |
-| leftFencer | private | Fencer\|null | Left fencer information |
-| rightFencer | private | Fencer\|null | Right fencer information |
-| passivityTime | private | number | Current passivity timer value in seconds |
-| isTimerActive | private | boolean | Indicates if the main timer is running |
-| isPassivityActive | private | boolean | Indicates if the passivity timer is running |
-| cards | private | Card[] | List of cards assigned to fencers |
-| loading | private | boolean | Indicates if data is being loaded |
+| Name              | Access  | Type         | Description                                                     |
+| ----------------- | ------- | ------------ | --------------------------------------------------------------- |
+| boutId            | private | number\|null | Identifier of the bout being refereed (null in standalone mode) |
+| boutTime          | private | number       | Current bout time in seconds                                    |
+| leftScore         | private | number       | Score of the left fencer                                        |
+| rightScore        | private | number       | Score of the right fencer                                       |
+| leftFencer        | private | Fencer\|null | Left fencer information                                         |
+| rightFencer       | private | Fencer\|null | Right fencer information                                        |
+| passivityTime     | private | number       | Current passivity timer value in seconds                        |
+| isTimerActive     | private | boolean      | Indicates if the main timer is running                          |
+| isPassivityActive | private | boolean      | Indicates if the passivity timer is running                     |
+| cards             | private | Card[]       | List of cards assigned to fencers                               |
+| loading           | private | boolean      | Indicates if data is being loaded                               |
 
 ###### 4.2.6.1.2 Methods
 
-| Name: | loadBoutDetails |
-|-----------|--------------------------------------------------|
-| **Input:** | None |
-| **Output:** | void |
+| Name:            | loadBoutDetails                                                       |
+| ---------------- | --------------------------------------------------------------------- |
+| **Input:**       | None                                                                  |
+| **Output:**      | void                                                                  |
 | **Description:** | Fetches bout and fencer details from the database in tournament mode. |
 
-| Name: | startTimer |
-|-----------|--------------------------------------------------|
-| **Input:** | None |
-| **Output:** | void |
+| Name:            | startTimer                  |
+| ---------------- | --------------------------- |
+| **Input:**       | None                        |
+| **Output:**      | void                        |
 | **Description:** | Starts the main bout timer. |
 
-| Name: | stopTimer |
-|-----------|--------------------------------------------------|
-| **Input:** | None |
-| **Output:** | void |
+| Name:            | stopTimer                  |
+| ---------------- | -------------------------- |
+| **Input:**       | None                       |
+| **Output:**      | void                       |
 | **Description:** | Stops the main bout timer. |
 
-| Name: | resetTimer |
-|-----------|--------------------------------------------------|
-| **Input:** | None |
-| **Output:** | void |
+| Name:            | resetTimer                                         |
+| ---------------- | -------------------------------------------------- |
+| **Input:**       | None                                               |
+| **Output:**      | void                                               |
 | **Description:** | Resets the main bout timer to the configured time. |
 
-| Name: | updateScore |
-|-----------|--------------------------------------------------|
-| **Input:** | string fencer : Which fencer to update ('left' or 'right')<br>number change : Value to add to the score (can be negative) |
-| **Output:** | void |
-| **Description:** | Updates the score for the specified fencer. |
+| Name:            | updateScore                                                                                                               |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| **Input:**       | string fencer : Which fencer to update ('left' or 'right')<br>number change : Value to add to the score (can be negative) |
+| **Output:**      | void                                                                                                                      |
+| **Description:** | Updates the score for the specified fencer.                                                                               |
 
-| Name: | addCard |
-|-----------|--------------------------------------------------|
-| **Input:** | string fencer : Which fencer receives the card ('left' or 'right')<br>CardType type : Type of card (yellow, red, black) |
-| **Output:** | void |
-| **Description:** | Assigns a card to the specified fencer and applies any score penalties. |
+| Name:            | addCard                                                                                                                 |
+| ---------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| **Input:**       | string fencer : Which fencer receives the card ('left' or 'right')<br>CardType type : Type of card (yellow, red, black) |
+| **Output:**      | void                                                                                                                    |
+| **Description:** | Assigns a card to the specified fencer and applies any score penalties.                                                 |
 
-| Name: | startPassivityTimer |
-|-----------|--------------------------------------------------|
-| **Input:** | None |
-| **Output:** | void |
+| Name:            | startPassivityTimer         |
+| ---------------- | --------------------------- |
+| **Input:**       | None                        |
+| **Output:**      | void                        |
 | **Description:** | Starts the passivity timer. |
 
-| Name: | stopPassivityTimer |
-|-----------|--------------------------------------------------|
-| **Input:** | None |
-| **Output:** | void |
+| Name:            | stopPassivityTimer         |
+| ---------------- | -------------------------- |
+| **Input:**       | None                       |
+| **Output:**      | void                       |
 | **Description:** | Stops the passivity timer. |
 
-| Name: | resetPassivityTimer |
-|-----------|--------------------------------------------------|
-| **Input:** | None |
-| **Output:** | void |
+| Name:            | resetPassivityTimer                                |
+| ---------------- | -------------------------------------------------- |
+| **Input:**       | None                                               |
+| **Output:**      | void                                               |
 | **Description:** | Resets the passivity timer to the configured time. |
 
-| Name: | saveBoutResult |
-|-----------|--------------------------------------------------|
-| **Input:** | None |
-| **Output:** | void |
+| Name:            | saveBoutResult                                                                          |
+| ---------------- | --------------------------------------------------------------------------------------- |
+| **Input:**       | None                                                                                    |
+| **Output:**      | void                                                                                    |
 | **Description:** | Persists bout results to the database and handles advancement logic in tournament mode. |
 
-| Name: | render |
-|-----------|--------------------------------------------------|
-| **Input:** | None |
-| **Output:** | JSX.Element |
+| Name:            | render                                                                     |
+| ---------------- | -------------------------------------------------------------------------- |
+| **Input:**       | None                                                                       |
+| **Output:**      | JSX.Element                                                                |
 | **Description:** | Renders the referee module with all scoring, timing, and control elements. |
 
 ##### 4.2.6.2 CustomTimeModal
+
 ```mermaid
 classDiagram
     class CustomTimeModal {
@@ -1825,26 +1827,27 @@ classDiagram
 
 ###### 4.2.6.2.1 Attributes
 
-| Name | Access | Type | Description |
-|------|--------|------|-------------|
-| isVisible | private | boolean | Controls modal visibility |
-| minutes | private | number | Minutes value for custom time |
-| seconds | private | number | Seconds value for custom time |
-| presets | private | TimePreset[] | List of predefined time presets |
-| onSelectPreset | private | function | Callback when a preset is selected |
-| onSetCustomTime | private | function | Callback when custom time is set |
-| onConfirm | private | function | Callback when time selection is confirmed |
-| onCancel | private | function | Callback when time selection is canceled |
+| Name            | Access  | Type         | Description                               |
+| --------------- | ------- | ------------ | ----------------------------------------- |
+| isVisible       | private | boolean      | Controls modal visibility                 |
+| minutes         | private | number       | Minutes value for custom time             |
+| seconds         | private | number       | Seconds value for custom time             |
+| presets         | private | TimePreset[] | List of predefined time presets           |
+| onSelectPreset  | private | function     | Callback when a preset is selected        |
+| onSetCustomTime | private | function     | Callback when custom time is set          |
+| onConfirm       | private | function     | Callback when time selection is confirmed |
+| onCancel        | private | function     | Callback when time selection is canceled  |
 
 ###### 4.2.6.2.2 Methods
 
-| Name: | render |
-|-----------|--------------------------------------------------|
-| **Input:** | None |
-| **Output:** | JSX.Element |
+| Name:            | render                                                                  |
+| ---------------- | ----------------------------------------------------------------------- |
+| **Input:**       | None                                                                    |
+| **Output:**      | JSX.Element                                                             |
 | **Description:** | Renders the time selection modal with presets and custom input options. |
 
 ##### 4.2.6.3 ScoreDisplay
+
 ```mermaid
 classDiagram
     class ScoreDisplay {
@@ -1861,25 +1864,26 @@ classDiagram
 
 ###### 4.2.6.3.1 Attributes
 
-| Name | Access | Type | Description |
-|------|--------|------|-------------|
-| leftScore | private | number | Score of the left fencer |
-| rightScore | private | number | Score of the right fencer |
-| leftFencer | private | Fencer\|null | Left fencer information |
-| rightFencer | private | Fencer\|null | Right fencer information |
-| leftCards | private | Card[] | Cards assigned to left fencer |
-| rightCards | private | Card[] | Cards assigned to right fencer |
-| onScoreChange | private | function | Callback when a score is changed |
+| Name          | Access  | Type         | Description                      |
+| ------------- | ------- | ------------ | -------------------------------- |
+| leftScore     | private | number       | Score of the left fencer         |
+| rightScore    | private | number       | Score of the right fencer        |
+| leftFencer    | private | Fencer\|null | Left fencer information          |
+| rightFencer   | private | Fencer\|null | Right fencer information         |
+| leftCards     | private | Card[]       | Cards assigned to left fencer    |
+| rightCards    | private | Card[]       | Cards assigned to right fencer   |
+| onScoreChange | private | function     | Callback when a score is changed |
 
 ###### 4.2.6.3.2 Methods
 
-| Name: | render |
-|-----------|--------------------------------------------------|
-| **Input:** | None |
-| **Output:** | JSX.Element |
+| Name:            | render                                                                    |
+| ---------------- | ------------------------------------------------------------------------- |
+| **Input:**       | None                                                                      |
+| **Output:**      | JSX.Element                                                               |
 | **Description:** | Renders the score display with fencer names, scores, and card indicators. |
 
 ##### 4.2.6.4 TimerDisplay
+
 ```mermaid
 classDiagram
     class TimerDisplay {
@@ -1894,20 +1898,20 @@ classDiagram
 
 ###### 4.2.6.4.1 Attributes
 
-| Name | Access | Type | Description |
-|------|--------|------|-------------|
-| time | private | number | Current time value in seconds |
-| isActive | private | boolean | Indicates if the timer is running |
-| isPaused | private | boolean | Indicates if the timer is paused |
-| warningThreshold | private | number | Threshold in seconds for warning display |
-| criticalThreshold | private | number | Threshold in seconds for critical display |
+| Name              | Access  | Type    | Description                               |
+| ----------------- | ------- | ------- | ----------------------------------------- |
+| time              | private | number  | Current time value in seconds             |
+| isActive          | private | boolean | Indicates if the timer is running         |
+| isPaused          | private | boolean | Indicates if the timer is paused          |
+| warningThreshold  | private | number  | Threshold in seconds for warning display  |
+| criticalThreshold | private | number  | Threshold in seconds for critical display |
 
 ###### 4.2.6.4.2 Methods
 
-| Name: | render |
-|-----------|--------------------------------------------------|
-| **Input:** | None |
-| **Output:** | JSX.Element |
+| Name:            | render                                                                              |
+| ---------------- | ----------------------------------------------------------------------------------- |
+| **Input:**       | None                                                                                |
+| **Output:**      | JSX.Element                                                                         |
 | **Description:** | Renders the timer display with minutes and seconds in appropriate format and color. |
 
 #### 4.2.7 Bracket Pages
@@ -1924,7 +1928,7 @@ classDiagram
         +selectBout(boutId: number): void
         +render(): JSX.Element
     }
-    
+
     class DoubleEliminationPage {
         -eventId: number
         -roundId: number
@@ -1936,7 +1940,7 @@ classDiagram
         +selectBout(boutId: number): void
         +render(): JSX.Element
     }
-    
+
     class CompassDrawPage {
         -eventId: number
         -roundId: number
@@ -1949,7 +1953,7 @@ classDiagram
         +selectBout(boutId: number): void
         +render(): JSX.Element
     }
-    
+
     class BracketDisplay {
         -bouts: Bout[]
         -bracketType: string
@@ -1957,7 +1961,7 @@ classDiagram
         -onSelectBout(boutId: number): void
         +render(): JSX.Element
     }
-    
+
     class BoutNode {
         -bout: Bout
         -leftFencer: Fencer|null
@@ -1967,7 +1971,7 @@ classDiagram
         -onSelect(): void
         +render(): JSX.Element
     }
-    
+
     DEBracketPage --> BracketDisplay: contains
     DoubleEliminationPage --> BracketDisplay: contains multiple
     CompassDrawPage --> BracketDisplay: contains multiple
@@ -1980,6 +1984,7 @@ classDiagram
 The Bracket Pages provide visualization and management for different types of elimination formats, including single elimination, double elimination, and compass draw.
 
 ##### 4.2.7.1 DEBracketPage
+
 ```mermaid
 classDiagram
     class DEBracketPage {
@@ -1996,35 +2001,36 @@ classDiagram
 
 ###### 4.2.7.1.1 Attributes
 
-| Name | Access | Type | Description |
-|------|--------|------|-------------|
-| eventId | private | number | Identifier of the event |
-| roundId | private | number | Identifier of the current round |
-| bouts | private | Bout[] | List of bouts in the bracket |
-| bracketSize | private | number | Size of the bracket (8, 16, 32, 64, etc.) |
-| loading | private | boolean | Indicates if data is being loaded |
+| Name        | Access  | Type    | Description                               |
+| ----------- | ------- | ------- | ----------------------------------------- |
+| eventId     | private | number  | Identifier of the event                   |
+| roundId     | private | number  | Identifier of the current round           |
+| bouts       | private | Bout[]  | List of bouts in the bracket              |
+| bracketSize | private | number  | Size of the bracket (8, 16, 32, 64, etc.) |
+| loading     | private | boolean | Indicates if data is being loaded         |
 
 ###### 4.2.7.1.2 Methods
 
-| Name: | loadBracket |
-|-----------|--------------------------------------------------|
-| **Input:** | None |
-| **Output:** | void |
+| Name:            | loadBracket                                                |
+| ---------------- | ---------------------------------------------------------- |
+| **Input:**       | None                                                       |
+| **Output:**      | void                                                       |
 | **Description:** | Fetches single elimination bracket data from the database. |
 
-| Name: | selectBout |
-|-----------|--------------------------------------------------|
-| **Input:** | number boutId : The identifier of the bout to referee |
-| **Output:** | void |
+| Name:            | selectBout                                              |
+| ---------------- | ------------------------------------------------------- |
+| **Input:**       | number boutId : The identifier of the bout to referee   |
+| **Output:**      | void                                                    |
 | **Description:** | Navigates to the Referee Module with the selected bout. |
 
-| Name: | render |
-|-----------|--------------------------------------------------|
-| **Input:** | None |
-| **Output:** | JSX.Element |
+| Name:            | render                                                                    |
+| ---------------- | ------------------------------------------------------------------------- |
+| **Input:**       | None                                                                      |
+| **Output:**      | JSX.Element                                                               |
 | **Description:** | Renders the bracket visualization with all bouts in tournament structure. |
 
 ##### 4.2.7.2 DoubleEliminationPage
+
 ```mermaid
 classDiagram
     class DoubleEliminationPage {
@@ -2042,36 +2048,37 @@ classDiagram
 
 ###### 4.2.7.2.1 Attributes
 
-| Name | Access | Type | Description |
-|------|--------|------|-------------|
-| eventId | private | number | Identifier of the event |
-| roundId | private | number | Identifier of the current round |
-| winnersBracket | private | Bout[] | List of bouts in the winners bracket |
-| losersBracket | private | Bout[] | List of bouts in the losers bracket |
-| finalsBracket | private | Bout[] | List of bouts in the finals bracket |
-| loading | private | boolean | Indicates if data is being loaded |
+| Name           | Access  | Type    | Description                          |
+| -------------- | ------- | ------- | ------------------------------------ |
+| eventId        | private | number  | Identifier of the event              |
+| roundId        | private | number  | Identifier of the current round      |
+| winnersBracket | private | Bout[]  | List of bouts in the winners bracket |
+| losersBracket  | private | Bout[]  | List of bouts in the losers bracket  |
+| finalsBracket  | private | Bout[]  | List of bouts in the finals bracket  |
+| loading        | private | boolean | Indicates if data is being loaded    |
 
 ###### 4.2.7.2.2 Methods
 
-| Name: | loadBrackets |
-|-----------|--------------------------------------------------|
-| **Input:** | None |
-| **Output:** | void |
+| Name:            | loadBrackets                                                                |
+| ---------------- | --------------------------------------------------------------------------- |
+| **Input:**       | None                                                                        |
+| **Output:**      | void                                                                        |
 | **Description:** | Fetches double elimination bracket data for all brackets from the database. |
 
-| Name: | selectBout |
-|-----------|--------------------------------------------------|
-| **Input:** | number boutId : The identifier of the bout to referee |
-| **Output:** | void |
+| Name:            | selectBout                                              |
+| ---------------- | ------------------------------------------------------- |
+| **Input:**       | number boutId : The identifier of the bout to referee   |
+| **Output:**      | void                                                    |
 | **Description:** | Navigates to the Referee Module with the selected bout. |
 
-| Name: | render |
-|-----------|--------------------------------------------------|
-| **Input:** | None |
-| **Output:** | JSX.Element |
+| Name:            | render                                                                          |
+| ---------------- | ------------------------------------------------------------------------------- |
+| **Input:**       | None                                                                            |
+| **Output:**      | JSX.Element                                                                     |
 | **Description:** | Renders the winners and losers brackets with all bouts in tournament structure. |
 
 ##### 4.2.7.3 CompassDrawPage
+
 ```mermaid
 classDiagram
     class CompassDrawPage {
@@ -2090,37 +2097,38 @@ classDiagram
 
 ###### 4.2.7.3.1 Attributes
 
-| Name | Access | Type | Description |
-|------|--------|------|-------------|
-| eventId | private | number | Identifier of the event |
-| roundId | private | number | Identifier of the current round |
-| eastBracket | private | Bout[] | List of bouts in the east bracket |
-| northBracket | private | Bout[] | List of bouts in the north bracket |
-| westBracket | private | Bout[] | List of bouts in the west bracket |
-| southBracket | private | Bout[] | List of bouts in the south bracket |
-| loading | private | boolean | Indicates if data is being loaded |
+| Name         | Access  | Type    | Description                        |
+| ------------ | ------- | ------- | ---------------------------------- |
+| eventId      | private | number  | Identifier of the event            |
+| roundId      | private | number  | Identifier of the current round    |
+| eastBracket  | private | Bout[]  | List of bouts in the east bracket  |
+| northBracket | private | Bout[]  | List of bouts in the north bracket |
+| westBracket  | private | Bout[]  | List of bouts in the west bracket  |
+| southBracket | private | Bout[]  | List of bouts in the south bracket |
+| loading      | private | boolean | Indicates if data is being loaded  |
 
 ###### 4.2.7.3.2 Methods
 
-| Name: | loadBrackets |
-|-----------|--------------------------------------------------|
-| **Input:** | None |
-| **Output:** | void |
+| Name:            | loadBrackets                                                                      |
+| ---------------- | --------------------------------------------------------------------------------- |
+| **Input:**       | None                                                                              |
+| **Output:**      | void                                                                              |
 | **Description:** | Fetches compass draw bracket data for all directional brackets from the database. |
 
-| Name: | selectBout |
-|-----------|--------------------------------------------------|
-| **Input:** | number boutId : The identifier of the bout to referee |
-| **Output:** | void |
+| Name:            | selectBout                                              |
+| ---------------- | ------------------------------------------------------- |
+| **Input:**       | number boutId : The identifier of the bout to referee   |
+| **Output:**      | void                                                    |
 | **Description:** | Navigates to the Referee Module with the selected bout. |
 
-| Name: | render |
-|-----------|--------------------------------------------------|
-| **Input:** | None |
-| **Output:** | JSX.Element |
+| Name:            | render                                                                     |
+| ---------------- | -------------------------------------------------------------------------- |
+| **Input:**       | None                                                                       |
+| **Output:**      | JSX.Element                                                                |
 | **Description:** | Renders all directional brackets with their bouts in tournament structure. |
 
 ##### 4.2.7.4 BracketDisplay
+
 ```mermaid
 classDiagram
     class BracketDisplay {
@@ -2134,22 +2142,23 @@ classDiagram
 
 ###### 4.2.7.4.1 Attributes
 
-| Name | Access | Type | Description |
-|------|--------|------|-------------|
-| bouts | private | Bout[] | List of bouts to display in the bracket |
-| bracketType | private | string | Type of bracket (winners, losers, direction) |
-| round | private | number | Current round number |
+| Name         | Access  | Type     | Description                                     |
+| ------------ | ------- | -------- | ----------------------------------------------- |
+| bouts        | private | Bout[]   | List of bouts to display in the bracket         |
+| bracketType  | private | string   | Type of bracket (winners, losers, direction)    |
+| round        | private | number   | Current round number                            |
 | onSelectBout | private | function | Callback when a bout is selected for refereeing |
 
 ###### 4.2.7.4.2 Methods
 
-| Name: | render |
-|-----------|--------------------------------------------------|
-| **Input:** | None |
-| **Output:** | JSX.Element |
+| Name:            | render                                                                        |
+| ---------------- | ----------------------------------------------------------------------------- |
+| **Input:**       | None                                                                          |
+| **Output:**      | JSX.Element                                                                   |
 | **Description:** | Renders a bracket structure with all bouts organized in rounds and positions. |
 
 ##### 4.2.7.5 BoutNode
+
 ```mermaid
 classDiagram
     class BoutNode {
@@ -2165,21 +2174,21 @@ classDiagram
 
 ###### 4.2.7.5.1 Attributes
 
-| Name | Access | Type | Description |
-|------|--------|------|-------------|
-| bout | private | Bout | The bout data to display |
-| leftFencer | private | Fencer\|null | Left side fencer information |
-| rightFencer | private | Fencer\|null | Right side fencer information |
-| winner | private | Fencer\|null | Fencer who won the bout (if completed) |
-| state | private | string | Current state of the bout (pending, complete) |
-| onSelect | private | function | Callback when the bout is selected for refereeing |
+| Name        | Access  | Type         | Description                                       |
+| ----------- | ------- | ------------ | ------------------------------------------------- |
+| bout        | private | Bout         | The bout data to display                          |
+| leftFencer  | private | Fencer\|null | Left side fencer information                      |
+| rightFencer | private | Fencer\|null | Right side fencer information                     |
+| winner      | private | Fencer\|null | Fencer who won the bout (if completed)            |
+| state       | private | string       | Current state of the bout (pending, complete)     |
+| onSelect    | private | function     | Callback when the bout is selected for refereeing |
 
 ###### 4.2.7.5.2 Methods
 
-| Name: | render |
-|-----------|--------------------------------------------------|
-| **Input:** | None |
-| **Output:** | JSX.Element |
+| Name:            | render                                                                           |
+| ---------------- | -------------------------------------------------------------------------------- |
+| **Input:**       | None                                                                             |
+| **Output:**      | JSX.Element                                                                      |
 | **Description:** | Renders a single bout node with fencer names, seeding, and results if available. |
 
 ## 5. Data Model
@@ -2202,12 +2211,12 @@ erDiagram
     Rounds ||--o{ SeedingFromRoundResults : produces
     Fencers ||--o{ SeedingFromRoundResults : receives
     Referees ||--o{ Bouts : officiates
-    
+
     Tournaments {
         string name PK
         boolean isComplete
     }
-    
+
     Fencers {
         integer id PK
         string firstName
@@ -2216,13 +2225,13 @@ erDiagram
         string foilRating
         string saberRating
     }
-    
+
     Referees {
         integer id PK
         string firstName
         string lastName
     }
-    
+
     Events {
         integer id PK
         string tname FK
@@ -2230,13 +2239,13 @@ erDiagram
         string gender
         string ageClass
     }
-    
+
     FencerEvents {
         integer id PK
         integer fencerId FK
         integer eventId FK
     }
-    
+
     Rounds {
         integer id PK
         integer eventId FK
@@ -2245,14 +2254,14 @@ erDiagram
         integer poolCount
         integer promoteCount
     }
-    
+
     FencerPoolAssignment {
         integer roundId FK
         integer poolId
         integer fencerId FK
         integer position
     }
-    
+
     Bouts {
         integer id PK
         integer eventId FK
@@ -2263,7 +2272,7 @@ erDiagram
         integer victorId FK
         integer bracketSize
     }
-    
+
     DEBracketBouts {
         integer id PK
         integer roundId FK
@@ -2271,13 +2280,13 @@ erDiagram
         string bracketType
         integer bracketPosition
     }
-    
+
     FencerBouts {
         integer boutId FK
         integer fencerId FK
         integer score
     }
-    
+
     SeedingFromRoundResults {
         integer id PK
         integer roundId FK
@@ -2288,24 +2297,24 @@ erDiagram
 
 #### Database Table Descriptions
 
-| Table | Description |
-|-------|-------------|
-| **Tournaments** | Stores tournament information with name as primary key |
-| **Fencers** | Contains fencer personal and rating information |
-| **Referees** | Stores referee information |
-| **Events** | Records events within tournaments with foreign key to tournament |
-| **FencerEvents** | Junction table linking fencers to events they participate in |
-| **Rounds** | Stores information about tournament rounds (pools, DE, etc.) |
-| **FencerPoolAssignment** | Maps fencers to specific pools within a round |
-| **Bouts** | Records all bout information including fencers and referee |
-| **DEBracketBouts** | Maps bouts to positions within bracket structures |
-| **FencerBouts** | Records fencer-specific bout outcomes including scores |
-| **SeedingFromRoundResults** | Stores seeding information from completed rounds |
+| Table                       | Description                                                      |
+| --------------------------- | ---------------------------------------------------------------- |
+| **Tournaments**             | Stores tournament information with name as primary key           |
+| **Fencers**                 | Contains fencer personal and rating information                  |
+| **Referees**                | Stores referee information                                       |
+| **Events**                  | Records events within tournaments with foreign key to tournament |
+| **FencerEvents**            | Junction table linking fencers to events they participate in     |
+| **Rounds**                  | Stores information about tournament rounds (pools, DE, etc.)     |
+| **FencerPoolAssignment**    | Maps fencers to specific pools within a round                    |
+| **Bouts**                   | Records all bout information including fencers and referee       |
+| **DEBracketBouts**          | Maps bouts to positions within bracket structures                |
+| **FencerBouts**             | Records fencer-specific bout outcomes including scores           |
+| **SeedingFromRoundResults** | Stores seeding information from completed rounds                 |
 
 ## 6. Traceability Matrix
 
 | Req ID                                      | Implementing Component                                            |
-|---------------------------------------------|-------------------------------------------------------------------|
+| ------------------------------------------- | ----------------------------------------------------------------- | --- |
 | **Tournament Management**                   |                                                                   |
 | 3.1 - Tournament Creation                   | CreateTournamentModal.tsx, TournamentDatabaseUtils.ts             |
 | 3.1.1 - Tournament Name Input               | CreateTournamentModal.tsx                                         |
@@ -2313,7 +2322,7 @@ erDiagram
 | 3.1.3 - Create Events Within Tournaments    | EventManagement.tsx                                               |
 | 3.2 - Tournament Management                 | Home.tsx, TournamentListComponent.tsx                             |
 | 3.2.1 - Complete All Events Before Ending   | TournamentDatabaseUtils.ts                                        |
-| 3.2.2 - Delete Tournament                   | TournamentListComponent.tsx, TournamentDatabaseUtils.ts           |_
+| 3.2.2 - Delete Tournament                   | TournamentListComponent.tsx, TournamentDatabaseUtils.ts           | \_  |
 | 3.2.3 - View Tournaments in Progress        | Home.tsx, TournamentListComponent.tsx                             |
 | 3.2.4 - Invite Referees                     | Home.tsx                                                          |
 | 3.2.5 - Tournament History                  | Home.tsx, TournamentListComponent.tsx                             |

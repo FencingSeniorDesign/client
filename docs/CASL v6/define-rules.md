@@ -3,14 +3,15 @@ title: Define Rules
 categories: [guide]
 order: 20
 meta:
-  keywords: ~
-  description: ~
+    keywords: ~
+    description: ~
 ---
 
 There are 3 ways you can define abilities:
-* using `defineAbility` function
-* using `AbilityBuilder` class
-* using `JSON` objects
+
+- using `defineAbility` function
+- using `AbilityBuilder` class
+- using `JSON` objects
 
 In order to understand which way to use, let's learn more about each one.
 
@@ -26,8 +27,8 @@ This function is a [DSL] that allows to create `MongoAbility` instance using `ca
 import { defineAbility } from '@casl/ability';
 
 export default defineAbility((can, cannot) => {
-  can('read', 'Post');
-  cannot('delete', 'Post', { published: true });
+    can('read', 'Post');
+    cannot('delete', 'Post', { published: true });
 });
 ```
 
@@ -37,10 +38,10 @@ You can pass multiple actions, subjects and fields in the single `can` (or `cann
 import { defineAbility } from '@casl/ability';
 
 export default defineAbility((can, cannot) => {
-  can('read', 'Post');
-  can('update', 'Post');
-  can('read', 'Comment');
-  can('update', 'Comment');
+    can('read', 'Post');
+    can('update', 'Post');
+    can('read', 'Comment');
+    can('update', 'Comment');
 });
 ```
 
@@ -50,7 +51,7 @@ you can do:
 import { defineAbility } from '@casl/ability';
 
 export default defineAbility((can, cannot) => {
-  can(['read', 'update'], ['Post', 'Comment']);
+    can(['read', 'update'], ['Post', 'Comment']);
 });
 ```
 
@@ -58,9 +59,9 @@ export default defineAbility((can, cannot) => {
 
 ### When to use defineAbility
 
-* unit tests
-* examples and learning resources
-* prototypes or really simple applications
+- unit tests
+- examples and learning resources
+- prototypes or really simple applications
 
 So, to keep examples simple and clear, we will use `defineAbility` in majority of code snippets in this documentation.
 
@@ -82,7 +83,7 @@ This class implements `can` and `cannot` functions, that makes possible to write
 [defineAbility example](#defineability-example) written using `AbilityBuilder` class looks a bit more wordy:
 
 ```js
-import { AbilityBuilder, createMongoAbility } from '@casl/ability'
+import { AbilityBuilder, createMongoAbility } from '@casl/ability';
 
 const { can, cannot, build } = new AbilityBuilder(createMongoAbility);
 
@@ -95,20 +96,20 @@ export default build();
 But it allows to define rules without additional nesting, this is especially important when you build rules based on conditional logic:
 
 ```js
-import { AbilityBuilder, createMongoAbility } from '@casl/ability'
+import { AbilityBuilder, createMongoAbility } from '@casl/ability';
 
 export default function defineAbilityFor(user) {
-  const { can, cannot, build } = new AbilityBuilder(createMongoAbility);
+    const { can, cannot, build } = new AbilityBuilder(createMongoAbility);
 
-  if (user.isAdmin) {
-    can('manage', 'all'); // read-write access to everything
-  } else {
-    can('read', 'all') // read-only access to everything
-  }
+    if (user.isAdmin) {
+        can('manage', 'all'); // read-write access to everything
+    } else {
+        can('read', 'all'); // read-only access to everything
+    }
 
-  cannot('delete', 'Post', { published: true });
+    cannot('delete', 'Post', { published: true });
 
-  return build();
+    return build();
 }
 ```
 
@@ -117,21 +118,21 @@ export default function defineAbilityFor(user) {
 For more advanced cases, it's possible to use `rules` property of `AbilityBuilder` and create `MongoAbility` instance manually:
 
 ```js
-import { AbilityBuilder, createMongoAbility } from '@casl/ability'
+import { AbilityBuilder, createMongoAbility } from '@casl/ability';
 
 export default function defineAbilityFor(user) {
-  const { can, cannot, rules } = new AbilityBuilder(createMongoAbility);
+    const { can, cannot, rules } = new AbilityBuilder(createMongoAbility);
 
-  // defined permissions
+    // defined permissions
 
-  return createMongoAbility(rules);
+    return createMongoAbility(rules);
 }
 ```
 
 ### When to use AbilityBuilder
 
-* in apps which have static permissions (i.e., permissions are not changed by admin user but defined inside system)
-* anywhere where you use custom ability factory functions
+- in apps which have static permissions (i.e., permissions are not changed by admin user but defined inside system)
+- anywhere where you use custom ability factory functions
 
 > See [Customize Ability](../../advanced/customize-ability) to learn more about `PureAbility` class.
 
@@ -149,17 +150,17 @@ The same example using `JSON`:
 import { createMongoAbility } from '@casl/ability';
 
 export default createMongoAbility([
-  {
-    action: 'read',
-    subject: 'Post'
-  },
-  {
-    inverted: true,
-    action: 'delete',
-    subject: 'Post',
-    conditions: { published: true }
-  }
-])
+    {
+        action: 'read',
+        subject: 'Post',
+    },
+    {
+        inverted: true,
+        action: 'delete',
+        subject: 'Post',
+        conditions: { published: true },
+    },
+]);
 ```
 
 Pay attention to the `inverted` field, it indicates that a rule is an inverted one (i.e., forbids something).
@@ -170,16 +171,16 @@ The simplified version (without generics) of raw rule shape in [TypeScript](http
 
 ```ts
 interface RawRule {
-  action: string | string[]
-  subject?: string | string[]
-  /** an array of fields to which user has (or not) access */
-  fields?: string[]
-  /** an object of conditions which restricts the rule scope */
-  conditions?: any
-  /** indicates whether rule allows or forbids something */
-  inverted?: boolean
-  /** message which explains why rule is forbidden */
-  reason?: string
+    action: string | string[];
+    subject?: string | string[];
+    /** an array of fields to which user has (or not) access */
+    fields?: string[];
+    /** an object of conditions which restricts the rule scope */
+    conditions?: any;
+    /** indicates whether rule allows or forbids something */
+    inverted?: boolean;
+    /** message which explains why rule is forbidden */
+    reason?: string;
 }
 ```
 
@@ -189,9 +190,9 @@ In the example above, `?` after field name means optional field, so everything i
 
 ### When to use JSON objects
 
-* in apps, that have dynamic permissions (i.e., permissions are changed by admin user)
-* in apps, that receive permissions via network layer (e.g., single page applications or microservices)
-* to make the app's bundle size smaller (if you don't use `AbilityBuilder` or `defineAbility`, they can be shook out by bundlers such as [rollup] or [webpack])
+- in apps, that have dynamic permissions (i.e., permissions are changed by admin user)
+- in apps, that receive permissions via network layer (e.g., single page applications or microservices)
+- to make the app's bundle size smaller (if you don't use `AbilityBuilder` or `defineAbility`, they can be shook out by bundlers such as [rollup] or [webpack])
 
 [rollup]: https://rollupjs.org/guide/en/
 [webpack]: https://webpack.js.org/
@@ -207,9 +208,9 @@ You can define the same pair of action and subject with different conditions mul
 ```js
 import { defineAbility } from '@casl/ability';
 
-export default defineAbility((can) => {
-  can('read', 'Article', { published: true });
-  can('read', 'Article', { published: false, status: 'review' });
+export default defineAbility(can => {
+    can('read', 'Article', { published: true });
+    can('read', 'Article', { published: false, status: 'review' });
 });
 ```
 
@@ -220,9 +221,9 @@ But be careful, because `OR` logic returns `true` if one of its expressions are 
 ```js
 import { defineAbility } from '@casl/ability';
 
-export default defineAbility((can) => {
-  can('read', 'Article');
-  can('read', 'Article', { published: true }); // (2)
+export default defineAbility(can => {
+    can('read', 'Article');
+    can('read', 'Article', { published: true }); // (2)
 });
 ```
 
@@ -236,8 +237,8 @@ Let's change the example above to disallow reading unpublished articles:
 import { defineAbility } from '@casl/ability';
 
 export default defineAbility((can, cannot) => {
-  can('read', 'Article'); // direct rule
-  cannot('read', 'Article', { published: false }); // inverted rule
+    can('read', 'Article'); // direct rule
+    cannot('read', 'Article', { published: false }); // inverted rule
 });
 ```
 
@@ -263,15 +264,15 @@ So, are there a valid usecases for inverted rules? **Yes**! They work very well 
 import { AbilityBuilder, createMongoAbility } from '@casl/ability';
 
 async function defineAbility(user) {
-  const hasPaidSubscription = await user.hasPaidSubscription();
-  const { can, cannot, build } = new AbilityBuilder(createMongoAbility);
+    const hasPaidSubscription = await user.hasPaidSubscription();
+    const { can, cannot, build } = new AbilityBuilder(createMongoAbility);
 
-  if (hasPaidSubscription) {
-    can('create', 'BlogPost');
-  } else {
-    cannot('create', 'BlogPost').because('You have not paid for monthly subscription');
-  }
+    if (hasPaidSubscription) {
+        can('create', 'BlogPost');
+    } else {
+        cannot('create', 'BlogPost').because('You have not paid for monthly subscription');
+    }
 
-  return build()
+    return build();
 }
 ```

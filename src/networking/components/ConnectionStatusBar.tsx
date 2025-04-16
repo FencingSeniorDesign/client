@@ -10,10 +10,10 @@ interface ConnectionStatusBarProps {
 }
 
 export const ConnectionStatusBar: React.FC<ConnectionStatusBarProps> = ({
-                                                                            tournamentName,
-                                                                            compact = false,
-                                                                            onDisconnect
-                                                                        }) => {
+    tournamentName,
+    compact = false,
+    onDisconnect,
+}) => {
     const [connected, setConnected] = useState(false);
     const [activeTournament, setActiveTournament] = useState<string | null>(null);
 
@@ -55,9 +55,7 @@ export const ConnectionStatusBar: React.FC<ConnectionStatusBarProps> = ({
         return (
             <View style={styles.compactContainer}>
                 <View style={[styles.statusDot, connected ? styles.connectedDot : styles.disconnectedDot]} />
-                <Text style={styles.compactText}>
-                    {connected ? 'Connected' : 'Disconnected'}
-                </Text>
+                <Text style={styles.compactText}>{connected ? 'Connected' : 'Disconnected'}</Text>
             </View>
         );
     }
@@ -67,9 +65,7 @@ export const ConnectionStatusBar: React.FC<ConnectionStatusBarProps> = ({
             <View style={styles.infoContainer}>
                 <View style={[styles.statusDot, connected ? styles.connectedDot : styles.disconnectedDot]} />
                 <Text style={styles.statusText}>
-                    {connected
-                        ? `Connected to: ${displayName}`
-                        : `Not connected to ${displayName}`}
+                    {connected ? `Connected to: ${displayName}` : `Not connected to ${displayName}`}
                 </Text>
             </View>
             {onDisconnect && connected && (

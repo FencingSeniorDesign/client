@@ -3,8 +3,8 @@ title: Define Action Aliases
 categories: [guide]
 order: 55
 meta:
-  keywords: ~
-  description: ~
+    keywords: ~
+    description: ~
 ---
 
 Aliases gives a possibility to combine several actions into one. This also simplifies checks when we need to ensure that user can do both actions together (e.g., `delete` and `update`).
@@ -12,14 +12,17 @@ Aliases gives a possibility to combine several actions into one. This also simpl
 To define an alias, we need to use `createAliasResolver` function. It accepts a single argument - aliases to actions map. For example, here we define modify alias as a combination of update and delete actions:
 
 ```js
-import { defineAbility, createAliasResolver } from '@casl/ability'
+import { defineAbility, createAliasResolver } from '@casl/ability';
 
 const resolveAction = createAliasResolver({
-  modify: ['update', 'delete']
+    modify: ['update', 'delete'],
 });
-const ability = defineAbility((can) => {
-  can('modify', 'Post');
-}, { resolveAction });
+const ability = defineAbility(
+    can => {
+        can('modify', 'Post');
+    },
+    { resolveAction }
+);
 
 ability.can('modify', 'Post'); // true
 ability.can('update', 'Post'); // true
@@ -35,14 +38,17 @@ ability.can('modify', 'Post') === ability.can('update', 'Post') && ability.can('
 **Be aware** that aliases work only in one direction! It means that `modify` is an alias for `update` and `delete` but `update` and `delete` do not automatically form `modify` alias. To understand what this means, let's consider the same example but with different rules:
 
 ```ts
-import { defineAbility, createAliasResolver } from '@casl/ability'
+import { defineAbility, createAliasResolver } from '@casl/ability';
 
 const resolveAction = createAliasResolver({
-  modify: ['update', 'delete']
+    modify: ['update', 'delete'],
 });
-const ability = defineAbility((can) => {
-  can(['update', 'delete'], 'Post');
-}, { resolveAction });
+const ability = defineAbility(
+    can => {
+        can(['update', 'delete'], 'Post');
+    },
+    { resolveAction }
+);
 
 ability.can('modify', 'Post'); // false <---
 ability.can('update', 'Post'); // true
@@ -54,15 +60,18 @@ We got `false` for `modify` action, even though we can `delete` and `update` a P
 You can also define aliases on aliases, they are resolved recursively:
 
 ```js
-import { defineAbility, createAliasResolver } from '@casl/ability'
+import { defineAbility, createAliasResolver } from '@casl/ability';
 
 const resolveAction = createAliasResolver({
-  modify: ['update', 'delete'],
-  access: ['read', 'modify']
+    modify: ['update', 'delete'],
+    access: ['read', 'modify'],
 });
-const ability = defineAbility((can) => {
-  can('access', 'Post');
-}, { resolveAction });
+const ability = defineAbility(
+    can => {
+        can('access', 'Post');
+    },
+    { resolveAction }
+);
 
 ability.can('access', 'Post'); // true
 ability.can('modify', 'Post'); // true
