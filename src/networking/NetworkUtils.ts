@@ -38,59 +38,65 @@ class ServerDiscoveryEmitter extends EventEmitter {
         try {
             // Log React Native modules for debugging
             console.log('Available NativeModules:', Object.keys(NativeModules));
-            
+
             // Check if the NativeModule exists
             if (!NativeModules.RNZeroconf) {
                 console.warn('NativeModules.RNZeroconf is not available - local discovery will be disabled');
                 this.isZeroconfAvailable = false;
                 return;
             }
-            
+
             const isPhysicalDevice = !DeviceInfo.isEmulator();
-            console.log(`Initializing Zeroconf on ${isPhysicalDevice ? 'physical device' : 'simulator'}, Platform: ${Platform.OS}`);
-            
+            console.log(
+                `Initializing Zeroconf on ${isPhysicalDevice ? 'physical device' : 'simulator'}, Platform: ${Platform.OS}`
+            );
+
             // Create Zeroconf instance with debug mode enabled - this shows more logs
             this.zeroconf = new Zeroconf({ debug: true });
             console.log('Zeroconf instance created with debug enabled');
-            
+
             // Log available methods on Zeroconf for debugging
             console.log('Zeroconf methods:', Object.getOwnPropertyNames(Object.getPrototypeOf(this.zeroconf)));
-            
+
             this.setupZeroconfListeners();
             console.log('Zeroconf listeners setup complete');
-            
+
             // Special handling for physical iOS devices
             if (Platform.OS === 'ios' && isPhysicalDevice) {
                 console.log('Physical iOS device detected, adding special handling');
-                
+
                 // Check if Bonjour services are authorized
                 if (this.zeroconf.isServiceBrowserActive) {
                     console.log('Service browser is active');
                 } else {
                     console.log('Service browser is NOT active');
                 }
-                
+
                 // Listen for errors that might indicate initialization issues
                 const errorHandler = (error: any) => {
                     console.warn('Zeroconf initialization error on physical device:', error);
                     console.warn('Error details:', JSON.stringify(error));
-                    
+
                     // Only disable if it's a critical error
-                    if (error.message && (
-                        error.message.includes('permission') || 
-                        error.message.includes('NSNetService') ||
-                        error.message.includes('denied'))) {
+                    if (
+                        error.message &&
+                        (error.message.includes('permission') ||
+                            error.message.includes('NSNetService') ||
+                            error.message.includes('denied'))
+                    ) {
                         console.error('Critical permission error - disabling Zeroconf');
                         this.isZeroconfAvailable = false;
                     }
                 };
-                
+
                 this.zeroconf.on('error', errorHandler);
-                
+
                 // For iOS 14+, ensure we have permission to use local network
-                console.log('iOS device Info.plist should contain NSLocalNetworkUsageDescription and NSBonjourServices');
+                console.log(
+                    'iOS device Info.plist should contain NSLocalNetworkUsageDescription and NSBonjourServices'
+                );
                 console.log('Triggering a quick scan to prompt for permission if needed');
-                
+
                 // Try a quick scan to trigger the permission dialog
                 try {
                     setTimeout(() => {
@@ -106,7 +112,7 @@ class ServerDiscoveryEmitter extends EventEmitter {
                     console.warn('Error setting up permission prompt:', permissionError);
                 }
             }
-            
+
             console.log('Zeroconf initialized successfully');
         } catch (error) {
             console.error('Failed to initialize Zeroconf:', error);
@@ -130,20 +136,20 @@ class ServerDiscoveryEmitter extends EventEmitter {
         this.zeroconf.on('resolved', service => {
             try {
                 console.log('Zeroconf service resolved:', JSON.stringify(service, null, 2));
-                
+
                 // Check for our service based on name pattern rather than type
                 // This is more reliable since some platforms don't consistently provide the type
-                const isTournaFenceService = 
+                const isTournaFenceService =
                     (service.name && service.name.startsWith('TournaFence-')) ||
                     (service.fullName && service.fullName.includes('._tournafence._tcp.')) ||
                     (service.type && service.type.includes(`_${SERVICE_TYPE}`));
-                
+
                 if (isTournaFenceService) {
                     console.log('Service identified as TournaFence service');
-                    
+
                     // Get the tournament name from the TXT record if available
                     let tournamentName = 'Unknown Tournament';
-                    
+
                     // Extract the real tournament name from the TXT record if available
                     if (service.txt && service.txt.name) {
                         tournamentName = service.txt.name;
@@ -161,20 +167,21 @@ class ServerDiscoveryEmitter extends EventEmitter {
                         tournamentName = service.name || 'Unknown Tournament';
                         console.log('Using service name as tournament name:', tournamentName);
                     }
-                    
+
                     // Get the IP address - try multiple options
                     let hostIp = null;
-                    
+
                     // Always prefer IP addresses from addresses array if available
                     if (service.addresses && service.addresses.length > 0) {
                         // Try to find a non-local, IPv4 address (best choice for connectivity)
-                        const ipv4Address = service.addresses.find(addr => 
-                            addr.includes('.') && 
-                            !addr.startsWith('169.254.') && // Skip Link-local
-                            !addr.startsWith('127.') &&     // Skip Loopback
-                            !addr.includes(':')            // Skip IPv6
+                        const ipv4Address = service.addresses.find(
+                            addr =>
+                                addr.includes('.') &&
+                                !addr.startsWith('169.254.') && // Skip Link-local
+                                !addr.startsWith('127.') && // Skip Loopback
+                                !addr.includes(':') // Skip IPv6
                         );
-                        
+
                         if (ipv4Address) {
                             console.log('Using IPv4 address from addresses array:', ipv4Address);
                             hostIp = ipv4Address;
@@ -199,7 +206,7 @@ class ServerDiscoveryEmitter extends EventEmitter {
                     else if (service.host) {
                         // For iOS, we need to keep the .local suffix for mDNS resolution
                         console.log('Using host from service (with .local if present):', service.host);
-                        
+
                         // If we have full hostname/IP, use it instead
                         if (service.host.includes('.') && !service.host.endsWith('.local')) {
                             hostIp = service.host;
@@ -208,27 +215,28 @@ class ServerDiscoveryEmitter extends EventEmitter {
                             hostIp = service.host;
                         }
                     }
-                    
+
                     const port = service.port || DEFAULT_PORT;
-                    
+
                     // Skip services without valid connection info
                     if (!hostIp || hostIp === '0.0.0.0') {
                         console.log('Skipping service with invalid IP address');
                         return;
                     }
-                    
+
                     const server: DiscoveredServer = {
                         tournamentName: tournamentName,
                         hostIp: hostIp,
                         port: port,
-                        timestamp: Date.now()
+                        timestamp: Date.now(),
                     };
-                    
-                    console.log(`Discovered tournament server: ${server.tournamentName} at ${server.hostIp}:${server.port}`);
+
+                    console.log(
+                        `Discovered tournament server: ${server.tournamentName} at ${server.hostIp}:${server.port}`
+                    );
                     this.addServer(server);
                 } else {
-                    console.log(`Ignoring service, not matching TournaFence pattern:`, 
-                                service.name, service.fullName);
+                    console.log(`Ignoring service, not matching TournaFence pattern:`, service.name, service.fullName);
                 }
             } catch (error) {
                 console.error('Error handling resolved service:', error);
@@ -240,13 +248,13 @@ class ServerDiscoveryEmitter extends EventEmitter {
         this.zeroconf.on('error', error => {
             console.error('Zeroconf error:', error);
             console.error('Error details:', JSON.stringify(error));
-            
+
             // Check for permissions-related errors
             if (error.message) {
                 if (error.message.includes('permission') || error.message.includes('Permission')) {
                     console.error('Likely permissions issue with Zeroconf');
                 }
-                
+
                 // If we get critical errors, disable Zeroconf
                 if (error.message.includes('registerService')) {
                     console.error('Critical error with registerService, disabling Zeroconf');
@@ -271,7 +279,7 @@ class ServerDiscoveryEmitter extends EventEmitter {
             console.log('Zeroconf scanning stopped');
             this.setScanning(false);
         });
-        
+
         console.log('All Zeroconf event listeners registered');
     }
 
@@ -308,14 +316,14 @@ class ServerDiscoveryEmitter extends EventEmitter {
             tournamentName: name,
             hostIp: ip,
             port: port,
-            timestamp: Date.now()
+            timestamp: Date.now(),
         };
-        
+
         this.addServer(server);
         console.log(`Added test server: ${name} at ${ip}:${port}`);
         return server;
     }
-    
+
     // Manually add a server from console logs for testing
     manualDiscoverServer(server: DiscoveredServer) {
         if (!server.timestamp) {
@@ -333,60 +341,63 @@ class ServerDiscoveryEmitter extends EventEmitter {
         }
 
         console.log('Starting server discovery scan...');
-        
+
         // Report current system state for debugging
         console.log('Zeroconf available:', this.isZeroconfAvailable);
         console.log('Platform:', Platform.OS);
         console.log('Is simulator:', DeviceInfo.isEmulator());
-        
+
         this.clearServers();
         this.setScanning(true);
-        
+
         // If Zeroconf isn't available, we'll use a simulated scan
         if (!this.isZeroconfAvailable || !this.zeroconf) {
             console.log('Zeroconf not available, simulating scan');
-            
+
             // Set a timer to end the "scan" after a reasonable time
             setTimeout(() => {
                 this.setScanning(false);
                 console.log('Simulated scan completed - no servers found');
             }, DISCOVERY_TIMEOUT);
-            
+
             return;
         }
-        
+
         // Print info about current Zeroconf state
         console.log('Zeroconf object:', this.zeroconf ? 'exists' : 'null');
         if (this.zeroconf) {
-            console.log('Zeroconf service browser active:', 
-                        this.zeroconf.isServiceBrowserActive !== undefined ? 
-                        this.zeroconf.isServiceBrowserActive : 'unknown');
+            console.log(
+                'Zeroconf service browser active:',
+                this.zeroconf.isServiceBrowserActive !== undefined ? this.zeroconf.isServiceBrowserActive : 'unknown'
+            );
         }
-        
+
         try {
             // Check if we're on a physical iOS device and log accordingly
             const isPhysicalDevice = !DeviceInfo.isEmulator();
             if (Platform.OS === 'ios' && isPhysicalDevice) {
                 console.log('Starting real device scan - checking for Local Network permissions');
-                
+
                 // Check permission state if possible
                 if (this.zeroconf.isServiceBrowserActive !== undefined) {
                     console.log('Service browser active state:', this.zeroconf.isServiceBrowserActive);
                 }
             }
-            
-            console.log(`Starting Zeroconf scan for service type: ${SERVICE_TYPE}, protocol: tcp, domain: ${SERVICE_DOMAIN}`);
-            
+
+            console.log(
+                `Starting Zeroconf scan for service type: ${SERVICE_TYPE}, protocol: tcp, domain: ${SERVICE_DOMAIN}`
+            );
+
             // Start scanning for our service type using the library's expected format
             // The service type is passed without underscores - the library adds them
             this.zeroconf.scan(SERVICE_TYPE, 'tcp', SERVICE_DOMAIN);
             console.log('Scan initiated - waiting for services to be discovered...');
-            
+
             // Set a timeout to stop scanning after DISCOVERY_TIMEOUT
             if (this.discoveryTimer) {
                 clearTimeout(this.discoveryTimer);
             }
-            
+
             this.discoveryTimer = setTimeout(() => {
                 console.log(`Scan timeout after ${DISCOVERY_TIMEOUT}ms`);
                 this.stopScan();
@@ -404,7 +415,7 @@ class ServerDiscoveryEmitter extends EventEmitter {
             clearTimeout(this.discoveryTimer);
             this.discoveryTimer = null;
         }
-        
+
         if (this.isScanning) {
             if (this.isZeroconfAvailable && this.zeroconf) {
                 try {
@@ -422,32 +433,33 @@ class ServerDiscoveryEmitter extends EventEmitter {
             console.warn('Zeroconf not available, cannot publish service');
             return false;
         }
-        
+
         try {
             // Remove any existing service first
             this.unpublishService();
-            
+
             // Create a unique ID that's based on the tournament name and a random suffix
             // This ensures the name is both user-friendly and unique
             const safeNamePart = name.replace(/[^a-zA-Z0-9]/g, '').substring(0, 10);
             const uniqueId = Math.floor(Math.random() * 10000);
             const simpleName = `TournaFence-${safeNamePart}-${uniqueId}`;
-            
+
             console.log(`Attempting to publish service with name: ${simpleName}`);
-            
+
             // Use the exact method signature from the library's source code
             this.zeroconf.publishService(
-                SERVICE_TYPE,      // type (without underscores)
-                'tcp',             // protocol
-                'local.',          // domain (always "local.")
-                simpleName,        // name (includes user-friendly part)
-                port,              // port number
-                {                  // TXT record with the actual tournament name
-                    name: name,    // Store the real name in TXT record
-                    app: 'TournaFence'
+                SERVICE_TYPE, // type (without underscores)
+                'tcp', // protocol
+                'local.', // domain (always "local.")
+                simpleName, // name (includes user-friendly part)
+                port, // port number
+                {
+                    // TXT record with the actual tournament name
+                    name: name, // Store the real name in TXT record
+                    app: 'TournaFence',
                 }
             );
-            
+
             console.log(`Published Zeroconf service: ${simpleName} on port ${port}`);
             return true;
         } catch (error) {
@@ -460,7 +472,7 @@ class ServerDiscoveryEmitter extends EventEmitter {
         if (!this.isZeroconfAvailable || !this.zeroconf) {
             return false;
         }
-        
+
         try {
             // The unpublishService method takes the service name
             // We don't have a way to track the current service name here,
@@ -485,7 +497,7 @@ export async function getLocalIpAddress(): Promise<string | null> {
     try {
         // Get network state using expo-network
         const networkState = await Network.getNetworkStateAsync();
-        
+
         // For iOS simulator, we need special handling
         if (Platform.OS === 'ios' && isRunningInSimulator()) {
             // Get IP directly from expo-network
@@ -498,7 +510,7 @@ export async function getLocalIpAddress(): Promise<string | null> {
             } catch (ipError) {
                 console.warn('Error getting simulator IP:', ipError);
             }
-            
+
             // If we can't get a usable IP, use the localhost
             console.log("iOS Simulator detected but couldn't get IP directly");
             return '127.0.0.1';
@@ -548,7 +560,8 @@ export async function getClientId(): Promise<string> {
  * Validates an IP address format
  */
 export function isValidIpAddress(ip: string): boolean {
-    const ipPattern = /^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
+    const ipPattern =
+        /^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
     return ipPattern.test(ip);
 }
 
@@ -588,14 +601,14 @@ export async function getNetworkInfo(): Promise<object> {
     try {
         const [ipAddress, networkState] = await Promise.all([
             Network.getIpAddressAsync(),
-            Network.getNetworkStateAsync()
+            Network.getNetworkStateAsync(),
         ]);
-        
+
         return {
             ipAddress,
             networkType: networkState.type,
             isConnected: networkState.isConnected,
-            isInternetReachable: networkState.isInternetReachable
+            isInternetReachable: networkState.isInternetReachable,
         };
     } catch (error) {
         console.error('Error getting network info:', error);
@@ -605,14 +618,14 @@ export async function getNetworkInfo(): Promise<object> {
 
 /**
  * Helper function to add isRemote parameter to navigation props
- * @param params The route parameters 
+ * @param params The route parameters
  * @param isRemote Whether this is a remote connection
  * @returns The parameters with isRemote added
  */
 export function withRemoteFlag<T>(params: T, isRemote: boolean): T & { isRemote: boolean } {
     return {
         ...params,
-        isRemote
+        isRemote,
     };
 }
 
@@ -627,30 +640,30 @@ export async function getDeviceId(): Promise<string> {
         if (storedId) {
             return storedId;
         }
-        
+
         // Generate a new 5-character device ID if none exists
         const uniqueId = await DeviceInfo.getUniqueId();
-        
+
         // Generate a 5-character alphanumeric ID that's derived from the device's unique ID
         // Use a combination of letters and numbers, avoiding confusing characters like 0/O and 1/I
         const alphabet = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
         let shortId = '';
-        
+
         // Use hash of the uniqueId to generate more random distribution
         const hash = uniqueId.split('').reduce((a, b) => {
-            a = ((a << 5) - a) + b.charCodeAt(0);
+            a = (a << 5) - a + b.charCodeAt(0);
             return a & a;
         }, 0);
-        
+
         // Generate 5 characters for the ID
         for (let i = 0; i < 5; i++) {
             const index = Math.abs(hash + i * 13) % alphabet.length;
             shortId += alphabet[index];
         }
-        
+
         // Store the ID for future use
         await AsyncStorage.setItem('tournament_device_id', shortId);
-        
+
         return shortId;
     } catch (error) {
         console.error('Error getting device ID:', error);
@@ -674,12 +687,12 @@ export async function getClientConnectionInfo(): Promise<{
     const isRemote = tournamentClient && tournamentClient.isConnected();
     // For now, assume we're not the host if we're connected remotely
     const isHost = !isRemote;
-    
+
     return {
         clientId,
         deviceId,
         isRemote,
-        isHost
+        isHost,
     };
 }
 
@@ -699,41 +712,40 @@ export function startServerDiscovery(): Promise<DiscoveredServer[]> {
                 console.log('First scan on physical iOS device - should trigger permissions dialog');
                 hasTriggeredInitialScan = true;
             }
-            
+
             if (serverDiscovery.isCurrentlyScanning()) {
                 console.log('Already scanning for servers, returning current list');
                 return resolve(serverDiscovery.getServersList());
             }
-            
+
             console.log('Starting server discovery with promise...');
             serverDiscovery.clearServers();
-            
+
             // Set up listener for servers update
             const onServersUpdated = (servers: DiscoveredServer[]) => {
                 // Don't resolve yet, keep collecting discoveries until timeout
                 console.log(`Server updates during scan: ${servers.length} servers found`);
             };
-            
+
             const onScanningChanged = (isScanning: boolean) => {
                 if (!isScanning) {
                     // Scanning finished, resolve with the collected servers
                     console.log('Scan completed, resolving promise');
                     serverDiscovery.removeListener('serversUpdated', onServersUpdated);
                     serverDiscovery.removeListener('scanningChanged', onScanningChanged);
-                    
+
                     const servers = serverDiscovery.getServersList();
                     console.log(`Discovered ${servers.length} servers in total`);
-                    
+
                     resolve(servers);
                 }
             };
-            
+
             serverDiscovery.on('serversUpdated', onServersUpdated);
             serverDiscovery.on('scanningChanged', onScanningChanged);
-            
+
             // Start the scan
             serverDiscovery.startScan();
-            
         } catch (error) {
             console.error('Error in server discovery:', error);
             console.error('Error details:', JSON.stringify(error));

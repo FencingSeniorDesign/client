@@ -1,7 +1,7 @@
 export type Tournament = {
     name: string;
     isComplete: boolean;
-}
+};
 
 export type Club = {
     id?: number;
@@ -24,9 +24,8 @@ export type Fencer = {
     fyear: number;
     srating: string | 'U' | 'E' | 'D' | 'C' | 'B' | 'A';
     syear: number;
-    poolNumber?: number;  // new property for pool assignment order
+    poolNumber?: number; // new property for pool assignment order
 };
-
 
 export type Referee = {
     id: number;
@@ -45,9 +44,9 @@ export type Round = {
     id: number;
     eventid: number;
     rorder: number;
-    type: 'pool' | 'de' ;
-    poolcount?: number // Made optional
-    poolsize?: number // Made optional
+    type: 'pool' | 'de';
+    poolcount?: number; // Made optional
+    poolsize?: number; // Made optional
     promotionpercent: number;
     targetbracket: number;
     usetargetbracket: 0 | 1;
@@ -93,8 +92,8 @@ export type Bout = {
     scoreB: number;
     status: 'pending' | 'active' | 'completed';
     boutOrderPosition?: number; // Position in the official bout order
+    winnerId?: number; // ID of the fencer who won the bout
 };
-
 
 export type Official = {
     id?: number;
@@ -107,7 +106,7 @@ export type Official = {
 export type RootStackParamList = {
     HomeTabs: undefined;
     EventManagment: { tournamentName: string };
-    EventSettings: { event: Event; onSave: (updatedEvent: Event) => void; isRemote?: boolean; };
+    EventSettings: { event: Event; onSave: (updatedEvent: Event) => void; isRemote?: boolean };
     RefereeModule: {
         boutIndex: number;
         fencer1Name: string;

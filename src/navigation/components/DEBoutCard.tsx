@@ -18,24 +18,20 @@ interface DEBoutCardProps {
 }
 
 const DEBoutCard: React.FC<DEBoutCardProps> = ({
-                                                   id,
-                                                   fencerA,
-                                                   fencerB,
-                                                   scoreA,
-                                                   scoreB,
-                                                   seedA,
-                                                   seedB,
-                                                   winner,
-                                                   isBye = false,
-                                                   bracketType = 'winners',
-                                                   onPress
-                                               }) => {
-    const fencerAName = fencerA
-        ? `${fencerA.lname}, ${fencerA.fname}`
-        : 'BYE';
-    const fencerBName = fencerB
-        ? `${fencerB.lname}, ${fencerB.fname}`
-        : 'BYE';
+    id,
+    fencerA,
+    fencerB,
+    scoreA,
+    scoreB,
+    seedA,
+    seedB,
+    winner,
+    isBye = false,
+    bracketType = 'winners',
+    onPress,
+}) => {
+    const fencerAName = fencerA ? `${fencerA.lname}, ${fencerA.fname}` : 'BYE';
+    const fencerBName = fencerB ? `${fencerB.lname}, ${fencerB.fname}` : 'BYE';
 
     const boutCompleted = winner !== undefined;
     const fencerAWon = winner === fencerA?.id;
@@ -48,20 +44,20 @@ const DEBoutCard: React.FC<DEBoutCardProps> = ({
                 return {
                     border: '#FF6B6B',
                     win: '#FF8E8E',
-                    bg: '#FFF0F0'
+                    bg: '#FFF0F0',
                 };
             case 'compass':
                 return {
                     border: '#6B9FFF',
                     win: '#8EB8FF',
-                    bg: '#F0F5FF'
+                    bg: '#F0F5FF',
                 };
             case 'winners':
             default:
                 return {
                     border: '#4CAF50',
                     win: '#81C784',
-                    bg: '#F0FFF0'
+                    bg: '#F0FFF0',
                 };
         }
     };
@@ -73,10 +69,13 @@ const DEBoutCard: React.FC<DEBoutCardProps> = ({
         if (!fencer) return '';
 
         const bestRating =
-            fencer.frating !== 'U' ? { rating: fencer.frating, year: fencer.fyear } :
-                fencer.erating !== 'U' ? { rating: fencer.erating, year: fencer.eyear } :
-                    fencer.srating !== 'U' ? { rating: fencer.srating, year: fencer.syear } :
-                        null;
+            fencer.frating !== 'U'
+                ? { rating: fencer.frating, year: fencer.fyear }
+                : fencer.erating !== 'U'
+                  ? { rating: fencer.erating, year: fencer.eyear }
+                  : fencer.srating !== 'U'
+                    ? { rating: fencer.srating, year: fencer.syear }
+                    : null;
 
         if (!bestRating) return '';
         return ` (${bestRating.rating}${bestRating.year.toString().slice(2)})`;
@@ -88,51 +87,47 @@ const DEBoutCard: React.FC<DEBoutCardProps> = ({
                 styles.container,
                 isBye && styles.byeBout,
                 boutCompleted && { borderColor: bracketColors.border, borderWidth: 2 },
-                { backgroundColor: isBye ? '#f9f9f9' : bracketColors.bg }
+                { backgroundColor: isBye ? '#f9f9f9' : bracketColors.bg },
             ]}
             onPress={() => onPress(id)}
             disabled={isBye}
         >
             <View style={styles.fencerRow}>
                 <View style={styles.fencerInfo}>
-                    <Text style={[
-                        styles.seedText,
-                        seedA !== undefined && styles.seedVisible
-                    ]}>
+                    <Text style={[styles.seedText, seedA !== undefined && styles.seedVisible]}>
                         {seedA !== undefined ? `(${seedA})` : ''}
                     </Text>
-                    <Text style={[
-                        styles.fencerName,
-                        fencerAWon && { fontWeight: 'bold', color: bracketColors.win },
-                        isBye && styles.byeText
-                    ]}>
-                        {fencerAName}{formatRating(fencerA)}
+                    <Text
+                        style={[
+                            styles.fencerName,
+                            fencerAWon && { fontWeight: 'bold', color: bracketColors.win },
+                            isBye && styles.byeText,
+                        ]}
+                    >
+                        {fencerAName}
+                        {formatRating(fencerA)}
                     </Text>
                 </View>
-                <Text style={styles.scoreText}>
-                    {scoreA !== undefined ? scoreA : '-'}
-                </Text>
+                <Text style={styles.scoreText}>{scoreA !== undefined ? scoreA : '-'}</Text>
             </View>
             <View style={styles.separator} />
             <View style={styles.fencerRow}>
                 <View style={styles.fencerInfo}>
-                    <Text style={[
-                        styles.seedText,
-                        seedB !== undefined && styles.seedVisible
-                    ]}>
+                    <Text style={[styles.seedText, seedB !== undefined && styles.seedVisible]}>
                         {seedB !== undefined ? `(${seedB})` : ''}
                     </Text>
-                    <Text style={[
-                        styles.fencerName,
-                        fencerBWon && { fontWeight: 'bold', color: bracketColors.win },
-                        isBye && styles.byeText
-                    ]}>
-                        {fencerBName}{formatRating(fencerB)}
+                    <Text
+                        style={[
+                            styles.fencerName,
+                            fencerBWon && { fontWeight: 'bold', color: bracketColors.win },
+                            isBye && styles.byeText,
+                        ]}
+                    >
+                        {fencerBName}
+                        {formatRating(fencerB)}
                     </Text>
                 </View>
-                <Text style={styles.scoreText}>
-                    {scoreB !== undefined ? scoreB : '-'}
-                </Text>
+                <Text style={styles.scoreText}>{scoreB !== undefined ? scoreB : '-'}</Text>
             </View>
             {boutCompleted && (
                 <View style={[styles.completedBadge, { backgroundColor: bracketColors.border }]}>
@@ -230,7 +225,7 @@ const styles = StyleSheet.create({
         paddingVertical: 2,
         borderRadius: 10,
         backgroundColor: '#999',
-    }
+    },
 });
 
 export default DEBoutCard;

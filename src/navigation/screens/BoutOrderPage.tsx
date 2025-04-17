@@ -28,7 +28,7 @@ const BoutOrderPage: React.FC = () => {
     const navigation = useNavigation<BoutOrderPageNavProp>();
     const { roundId, poolId, isRemote = false } = route.params;
     const { ability } = useAbility();
-    
+
     // Check if user has permission to score bouts
     const canScoreBouts = ability.can('score', 'Bout');
 
@@ -40,13 +40,18 @@ const BoutOrderPage: React.FC = () => {
     const [bouts, setBouts] = useState<Bout[]>([]);
     const [fencers, setFencers] = useState<Fencer[]>([]);
     const [expandedBoutIndex, setExpandedBoutIndex] = useState<number | null>(null);
-    
+
     // Scoring-related state (only used by referees)
     const [protectedScores, setProtectedScores] = useState<boolean>(false);
     const [alterModalVisible, setAlterModalVisible] = useState<boolean>(false);
     const [alterIndex, setAlterIndex] = useState<number | null>(null);
     const [alterScoreA, setAlterScoreA] = useState<string>('0');
     const [alterScoreB, setAlterScoreB] = useState<string>('0');
+
+    // Tie resolution state
+    const [tieModalVisible, setTieModalVisible] = useState<boolean>(false);
+    const [tieBoutIndex, setTieBoutIndex] = useState<number | null>(null);
+    const [selectedWinnerId, setSelectedWinnerId] = useState<number | null>(null);
 
     // Toggle for double stripping mode (only used by referees)
     const [doubleStripping, setDoubleStripping] = useState<boolean>(false);
@@ -68,13 +73,15 @@ const BoutOrderPage: React.FC = () => {
     // Process the bouts data when it loads from the hook
     useEffect(() => {
         if (boutsData && fencers.length > 0) {
-            console.log(`Received bout data for pool ${poolId} (Remote: ${isRemote}):`,
-                JSON.stringify(boutsData.slice(0, 1))); // Log first bout for debugging
+            console.log(
+                `Received bout data for pool ${poolId} (Remote: ${isRemote}):`,
+                JSON.stringify(boutsData.slice(0, 1))
+            ); // Log first bout for debugging
 
             // Get the official bout order based on pool size and club affiliations
             const poolSize = fencers.length;
             const boutOrder = getBoutOrder(poolSize, fencers);
-            
+
             // Map the bout data to our Bout objects
             const fetchedBouts: Bout[] = boutsData.map((row: any) => {
                 // Create consistent Bout objects regardless of data source
@@ -112,26 +119,44 @@ const BoutOrderPage: React.FC = () => {
                 };
                 const scoreA = row.left_score ?? 0;
                 const scoreB = row.right_score ?? 0;
-                const status = (scoreA !== 0 || scoreB !== 0) ? 'completed' : 'pending';
-                const bout = { id: row.id, fencerA, fencerB, scoreA, scoreB, status };
-                
+                const status = scoreA !== 0 || scoreB !== 0 ? 'completed' : 'pending';
+
+                // Extract winner ID from the victor field
+                const winnerId = row.victor !== null ? row.victor : undefined;
+
+                console.log(
+                    `Processing bout ${row.id}: scoreA=${scoreA}, scoreB=${scoreB}, victor=${row.victor}, winnerId=${winnerId}`
+                );
+
+                const bout = {
+                    id: row.id,
+                    fencerA,
+                    fencerB,
+                    scoreA,
+                    scoreB,
+                    status,
+                    winnerId,
+                };
+
                 // Add boutOrderPosition for sorting
                 const boutPosition = boutOrder.findIndex(([posA, posB]) => {
                     return (
-                        (fencerA.poolNumber === posA && fencerB.poolNumber === posB) || 
+                        (fencerA.poolNumber === posA && fencerB.poolNumber === posB) ||
                         (fencerA.poolNumber === posB && fencerB.poolNumber === posA)
                     );
                 });
-                
+
                 return { ...bout, boutOrderPosition: boutPosition !== -1 ? boutPosition : Number.MAX_SAFE_INTEGER };
             });
 
             // Sort bouts according to the official bout order positions
             const sortedBouts = [...fetchedBouts].sort((a, b) => a.boutOrderPosition - b.boutOrderPosition);
-            
-            console.log('Sorted bouts by official bout order:', 
-                sortedBouts.map(b => `${b.fencerA.poolNumber}-${b.fencerB.poolNumber} (pos: ${b.boutOrderPosition})`));
-                
+
+            console.log(
+                'Sorted bouts by official bout order:',
+                sortedBouts.map(b => `${b.fencerA.poolNumber}-${b.fencerB.poolNumber} (pos: ${b.boutOrderPosition})`)
+            );
+
             setBouts(sortedBouts);
         }
     }, [boutsData, fencers, poolId, isRemote]);
@@ -153,10 +178,22 @@ const BoutOrderPage: React.FC = () => {
     // Handle score submission - only called for referees
     const handleSubmitScores = async (index: number) => {
         if (!canScoreBouts) return;
-        
+
         const bout = bouts[index];
+
+        // Check for tie and prompt for winner selection if scores are equal
+        if (bout.scoreA === bout.scoreB) {
+            setTieBoutIndex(index);
+            setSelectedWinnerId(null); // Reset winner selection
+            setTieModalVisible(true);
+            return;
+        }
+
+        // If not a tie, automatically set winner based on scores
+        const winnerId = bout.scoreA > bout.scoreB ? bout.fencerA.id : bout.fencerB.id;
+
         try {
-            console.log(`Submitting scores for bout ${bout.id}: ${bout.scoreA}-${bout.scoreB}`);
+            console.log(`Submitting scores for bout ${bout.id}: ${bout.scoreA}-${bout.scoreB}, winner: ${winnerId}`);
             const result = await updateBoutScoresMutation.mutateAsync({
                 boutId: bout.id,
                 scoreA: bout.scoreA,
@@ -164,20 +201,31 @@ const BoutOrderPage: React.FC = () => {
                 fencerAId: bout.fencerA.id!,
                 fencerBId: bout.fencerB.id!,
                 roundId,
-                poolId
+                poolId,
+                winnerId,
             });
             console.log(`Score update completed with result:`, result);
+
+            // Update local bout state with winner ID
+            const updatedBouts = bouts.map((b, i) => {
+                if (i === index) {
+                    return { ...b, winnerId };
+                }
+                return b;
+            });
+            setBouts(updatedBouts);
+
             setExpandedBoutIndex(null);
         } catch (error) {
-            console.error("Error updating bout scores:", error);
-            Alert.alert("Error", "Failed to update bout scores. Please try again.");
+            console.error('Error updating bout scores:', error);
+            Alert.alert('Error', 'Failed to update bout scores. Please try again.');
         }
     };
 
     // Handle score changes in the input fields - only called for referees
     const handleScoreChange = (index: number, which: 'A' | 'B', val: string) => {
         if (!canScoreBouts) return;
-        
+
         const intVal = parseInt(val, 10) || 0;
         const updatedBouts = bouts.map((b, i) => {
             if (i === index) {
@@ -191,7 +239,7 @@ const BoutOrderPage: React.FC = () => {
     // Allow altering scores regardless of bout status if protectedScores is off (for referees only)
     const handleBoutLongPress = (index: number) => {
         if (!canScoreBouts || protectedScores) return;
-        
+
         setAlterIndex(index);
         setAlterScoreA(String(bouts[index].scoreA));
         setAlterScoreB(String(bouts[index].scoreB));
@@ -201,12 +249,34 @@ const BoutOrderPage: React.FC = () => {
     // Save altered scores - only called for referees
     const handleAlterSave = async () => {
         if (!canScoreBouts || alterIndex === null) return;
-        
+
         const bout = bouts[alterIndex];
         const newScoreA = parseInt(alterScoreA, 10) || 0;
         const newScoreB = parseInt(alterScoreB, 10) || 0;
+
+        // If entering a tie, close the alter modal and show tie resolution modal
+        if (newScoreA === newScoreB) {
+            // Store the entered scores first
+            const updatedBouts = bouts.map((b, i) => {
+                if (i === alterIndex) {
+                    return { ...b, scoreA: newScoreA, scoreB: newScoreB };
+                }
+                return b;
+            });
+            setBouts(updatedBouts);
+
+            setAlterModalVisible(false);
+            setTieBoutIndex(alterIndex);
+            setSelectedWinnerId(null);
+            setTieModalVisible(true);
+            return;
+        }
+
+        // If not a tie, set winner automatically
+        const winnerId = newScoreA > newScoreB ? bout.fencerA.id : bout.fencerB.id;
+
         try {
-            console.log(`Altering scores for bout ${bout.id} to ${newScoreA}-${newScoreB}`);
+            console.log(`Altering scores for bout ${bout.id} to ${newScoreA}-${newScoreB}, winner: ${winnerId}`);
             const result = await updateBoutScoresMutation.mutateAsync({
                 boutId: bout.id,
                 scoreA: newScoreA,
@@ -214,21 +284,33 @@ const BoutOrderPage: React.FC = () => {
                 fencerAId: bout.fencerA.id!,
                 fencerBId: bout.fencerB.id!,
                 roundId,
-                poolId
+                poolId,
+                winnerId,
             });
+
             console.log(`Score alteration completed with result:`, result);
+
+            // Update the local bout state with the new scores and winner
+            const updatedBouts = bouts.map((b, i) => {
+                if (i === alterIndex) {
+                    return { ...b, scoreA: newScoreA, scoreB: newScoreB, winnerId };
+                }
+                return b;
+            });
+            setBouts(updatedBouts);
+
             setAlterModalVisible(false);
             setAlterIndex(null);
         } catch (error) {
-            console.error("Error updating bout scores:", error);
-            Alert.alert("Error", "Failed to update bout scores. Please try again.");
+            console.error('Error updating bout scores:', error);
+            Alert.alert('Error', 'Failed to update bout scores. Please try again.');
         }
     };
 
     // Open referee module - only called for referees
     const openRefModuleForBout = (index: number) => {
         if (!canScoreBouts) return;
-        
+
         const bout = bouts[index];
         navigation.navigate('RefereeModule', {
             boutIndex: index,
@@ -238,7 +320,32 @@ const BoutOrderPage: React.FC = () => {
             currentScore2: bout.scoreB,
             onSaveScores: async (score1: number, score2: number) => {
                 try {
-                    console.log(`Saving scores from ref module for bout ${bout.id}: ${score1}-${score2}`);
+                    // Handle tie case when returned from referee module
+                    if (score1 === score2) {
+                        // Store the scores temporarily
+                        const updatedBouts = bouts.map((b, i) => {
+                            if (i === index) {
+                                return { ...b, scoreA: score1, scoreB: score2 };
+                            }
+                            return b;
+                        });
+                        setBouts(updatedBouts);
+
+                        // Show tie resolution modal on next render
+                        setTimeout(() => {
+                            setTieBoutIndex(index);
+                            setSelectedWinnerId(null);
+                            setTieModalVisible(true);
+                        }, 500);
+                        return;
+                    }
+
+                    // If not a tie, set winner automatically
+                    const winnerId = score1 > score2 ? bout.fencerA.id : bout.fencerB.id;
+
+                    console.log(
+                        `Saving scores from ref module for bout ${bout.id}: ${score1}-${score2}, winner: ${winnerId}`
+                    );
                     const result = await updateBoutScoresMutation.mutateAsync({
                         boutId: bout.id,
                         scoreA: score1,
@@ -246,43 +353,174 @@ const BoutOrderPage: React.FC = () => {
                         fencerAId: bout.fencerA.id!,
                         fencerBId: bout.fencerB.id!,
                         roundId,
-                        poolId
+                        poolId,
+                        winnerId,
                     });
+
+                    // Update local bout state with the new scores and winner
+                    const updatedBouts = bouts.map((b, i) => {
+                        if (i === index) {
+                            return { ...b, scoreA: score1, scoreB: score2, winnerId };
+                        }
+                        return b;
+                    });
+                    setBouts(updatedBouts);
+
                     console.log(`Ref module score update completed with result:`, result);
                 } catch (error) {
-                    console.error("Error updating bout scores:", error);
+                    console.error('Error updating bout scores:', error);
                 }
             },
         });
     };
 
+    // Handle submitting tied bout with selected winner
+    const handleTieWinnerSubmit = async () => {
+        if (!canScoreBouts || tieBoutIndex === null || selectedWinnerId === null) {
+            setTieModalVisible(false);
+            return;
+        }
+
+        const bout = bouts[tieBoutIndex];
+
+        try {
+            console.log(
+                `Submitting tied bout ${bout.id} with scores ${bout.scoreA}-${bout.scoreB}, selected winner: ${selectedWinnerId}`
+            );
+
+            // Ensure winner ID is explicitly cast to a number to avoid type issues
+            const winnerIdAsNumber = Number(selectedWinnerId);
+            console.log(`Winner ID converted to number: ${winnerIdAsNumber}, type: ${typeof winnerIdAsNumber}`);
+
+            const result = await updateBoutScoresMutation.mutateAsync({
+                boutId: bout.id,
+                scoreA: bout.scoreA,
+                scoreB: bout.scoreB,
+                fencerAId: bout.fencerA.id!,
+                fencerBId: bout.fencerB.id!,
+                roundId,
+                poolId,
+                winnerId: winnerIdAsNumber,
+            });
+
+            console.log(`Tie resolution completed with result:`, result);
+
+            // Update local bout state with the winner ID
+            const updatedBouts = bouts.map((b, i) => {
+                if (i === tieBoutIndex) {
+                    console.log(`Updating local bout state for index ${i}, setting winnerId to ${winnerIdAsNumber}`);
+                    return { ...b, winnerId: winnerIdAsNumber, status: 'completed' };
+                }
+                return b;
+            });
+            setBouts(updatedBouts);
+
+            // Close the tie modal
+            setTieModalVisible(false);
+            setTieBoutIndex(null);
+            setSelectedWinnerId(null);
+        } catch (error) {
+            console.error('Error updating tied bout:', error);
+            Alert.alert('Error', 'Failed to update bout scores. Please try again.');
+        }
+    };
+    
+    // Handle resetting a bout from the alter scores screen
+    const handleResetBout = async () => {
+        if (!canScoreBouts || alterIndex === null) {
+            setAlterModalVisible(false);
+            return;
+        }
+
+        const bout = bouts[alterIndex];
+
+        try {
+            console.log(`Resetting bout ${bout.id} to pending status with no scores or winner`);
+
+            const result = await updateBoutScoresMutation.mutateAsync({
+                boutId: bout.id,
+                scoreA: 0,
+                scoreB: 0,
+                fencerAId: bout.fencerA.id!,
+                fencerBId: bout.fencerB.id!,
+                roundId,
+                poolId,
+                winnerId: null, // Explicitly setting winner to null to reset the bout
+            });
+
+            console.log(`Bout reset completed with result:`, result);
+
+            // Update local bout state to reset the bout
+            const updatedBouts = bouts.map((b, i) => {
+                if (i === alterIndex) {
+                    console.log(`Resetting local bout state for index ${i}`);
+                    return { ...b, scoreA: 0, scoreB: 0, winnerId: undefined, status: 'pending' };
+                }
+                return b;
+            });
+            setBouts(updatedBouts);
+
+            // Close the alter modal
+            setAlterModalVisible(false);
+            setAlterIndex(null);
+        } catch (error) {
+            console.error('Error resetting bout:', error);
+            Alert.alert('Error', 'Failed to reset bout. Please try again.');
+        }
+    };
+
     // Function to update every bout with random scores - only called for referees
     const handleRandomScores = async () => {
         if (!canScoreBouts) return;
-        
+
         // Update each bout with random scores.
-        const updatedBouts = await Promise.all(bouts.map(async (bout) => {
-            const randomScoreA = Math.floor(Math.random() * 6); // generates 0-5
-            const randomScoreB = Math.floor(Math.random() * 6);
-            try {
-                console.log(`Updating bout ${bout.id} with random scores: ${randomScoreA}-${randomScoreB}`);
-                const result = await updateBoutScoresMutation.mutateAsync({
-                    boutId: bout.id,
-                    scoreA: randomScoreA,
-                    scoreB: randomScoreB,
-                    fencerAId: bout.fencerA.id!,
-                    fencerBId: bout.fencerB.id!,
-                    roundId,
-                    poolId
-                });
-                console.log(`Random score update for bout ${bout.id} completed with result:`, result);
-                return { ...bout, scoreA: randomScoreA, scoreB: randomScoreB, status: 'completed' } as Bout;
-            } catch (error) {
-                console.error(`Error updating bout ${bout.id} with random scores:`, error);
-                Alert.alert("Error", `Failed to update bout ${bout.id} with random scores.`);
-                return bout;
-            }
-        }));
+        const updatedBouts = await Promise.all(
+            bouts.map(async bout => {
+                // Generate random scores - ensure they're not equal
+                let randomScoreA = Math.floor(Math.random() * 6); // generates 0-5
+                let randomScoreB = Math.floor(Math.random() * 6);
+
+                // In the rare case of a tie, add 1 to one of the scores (randomly)
+                if (randomScoreA === randomScoreB) {
+                    if (Math.random() > 0.5) {
+                        randomScoreA = Math.min(randomScoreA + 1, 5);
+                    } else {
+                        randomScoreB = Math.min(randomScoreB + 1, 5);
+                    }
+                }
+
+                // Determine winner based on the scores
+                const winnerId = randomScoreA > randomScoreB ? bout.fencerA.id : bout.fencerB.id;
+
+                try {
+                    console.log(
+                        `Updating bout ${bout.id} with random scores: ${randomScoreA}-${randomScoreB}, winner: ${winnerId}`
+                    );
+                    const result = await updateBoutScoresMutation.mutateAsync({
+                        boutId: bout.id,
+                        scoreA: randomScoreA,
+                        scoreB: randomScoreB,
+                        fencerAId: bout.fencerA.id!,
+                        fencerBId: bout.fencerB.id!,
+                        roundId,
+                        poolId,
+                        winnerId,
+                    });
+                    console.log(`Random score update for bout ${bout.id} completed with result:`, result);
+                    return {
+                        ...bout,
+                        scoreA: randomScoreA,
+                        scoreB: randomScoreB,
+                        status: 'completed',
+                        winnerId,
+                    } as Bout;
+                } catch (error) {
+                    console.error(`Error updating bout ${bout.id} with random scores:`, error);
+                    Alert.alert('Error', `Failed to update bout ${bout.id} with random scores.`);
+                    return bout;
+                }
+            })
+        );
         setBouts(updatedBouts);
     };
 
@@ -309,16 +547,6 @@ const BoutOrderPage: React.FC = () => {
     const renderBoutWithRank = (bout: Bout, index: number) => {
         const pendingRank = bout.status === 'pending' ? getPendingRank(bout) : null;
 
-        // Determine winner for completed bouts.
-        let winnerId: number | null = null;
-        if (bout.status === 'completed') {
-            if (bout.scoreA > bout.scoreB) {
-                winnerId = bout.fencerA.id ?? null;
-            } else if (bout.scoreB > bout.scoreA) {
-                winnerId = bout.fencerB.id ?? null;
-            }
-        }
-
         // Apply styling for pending bouts based on pendingRank.
         let styleOverride = {};
         if (bout.status === 'pending' && pendingRank !== null && canScoreBouts) {
@@ -342,7 +570,7 @@ const BoutOrderPage: React.FC = () => {
                     style={[styles.boutContainer, styleOverride]}
                 >
                     <View style={styles.fencerBox}>
-                        <Text style={[styles.fencerText, winnerId === bout.fencerA.id && styles.winnerText]}>
+                        <Text style={[styles.fencerText, bout.winnerId === bout.fencerA.id && styles.winnerText]}>
                             {`(${bout.fencerA.poolNumber || '-'}) ${bout.fencerA.fname}`}
                             {bout.fencerA.clubAbbreviation && ` (${bout.fencerA.clubAbbreviation})`}
                         </Text>
@@ -351,13 +579,13 @@ const BoutOrderPage: React.FC = () => {
                         {bout.status === 'completed' ? `${bout.scoreA}-${bout.scoreB}` : 'VS'}
                     </Text>
                     <View style={styles.fencerBox}>
-                        <Text style={[styles.fencerText, winnerId === bout.fencerB.id && styles.winnerText]}>
+                        <Text style={[styles.fencerText, bout.winnerId === bout.fencerB.id && styles.winnerText]}>
                             {`(${bout.fencerB.poolNumber || '-'}) ${bout.fencerB.fname}`}
                             {bout.fencerB.clubAbbreviation && ` (${bout.fencerB.clubAbbreviation})`}
                         </Text>
                     </View>
                 </TouchableOpacity>
-                
+
                 {/* Details panel when a bout is expanded */}
                 {expandedBoutIndex === index && (
                     <View style={styles.scoreEntryContainer}>
@@ -366,32 +594,36 @@ const BoutOrderPage: React.FC = () => {
                             <>
                                 <Text style={styles.scoreEntryTitle}>Enter Scores</Text>
                                 <View style={styles.scoreRow}>
-                                    <Text style={styles.scoreFencerLabel}>{bout.fencerA.lname}, {bout.fencerA.fname}:</Text>
+                                    <Text style={styles.scoreFencerLabel}>
+                                        {bout.fencerA.lname}, {bout.fencerA.fname}:
+                                    </Text>
                                     <TextInput
                                         style={styles.scoreInput}
                                         keyboardType="numeric"
                                         value={String(bout.scoreA)}
-                                        onChangeText={(val) => handleScoreChange(index, 'A', val)}
+                                        onChangeText={val => handleScoreChange(index, 'A', val)}
                                     />
                                 </View>
                                 <View style={styles.scoreRow}>
-                                    <Text style={styles.scoreFencerLabel}>{bout.fencerB.lname}, {bout.fencerB.fname}:</Text>
+                                    <Text style={styles.scoreFencerLabel}>
+                                        {bout.fencerB.lname}, {bout.fencerB.fname}:
+                                    </Text>
                                     <TextInput
                                         style={styles.scoreInput}
                                         keyboardType="numeric"
                                         value={String(bout.scoreB)}
-                                        onChangeText={(val) => handleScoreChange(index, 'B', val)}
+                                        onChangeText={val => handleScoreChange(index, 'B', val)}
                                     />
                                 </View>
                                 <View style={styles.scoreButtonsRow}>
-                                    <TouchableOpacity 
-                                        style={styles.enterButton} 
+                                    <TouchableOpacity
+                                        style={styles.enterButton}
                                         onPress={() => handleSubmitScores(index)}
                                     >
                                         <Text style={styles.enterButtonText}>Enter</Text>
                                     </TouchableOpacity>
-                                    <TouchableOpacity 
-                                        style={styles.refModuleButton} 
+                                    <TouchableOpacity
+                                        style={styles.refModuleButton}
                                         onPress={() => openRefModuleForBout(index)}
                                     >
                                         <Text style={styles.refModuleButtonText}>Ref Module</Text>
@@ -405,38 +637,62 @@ const BoutOrderPage: React.FC = () => {
                                     {bout.status === 'completed' ? 'Bout Result' : 'Pending Bout'}
                                 </Text>
                                 <View style={styles.fencerDetailRow}>
-                                    <Text style={[
-                                        styles.fencerDetailName, 
-                                        winnerId === bout.fencerA.id && styles.winnerDetailText
-                                    ]}>
+                                    <Text
+                                        style={[
+                                            styles.fencerDetailName,
+                                            bout.winnerId === bout.fencerA.id && styles.winnerDetailText,
+                                        ]}
+                                    >
                                         {bout.fencerA.lname}, {bout.fencerA.fname}
                                     </Text>
-                                    <Text style={[
-                                        styles.fencerDetailScore, 
-                                        winnerId === bout.fencerA.id && styles.winnerDetailText
-                                    ]}>
+                                    <Text
+                                        style={[
+                                            styles.fencerDetailScore,
+                                            bout.winnerId === bout.fencerA.id && styles.winnerDetailText,
+                                        ]}
+                                    >
                                         {bout.scoreA}
                                     </Text>
                                 </View>
                                 <View style={styles.fencerDetailRow}>
-                                    <Text style={[
-                                        styles.fencerDetailName, 
-                                        winnerId === bout.fencerB.id && styles.winnerDetailText
-                                    ]}>
+                                    <Text
+                                        style={[
+                                            styles.fencerDetailName,
+                                            bout.winnerId === bout.fencerB.id && styles.winnerDetailText,
+                                        ]}
+                                    >
                                         {bout.fencerB.lname}, {bout.fencerB.fname}
                                     </Text>
-                                    <Text style={[
-                                        styles.fencerDetailScore, 
-                                        winnerId === bout.fencerB.id && styles.winnerDetailText
-                                    ]}>
+                                    <Text
+                                        style={[
+                                            styles.fencerDetailScore,
+                                            bout.winnerId === bout.fencerB.id && styles.winnerDetailText,
+                                        ]}
+                                    >
                                         {bout.scoreB}
                                     </Text>
                                 </View>
                                 <Text style={styles.boutStatusText}>
-                                    {bout.status === 'completed' 
-                                        ? (winnerId ? `Winner: ${(winnerId === bout.fencerA.id ? bout.fencerA.lname : bout.fencerB.lname)}` : 'Tie') 
-                                        : 'Bout not yet scored'
-                                    }
+                                    {(() => {
+                                        // Debug logging for bout winner information
+                                        console.log(`Bout status check: id=${bout.id}, status=${bout.status}, winnerId=${bout.winnerId}, 
+                                                     scores: ${bout.scoreA}-${bout.scoreB}, 
+                                                     fencerA.id=${bout.fencerA.id}, fencerB.id=${bout.fencerB.id}`);
+
+                                        if (bout.status === 'completed') {
+                                            if (bout.winnerId) {
+                                                const winnerName =
+                                                    bout.winnerId === bout.fencerA.id
+                                                        ? bout.fencerA.lname
+                                                        : bout.fencerB.lname;
+                                                return `Winner: ${winnerName}`;
+                                            } else {
+                                                return 'No winner recorded';
+                                            }
+                                        } else {
+                                            return 'Bout not yet scored';
+                                        }
+                                    })()}
                                 </Text>
                             </View>
                         )}
@@ -453,21 +709,16 @@ const BoutOrderPage: React.FC = () => {
 
             {/* Header - double stripping toggle only shown to referees */}
             <View style={styles.header}>
-                <Text style={styles.headerTitle}>
-                    {canScoreBouts ? 'Referee Mode' : 'View Bouts'}
-                </Text>
+                <Text style={styles.headerTitle}>{canScoreBouts ? 'Referee Mode' : 'View Bouts'}</Text>
                 {canScoreBouts && (
-                    <TouchableOpacity
-                        style={styles.toggleButton}
-                        onPress={() => setDoubleStripping(prev => !prev)}
-                    >
+                    <TouchableOpacity style={styles.toggleButton} onPress={() => setDoubleStripping(prev => !prev)}>
                         <Text style={styles.toggleButtonText}>
                             {doubleStripping ? 'Double Stripping On' : 'Double Stripping Off'}
                         </Text>
                     </TouchableOpacity>
                 )}
             </View>
-            
+
             {/* Protected scores toggle only shown to referees */}
             {canScoreBouts && (
                 <View style={styles.toggleRow}>
@@ -479,11 +730,9 @@ const BoutOrderPage: React.FC = () => {
                     </TouchableOpacity>
                 </View>
             )}
-            
+
             <ScrollView contentContainerStyle={styles.container}>
-                <Text style={styles.title}>
-                    Pool Bouts
-                </Text>
+                <Text style={styles.title}>Pool Bouts</Text>
                 {bouts.map((bout, index) => renderBoutWithRank(bout, index))}
             </ScrollView>
 
@@ -518,19 +767,22 @@ const BoutOrderPage: React.FC = () => {
                             />
                         </View>
                         <View style={styles.scoreButtonsRow}>
-                            <TouchableOpacity 
-                                style={styles.enterButton} 
-                                onPress={handleAlterSave}
-                            >
+                            <TouchableOpacity style={styles.enterButton} onPress={handleAlterSave}>
                                 <Text style={styles.enterButtonText}>Save</Text>
                             </TouchableOpacity>
-                            <TouchableOpacity 
-                                style={[styles.enterButton, { backgroundColor: '#666' }]} 
+                            <TouchableOpacity
+                                style={[styles.enterButton, { backgroundColor: '#666' }]}
                                 onPress={() => setAlterModalVisible(false)}
                             >
                                 <Text style={styles.enterButtonText}>Cancel</Text>
                             </TouchableOpacity>
                         </View>
+                            <TouchableOpacity
+                                style={[styles.resetBoutButton]}
+                                onPress={handleResetBout}
+                            >
+                                <Text style={styles.resetBoutButtonText}>Reset Bout</Text>
+                            </TouchableOpacity>
                     </View>
                 </View>
             </Modal>
@@ -544,6 +796,66 @@ const BoutOrderPage: React.FC = () => {
                     </View>
                 </View>
             )}
+
+            {/* Tie Resolution Modal */}
+            <Modal visible={tieModalVisible} transparent animationType="fade">
+                <View style={styles.modalOverlay}>
+                    <View style={styles.alterModalContent}>
+                        <Text style={styles.alterModalTitle}>Select Winner for Tied Bout</Text>
+                        <Text style={styles.tieWarningText}>Bouts cannot end in a tie. Please select the winner:</Text>
+
+                        {tieBoutIndex !== null && (
+                            <>
+                                <TouchableOpacity
+                                    style={[
+                                        styles.winnerSelectButton,
+                                        selectedWinnerId === bouts[tieBoutIndex]?.fencerA.id &&
+                                            styles.winnerSelectButtonActive,
+                                    ]}
+                                    onPress={() => setSelectedWinnerId(bouts[tieBoutIndex].fencerA.id)}
+                                >
+                                    <Text style={styles.winnerSelectText}>
+                                        {bouts[tieBoutIndex].fencerA.lname}, {bouts[tieBoutIndex].fencerA.fname}
+                                    </Text>
+                                </TouchableOpacity>
+
+                                <TouchableOpacity
+                                    style={[
+                                        styles.winnerSelectButton,
+                                        selectedWinnerId === bouts[tieBoutIndex]?.fencerB.id &&
+                                            styles.winnerSelectButtonActive,
+                                    ]}
+                                    onPress={() => setSelectedWinnerId(bouts[tieBoutIndex].fencerB.id)}
+                                >
+                                    <Text style={styles.winnerSelectText}>
+                                        {bouts[tieBoutIndex].fencerB.lname}, {bouts[tieBoutIndex].fencerB.fname}
+                                    </Text>
+                                </TouchableOpacity>
+                            </>
+                        )}
+
+                        <View style={styles.scoreButtonsRow}>
+                            <TouchableOpacity
+                                style={[styles.enterButton, !selectedWinnerId && { opacity: 0.5 }]}
+                                onPress={handleTieWinnerSubmit}
+                                disabled={!selectedWinnerId}
+                            >
+                                <Text style={styles.enterButtonText}>Submit</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={[styles.enterButton, { backgroundColor: '#666' }]}
+                                onPress={() => {
+                                    setTieModalVisible(false);
+                                    setTieBoutIndex(null);
+                                    setSelectedWinnerId(null);
+                                }}
+                            >
+                                <Text style={styles.enterButtonText}>Cancel</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </View>
+            </Modal>
         </View>
     );
 };
@@ -782,6 +1094,44 @@ const styles = StyleSheet.create({
         textAlign: 'center',
         fontStyle: 'italic',
         color: darkGrey,
+    },
+    // New styles for tie resolution
+    tieWarningText: {
+        fontSize: 16,
+        marginVertical: 10,
+        textAlign: 'center',
+        color: red,
+    },
+    winnerSelectButton: {
+        backgroundColor: '#f0f0f0',
+        padding: 16,
+        borderRadius: 6,
+        marginVertical: 8,
+        borderWidth: 1,
+        borderColor: '#ccc',
+    },
+    winnerSelectButtonActive: {
+        backgroundColor: '#d0f0d0',
+        borderColor: green,
+        borderWidth: 2,
+    },
+    winnerSelectText: {
+        fontSize: 16,
+        fontWeight: '500',
+        textAlign: 'center',
+    },
+    resetBoutButton: {
+        backgroundColor: red,
+        paddingVertical: 8,
+        paddingHorizontal: 16,
+        borderRadius: 6,
+        alignItems: 'center',
+        marginTop: 16,
+    },
+    resetBoutButtonText: {
+        color: '#fff',
+        fontWeight: '600',
+        fontSize: 16,
     },
 });
 

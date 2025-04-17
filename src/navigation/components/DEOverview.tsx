@@ -19,22 +19,20 @@ interface DEOverviewProps {
  * Component that shows an overview of the DE bracket status
  */
 const DEOverview: React.FC<DEOverviewProps> = ({
-                                                   eventName,
-                                                   deFormat,
-                                                   totalFencers,
-                                                   tableSize,
-                                                   currentRound,
-                                                   totalRounds,
-                                                   remainingFencers,
-                                                   topSeeds = []
-                                               }) => {
+    eventName,
+    deFormat,
+    totalFencers,
+    tableSize,
+    currentRound,
+    totalRounds,
+    remainingFencers,
+    topSeeds = [],
+}) => {
     const [helpModalVisible, setHelpModalVisible] = useState(false);
 
     // Format name for display
     const formatDisplayName =
-        deFormat === 'single' ? 'Single Elimination' :
-            deFormat === 'double' ? 'Double Elimination' :
-                'Compass Draw';
+        deFormat === 'single' ? 'Single Elimination' : deFormat === 'double' ? 'Double Elimination' : 'Compass Draw';
 
     // Progress percentage through the tournament
     const progress = totalRounds > 0 ? ((currentRound - 1) / totalRounds) * 100 : 0;
@@ -45,10 +43,7 @@ const DEOverview: React.FC<DEOverviewProps> = ({
                 <Text style={styles.eventName}>{eventName}</Text>
                 <View style={styles.formatContainer}>
                     <Text style={styles.formatText}>{formatDisplayName}</Text>
-                    <TouchableOpacity
-                        style={styles.helpButton}
-                        onPress={() => setHelpModalVisible(true)}
-                    >
+                    <TouchableOpacity style={styles.helpButton} onPress={() => setHelpModalVisible(true)}>
                         <Text style={styles.helpButtonText}>?</Text>
                     </TouchableOpacity>
                 </View>
@@ -70,16 +65,16 @@ const DEOverview: React.FC<DEOverviewProps> = ({
                 </View>
                 <View style={styles.infoItem}>
                     <Text style={styles.infoLabel}>Round</Text>
-                    <Text style={styles.infoValue}>{currentRound} of {totalRounds}</Text>
+                    <Text style={styles.infoValue}>
+                        {currentRound} of {totalRounds}
+                    </Text>
                 </View>
             </View>
 
             {/* Progress bar */}
             <View style={styles.progressContainer}>
                 <View style={[styles.progressBar, { width: `${progress}%` }]} />
-                <Text style={styles.progressText}>
-                    {Math.round(progress)}% Complete
-                </Text>
+                <Text style={styles.progressText}>{Math.round(progress)}% Complete</Text>
             </View>
 
             {/* Top Seeds */}
@@ -87,7 +82,7 @@ const DEOverview: React.FC<DEOverviewProps> = ({
                 <View style={styles.topSeedsContainer}>
                     <Text style={styles.topSeedsTitle}>Top Seeds</Text>
                     <View style={styles.seedsList}>
-                        {topSeeds.slice(0, 4).map((seedInfo) => (
+                        {topSeeds.slice(0, 4).map(seedInfo => (
                             <View key={seedInfo.seed} style={styles.seedItem}>
                                 <Text style={styles.seedNumber}>{seedInfo.seed}</Text>
                                 <Text style={styles.seedFencer}>
@@ -99,11 +94,7 @@ const DEOverview: React.FC<DEOverviewProps> = ({
                 </View>
             )}
 
-            <DEHelpModal
-                visible={helpModalVisible}
-                onClose={() => setHelpModalVisible(false)}
-                format={deFormat}
-            />
+            <DEHelpModal visible={helpModalVisible} onClose={() => setHelpModalVisible(false)} format={deFormat} />
         </View>
     );
 };

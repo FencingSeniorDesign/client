@@ -23,18 +23,22 @@ const DEHelpModal: React.FC<DEHelpModalProps> = ({ visible, onClose, format }) =
                 return (
                     <>
                         <Text style={styles.helpTitle}>Single Elimination Format</Text>
-                        <Text style={styles.helpText}>
-                            In a single elimination tournament:
-                        </Text>
+                        <Text style={styles.helpText}>In a single elimination tournament:</Text>
                         <View style={styles.bulletList}>
-                            <Text style={styles.bulletPoint}>• Fencers are seeded according to their initial rankings.</Text>
-                            <Text style={styles.bulletPoint}>• Each fencer fences until they lose once, at which point they are eliminated.</Text>
-                            <Text style={styles.bulletPoint}>• The bracket is structured to delay matches between top seeds until later rounds.</Text>
-                            <Text style={styles.bulletPoint}>• If a fencer can't fence, their opponent receives a "bye" and advances automatically.</Text>
+                            <Text style={styles.bulletPoint}>
+                                • Fencers are seeded according to their initial rankings.
+                            </Text>
+                            <Text style={styles.bulletPoint}>
+                                • Each fencer fences until they lose once, at which point they are eliminated.
+                            </Text>
+                            <Text style={styles.bulletPoint}>
+                                • The bracket is structured to delay matches between top seeds until later rounds.
+                            </Text>
+                            <Text style={styles.bulletPoint}>
+                                • If a fencer can't fence, their opponent receives a "bye" and advances automatically.
+                            </Text>
                         </View>
-                        <Text style={styles.helpText}>
-                            The winner is the fencer who wins all their bouts.
-                        </Text>
+                        <Text style={styles.helpText}>The winner is the fencer who wins all their bouts.</Text>
                     </>
                 );
 
@@ -42,15 +46,23 @@ const DEHelpModal: React.FC<DEHelpModalProps> = ({ visible, onClose, format }) =
                 return (
                     <>
                         <Text style={styles.helpTitle}>Double Elimination Format</Text>
-                        <Text style={styles.helpText}>
-                            In a double elimination tournament:
-                        </Text>
+                        <Text style={styles.helpText}>In a double elimination tournament:</Text>
                         <View style={styles.bulletList}>
                             <Text style={styles.bulletPoint}>• Fencers start in the Winners Bracket.</Text>
-                            <Text style={styles.bulletPoint}>• When a fencer loses for the first time, they move to the Losers Bracket.</Text>
-                            <Text style={styles.bulletPoint}>• A second loss in either bracket eliminates the fencer completely.</Text>
-                            <Text style={styles.bulletPoint}>• The winner of the Losers Bracket faces the winner of the Winners Bracket in the Finals.</Text>
-                            <Text style={styles.bulletPoint}>• If the Losers Bracket winner defeats the Winners Bracket winner, a "bracket reset" bout is required (since the Winners Bracket winner now has one loss).</Text>
+                            <Text style={styles.bulletPoint}>
+                                • When a fencer loses for the first time, they move to the Losers Bracket.
+                            </Text>
+                            <Text style={styles.bulletPoint}>
+                                • A second loss in either bracket eliminates the fencer completely.
+                            </Text>
+                            <Text style={styles.bulletPoint}>
+                                • The winner of the Losers Bracket faces the winner of the Winners Bracket in the
+                                Finals.
+                            </Text>
+                            <Text style={styles.bulletPoint}>
+                                • If the Losers Bracket winner defeats the Winners Bracket winner, a "bracket reset"
+                                bout is required (since the Winners Bracket winner now has one loss).
+                            </Text>
                         </View>
                         <Text style={styles.helpText}>
                             This format gives fencers a second chance and is more forgiving of a single bad performance.
@@ -67,12 +79,20 @@ const DEHelpModal: React.FC<DEHelpModalProps> = ({ visible, onClose, format }) =
                         </Text>
                         <View style={styles.bulletList}>
                             <Text style={styles.bulletPoint}>• East: The main bracket (original seeding)</Text>
-                            <Text style={styles.bulletPoint}>• North: For fencers who lose in the first round of East</Text>
-                            <Text style={styles.bulletPoint}>• West: For fencers who lose in the second round of East</Text>
-                            <Text style={styles.bulletPoint}>• South: For fencers who lose in the first round of North</Text>
+                            <Text style={styles.bulletPoint}>
+                                • North: For fencers who lose in the first round of East
+                            </Text>
+                            <Text style={styles.bulletPoint}>
+                                • West: For fencers who lose in the second round of East
+                            </Text>
+                            <Text style={styles.bulletPoint}>
+                                • South: For fencers who lose in the first round of North
+                            </Text>
                         </View>
                         <Text style={styles.helpText}>
-                            This format ensures all fencers get to fence multiple bouts, regardless of their initial performance. It's particularly valuable for developmental tournaments and provides good classification opportunities.
+                            This format ensures all fencers get to fence multiple bouts, regardless of their initial
+                            performance. It's particularly valuable for developmental tournaments and provides good
+                            classification opportunities.
                         </Text>
                     </>
                 );
@@ -83,12 +103,7 @@ const DEHelpModal: React.FC<DEHelpModalProps> = ({ visible, onClose, format }) =
     };
 
     return (
-        <Modal
-            visible={visible}
-            transparent
-            animationType="slide"
-            onRequestClose={onClose}
-        >
+        <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
             <View style={styles.modalOverlay}>
                 <View style={styles.modalContent}>
                     <ScrollView style={styles.scrollContent}>
@@ -103,10 +118,7 @@ const DEHelpModal: React.FC<DEHelpModalProps> = ({ visible, onClose, format }) =
                         ))}
                     </ScrollView>
 
-                    <TouchableOpacity
-                        style={styles.closeButton}
-                        onPress={onClose}
-                    >
+                    <TouchableOpacity style={styles.closeButton} onPress={onClose}>
                         <Text style={styles.closeButtonText}>Close</Text>
                     </TouchableOpacity>
                 </View>
@@ -178,7 +190,7 @@ const styles = StyleSheet.create({
         color: '#fff',
         fontSize: 16,
         fontWeight: 'bold',
-    }
+    },
 });
 
 export default DEHelpModal;

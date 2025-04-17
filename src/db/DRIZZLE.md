@@ -20,11 +20,12 @@ Drizzle ORM is a TypeScript ORM that provides type-safe database queries. In thi
 Database tables are defined in `src/db/schema/index.ts`. Each table is defined using Drizzle's schema builders, such as `sqliteTable`, `text`, `integer`, etc.
 
 Example:
+
 ```typescript
 // Tournaments table
 export const tournaments = sqliteTable('Tournaments', {
-  name: text('name').primaryKey(),
-  iscomplete: integer('iscomplete', { mode: 'boolean' }).default(false),
+    name: text('name').primaryKey(),
+    iscomplete: integer('iscomplete', { mode: 'boolean' }).default(false),
 });
 ```
 
@@ -50,7 +51,7 @@ Examples:
 
 ```typescript
 // Creating a tournament
-await dbCreateTournament("My Tournament");
+await dbCreateTournament('My Tournament');
 
 // Listing ongoing tournaments
 const tournaments = await dbListOngoingTournaments();

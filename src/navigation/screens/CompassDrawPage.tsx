@@ -1,14 +1,6 @@
 // src/navigation/screens/CompassDrawPage.tsx
 import React, { useState, useEffect } from 'react';
-import {
-    View,
-    Text,
-    StyleSheet,
-    ScrollView,
-    TouchableOpacity,
-    ActivityIndicator,
-    Alert,
-} from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
 import { useRoute, RouteProp, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList, Event, Round } from '../navigation/types';
@@ -69,7 +61,6 @@ const CompassDrawPage: React.FC = () => {
                 setNorthBracket(north);
                 setWestBracket(west);
                 setSouthBracket(south);
-
             } catch (error) {
                 console.error('Error loading compass draw brackets:', error);
                 Alert.alert('Error', 'Failed to load bracket data');
@@ -104,13 +95,7 @@ const CompassDrawPage: React.FC = () => {
             onSaveScores: async (score1: number, score2: number) => {
                 try {
                     // Update bout scores and advance winner
-                    await dbUpdateDEBoutAndAdvanceWinner(
-                        bout.id,
-                        score1,
-                        score2,
-                        bout.lfencer,
-                        bout.rfencer
-                    );
+                    await dbUpdateDEBoutAndAdvanceWinner(bout.id, score1, score2, bout.lfencer, bout.rfencer);
 
                     // Refresh to show updated scores and advancement
                     setRefreshKey(prev => prev + 1);
@@ -138,42 +123,53 @@ const CompassDrawPage: React.FC = () => {
             .sort(([roundA], [roundB]) => parseInt(roundA) - parseInt(roundB))
             .map(([round, bouts]) => ({
                 round: parseInt(round),
-                bouts
+                bouts,
             }));
     };
 
     const renderBout = (bout: any, bracketType: BracketType) => {
         // Convert bracket types to match DEBoutCard's expected types
         const cardBracketType =
-            bracketType === 'east' ? 'winners' :
-                bracketType === 'north' || bracketType === 'west' ? 'losers' : 'compass';
+            bracketType === 'east'
+                ? 'winners'
+                : bracketType === 'north' || bracketType === 'west'
+                  ? 'losers'
+                  : 'compass';
 
         return (
             <DEBoutCard
                 key={bout.id}
                 id={bout.id}
-                fencerA={bout.lfencer ? {
-                    id: bout.lfencer,
-                    fname: bout.left_fname || '',
-                    lname: bout.left_lname || '',
-                    erating: 'U',
-                    eyear: 0,
-                    frating: 'U',
-                    fyear: 0,
-                    srating: 'U',
-                    syear: 0
-                } : undefined}
-                fencerB={bout.rfencer ? {
-                    id: bout.rfencer,
-                    fname: bout.right_fname || '',
-                    lname: bout.right_lname || '',
-                    erating: 'U',
-                    eyear: 0,
-                    frating: 'U',
-                    fyear: 0,
-                    srating: 'U',
-                    syear: 0
-                } : undefined}
+                fencerA={
+                    bout.lfencer
+                        ? {
+                              id: bout.lfencer,
+                              fname: bout.left_fname || '',
+                              lname: bout.left_lname || '',
+                              erating: 'U',
+                              eyear: 0,
+                              frating: 'U',
+                              fyear: 0,
+                              srating: 'U',
+                              syear: 0,
+                          }
+                        : undefined
+                }
+                fencerB={
+                    bout.rfencer
+                        ? {
+                              id: bout.rfencer,
+                              fname: bout.right_fname || '',
+                              lname: bout.right_lname || '',
+                              erating: 'U',
+                              eyear: 0,
+                              frating: 'U',
+                              fyear: 0,
+                              srating: 'U',
+                              syear: 0,
+                          }
+                        : undefined
+                }
                 scoreA={bout.left_score !== null ? bout.left_score : undefined}
                 scoreB={bout.right_score !== null ? bout.right_score : undefined}
                 seedA={bout.seed_left}
@@ -209,15 +205,11 @@ const CompassDrawPage: React.FC = () => {
                     <>
                         {groupedEast.map(group => (
                             <View key={`east-${group.round}`} style={styles.roundContainer}>
-                                <Text style={styles.roundTitle}>
-                                    East Round {group.round}
-                                </Text>
+                                <Text style={styles.roundTitle}>East Round {group.round}</Text>
                                 {group.bouts.map(bout => renderBout(bout, 'east'))}
                             </View>
                         ))}
-                        {groupedEast.length === 0 && (
-                            <Text style={styles.emptyText}>No bouts in East bracket</Text>
-                        )}
+                        {groupedEast.length === 0 && <Text style={styles.emptyText}>No bouts in East bracket</Text>}
                     </>
                 );
             case 'north':
@@ -225,9 +217,7 @@ const CompassDrawPage: React.FC = () => {
                     <>
                         {groupedNorth.map(group => (
                             <View key={`north-${group.round}`} style={styles.roundContainer}>
-                                <Text style={styles.roundTitle}>
-                                    North Round {group.round}
-                                </Text>
+                                <Text style={styles.roundTitle}>North Round {group.round}</Text>
                                 {group.bouts.map(bout => renderBout(bout, 'north'))}
                             </View>
                         ))}
@@ -241,15 +231,11 @@ const CompassDrawPage: React.FC = () => {
                     <>
                         {groupedWest.map(group => (
                             <View key={`west-${group.round}`} style={styles.roundContainer}>
-                                <Text style={styles.roundTitle}>
-                                    West Round {group.round}
-                                </Text>
+                                <Text style={styles.roundTitle}>West Round {group.round}</Text>
                                 {group.bouts.map(bout => renderBout(bout, 'west'))}
                             </View>
                         ))}
-                        {groupedWest.length === 0 && (
-                            <Text style={styles.emptyText}>No bouts in West bracket yet</Text>
-                        )}
+                        {groupedWest.length === 0 && <Text style={styles.emptyText}>No bouts in West bracket yet</Text>}
                     </>
                 );
             case 'south':
@@ -257,9 +243,7 @@ const CompassDrawPage: React.FC = () => {
                     <>
                         {groupedSouth.map(group => (
                             <View key={`south-${group.round}`} style={styles.roundContainer}>
-                                <Text style={styles.roundTitle}>
-                                    South Round {group.round}
-                                </Text>
+                                <Text style={styles.roundTitle}>South Round {group.round}</Text>
                                 {group.bouts.map(bout => renderBout(bout, 'south'))}
                             </View>
                         ))}
@@ -280,33 +264,22 @@ const CompassDrawPage: React.FC = () => {
 
             {/* Tab selector */}
             <View style={styles.tabContainer}>
-                {(['east', 'north', 'west', 'south'] as BracketType[]).map((direction) => (
+                {(['east', 'north', 'west', 'south'] as BracketType[]).map(direction => (
                     <TouchableOpacity
                         key={direction}
-                        style={[
-                            styles.tab,
-                            selectedTab === direction && styles.activeTab,
-                            styles[`${direction}Tab`]
-                        ]}
+                        style={[styles.tab, selectedTab === direction && styles.activeTab, styles[`${direction}Tab`]]}
                         onPress={() => setSelectedTab(direction)}
                     >
-                        <Text style={[
-                            styles.tabText,
-                            selectedTab === direction && styles.activeTabText
-                        ]}>
+                        <Text style={[styles.tabText, selectedTab === direction && styles.activeTabText]}>
                             {direction.charAt(0).toUpperCase() + direction.slice(1)}
                         </Text>
                     </TouchableOpacity>
                 ))}
             </View>
 
-            <Text style={styles.directionDescription}>
-                {getCompassDirectionName(selectedTab)}
-            </Text>
+            <Text style={styles.directionDescription}>{getCompassDirectionName(selectedTab)}</Text>
 
-            <ScrollView style={styles.bracketContainer}>
-                {getCurrentBracketView()}
-            </ScrollView>
+            <ScrollView style={styles.bracketContainer}>{getCurrentBracketView()}</ScrollView>
         </View>
     );
 };
@@ -399,7 +372,7 @@ const styles = StyleSheet.create({
         fontSize: 16,
         color: '#666',
         fontStyle: 'italic',
-    }
+    },
 });
 
 export default CompassDrawPage;

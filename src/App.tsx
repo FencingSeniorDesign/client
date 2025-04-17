@@ -7,7 +7,7 @@ import { Navigation } from './navigation';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { setupTournamentSync } from './data/TournamentDataHooks';
-import { initializeDatabase } from "./db/DrizzleClient";
+import { initializeDatabase } from './db/DrizzleClient';
 import tournamentServer from './networking/TournamentServer';
 import { AbilityProvider } from './rbac/AbilityContext';
 
@@ -32,10 +32,7 @@ setupTournamentSync(queryClient);
 // Share the queryClient with the TournamentServer for server-side cache invalidation
 tournamentServer.setQueryClient(queryClient);
 
-Asset.loadAsync([
-    ...NavigationAssets,
-    require('./assets/logo.png'),
-]);
+Asset.loadAsync([...NavigationAssets, require('./assets/logo.png')]);
 
 SplashScreen.preventAutoHideAsync();
 

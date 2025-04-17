@@ -48,7 +48,7 @@ export function generateDoubleEliminationStructure(fencerCount: number): {
             round: 1,
             position: i + 1,
             nextBoutId: Math.floor(i / 2) + boutId,
-            loserNextBoutId: tableSize / 2 + boutId // Losers go to the losers bracket
+            loserNextBoutId: tableSize / 2 + boutId, // Losers go to the losers bracket
         });
     }
 
@@ -56,9 +56,8 @@ export function generateDoubleEliminationStructure(fencerCount: number): {
     for (let round = 2; round <= totalWinnersRounds; round++) {
         const boutsInRound = tableSize / Math.pow(2, round);
         for (let i = 0; i < boutsInRound; i++) {
-            const nextBoutId = round < totalWinnersRounds
-                ? Math.floor(i / 2) + boutId + boutsInRound
-                : boutId + boutsInRound + i; // Last round winners go to finals
+            const nextBoutId =
+                round < totalWinnersRounds ? Math.floor(i / 2) + boutId + boutsInRound : boutId + boutsInRound + i; // Last round winners go to finals
 
             const losersNextBoutId = boutId + tableSize - 1; // Losers go to appropriate spot in losers bracket
 
@@ -68,7 +67,7 @@ export function generateDoubleEliminationStructure(fencerCount: number): {
                 round: round,
                 position: i + 1,
                 nextBoutId,
-                loserNextBoutId: losersNextBoutId
+                loserNextBoutId: losersNextBoutId,
             });
         }
     }
@@ -84,7 +83,7 @@ export function generateDoubleEliminationStructure(fencerCount: number): {
             bracket: 'losers',
             round: 1,
             position: i + 1,
-            nextBoutId: boutId + tableSize / 4
+            nextBoutId: boutId + tableSize / 4,
         });
     }
 
@@ -95,16 +94,14 @@ export function generateDoubleEliminationStructure(fencerCount: number): {
         const boutsInRound = tableSize / Math.pow(2, Math.ceil(round / 2) + 1);
 
         for (let i = 0; i < boutsInRound; i++) {
-            const nextBoutId = round < totalLosersRounds
-                ? boutId + boutsInRound
-                : boutId + boutsInRound; // Last round winner goes to finals
+            const nextBoutId = round < totalLosersRounds ? boutId + boutsInRound : boutId + boutsInRound; // Last round winner goes to finals
 
             losersBracket.push({
                 id: boutId++,
                 bracket: 'losers',
                 round,
                 position: i + 1,
-                nextBoutId
+                nextBoutId,
             });
         }
     }
@@ -116,14 +113,14 @@ export function generateDoubleEliminationStructure(fencerCount: number): {
             bracket: 'finals',
             round: 1,
             position: 1,
-            nextBoutId: boutId // This will be the bracket reset match if needed
+            nextBoutId: boutId, // This will be the bracket reset match if needed
         },
         {
             id: boutId,
             bracket: 'finals',
             round: 2,
-            position: 1
-        }
+            position: 1,
+        },
     ];
 
     return { winnersBracket, losersBracket, finalsBracket };
@@ -195,11 +192,7 @@ export function advanceFencerInBracket(
     const { winnersBracket, losersBracket, finalsBracket } = bracket;
 
     // Find the current bout
-    const currentBout = [
-        ...winnersBracket,
-        ...losersBracket,
-        ...finalsBracket
-    ].find(bout => bout.id === boutId);
+    const currentBout = [...winnersBracket, ...losersBracket, ...finalsBracket].find(bout => bout.id === boutId);
 
     if (!currentBout) {
         console.error(`Bout with ID ${boutId} not found`);
@@ -217,11 +210,9 @@ export function advanceFencerInBracket(
 
     // Find the next bout for the winner
     if (currentBout.nextBoutId) {
-        const nextBout = [
-            ...winnersBracket,
-            ...losersBracket,
-            ...finalsBracket
-        ].find(bout => bout.id === currentBout.nextBoutId);
+        const nextBout = [...winnersBracket, ...losersBracket, ...finalsBracket].find(
+            bout => bout.id === currentBout.nextBoutId
+        );
 
         if (nextBout) {
             // Place the winner in the next bout

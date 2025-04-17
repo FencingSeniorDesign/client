@@ -13,19 +13,19 @@ export const db = drizzle(expoDb, { schema });
 
 // Initialize the database
 export async function initializeDatabase() {
-  try {
-    console.log("Database initializing");
+    try {
+        console.log('Database initializing');
 
-    // Apply the SQL migrations to create all tables
-    // Create tables manually since we can't use dynamic imports in React Native
-    await db.run(sql`
+        // Apply the SQL migrations to create all tables
+        // Create tables manually since we can't use dynamic imports in React Native
+        await db.run(sql`
       CREATE TABLE IF NOT EXISTS Tournaments (
         name text PRIMARY KEY NOT NULL,
         iscomplete integer DEFAULT false
       );
     `);
-    
-    await db.run(sql`
+
+        await db.run(sql`
       CREATE TABLE IF NOT EXISTS Events (
         id integer PRIMARY KEY AUTOINCREMENT NOT NULL,
         tname text NOT NULL,
@@ -37,18 +37,18 @@ export async function initializeDatabase() {
         FOREIGN KEY (tname) REFERENCES Tournaments(name) ON UPDATE no action ON DELETE no action
       );
     `);
-    
-    // Create Clubs table if it doesn't exist
-    await db.run(sql`
+
+        // Create Clubs table if it doesn't exist
+        await db.run(sql`
       CREATE TABLE IF NOT EXISTS Clubs (
         id integer PRIMARY KEY AUTOINCREMENT NOT NULL,
         name text NOT NULL UNIQUE,
         abbreviation text
       );
     `);
-    
-    // Create Fencers table with correct columns
-    await db.run(sql`
+
+        // Create Fencers table with correct columns
+        await db.run(sql`
       CREATE TABLE IF NOT EXISTS Fencers (
         id integer PRIMARY KEY AUTOINCREMENT NOT NULL,
         fname text NOT NULL,
@@ -66,17 +66,17 @@ export async function initializeDatabase() {
         FOREIGN KEY (clubid) REFERENCES Clubs(id) ON UPDATE no action ON DELETE no action
       );
     `);
-    
-    // Create indexes for faster club lookups
-    await db.run(sql`
+
+        // Create indexes for faster club lookups
+        await db.run(sql`
       CREATE INDEX IF NOT EXISTS idx_fencers_clubid ON Fencers (clubid);
     `);
-    
-    await db.run(sql`
+
+        await db.run(sql`
       CREATE INDEX IF NOT EXISTS idx_clubs_name ON Clubs (name);
     `);
-    
-    await db.run(sql`
+
+        await db.run(sql`
       CREATE TABLE IF NOT EXISTS Rounds (
         id integer PRIMARY KEY AUTOINCREMENT NOT NULL,
         eventid integer NOT NULL,
@@ -95,8 +95,8 @@ export async function initializeDatabase() {
         FOREIGN KEY (eventid) REFERENCES Events(id) ON UPDATE no action ON DELETE no action
       );
     `);
-    
-    await db.run(sql`
+
+        await db.run(sql`
       CREATE TABLE IF NOT EXISTS Bouts (
         id integer PRIMARY KEY AUTOINCREMENT NOT NULL,
         lfencer integer,
@@ -113,8 +113,8 @@ export async function initializeDatabase() {
         FOREIGN KEY (roundid) REFERENCES Rounds(id) ON UPDATE no action ON DELETE no action
       );
     `);
-    
-    await db.run(sql`
+
+        await db.run(sql`
       CREATE TABLE IF NOT EXISTS FencerBouts (
         boutid integer,
         fencerid integer,
@@ -124,8 +124,8 @@ export async function initializeDatabase() {
         FOREIGN KEY (fencerid) REFERENCES Fencers(id) ON UPDATE no action ON DELETE no action
       );
     `);
-    
-    await db.run(sql`
+
+        await db.run(sql`
       CREATE TABLE IF NOT EXISTS FencerEvents (
         fencerid integer NOT NULL,
         eventid integer NOT NULL,
@@ -134,8 +134,8 @@ export async function initializeDatabase() {
         FOREIGN KEY (eventid) REFERENCES Events(id) ON UPDATE no action ON DELETE no action
       );
     `);
-    
-    await db.run(sql`
+
+        await db.run(sql`
       CREATE TABLE IF NOT EXISTS Officials (
         id integer PRIMARY KEY AUTOINCREMENT NOT NULL,
         fname text NOT NULL,
@@ -144,8 +144,8 @@ export async function initializeDatabase() {
         device_id text
       );
     `);
-    
-    await db.run(sql`
+
+        await db.run(sql`
       CREATE TABLE IF NOT EXISTS OfficialEvents (
         officialid integer NOT NULL,
         eventid integer NOT NULL,
@@ -154,8 +154,8 @@ export async function initializeDatabase() {
         FOREIGN KEY (eventid) REFERENCES Events(id) ON UPDATE no action ON DELETE no action
       );
     `);
-    
-    await db.run(sql`
+
+        await db.run(sql`
       CREATE TABLE IF NOT EXISTS Referees (
         id integer PRIMARY KEY AUTOINCREMENT NOT NULL,
         fname text NOT NULL,
@@ -164,8 +164,8 @@ export async function initializeDatabase() {
         device_id text
       );
     `);
-    
-    await db.run(sql`
+
+        await db.run(sql`
       CREATE TABLE IF NOT EXISTS RefereeEvents (
         refereeid integer NOT NULL,
         eventid integer NOT NULL,
@@ -174,8 +174,8 @@ export async function initializeDatabase() {
         FOREIGN KEY (eventid) REFERENCES Events(id) ON UPDATE no action ON DELETE no action
       );
     `);
-    
-    await db.run(sql`
+
+        await db.run(sql`
       CREATE TABLE IF NOT EXISTS FencerPoolAssignment (
         roundid integer NOT NULL,
         poolid integer NOT NULL,
@@ -186,8 +186,8 @@ export async function initializeDatabase() {
         FOREIGN KEY (fencerid) REFERENCES Fencers(id) ON UPDATE no action ON DELETE no action
       );
     `);
-    
-    await db.run(sql`
+
+        await db.run(sql`
       CREATE TABLE IF NOT EXISTS SeedingFromRoundResults (
         id integer PRIMARY KEY AUTOINCREMENT NOT NULL,
         fencerid integer,
@@ -199,8 +199,8 @@ export async function initializeDatabase() {
         FOREIGN KEY (roundid) REFERENCES Rounds(id) ON UPDATE no action ON DELETE no action
       );
     `);
-    
-    await db.run(sql`
+
+        await db.run(sql`
       CREATE TABLE IF NOT EXISTS DEBracketBouts (
         id integer PRIMARY KEY AUTOINCREMENT NOT NULL,
         roundid integer,
@@ -216,8 +216,8 @@ export async function initializeDatabase() {
         FOREIGN KEY (loser_next_bout_id) REFERENCES Bouts(id) ON UPDATE no action ON DELETE no action
       );
     `);
-    
-    await db.run(sql`
+
+        await db.run(sql`
       CREATE TABLE IF NOT EXISTS DETable (
         id integer PRIMARY KEY AUTOINCREMENT NOT NULL,
         roundid integer,
@@ -226,8 +226,8 @@ export async function initializeDatabase() {
       );
     `);
 
-    // Create triggers after tables exist
-    await db.run(sql`
+        // Create triggers after tables exist
+        await db.run(sql`
       CREATE TRIGGER IF NOT EXISTS create_fencer_bouts_after_bout_insert
       AFTER INSERT
       ON Bouts
@@ -238,10 +238,10 @@ export async function initializeDatabase() {
         VALUES (NEW.id, NEW.rfencer);
       END;
     `);
-    
-    console.log("Database initialized successfully");
-  } catch (error) {
-    console.error("Error initializing database:", error);
-    throw error;
-  }
+
+        console.log('Database initialized successfully');
+    } catch (error) {
+        console.error('Error initializing database:', error);
+        throw error;
+    }
 }

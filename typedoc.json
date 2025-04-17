@@ -1,19 +1,19 @@
 {
-  "entryPoints": ["src"],
-  "out": "docs",
-  "exclude": ["**/node_modules/**", "**/assets/**"],
-  "excludePrivate": true,
-  "excludeProtected": true,
-  "excludeExternals": true,
-  "theme": "default",
-  "name": "TournaFence",
-  "includeVersion": true,
-  "hideGenerator": true,
-  "readme": "README.md",
-  "categorizeByGroup": true,
-  "searchInComments": true,
-  "validation": {
-    "invalidLink": true,
-    "notDocumented": true
-  }
+    "entryPoints": ["src"],
+    "out": "docs",
+    "exclude": ["**/node_modules/**", "**/assets/**"],
+    "excludePrivate": true,
+    "excludeProtected": true,
+    "excludeExternals": true,
+    "theme": "default",
+    "name": "TournaFence",
+    "includeVersion": true,
+    "hideGenerator": true,
+    "readme": "README.md",
+    "categorizeByGroup": true,
+    "searchInComments": true,
+    "validation": {
+        "invalidLink": true,
+        "notDocumented": true
+    }
 }

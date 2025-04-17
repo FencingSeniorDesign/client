@@ -3,6 +3,7 @@
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Build/Run Commands
+
 - `npm start` - Start the development server
 - `npm run android` - Run on Android device/emulator
 - `npm run ios` - Run on iOS simulator (macOS only)
@@ -13,12 +14,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `npm run drizzle:studio` - Run Drizzle Studio
 
 ## Code Style
+
 - Use TypeScript strictly with proper typing
 - Follow Prettier/ESLint configurations:
-  - 2 space indentation
-  - Single quotes
-  - Max line length: 80 chars
-  - Arrow function syntax for components
+    - 2 space indentation
+    - Single quotes
+    - Max line length: 80 chars
+    - Arrow function syntax for components
 - Import ordering: React/libraries first, then project imports
 - Use functional components with hooks
 - Define component props with TypeScript interfaces
@@ -26,6 +28,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Use named exports/imports when possible
 
 ## Project Structure
+
 - `src/` - Main application code
 - `src/components/` - Reusable React components
 - `src/navigation/` - Navigation configuration

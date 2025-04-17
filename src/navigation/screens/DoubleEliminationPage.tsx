@@ -1,14 +1,6 @@
 // src/navigation/screens/DoubleEliminationPage.tsx
 import React, { useState, useEffect } from 'react';
-import {
-    View,
-    Text,
-    StyleSheet,
-    ScrollView,
-    TouchableOpacity,
-    ActivityIndicator,
-    Alert,
-} from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
 import { useRoute, RouteProp, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList, Event, Round } from '../navigation/types';
@@ -65,7 +57,6 @@ const DoubleEliminationPage: React.FC = () => {
                 setWinnersBracket(winners);
                 setLosersBracket(losers);
                 setFinalsBracket(finals);
-
             } catch (error) {
                 console.error('Error loading double elimination brackets:', error);
                 Alert.alert('Error', 'Failed to load bracket data');
@@ -77,7 +68,7 @@ const DoubleEliminationPage: React.FC = () => {
         fetchBrackets();
     }, [event, roundId, refreshKey]);
 
-// Modified handleBoutPress function for DoubleEliminationPage.tsx
+    // Modified handleBoutPress function for DoubleEliminationPage.tsx
 
     const handleBoutPress = (bout: any) => {
         // First check if this is a bye match (one fencer present, one missing)
@@ -106,13 +97,7 @@ const DoubleEliminationPage: React.FC = () => {
             onSaveScores: async (score1: number, score2: number) => {
                 try {
                     // Update bout scores and advance winner
-                    await dbUpdateDEBoutAndAdvanceWinner(
-                        bout.id,
-                        score1,
-                        score2,
-                        bout.lfencer,
-                        bout.rfencer
-                    );
+                    await dbUpdateDEBoutAndAdvanceWinner(bout.id, score1, score2, bout.lfencer, bout.rfencer);
 
                     // Refresh to show updated scores and advancement
                     setRefreshKey(prev => prev + 1);
@@ -140,11 +125,11 @@ const DoubleEliminationPage: React.FC = () => {
             .sort(([roundA], [roundB]) => parseInt(roundA) - parseInt(roundB))
             .map(([round, bouts]) => ({
                 round: parseInt(round),
-                bouts
+                bouts,
             }));
     };
 
-// Modified renderBout function for DoubleEliminationPage.tsx
+    // Modified renderBout function for DoubleEliminationPage.tsx
 
     const renderBout = (bout: any, bracketType: 'winners' | 'losers' | 'finals') => {
         // Determine if this is a bye match (one fencer present, one missing)
@@ -159,28 +144,36 @@ const DoubleEliminationPage: React.FC = () => {
             <DEBoutCard
                 key={bout.id}
                 id={bout.id}
-                fencerA={bout.lfencer ? {
-                    id: bout.lfencer,
-                    fname: bout.left_fname || '',
-                    lname: bout.left_lname || '',
-                    erating: 'U',
-                    eyear: 0,
-                    frating: 'U',
-                    fyear: 0,
-                    srating: 'U',
-                    syear: 0
-                } : undefined}
-                fencerB={bout.rfencer ? {
-                    id: bout.rfencer,
-                    fname: bout.right_fname || '',
-                    lname: bout.right_lname || '',
-                    erating: 'U',
-                    eyear: 0,
-                    frating: 'U',
-                    fyear: 0,
-                    srating: 'U',
-                    syear: 0
-                } : undefined}
+                fencerA={
+                    bout.lfencer
+                        ? {
+                              id: bout.lfencer,
+                              fname: bout.left_fname || '',
+                              lname: bout.left_lname || '',
+                              erating: 'U',
+                              eyear: 0,
+                              frating: 'U',
+                              fyear: 0,
+                              srating: 'U',
+                              syear: 0,
+                          }
+                        : undefined
+                }
+                fencerB={
+                    bout.rfencer
+                        ? {
+                              id: bout.rfencer,
+                              fname: bout.right_fname || '',
+                              lname: bout.right_lname || '',
+                              erating: 'U',
+                              eyear: 0,
+                              frating: 'U',
+                              fyear: 0,
+                              srating: 'U',
+                              syear: 0,
+                          }
+                        : undefined
+                }
                 scoreA={bout.left_score !== null ? bout.left_score : undefined}
                 scoreB={bout.right_score !== null ? bout.right_score : undefined}
                 seedA={bout.seed_left}
@@ -235,9 +228,7 @@ const DoubleEliminationPage: React.FC = () => {
                     style={[styles.tab, selectedTab === 'finals' && styles.activeTab]}
                     onPress={() => setSelectedTab('finals')}
                 >
-                    <Text style={[styles.tabText, selectedTab === 'finals' && styles.activeTabText]}>
-                        Finals
-                    </Text>
+                    <Text style={[styles.tabText, selectedTab === 'finals' && styles.activeTabText]}>Finals</Text>
                 </TouchableOpacity>
             </View>
 
@@ -246,9 +237,7 @@ const DoubleEliminationPage: React.FC = () => {
                     <>
                         {groupedWinners.map(group => (
                             <View key={`winners-${group.round}`} style={styles.roundContainer}>
-                                <Text style={styles.roundTitle}>
-                                    Winners Round {group.round}
-                                </Text>
+                                <Text style={styles.roundTitle}>Winners Round {group.round}</Text>
                                 {group.bouts.map(bout => renderBout(bout, 'winners'))}
                             </View>
                         ))}
@@ -262,9 +251,7 @@ const DoubleEliminationPage: React.FC = () => {
                     <>
                         {groupedLosers.map(group => (
                             <View key={`losers-${group.round}`} style={styles.roundContainer}>
-                                <Text style={styles.roundTitle}>
-                                    Losers Round {group.round}
-                                </Text>
+                                <Text style={styles.roundTitle}>Losers Round {group.round}</Text>
                                 {group.bouts.map(bout => renderBout(bout, 'losers'))}
                             </View>
                         ))}
@@ -278,15 +265,11 @@ const DoubleEliminationPage: React.FC = () => {
                     <>
                         {groupedFinals.map(group => (
                             <View key={`finals-${group.round}`} style={styles.roundContainer}>
-                                <Text style={styles.roundTitle}>
-                                    {group.round === 1 ? 'Finals' : 'Bracket Reset'}
-                                </Text>
+                                <Text style={styles.roundTitle}>{group.round === 1 ? 'Finals' : 'Bracket Reset'}</Text>
                                 {group.bouts.map(bout => renderBout(bout, 'finals'))}
                             </View>
                         ))}
-                        {groupedFinals.length === 0 && (
-                            <Text style={styles.emptyText}>Finals not available yet</Text>
-                        )}
+                        {groupedFinals.length === 0 && <Text style={styles.emptyText}>Finals not available yet</Text>}
                     </>
                 )}
             </ScrollView>
@@ -365,7 +348,7 @@ const styles = StyleSheet.create({
         fontSize: 16,
         color: '#666',
         fontStyle: 'italic',
-    }
+    },
 });
 
 export default DoubleEliminationPage;

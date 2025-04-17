@@ -1,12 +1,5 @@
 import React from 'react';
-import {
-    Modal,
-    View,
-    Text,
-    Pressable,
-    StyleSheet,
-    TextInput,
-} from 'react-native';
+import { Modal, View, Text, Pressable, StyleSheet, TextInput } from 'react-native';
 
 interface CustomTimeModalProps {
     visible: boolean;
@@ -24,19 +17,19 @@ interface CustomTimeModalProps {
 }
 
 export function CustomTimeModal({
-                                    visible,
-                                    onClose,
-                                    onSetTime,
-                                    onSetCustomTime,
-                                    customMinutes,
-                                    customSeconds,
-                                    setCustomMinutes,
-                                    setCustomSeconds,
-                                    onKawaiiMode,
-                                    onRevertLastPoint,
-                                    kawaiiMode = false,
-                                    canRevertLastPoint = false,
-                                }: CustomTimeModalProps) {
+    visible,
+    onClose,
+    onSetTime,
+    onSetCustomTime,
+    customMinutes,
+    customSeconds,
+    setCustomMinutes,
+    setCustomSeconds,
+    onKawaiiMode,
+    onRevertLastPoint,
+    kawaiiMode = false,
+    canRevertLastPoint = false,
+}: CustomTimeModalProps) {
     const handleCustomTime = () => {
         const minutes = parseInt(customMinutes) || 0;
         const seconds = parseInt(customSeconds) || 0;
@@ -44,16 +37,11 @@ export function CustomTimeModal({
     };
 
     // Determine colors for preset and cancel buttons.
-    const buttonBackgroundColor = kawaiiMode ? "#ff69b4" : "#001f3f";
-    const cancelButtonBackgroundColor = kawaiiMode ? "#ba55d3" : "#FF3B30";
+    const buttonBackgroundColor = kawaiiMode ? '#ff69b4' : '#001f3f';
+    const cancelButtonBackgroundColor = kawaiiMode ? '#ba55d3' : '#FF3B30';
 
     return (
-        <Modal
-            animationType="slide"
-            transparent={true}
-            visible={visible}
-            onRequestClose={onClose}
-        >
+        <Modal animationType="slide" transparent={true} visible={visible} onRequestClose={onClose}>
             <View style={styles.modalContainer}>
                 <View style={styles.modalContent}>
                     <Text style={styles.modalTitle}>Set Timer Duration</Text>
@@ -128,14 +116,12 @@ export function CustomTimeModal({
                         <Pressable
                             style={({ pressed }) => [
                                 styles.modalButton,
-                                { backgroundColor: "#ff69b4" }, // Always pink for Kawaii Mode
+                                { backgroundColor: '#ff69b4' }, // Always pink for Kawaii Mode
                                 pressed && { opacity: 0.6 },
                             ]}
                             onPress={onKawaiiMode}
                         >
-                            <Text style={[styles.modalButtonText, styles.kawaiiButtonText]}>
-                                Kawaii Mode
-                            </Text>
+                            <Text style={[styles.modalButtonText, styles.kawaiiButtonText]}>Kawaii Mode</Text>
                         </Pressable>
                     )}
 
@@ -143,18 +129,20 @@ export function CustomTimeModal({
                         <Pressable
                             style={({ pressed }) => [
                                 styles.modalButton,
-                                { backgroundColor: "#CCAA00" }, // Darker yellow for revert
+                                { backgroundColor: '#CCAA00' }, // Darker yellow for revert
                                 pressed && { opacity: 0.6 },
-                                !canRevertLastPoint && styles.disabledButton
+                                !canRevertLastPoint && styles.disabledButton,
                             ]}
                             onPress={onRevertLastPoint}
                             disabled={!canRevertLastPoint}
                         >
-                            <Text style={[
-                                styles.modalButtonText, 
-                                { color: 'black' },
-                                !canRevertLastPoint && styles.disabledButtonText
-                            ]}>
+                            <Text
+                                style={[
+                                    styles.modalButtonText,
+                                    { color: 'black' },
+                                    !canRevertLastPoint && styles.disabledButtonText,
+                                ]}
+                            >
                                 Revert Last Point
                             </Text>
                         </Pressable>

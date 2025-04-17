@@ -60,17 +60,21 @@ const PoolsPage: React.FC = () => {
     const completeRoundMutation = useCompleteRound();
 
     // Check if the round is already completed
-    const { data: isRoundCompleted, isLoading: isRoundCompletedLoading, refetch: refetchRoundCompleted } = useRoundCompleted(roundId);
-    
+    const {
+        data: isRoundCompleted,
+        isLoading: isRoundCompletedLoading,
+        refetch: refetchRoundCompleted,
+    } = useRoundCompleted(roundId);
+
     // Add debugging for round completion status
     useEffect(() => {
         console.log(`Round ${roundId} completed status:`, isRoundCompleted);
     }, [isRoundCompleted, roundId]);
-    
+
     // Refetch completion status when component is focused to ensure we have latest status
     useFocusEffect(
         useCallback(() => {
-            console.log("PoolsPage focused - refetching round completion status");
+            console.log('PoolsPage focused - refetching round completion status');
             refetchRoundCompleted();
         }, [refetchRoundCompleted])
     );
@@ -78,11 +82,18 @@ const PoolsPage: React.FC = () => {
     // Set pools data when it's fetched from the server or database
     useEffect(() => {
         if (poolsData) {
-            console.log("Pools data fetched:", JSON.stringify(poolsData.map(pool => ({
-                poolid: pool.poolid,
-                fencersCount: pool.fencers ? pool.fencers.length : 0
-            })), null, 2));
-            
+            console.log(
+                'Pools data fetched:',
+                JSON.stringify(
+                    poolsData.map(pool => ({
+                        poolid: pool.poolid,
+                        fencersCount: pool.fencers ? pool.fencers.length : 0,
+                    })),
+                    null,
+                    2
+                )
+            );
+
             // Apply club-based pool positions to each pool's fencers
             const poolsWithPositions = poolsData.map(pool => {
                 // Make sure pool.fencers exists and is an array before applying assignPoolPositions
@@ -90,24 +101,26 @@ const PoolsPage: React.FC = () => {
                     console.error(`Missing or invalid fencers array for pool ${pool.poolid}`, pool);
                     return { ...pool, fencers: [] };
                 }
-                
+
                 // Debug log to check fencers data
-                console.log(`Pool ${pool.poolid} has ${pool.fencers.length} fencers:`, 
-                    pool.fencers.map(f => `${f.fname} ${f.lname} (${f.poolNumber || 'no position'})`));
-                
+                console.log(
+                    `Pool ${pool.poolid} has ${pool.fencers.length} fencers:`,
+                    pool.fencers.map(f => `${f.fname} ${f.lname} (${f.poolNumber || 'no position'})`)
+                );
+
                 // Only apply assignPoolPositions if pool positions are not already assigned
                 // This allows our database-assigned positions to take precedence
                 if (pool.fencers.some(f => f.poolNumber === undefined)) {
                     return {
                         ...pool,
-                        fencers: assignPoolPositions(pool.fencers)
+                        fencers: assignPoolPositions(pool.fencers),
                     };
                 } else {
                     // If pool numbers are already assigned, keep them
                     return pool;
                 }
             });
-            
+
             setPools(poolsWithPositions);
             setExpandedPools(new Array(poolsData.length).fill(false));
         }
@@ -119,7 +132,7 @@ const PoolsPage: React.FC = () => {
             const statusObj: { [poolId: number]: boolean } = {};
 
             await Promise.all(
-                pools.map(async (pool) => {
+                pools.map(async pool => {
                     // Use data provider instead of direct DB access to respect remote connection
                     const bouts = await dataProvider.getBoutsForPool(roundId, pool.poolid);
 
@@ -135,13 +148,13 @@ const PoolsPage: React.FC = () => {
             );
 
             setPoolCompletionStatus(statusObj);
-            
+
             // Log the completion status of all pools
-            console.log("Pool completion status:", statusObj);
+            console.log('Pool completion status:', statusObj);
             const allPoolsComplete = Object.values(statusObj).every(status => status);
-            console.log("All pools complete:", allPoolsComplete);
+            console.log('All pools complete:', allPoolsComplete);
         } catch (error) {
-            console.error("Error checking bout completion:", error);
+            console.error('Error checking bout completion:', error);
         }
     }, [pools, roundId]);
 
@@ -191,68 +204,62 @@ const PoolsPage: React.FC = () => {
             // For seeding, we're keeping the direct DB call for now
             // In a full implementation, this should also go through dataProvider
             const seedingData = await dbGetSeedingForRound(roundId);
-            console.log("Seeding data fetched:", seedingData);
+            console.log('Seeding data fetched:', seedingData);
             setSeeding(seedingData);
             setSeedingModalVisible(true);
         } catch (error) {
-            console.error("Error fetching seeding:", error);
-            Alert.alert("Error", "Could not fetch seeding information.");
+            console.error('Error fetching seeding:', error);
+            Alert.alert('Error', 'Could not fetch seeding information.');
         }
     };
 
     const confirmEndRound = () => {
-        Alert.alert(
-            "End Round",
-            "Are you sure you want to end the round?",
-            [
-                { text: "Cancel", style: "cancel" },
-                {
-                    text: "Yes", onPress: async () => {
-                        try {
-                            console.log(`Marking round ${roundId} as complete...`);
-                            
-                            const result = await completeRoundMutation.mutateAsync({
+        Alert.alert('End Round', 'Are you sure you want to end the round?', [
+            { text: 'Cancel', style: 'cancel' },
+            {
+                text: 'Yes',
+                onPress: async () => {
+                    try {
+                        console.log(`Marking round ${roundId} as complete...`);
+
+                        const result = await completeRoundMutation.mutateAsync({
+                            roundId,
+                            eventId: event.id,
+                        });
+
+                        console.log(`Result of marking round ${roundId} as complete:`, result);
+
+                        // Force refetch of round completion status
+                        await queryClient.invalidateQueries({
+                            queryKey: queryKeys.roundCompleted(roundId),
+                        });
+
+                        // Also invalidate the entire round data
+                        await queryClient.invalidateQueries({
+                            queryKey: queryKeys.round(roundId),
+                        });
+
+                        // Explicitly refetch the round completion status
+                        console.log('Explicitly refetching round completion status');
+                        await refetchRoundCompleted();
+
+                        // Instead of immediately navigating, delay navigation to allow the UI to update
+                        setTimeout(() => {
+                            // Navigate to results
+                            console.log('Navigating to RoundResults');
+                            navigation.navigate('RoundResults', {
                                 roundId,
-                                eventId: event.id
+                                eventId: event.id,
+                                currentRoundIndex,
                             });
-                            
-                            console.log(`Result of marking round ${roundId} as complete:`, result);
-                            
-                            // Force refetch of round completion status
-                            await queryClient.invalidateQueries({ 
-                                queryKey: queryKeys.roundCompleted(roundId) 
-                            });
-                            
-                            // Also invalidate the entire round data
-                            await queryClient.invalidateQueries({
-                                queryKey: queryKeys.round(roundId)
-                            });
-                            
-                            // Explicitly refetch the round completion status
-                            console.log("Explicitly refetching round completion status");
-                            await refetchRoundCompleted();
-                            
-                            // Instead of immediately navigating, delay navigation to allow the UI to update
-                            setTimeout(() => {
-                                // Navigate to results
-                                console.log("Navigating to RoundResults");
-                                navigation.navigate('RoundResults', {
-                                    roundId,
-                                    eventId: event.id,
-                                    currentRoundIndex
-                                });
-                            }, 500);
-                        } catch (error) {
-                            console.error("Error marking round as complete:", error);
-                            Alert.alert(
-                                "Error",
-                                "Failed to complete the round. Please try again."
-                            );
-                        }
+                        }, 500);
+                    } catch (error) {
+                        console.error('Error marking round as complete:', error);
+                        Alert.alert('Error', 'Failed to complete the round. Please try again.');
                     }
-                }
-            ]
-        );
+                },
+            },
+        ]);
     };
 
     return (
@@ -260,10 +267,7 @@ const PoolsPage: React.FC = () => {
             {isRemote && <ConnectionStatusBar compact={true} />}
             <Text style={styles.title}>Pools</Text>
 
-            <TouchableOpacity
-                style={styles.viewSeedingButton}
-                onPress={fetchSeeding}
-            >
+            <TouchableOpacity style={styles.viewSeedingButton} onPress={fetchSeeding}>
                 <Text style={styles.viewSeedingButtonText}>View Seeding</Text>
             </TouchableOpacity>
 
@@ -291,10 +295,7 @@ const PoolsPage: React.FC = () => {
                         <TouchableOpacity
                             onPress={() => togglePool(index)}
                             onLongPress={() => handlePoolLongPress(poolObj.poolid)}
-                            style={[
-                                styles.poolHeader,
-                                complete ? styles.poolHeaderComplete : styles.poolHeaderOngoing,
-                            ]}
+                            style={[styles.poolHeader, complete ? styles.poolHeaderComplete : styles.poolHeaderOngoing]}
                         >
                             <View style={styles.poolHeaderRow}>
                                 <Text style={styles.poolHeaderText}>{headerText}</Text>
@@ -320,15 +321,16 @@ const PoolsPage: React.FC = () => {
                                         navigation.navigate('BoutOrderPage', {
                                             roundId: roundId,
                                             poolId: poolObj.poolid,
-                                            isRemote: isRemote
+                                            isRemote: isRemote,
                                         })
                                     }
                                 >
                                     <Text style={styles.refereeButtonText}>
                                         {ability.can('score', 'Bout')
-                                            ? complete ? "Edit Completed Pool" : "Referee"
-                                            : "Open"
-                                        }
+                                            ? complete
+                                                ? 'Edit Completed Pool'
+                                                : 'Referee'
+                                            : 'Open'}
                                     </Text>
                                 </TouchableOpacity>
                             </View>
@@ -338,30 +340,35 @@ const PoolsPage: React.FC = () => {
             })}
 
             <Can I="update" a="Round">
-                {(allowed) => {
+                {allowed => {
                     // Debug values affecting button
-                    console.log("Button debug - isRoundCompleted:", isRoundCompleted);
-                    console.log("Button debug - all pools complete:", Object.values(poolCompletionStatus).every(status => status));
-                    console.log("Button debug - allowed:", allowed);
-                    
+                    console.log('Button debug - isRoundCompleted:', isRoundCompleted);
+                    console.log(
+                        'Button debug - all pools complete:',
+                        Object.values(poolCompletionStatus).every(status => status)
+                    );
+                    console.log('Button debug - allowed:', allowed);
+
                     const allPoolsComplete = Object.values(poolCompletionStatus).every(status => status);
                     const buttonDisabled = (!isRoundCompleted && !allPoolsComplete) || !allowed;
-                    
+
                     return (
                         <TouchableOpacity
-                            style={[
-                                styles.endRoundButton,
-                                buttonDisabled && styles.disabledButton,
-                            ]}
+                            style={[styles.endRoundButton, buttonDisabled && styles.disabledButton]}
                             disabled={buttonDisabled}
-                            onPress={isRoundCompleted ? () => navigation.navigate('RoundResults', {
-                                roundId,
-                                eventId: event.id,
-                                currentRoundIndex
-                            }) : confirmEndRound}
+                            onPress={
+                                isRoundCompleted
+                                    ? () =>
+                                          navigation.navigate('RoundResults', {
+                                              roundId,
+                                              eventId: event.id,
+                                              currentRoundIndex,
+                                          })
+                                    : confirmEndRound
+                            }
                         >
                             <Text style={[styles.endRoundButtonText, !allowed && styles.disabledText]}>
-                                {isRoundCompleted ? "Show Results" : "End Round"}
+                                {isRoundCompleted ? 'Show Results' : 'End Round'}
                             </Text>
                         </TouchableOpacity>
                     );
@@ -388,7 +395,10 @@ const PoolsPage: React.FC = () => {
                         <TouchableOpacity style={styles.modalButton} onPress={submitStripNumber}>
                             <Text style={styles.modalButtonText}>Submit</Text>
                         </TouchableOpacity>
-                        <TouchableOpacity style={[styles.modalButton, styles.cancelButton]} onPress={() => setStripModalVisible(false)}>
+                        <TouchableOpacity
+                            style={[styles.modalButton, styles.cancelButton]}
+                            onPress={() => setStripModalVisible(false)}
+                        >
                             <Text style={styles.modalButtonText}>Cancel</Text>
                         </TouchableOpacity>
                     </View>
@@ -406,23 +416,21 @@ const PoolsPage: React.FC = () => {
                     <View style={styles.modalContent}>
                         <Text style={styles.modalTitle}>Current Seeding</Text>
                         <ScrollView style={styles.seedingList}>
-                            {seeding.map((item) => (
+                            {seeding.map(item => (
                                 <View key={item.fencer.id} style={styles.seedingItem}>
                                     {/* Put them on the same line via flexDirection: 'row' */}
                                     <View style={styles.seedingRow}>
                                         <Text style={styles.seedNumber}>{item.seed}</Text>
                                         <Text style={styles.seedFencer}>
                                             {item.fencer.lname}, {item.fencer.fname}
-                                            {item.fencer.frating !== 'U' && ` (${item.fencer.frating}${item.fencer.fyear})`}
+                                            {item.fencer.frating !== 'U' &&
+                                                ` (${item.fencer.frating}${item.fencer.fyear})`}
                                         </Text>
                                     </View>
                                 </View>
                             ))}
                         </ScrollView>
-                        <TouchableOpacity
-                            style={styles.closeButton}
-                            onPress={() => setSeedingModalVisible(false)}
-                        >
+                        <TouchableOpacity style={styles.closeButton} onPress={() => setSeedingModalVisible(false)}>
                             <Text style={styles.closeButtonText}>Close</Text>
                         </TouchableOpacity>
                     </View>

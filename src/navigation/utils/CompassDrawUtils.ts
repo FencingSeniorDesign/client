@@ -56,7 +56,7 @@ export function generateCompassDrawStructure(fencerCount: number): {
             round: 1,
             position: i + 1,
             nextBoutId: Math.floor(i / 2) + boutId,
-            loserNextBoutId: tableSize / 2 + boutId // Losers go to North bracket
+            loserNextBoutId: tableSize / 2 + boutId, // Losers go to North bracket
         });
     }
 
@@ -64,13 +64,12 @@ export function generateCompassDrawStructure(fencerCount: number): {
     for (let round = 2; round <= totalEastRounds; round++) {
         const boutsInRound = tableSize / Math.pow(2, round);
         for (let i = 0; i < boutsInRound; i++) {
-            const nextBoutId = round < totalEastRounds
-                ? Math.floor(i / 2) + boutId + boutsInRound
-                : undefined; // Last round has no next bout
+            const nextBoutId = round < totalEastRounds ? Math.floor(i / 2) + boutId + boutsInRound : undefined; // Last round has no next bout
 
-            const loserNextBoutId = round === 2
-                ? boutId + tableSize // Second-round losers go to West bracket
-                : undefined; // Other losers don't continue
+            const loserNextBoutId =
+                round === 2
+                    ? boutId + tableSize // Second-round losers go to West bracket
+                    : undefined; // Other losers don't continue
 
             eastBracket.push({
                 id: boutId++,
@@ -78,7 +77,7 @@ export function generateCompassDrawStructure(fencerCount: number): {
                 round: round,
                 position: i + 1,
                 nextBoutId,
-                loserNextBoutId
+                loserNextBoutId,
             });
         }
     }
@@ -95,7 +94,7 @@ export function generateCompassDrawStructure(fencerCount: number): {
             round: 1,
             position: i + 1,
             nextBoutId: boutId + tableSize / 4,
-            loserNextBoutId: boutId + tableSize * 2 // First-round losers from North go to South
+            loserNextBoutId: boutId + tableSize * 2, // First-round losers from North go to South
         });
     }
 
@@ -108,7 +107,7 @@ export function generateCompassDrawStructure(fencerCount: number): {
                 bracket: 'north',
                 round: round,
                 position: i + 1,
-                nextBoutId: round < totalNorthRounds ? boutId + boutsInRound : undefined
+                nextBoutId: round < totalNorthRounds ? boutId + boutsInRound : undefined,
             });
         }
     }
@@ -124,7 +123,7 @@ export function generateCompassDrawStructure(fencerCount: number): {
             bracket: 'west',
             round: 1,
             position: i + 1,
-            nextBoutId: boutId + tableSize / 8
+            nextBoutId: boutId + tableSize / 8,
         });
     }
 
@@ -137,7 +136,7 @@ export function generateCompassDrawStructure(fencerCount: number): {
                 bracket: 'west',
                 round: round,
                 position: i + 1,
-                nextBoutId: round < totalWestRounds ? boutId + boutsInRound : undefined
+                nextBoutId: round < totalWestRounds ? boutId + boutsInRound : undefined,
             });
         }
     }
@@ -153,7 +152,7 @@ export function generateCompassDrawStructure(fencerCount: number): {
             bracket: 'south',
             round: 1,
             position: i + 1,
-            nextBoutId: boutId + tableSize / 8
+            nextBoutId: boutId + tableSize / 8,
         });
     }
 
@@ -166,7 +165,7 @@ export function generateCompassDrawStructure(fencerCount: number): {
                 bracket: 'south',
                 round: round,
                 position: i + 1,
-                nextBoutId: round < totalSouthRounds ? boutId + boutsInRound : undefined
+                nextBoutId: round < totalSouthRounds ? boutId + boutsInRound : undefined,
             });
         }
     }
