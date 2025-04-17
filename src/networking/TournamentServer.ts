@@ -974,133 +974,137 @@ class TournamentServer {
      * Handles updating scores for a pool bout
      */
     private async handleUpdatePoolBoutScores(clientId: string, data: any): Promise<void> {
-        if (!this.serverInfo) {
-            console.error('No server info available');
-            return;
-        }
+    if (!this.serverInfo) {
+        console.error('No server info available');
+        return;
+    }
 
-        console.log(`🔄 Handling update_pool_bout_scores from client ${clientId}, data:`, JSON.stringify(data));
+    console.log(`🔄 Handling update_pool_bout_scores from client ${clientId}, data:`, JSON.stringify(data));
 
-        const { boutId, scoreA, scoreB, fencerAId, fencerBId, roundId, poolId } = data;
+    // Extract winnerId along with other data
+    const { boutId, scoreA, scoreB, fencerAId, fencerBId, winnerId, roundId, poolId } = data;
 
-        if (!boutId || scoreA === undefined || scoreB === undefined || !fencerAId || !fencerBId) {
-            console.error('Missing required data in update_pool_bout_scores request');
+    if (!boutId || scoreA === undefined || scoreB === undefined || !fencerAId || !fencerBId) {
+        console.error('Missing required data in update_pool_bout_scores request');
 
-            // Send error response
-            const client = this.clients.get(clientId);
-            if (client) {
-                try {
-                    const errorResponse = {
-                        type: 'bout_scores_updated',
-                        boutId: boutId,
-                        success: false,
-                        error: 'Missing required data',
-                    };
-                    console.log(`Sending error response: ${JSON.stringify(errorResponse)}`);
-                    client.write(JSON.stringify(errorResponse) + '\n'); // Add newline for NDJSON format
-                } catch (error) {
-                    console.error(`Error sending error response to client ${clientId}:`, error);
-                }
+        // Send error response
+        const client = this.clients.get(clientId);
+        if (client) {
+            try {
+                const errorResponse = {
+                    type: 'bout_scores_updated',
+                    boutId: boutId,
+                    success: false,
+                    error: 'Missing required data',
+                };
+                console.log(`Sending error response: ${JSON.stringify(errorResponse)}`);
+                client.write(JSON.stringify(errorResponse) + '\n'); // Add newline for NDJSON format
+            } catch (error) {
+                console.error(`Error sending error response to client ${clientId}:`, error);
             }
-            return;
         }
+        return;
+    }
 
-        try {
-            // Update bout scores in database using the correct function with all parameters
-            console.log(
-                `🔍 Updating bout ${boutId} scores to ${scoreA}-${scoreB} in database with fencers ${fencerAId} and ${fencerBId}...`
-            );
-            await dbUpdateBoutScores(boutId, scoreA, scoreB, fencerAId, fencerBId);
-            console.log(`✅ Updated scores for bout ${boutId} to ${scoreA}-${scoreB}`);
+    try {
+        // Update bout scores in database using the correct function with all parameters, including winnerId
+        console.log(
+            `🔍 Updating bout ${boutId} scores to ${scoreA}-${scoreB} in database with fencers ${fencerAId} and ${fencerBId}, winner: ${winnerId}...`
+        );
+        // Pass winnerId to the database function
+        await dbUpdateBoutScores(boutId, scoreA, scoreB, fencerAId, fencerBId, winnerId);
+        console.log(`✅ Updated scores for bout ${boutId} to ${scoreA}-${scoreB}, winner: ${winnerId}`);
 
-            // Apply server-side cache invalidation if queryClient is available
-            if (this.queryClient) {
-                console.log(`🔄 Performing server-side cache invalidation for bout ${boutId}`);
+        // Apply server-side cache invalidation if queryClient is available
+        if (this.queryClient) {
+            console.log(`🔄 Performing server-side cache invalidation for bout ${boutId}`);
 
-                // Perform targeted invalidation if poolId and roundId are available
-                if (poolId !== undefined && roundId !== undefined) {
-                    console.log(`🔄 Targeted invalidation for pool ${poolId} in round ${roundId}`);
-                    this.queryClient.invalidateQueries({
-                        queryKey: ['bouts', 'pool', roundId, poolId],
-                    });
-                    this.queryClient.invalidateQueries({
-                        queryKey: ['pools', roundId],
-                    });
-                } else {
-                    // Otherwise do broader invalidation
-                    console.log(`🔄 Broad invalidation of all bout and pool queries`);
-                    this.queryClient.invalidateQueries({ queryKey: ['bouts'] });
-                    this.queryClient.invalidateQueries({ queryKey: ['pools'] });
-                }
+            // Perform targeted invalidation if poolId and roundId are available
+            if (poolId !== undefined && roundId !== undefined) {
+                console.log(`🔄 Targeted invalidation for pool ${poolId} in round ${roundId}`);
+                this.queryClient.invalidateQueries({
+                    queryKey: ['bouts', 'pool', roundId, poolId],
+                });
+                this.queryClient.invalidateQueries({
+                    queryKey: ['pools', roundId],
+                });
             } else {
-                console.log(`⚠️ No queryClient available for server-side cache invalidation`);
+                // Otherwise do broader invalidation
+                console.log(`🔄 Broad invalidation of all bout and pool queries`);
+                this.queryClient.invalidateQueries({ queryKey: ['bouts'] });
+                this.queryClient.invalidateQueries({ queryKey: ['pools'] });
             }
+        } else {
+            console.log(`⚠️ No queryClient available for server-side cache invalidation`);
+        }
 
-            // First send confirmation to the requesting client
-            const client = this.clients.get(clientId);
-            if (client) {
-                try {
-                    const confirmationMessage = {
-                        type: 'bout_scores_updated', // This is what the client is waiting for
-                        boutId: boutId,
-                        scoreA: scoreA,
-                        scoreB: scoreB,
-                        roundId: roundId, // Include roundId for targeted cache invalidation
-                        poolId: poolId, // Include poolId for targeted cache invalidation
-                        success: true,
-                    };
-                    console.log(
-                        `🔄 Sending confirmation to client ${clientId}: ${JSON.stringify(confirmationMessage)}`
-                    );
+        // First send confirmation to the requesting client
+        const client = this.clients.get(clientId);
+        if (client) {
+            try {
+                const confirmationMessage = {
+                    type: 'bout_scores_updated', // This is what the client is waiting for
+                    boutId: boutId,
+                    scoreA: scoreA,
+                    scoreB: scoreB,
+                    winnerId: winnerId, // Include winnerId in confirmation
+                    roundId: roundId, // Include roundId for targeted cache invalidation
+                    poolId: poolId, // Include poolId for targeted cache invalidation
+                    success: true,
+                };
+                console.log(
+                    `🔄 Sending confirmation to client ${clientId}: ${JSON.stringify(confirmationMessage)}`
+                );
 
-                    // Use setTimeout to avoid any potential network issues
-                    setTimeout(() => {
-                        try {
-                            client.write(JSON.stringify(confirmationMessage) + '\n'); // Add newline for NDJSON format
-                            console.log(`✅ Confirmation sent to client ${clientId}`);
-                        } catch (innerErr) {
-                            console.error(`Error in delayed confirmation send to ${clientId}:`, innerErr);
-                        }
-                    }, 0);
-                } catch (error) {
-                    console.error(`Error sending confirmation to client ${clientId}:`, error);
-                    throw error;
-                }
+                // Use setTimeout to avoid any potential network issues
+                setTimeout(() => {
+                    try {
+                        client.write(JSON.stringify(confirmationMessage) + '\n'); // Add newline for NDJSON format
+                        console.log(`✅ Confirmation sent to client ${clientId}`);
+                    } catch (innerErr) {
+                        console.error(`Error in delayed confirmation send to ${clientId}:`, innerErr);
+                    }
+                }, 0);
+            } catch (error) {
+                console.error(`Error sending confirmation to client ${clientId}:`, error);
+                throw error;
             }
+        }
 
-            // Then broadcast the update to ALL clients
-            // This ensures everyone gets the update
-            const broadcastMessage = {
-                type: 'bout_score_updated', // This is for UI updates in listening clients
-                boutId: boutId,
-                scoreA: scoreA,
-                scoreB: scoreB,
-                poolId: poolId, // Include poolId if available for better client handling
-                roundId: roundId, // Include roundId if available for better client handling
-            };
-            console.log(`🔄 Broadcasting bout score update to all clients: ${JSON.stringify(broadcastMessage)}`);
-            this.broadcastMessage(broadcastMessage);
-        } catch (error) {
-            console.error(`❌ Error handling update_pool_bout_scores request:`, error);
+        // Then broadcast the update to ALL clients
+        // This ensures everyone gets the update
+        const broadcastMessage = {
+            type: 'bout_score_updated', // This is for UI updates in listening clients
+            boutId: boutId,
+            scoreA: scoreA,
+            scoreB: scoreB,
+            winnerId: winnerId, // Include winnerId in broadcast
+            poolId: poolId, // Include poolId if available for better client handling
+            roundId: roundId, // Include roundId if available for better client handling
+        };
+        console.log(`🔄 Broadcasting bout score update to all clients: ${JSON.stringify(broadcastMessage)}`);
+        this.broadcastMessage(broadcastMessage);
+    } catch (error) {
+        console.error(`❌ Error handling update_pool_bout_scores request:`, error);
 
-            // Send error response
-            const client = this.clients.get(clientId);
-            if (client) {
-                try {
-                    const errorMessage = {
-                        type: 'bout_scores_updated',
-                        boutId: boutId,
-                        success: false,
-                        error: 'Failed to update bout scores: ' + error.message,
-                    };
-                    console.log(`Sending error response to client ${clientId}: ${JSON.stringify(errorMessage)}`);
-                    client.write(JSON.stringify(errorMessage) + '\n'); // Add newline for NDJSON format
-                } catch (sendError) {
-                    console.error(`Error sending error response to client ${clientId}:`, sendError);
-                }
+        // Send error response
+        const client = this.clients.get(clientId);
+        if (client) {
+            try {
+                const errorMessage = {
+                    type: 'bout_scores_updated',
+                    boutId: boutId,
+                    success: false,
+                    error: 'Failed to update bout scores: ' + error.message,
+                };
+                console.log(`Sending error response to client ${clientId}: ${JSON.stringify(errorMessage)}`);
+                client.write(JSON.stringify(errorMessage) + '\n'); // Add newline for NDJSON format
+            } catch (sendError) {
+                console.error(`Error sending error response to client ${clientId}:`, sendError);
             }
         }
     }
+}
 
     // Broadcast a message to all connected clients
     private broadcastMessage(message: any, excludeClientId?: string): void {
