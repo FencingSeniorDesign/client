@@ -424,6 +424,50 @@ const BoutOrderPage: React.FC = () => {
             Alert.alert('Error', 'Failed to update bout scores. Please try again.');
         }
     };
+    
+    // Handle resetting a bout from the alter scores screen
+    const handleResetBout = async () => {
+        if (!canScoreBouts || alterIndex === null) {
+            setAlterModalVisible(false);
+            return;
+        }
+
+        const bout = bouts[alterIndex];
+
+        try {
+            console.log(`Resetting bout ${bout.id} to pending status with no scores or winner`);
+
+            const result = await updateBoutScoresMutation.mutateAsync({
+                boutId: bout.id,
+                scoreA: 0,
+                scoreB: 0,
+                fencerAId: bout.fencerA.id!,
+                fencerBId: bout.fencerB.id!,
+                roundId,
+                poolId,
+                winnerId: null, // Explicitly setting winner to null to reset the bout
+            });
+
+            console.log(`Bout reset completed with result:`, result);
+
+            // Update local bout state to reset the bout
+            const updatedBouts = bouts.map((b, i) => {
+                if (i === alterIndex) {
+                    console.log(`Resetting local bout state for index ${i}`);
+                    return { ...b, scoreA: 0, scoreB: 0, winnerId: undefined, status: 'pending' };
+                }
+                return b;
+            });
+            setBouts(updatedBouts);
+
+            // Close the alter modal
+            setAlterModalVisible(false);
+            setAlterIndex(null);
+        } catch (error) {
+            console.error('Error resetting bout:', error);
+            Alert.alert('Error', 'Failed to reset bout. Please try again.');
+        }
+    };
 
     // Function to update every bout with random scores - only called for referees
     const handleRandomScores = async () => {
@@ -733,6 +777,12 @@ const BoutOrderPage: React.FC = () => {
                                 <Text style={styles.enterButtonText}>Cancel</Text>
                             </TouchableOpacity>
                         </View>
+                            <TouchableOpacity
+                                style={[styles.resetBoutButton]}
+                                onPress={handleResetBout}
+                            >
+                                <Text style={styles.resetBoutButtonText}>Reset Bout</Text>
+                            </TouchableOpacity>
                     </View>
                 </View>
             </Modal>
@@ -1069,6 +1119,19 @@ const styles = StyleSheet.create({
         fontSize: 16,
         fontWeight: '500',
         textAlign: 'center',
+    },
+    resetBoutButton: {
+        backgroundColor: red,
+        paddingVertical: 8,
+        paddingHorizontal: 16,
+        borderRadius: 6,
+        alignItems: 'center',
+        marginTop: 16,
+    },
+    resetBoutButtonText: {
+        color: '#fff',
+        fontWeight: '600',
+        fontSize: 16,
     },
 });
 
