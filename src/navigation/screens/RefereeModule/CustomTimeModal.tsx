@@ -145,16 +145,21 @@ export function CustomTimeModal({
                                 styles.modalButton,
                                 { backgroundColor: "#CCAA00" }, // Darker yellow for revert
                                 pressed && { opacity: 0.6 },
-                                !canRevertLastPoint && styles.disabledButton
+                                !canRevertLastPoint && styles.disabledButton,
                             ]}
-                            onPress={onRevertLastPoint}
+                            onPress={() => {
+                                onRevertLastPoint();
+                                onClose();
+                            }}
                             disabled={!canRevertLastPoint}
                         >
-                            <Text style={[
-                                styles.modalButtonText, 
-                                { color: 'black' },
-                                !canRevertLastPoint && styles.disabledButtonText
-                            ]}>
+                            <Text
+                                style={[
+                                    styles.modalButtonText,
+                                    { color: 'black' },
+                                    !canRevertLastPoint && styles.disabledButtonText,
+                                ]}
+                            >
                                 Revert Last Point
                             </Text>
                         </Pressable>

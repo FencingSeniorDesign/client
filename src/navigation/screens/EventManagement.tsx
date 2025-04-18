@@ -693,64 +693,74 @@ export const EventManagement = ({ route }: Props) => {
         ) : (
           <View style={styles.eventList}>
             {events.length === 0 ? (
-              <Text style={styles.noEventsText}>No events created yet</Text>
+                <Text style={styles.noEventsText}>No events created yet</Text>
             ) : (
-              events.map((event) => (
-                <View key={event.id} style={styles.eventItem}>
-                  <Text style={styles.eventText}>
-                    {event.age} {event.gender} {event.weapon}
-                  </Text>
-                  <View style={styles.eventActions}>
-                    <TouchableOpacity
-                        style={[styles.actionButton, styles.flexAction]}
-                        onPress={() =>
-                            navigation.navigate('EventSettings', {
-                              event: event,
-                              onSave: handleSaveEventSettings,
-                              isRemote: isRemote
-                            })
-                        }
-                    >
-                      <Text style={styles.buttonText}>Edit</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                        style={[styles.actionButton, styles.flexAction]}
-                        onPress={() => {
-                            console.log('Event status for', event.id, ':', eventStatuses?.[event.id]);
-                            console.log('All current event statuses:', eventStatuses);
-                            const isStarted = eventStatuses && eventStatuses[event.id] === true;
-                            console.log(`Event ${event.id} isStarted: ${isStarted}`);
-
-                            return isStarted
-                                ? handleOpenEvent(event.id)
-                                : confirmStartEvent(event.id);
-                        }}
-                    >
-                      <Text style={styles.buttonText}>
-                        {eventStatuses && (eventStatuses[event.id] === true) ? 'Open' : 'Start'}
-                      </Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                        style={[styles.actionButton, styles.viewResultsButton]}
-                        onPress={() => navigation.navigate('TournamentResultsPage', {
-                          eventId: event.id,
-                          isRemote: isRemote
-                        })}
-                    >
-                    </TouchableOpacity>
-
-                    {!isRemote && (
-                        <TouchableOpacity
-                            onPress={() => confirmRemoveEvent(event.id)}
-                            style={styles.removeIconContainer}
-                            disabled={deleteEventMutation.isPending}
+                events.map((event) => {
+                  const isStarted = eventStatuses && eventStatuses[event.id] === true;
+                  return (
+                      <View key={event.id} style={styles.eventItem}>
+                        <Text style={styles.eventText}>
+                          {event.age} {event.gender} {event.weapon}
+                        </Text>
+                        <View
+                            style={[
+                              styles.eventActions,
+                              isStarted && { justifyContent: 'space-evenly' },
+                            ]}
                         >
-                          <Text style={styles.removeIcon}>✖</Text>
-                        </TouchableOpacity>
-                    )}
-                  </View>
+                          {/* Only display the Edit button if the event is not started */}
+                          {!isStarted && !isRemote && (
+                              <TouchableOpacity
+                                  style={[
+                                    styles.actionButton,
+                                    styles.flexAction,
+                                    { marginRight: 5 },
+                                  ]}
+                                  onPress={() =>
+                                      navigation.navigate('EventSettings', {
+                                        event: event,
+                                        onSave: handleSaveEventSettings,
+                                        isRemote: isRemote,
+                                      })
+                                  }
+                              >
+                                <Text style={styles.buttonText}>Edit</Text>
+                              </TouchableOpacity>
+                          )}
+
+                          <TouchableOpacity
+                              style={[
+                                styles.actionButton,
+                                styles.flexAction,
+                                { marginHorizontal: 5 },
+                              ]}
+                              onPress={() => {
+                                return isStarted
+                                    ? handleOpenEvent(event.id)
+                                    : confirmStartEvent(event.id);
+                              }}
+                          >
+                            <Text style={styles.buttonText}>
+                              {isStarted ? 'Open' : 'Start'}
+                            </Text>
+                          </TouchableOpacity>
+
+                          {!isRemote && (
+                              <TouchableOpacity
+                                  onPress={() => confirmRemoveEvent(event.id)}
+                                  style={[
+                                    styles.removeIconContainer,
+                                    { marginLeft: 5 },
+                                  ]}
+                                  disabled={deleteEventMutation.isPending}
+                              >
+                                <Text style={styles.removeIcon}>✖</Text>
+                              </TouchableOpacity>
+                          )}
+                        </View>
                 </View>
-              ))
+                  );
+                })
             )}
           </View>
         )}
