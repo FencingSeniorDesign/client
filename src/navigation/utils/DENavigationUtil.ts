@@ -2,6 +2,7 @@
 import { NavigationProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList, Event, Round } from '../navigation/types';
+import { Alert } from 'react-native';
 
 /**
  * Utility function to navigate to the appropriate DE page
@@ -41,20 +42,20 @@ export function navigateToDEPage(
             });
             break;
         case 'double':
-            navigation.navigate('DoubleEliminationPage', {
-                event,
-                currentRoundIndex,
-                roundId: round.id,
-                isRemote,
-            });
+            // Show message instead of navigating to Double Elimination
+            Alert.alert(
+                'Feature In Development',
+                'Double Elimination has been temporarily disabled and will be reimplemented in a future update.',
+                [{ text: 'OK' }]
+            );
             break;
         case 'compass':
-            navigation.navigate('CompassDrawPage', {
-                event,
-                currentRoundIndex,
-                roundId: round.id,
-                isRemote,
-            });
+            // Show message instead of navigating to Compass Draw
+            Alert.alert(
+                'Feature In Development',
+                'Compass Draw has been temporarily disabled and will be reimplemented in a future update.',
+                [{ text: 'OK' }]
+            );
             break;
         default:
             console.log(`DE format not specified, defaulting to single elimination. Format was: ${round.deformat}`);

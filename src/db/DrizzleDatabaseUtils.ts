@@ -1300,15 +1300,17 @@ export async function dbInitializeRound(event: Event, round: Round, fencers: Fen
                 console.log('Creating single elimination bracket');
                 await createFirstRoundDEBouts(event, round, fencers, seeding);
             } else if (round.deformat === 'double') {
-                console.log('Creating double elimination bracket');
-                await dbCreateDoubleEliminationBracket(round.id, tableSize, seeding);
+                console.log('Double elimination bracket creation is disabled and will be reimplemented later');
+                // Fall back to single elimination instead
+                console.log('Falling back to single elimination bracket');
+                await createFirstRoundDEBouts(event, round, fencers, seeding);
             } else if (round.deformat === 'compass') {
-                console.log('Creating compass draw bracket');
-                await dbCreateCompassDrawBracket(round.id, tableSize, seeding);
+                console.log('Compass draw bracket creation is disabled and will be reimplemented later');
+                // Fall back to single elimination instead
+                console.log('Falling back to single elimination bracket');
+                await createFirstRoundDEBouts(event, round, fencers, seeding);
             }
         }
-
-        // Mark the round as started
         await dbMarkRoundAsStarted(round.id);
     } catch (error) {
         console.error('Error initializing round:', error);
@@ -1686,107 +1688,11 @@ export async function dbGetBoutsForRound(roundId: number): Promise<any[]> {
 export async function dbGetDoubleBracketBouts(
     roundId: number
 ): Promise<{ winners: any[]; losers: any[]; finals: any[] }> {
-    try {
-        // Create aliases for the joined tables to handle multiple joins on the same table
-        const leftFencer = alias(schema.fencers, 'leftF');
-        const rightFencer = alias(schema.fencers, 'rightF');
-        const leftFencerBout = alias(schema.fencerBouts, 'fb1');
-        const rightFencerBout = alias(schema.fencerBouts, 'fb2');
-        const leftSeeding = alias(schema.seedingFromRoundResults, 'LEFT_SEEDING');
-        const rightSeeding = alias(schema.seedingFromRoundResults, 'RIGHT_SEEDING');
-
-        // Using structured nested selection for better type safety and organization
-        const allBouts = await db
-            .select({
-                bout: {
-                    id: schema.bouts.id,
-                    lfencer: schema.bouts.lfencer,
-                    rfencer: schema.bouts.rfencer,
-                    victor: schema.bouts.victor,
-                    tableof: schema.bouts.tableof,
-                    eventid: schema.bouts.eventid,
-                },
-                bracketInfo: {
-                    bracket_type: schema.deBracketBouts.bracket_type,
-                    bracket_round: schema.deBracketBouts.bracket_round,
-                    bout_order: schema.deBracketBouts.bout_order,
-                },
-                leftFencer: {
-                    fname: leftFencer.fname,
-                    lname: leftFencer.lname,
-                },
-                rightFencer: {
-                    fname: rightFencer.fname,
-                    lname: rightFencer.lname,
-                },
-                scores: {
-                    left_score: leftFencerBout.score,
-                    right_score: rightFencerBout.score,
-                },
-                seeding: {
-                    seed_left: leftSeeding.seed,
-                    seed_right: rightSeeding.seed,
-                },
-            })
-            .from(schema.bouts)
-            .innerJoin(schema.deBracketBouts, eq(schema.bouts.id, schema.deBracketBouts.bout_id))
-            .leftJoin(leftFencer, eq(schema.bouts.lfencer, leftFencer.id))
-            .leftJoin(rightFencer, eq(schema.bouts.rfencer, rightFencer.id))
-            .leftJoin(
-                leftFencerBout,
-                and(eq(leftFencerBout.boutid, schema.bouts.id), eq(leftFencerBout.fencerid, schema.bouts.lfencer))
-            )
-            .leftJoin(
-                rightFencerBout,
-                and(eq(rightFencerBout.boutid, schema.bouts.id), eq(rightFencerBout.fencerid, schema.bouts.rfencer))
-            )
-            .leftJoin(
-                leftSeeding,
-                and(eq(leftSeeding.fencerid, schema.bouts.lfencer), eq(leftSeeding.roundid, schema.bouts.roundid))
-            )
-            .leftJoin(
-                rightSeeding,
-                and(eq(rightSeeding.fencerid, schema.bouts.rfencer), eq(rightSeeding.roundid, schema.bouts.roundid))
-            )
-            .where(eq(schema.bouts.roundid, roundId))
-            .orderBy(
-                asc(schema.deBracketBouts.bracket_type),
-                asc(schema.deBracketBouts.bracket_round),
-                asc(schema.deBracketBouts.bout_order)
-            );
-
-        // Transform the nested structure to the flat structure expected by the application
-        const transformedBouts = allBouts.map(bout => ({
-            id: bout.bout.id,
-            lfencer: bout.bout.lfencer,
-            rfencer: bout.bout.rfencer,
-            victor: bout.bout.victor,
-            tableof: bout.bout.tableof,
-            eventid: bout.bout.eventid,
-            left_fname: bout.leftFencer.fname,
-            left_lname: bout.leftFencer.lname,
-            right_fname: bout.rightFencer.fname,
-            right_lname: bout.rightFencer.lname,
-            left_score: bout.scores.left_score,
-            right_score: bout.scores.right_score,
-            bracket_type: bout.bracketInfo.bracket_type,
-            bracket_round: bout.bracketInfo.bracket_round,
-            bout_order: bout.bracketInfo.bout_order,
-            seed_left: bout.seeding.seed_left,
-            seed_right: bout.seeding.seed_right,
-        }));
-
-        // Separate into different brackets
-        const winners = transformedBouts.filter(bout => bout.bracket_type === 'winners');
-        const losers = transformedBouts.filter(bout => bout.bracket_type === 'losers');
-        const finals = transformedBouts.filter(bout => bout.bracket_type === 'finals');
-
-        return { winners, losers, finals };
-    } catch (error) {
-        console.error('Error getting double elimination bouts:', error);
-        throw error;
-    }
+    // Return empty brackets - feature has been temporarily disabled
+    console.log('Double elimination brackets temporarily disabled');
+    return { winners: [], losers: [], finals: [] };
 }
+
 
 /**
  * Gets bouts for a compass draw format
@@ -1794,75 +1700,10 @@ export async function dbGetDoubleBracketBouts(
 export async function dbGetCompassBracketBouts(
     roundId: number
 ): Promise<{ east: any[]; north: any[]; west: any[]; south: any[] }> {
-    try {
-        // Create aliases for the joined tables to handle multiple joins on the same table
-        const leftFencer = alias(schema.fencers, 'leftF');
-        const rightFencer = alias(schema.fencers, 'rightF');
-        const leftFencerBout = alias(schema.fencerBouts, 'fb1');
-        const rightFencerBout = alias(schema.fencerBouts, 'fb2');
-        const leftSeeding = alias(schema.seedingFromRoundResults, 'LEFT_SEEDING');
-        const rightSeeding = alias(schema.seedingFromRoundResults, 'RIGHT_SEEDING');
-
-        const allBouts = await db
-            .select({
-                id: schema.bouts.id,
-                lfencer: schema.bouts.lfencer,
-                rfencer: schema.bouts.rfencer,
-                victor: schema.bouts.victor,
-                tableof: schema.bouts.tableof,
-                eventid: schema.bouts.eventid,
-                left_fname: leftFencer.fname,
-                left_lname: leftFencer.lname,
-                right_fname: rightFencer.fname,
-                right_lname: rightFencer.lname,
-                left_score: leftFencerBout.score,
-                right_score: rightFencerBout.score,
-                bracket_type: schema.deBracketBouts.bracket_type,
-                bracket_round: schema.deBracketBouts.bracket_round,
-                bout_order: schema.deBracketBouts.bout_order,
-                seed_left: leftSeeding.seed,
-                seed_right: rightSeeding.seed,
-            })
-            .from(schema.bouts)
-            .innerJoin(schema.deBracketBouts, eq(schema.bouts.id, schema.deBracketBouts.bout_id))
-            .leftJoin(leftFencer, eq(schema.bouts.lfencer, leftFencer.id))
-            .leftJoin(rightFencer, eq(schema.bouts.rfencer, rightFencer.id))
-            .leftJoin(
-                leftFencerBout,
-                and(eq(leftFencerBout.boutid, schema.bouts.id), eq(leftFencerBout.fencerid, schema.bouts.lfencer))
-            )
-            .leftJoin(
-                rightFencerBout,
-                and(eq(rightFencerBout.boutid, schema.bouts.id), eq(rightFencerBout.fencerid, schema.bouts.rfencer))
-            )
-            .leftJoin(
-                leftSeeding,
-                and(eq(leftSeeding.fencerid, schema.bouts.lfencer), eq(leftSeeding.roundid, schema.bouts.roundid))
-            )
-            .leftJoin(
-                rightSeeding,
-                and(eq(rightSeeding.fencerid, schema.bouts.rfencer), eq(rightSeeding.roundid, schema.bouts.roundid))
-            )
-            .where(eq(schema.bouts.roundid, roundId))
-            .orderBy(
-                asc(schema.deBracketBouts.bracket_type),
-                asc(schema.deBracketBouts.bracket_round),
-                asc(schema.deBracketBouts.bout_order)
-            );
-
-        // Separate into different brackets
-        const east = allBouts.filter(bout => bout.bracket_type === 'east');
-        const north = allBouts.filter(bout => bout.bracket_type === 'north');
-        const west = allBouts.filter(bout => bout.bracket_type === 'west');
-        const south = allBouts.filter(bout => bout.bracket_type === 'south');
-
-        return { east, north, west, south };
-    } catch (error) {
-        console.error('Error getting compass draw bouts:', error);
-        throw error;
-    }
+    // Return empty brackets - feature has been temporarily disabled
+    console.log('Compass draw brackets temporarily disabled');
+    return { east: [], north: [], west: [], south: [] };
 }
-
 /**
  * Checks if a DE round has completed (final bout has a winner)
  */
@@ -2391,91 +2232,18 @@ export async function createNextRoundBoutsInTransaction(tx: any, roundId: number
 
 /**
  * Creates a double elimination bracket structure in the database.
+/**
+ * Creates a double elimination bracket structure in the database.
  */
 export async function dbCreateDoubleEliminationBracket(
     roundId: number,
     tableSize: number,
     seededFencers: { fencer: any; seed: number }[]
 ): Promise<void> {
-    try {
-        // Get round information
-        const round = await db
-            .select({
-                id: schema.rounds.id,
-                eventid: schema.rounds.eventid,
-            })
-            .from(schema.rounds)
-            .where(eq(schema.rounds.id, roundId))
-            .limit(1);
-
-        if (!round.length) {
-            throw new Error(`Round with ID ${roundId} not found`);
-        }
-
-        // Create the structure
-        const brackets = generateDoubleEliminationStructure(seededFencers.length);
-
-        // Place fencers in the brackets
-        const populatedBrackets = placeFencersInDoubleElimination(brackets, seededFencers);
-
-        // Insert all bouts into the database
-        const { winnersBracket, losersBracket, finalsBracket } = populatedBrackets;
-        const allBrackets = [
-            ...winnersBracket.map(bout => ({ ...bout, bracketType: 'winners' })),
-            ...losersBracket.map(bout => ({ ...bout, bracketType: 'losers' })),
-            ...finalsBracket.map(bout => ({ ...bout, bracketType: 'finals' })),
-        ];
-
-        // Create bouts first
-        for (const bout of allBrackets) {
-            // Insert bout
-            const boutResult = await db
-                .insert(schema.bouts)
-                .values({
-                    lfencer: bout.fencerA || null,
-                    rfencer: bout.fencerB || null,
-                    victor: bout.winner || null,
-                    eventid: round[0].eventid,
-                    roundid: roundId,
-                    tableof: tableSize,
-                })
-                .returning({ id: schema.bouts.id });
-
-            const boutId = boutResult[0].id;
-
-            // Then add bracket information
-            await db.insert(schema.deBracketBouts).values({
-                roundid: roundId,
-                bout_id: boutId,
-                bracket_type: bout.bracketType,
-                bracket_round: bout.round,
-                bout_order: bout.position,
-                next_bout_id: bout.nextBoutId || null,
-                loser_next_bout_id: bout.loserNextBoutId || null,
-            });
-
-            // If it's a bye, automatically advance the fencer without awarding points
-            if ((bout.fencerA === null && bout.fencerB !== null) || (bout.fencerA !== null && bout.fencerB === null)) {
-                const winningFencer = bout.fencerA || bout.fencerB;
-
-                if (winningFencer) {
-                    // Set the victor in Bouts table (no points awarded for byes)
-                    await db.update(schema.bouts).set({ victor: winningFencer }).where(eq(schema.bouts.id, boutId));
-
-                    console.log(
-                        `Bye for fencer ${winningFencer} in double elimination bout ${boutId} - advancing without points`
-                    );
-                }
-            }
-        }
-
-        console.log(`Created double elimination bracket for round ${roundId}`);
-    } catch (error) {
-        console.error('Error creating double elimination bracket:', error);
-        throw error;
-    }
+    console.log('Double elimination bracket creation is disabled and will be reimplemented later');
+    // Return without creating any brackets - feature has been disabled
+    return;
 }
-
 /**
  * Creates a compass draw bracket structure in the database.
  */
@@ -2484,86 +2252,10 @@ export async function dbCreateCompassDrawBracket(
     tableSize: number,
     seededFencers: { fencer: any; seed: number }[]
 ): Promise<void> {
-    try {
-        // Get round information
-        const round = await db
-            .select({
-                id: schema.rounds.id,
-                eventid: schema.rounds.eventid,
-            })
-            .from(schema.rounds)
-            .where(eq(schema.rounds.id, roundId))
-            .limit(1);
-
-        if (!round.length) {
-            throw new Error(`Round with ID ${roundId} not found`);
-        }
-
-        // Create the structure
-        const brackets = generateCompassDrawStructure(seededFencers.length);
-
-        // Place fencers in the brackets
-        const populatedBrackets = placeFencersInCompassDraw(brackets, seededFencers);
-
-        // Insert all bouts into the database
-        const { eastBracket, northBracket, westBracket, southBracket } = populatedBrackets;
-        const allBrackets = [
-            ...eastBracket.map(bout => ({ ...bout, bracketType: 'east' })),
-            ...northBracket.map(bout => ({ ...bout, bracketType: 'north' })),
-            ...westBracket.map(bout => ({ ...bout, bracketType: 'west' })),
-            ...southBracket.map(bout => ({ ...bout, bracketType: 'south' })),
-        ];
-
-        // Create bouts first
-        for (const bout of allBrackets) {
-            // Insert bout
-            const boutResult = await db
-                .insert(schema.bouts)
-                .values({
-                    lfencer: bout.fencerA || null,
-                    rfencer: bout.fencerB || null,
-                    victor: bout.winner || null,
-                    eventid: round[0].eventid,
-                    roundid: roundId,
-                    tableof: tableSize,
-                })
-                .returning({ id: schema.bouts.id });
-
-            const boutId = boutResult[0].id;
-
-            // Then add bracket information
-            await db.insert(schema.deBracketBouts).values({
-                roundid: roundId,
-                bout_id: boutId,
-                bracket_type: bout.bracketType,
-                bracket_round: bout.round,
-                bout_order: bout.position,
-                next_bout_id: bout.nextBoutId || null,
-                loser_next_bout_id: bout.loserNextBoutId || null,
-            });
-
-            // If it's a bye, automatically advance the fencer without awarding points
-            if ((bout.fencerA === null && bout.fencerB !== null) || (bout.fencerA !== null && bout.fencerB === null)) {
-                const winningFencer = bout.fencerA || bout.fencerB;
-
-                if (winningFencer) {
-                    // Set the victor in Bouts table (no points awarded for byes)
-                    await db.update(schema.bouts).set({ victor: winningFencer }).where(eq(schema.bouts.id, boutId));
-
-                    console.log(
-                        `Bye for fencer ${winningFencer} in compass draw bout ${boutId} - advancing without points`
-                    );
-                }
-            }
-        }
-
-        console.log(`Created compass draw bracket for round ${roundId}`);
-    } catch (error) {
-        console.error('Error creating compass draw bracket:', error);
-        throw error;
-    }
+    console.log('Compass draw bracket creation is disabled and will be reimplemented later');
+    // Return without creating any brackets - feature has been disabled
+    return;
 }
-
 /**
  * Updates a bout with scores and advances the winner to the next round
  */
@@ -2663,7 +2355,8 @@ export async function dbUpdateDEBoutAndAdvanceWinner(
                 console.log(`Advanced winner ${victorId} to bout ${nextBout.id}`);
             }
         } else if (deFormat === 'double' || deFormat === 'compass') {
-            // For double/compass elimination, we need to use the bracket information
+            // Double/compass elimination is disabled, fall back to simple single elimination advancement
+            console.log(`${deFormat} elimination is disabled, using single elimination advancement`);
             // Get bracket information for this bout
             const bracketInfo = await db
                 .select()
