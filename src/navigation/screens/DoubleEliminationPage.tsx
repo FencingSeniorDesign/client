@@ -75,15 +75,15 @@ const DoubleEliminationPage: React.FC = () => {
         const hasFencerA = !!bout.lfencer;
         const hasFencerB = !!bout.rfencer;
 
-        // True bye condition: exactly one fencer is present and has a victor set
+        // True bye condition: exactly one fencer is present
         if ((hasFencerA && !hasFencerB) || (!hasFencerA && hasFencerB)) {
             Alert.alert('BYE', 'This fencer advances automatically.');
             return;
         }
 
-        // If neither fencer is set, this bout is waiting for previous results
+        // If neither fencer is set, this is a TBD bout waiting for previous results
         if (!hasFencerA && !hasFencerB) {
-            Alert.alert('Not Ready', 'This bout is waiting for fencers from previous rounds.');
+            Alert.alert('To Be Determined', 'This bout is waiting for fencers to advance from previous rounds.');
             return;
         }
 
@@ -136,9 +136,13 @@ const DoubleEliminationPage: React.FC = () => {
         const hasFencerA = !!bout.lfencer;
         const hasFencerB = !!bout.rfencer;
         const isBye = (hasFencerA && !hasFencerB) || (!hasFencerA && hasFencerB);
+        
+        // An unassigned bout has both fencers unset - mark as TBD
+        const isTBD = !hasFencerA && !hasFencerB;
 
-        // Add the isBye property to the bout object so handleBoutPress can use it
+        // Add properties to the bout object
         bout.isBye = isBye;
+        bout.isTBD = isTBD;
 
         return (
             <DEBoutCard

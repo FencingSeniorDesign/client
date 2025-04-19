@@ -2200,13 +2200,84 @@ export async function createFirstRoundDEBouts(
                     }
                 }
 
-                // For byes, also create the next round bouts for advancing fencers
+                // Create ALL rounds in advance so they appear in the UI immediately
+                let currentTableSize = tableSize;
+                while (currentTableSize > 2) {
+                    currentTableSize = currentTableSize / 2;
+                    console.log(`Creating bouts for table of ${currentTableSize}`);
+                    
+                    // Create placeholders for all bouts in this round
+                    for (let i = 0; i < currentTableSize / 2; i++) {
+                        await tx.insert(schema.bouts).values({
+                            lfencer: null, // Will be populated as fencers advance
+                            rfencer: null, // Will be populated as fencers advance
+                            eventid: event.id,
+                            roundid: round.id,
+                            tableof: currentTableSize,
+                        });
+                    }
+                }
+                
+                // For byes in the first round, advance fencers to the next round
                 if (fencers.length < tableSize) {
-                    console.log(`Creating next round bouts for advancing fencers (${tableSize / 2})`);
-                    await createNextRoundBoutsInTransaction(tx, round.id, tableSize / 2);
+                    console.log(`Advancing fencers with byes to next round (${tableSize / 2})`);
+                    
+                    // Get all completed bouts from first round (byes)
+                    const byeBouts = await tx
+                        .select()
+                        .from(schema.bouts)
+                        .where(
+                            and(
+                                eq(schema.bouts.roundid, round.id),
+                                eq(schema.bouts.tableof, tableSize),
+                                isNotNull(schema.bouts.victor)
+                            )
+                        )
+                        .orderBy(schema.bouts.id);
+                    
+                    // Get next round bouts
+                    const nextRoundBouts = await tx
+                        .select()
+                        .from(schema.bouts)
+                        .where(
+                            and(
+                                eq(schema.bouts.roundid, round.id),
+                                eq(schema.bouts.tableof, tableSize / 2)
+                            )
+                        )
+                        .orderBy(schema.bouts.id);
+                    
+                    // Place bye winners in correct positions in next round
+                    for (let i = 0; i < byeBouts.length; i += 2) {
+                        const boutA = byeBouts[i];
+                        const nextBoutIndex = Math.floor(i / 2);
+                        
+                        if (nextBoutIndex < nextRoundBouts.length) {
+                            const nextBout = nextRoundBouts[nextBoutIndex];
+                            
+                            // Place first winner
+                            if (boutA.victor) {
+                                await tx
+                                    .update(schema.bouts)
+                                    .set({ lfencer: boutA.victor })
+                                    .where(eq(schema.bouts.id, nextBout.id));
+                            }
+                            
+                            // Place second winner if available
+                            if (i + 1 < byeBouts.length) {
+                                const boutB = byeBouts[i + 1];
+                                if (boutB.victor) {
+                                    await tx
+                                        .update(schema.bouts)
+                                        .set({ rfencer: boutB.victor })
+                                        .where(eq(schema.bouts.id, nextBout.id));
+                                }
+                            }
+                        }
+                    }
                 }
 
-                console.log(`Successfully created ${Math.ceil(tableSize / 2)} first round DE bouts`);
+                console.log(`Successfully created all DE bouts for table size ${tableSize}`);
             } catch (error) {
                 console.error('Error in DE bout creation transaction:', error);
                 throw error; // Re-throw to trigger transaction rollback
@@ -2509,40 +2580,158 @@ export async function dbUpdateDEBoutAndAdvanceWinner(
 
         // Determine the winner
         const victorId = scoreA > scoreB ? fencerAId : fencerBId;
+        const loserId = scoreA > scoreB ? fencerBId : fencerAId;
 
         // Update the bout with the victor
         await db.update(schema.bouts).set({ victor: victorId }).where(eq(schema.bouts.id, boutId));
 
-        // Get the bout details to determine next steps
-        const bout = await db
+        // Get the bout details to determine next steps and bracket format
+        const boutDetails = await db
             .select({
-                roundid: schema.bouts.roundid,
-                tableof: schema.bouts.tableof,
+                b: {
+                    id: schema.bouts.id,
+                    roundid: schema.bouts.roundid,
+                    tableof: schema.bouts.tableof,
+                },
+                r: {
+                    deformat: schema.rounds.deformat,
+                },
             })
             .from(schema.bouts)
+            .leftJoin(schema.rounds, eq(schema.bouts.roundid, schema.rounds.id))
             .where(eq(schema.bouts.id, boutId))
             .limit(1);
 
-        if (!bout.length) throw new Error(`Bout with id ${boutId} not found`);
-
-        // Get all bouts in the same round and table
-        const boutsInSameTable = await db
-            .select({
-                id: schema.bouts.id,
-                victor: schema.bouts.victor,
-            })
-            .from(schema.bouts)
-            .where(and(eq(schema.bouts.roundid, bout[0].roundid), eq(schema.bouts.tableof, bout[0].tableof)));
-
-        // Check if all bouts in the current table have victors
-        const allComplete = boutsInSameTable.every(b => b.victor !== null);
-
-        // If all complete and not the final (tableof > 2), create next round bouts
-        if (allComplete && bout[0].tableof > 2) {
-            await createNextRoundBouts(bout[0].roundid, bout[0].tableof / 2);
+        if (!boutDetails.length) throw new Error(`Bout with id ${boutId} not found`);
+        
+        const bout = boutDetails[0].b;
+        const deFormat = boutDetails[0].r.deformat as string;
+        
+        // If it's a single elimination format, we only need to advance the winner
+        if (deFormat === 'single') {
+            // Find the next round bout where this winner should go
+            const nextRoundBouts = await db
+                .select()
+                .from(schema.bouts)
+                .where(
+                    and(
+                        eq(schema.bouts.roundid, bout.roundid),
+                        eq(schema.bouts.tableof, bout.tableof / 2)
+                    )
+                )
+                .orderBy(schema.bouts.id);
+            
+            // Calculate which bout in the next round should receive this winner
+            // First get this bout's position in its round
+            const boutsInCurrentRound = await db
+                .select()
+                .from(schema.bouts)
+                .where(
+                    and(
+                        eq(schema.bouts.roundid, bout.roundid),
+                        eq(schema.bouts.tableof, bout.tableof)
+                    )
+                )
+                .orderBy(schema.bouts.id);
+            
+            const boutPosition = boutsInCurrentRound.findIndex(b => b.id === boutId);
+            if (boutPosition === -1) {
+                throw new Error(`Could not find bout position for bout ${boutId}`);
+            }
+            
+            // Next round bout is at position floor(boutPosition / 2)
+            const nextBoutIndex = Math.floor(boutPosition / 2);
+            
+            if (nextBoutIndex < nextRoundBouts.length) {
+                const nextBout = nextRoundBouts[nextBoutIndex];
+                
+                // Determine whether to place in left or right position based on boutPosition
+                if (boutPosition % 2 === 0) {
+                    // Even positions go to left side
+                    await db
+                        .update(schema.bouts)
+                        .set({ lfencer: victorId })
+                        .where(eq(schema.bouts.id, nextBout.id));
+                } else {
+                    // Odd positions go to right side
+                    await db
+                        .update(schema.bouts)
+                        .set({ rfencer: victorId })
+                        .where(eq(schema.bouts.id, nextBout.id));
+                }
+                
+                console.log(`Advanced winner ${victorId} to bout ${nextBout.id}`);
+            }
+        } else if (deFormat === 'double' || deFormat === 'compass') {
+            // For double/compass elimination, we need to use the bracket information
+            // Get bracket information for this bout
+            const bracketInfo = await db
+                .select()
+                .from(schema.deBracketBouts)
+                .where(eq(schema.deBracketBouts.bout_id, boutId))
+                .limit(1);
+            
+            if (bracketInfo.length) {
+                const bracketBout = bracketInfo[0];
+                const bracketType = bracketBout.bracket_type;
+                
+                // Advance winner to next bout if one exists
+                if (bracketBout.next_bout_id) {
+                    // Get the next bout
+                    const nextBout = await db
+                        .select()
+                        .from(schema.bouts)
+                        .where(eq(schema.bouts.id, bracketBout.next_bout_id))
+                        .limit(1);
+                    
+                    if (nextBout.length) {
+                        // Determine which fencer slot to place the winner in
+                        // This is a simplified version - may need more complex logic
+                        if (nextBout[0].lfencer === null) {
+                            await db
+                                .update(schema.bouts)
+                                .set({ lfencer: victorId })
+                                .where(eq(schema.bouts.id, bracketBout.next_bout_id));
+                        } else {
+                            await db
+                                .update(schema.bouts)
+                                .set({ rfencer: victorId })
+                                .where(eq(schema.bouts.id, bracketBout.next_bout_id));
+                        }
+                        
+                        console.log(`Advanced winner ${victorId} to bout ${bracketBout.next_bout_id}`);
+                    }
+                }
+                
+                // If this is a winners bracket bout, send loser to losers bracket
+                if (bracketType === 'winners' && bracketBout.loser_next_bout_id) {
+                    const loserBout = await db
+                        .select()
+                        .from(schema.bouts)
+                        .where(eq(schema.bouts.id, bracketBout.loser_next_bout_id))
+                        .limit(1);
+                    
+                    if (loserBout.length) {
+                        // Determine which fencer slot to place the loser in
+                        if (loserBout[0].lfencer === null) {
+                            await db
+                                .update(schema.bouts)
+                                .set({ lfencer: loserId })
+                                .where(eq(schema.bouts.id, bracketBout.loser_next_bout_id));
+                        } else {
+                            await db
+                                .update(schema.bouts)
+                                .set({ rfencer: loserId })
+                                .where(eq(schema.bouts.id, bracketBout.loser_next_bout_id));
+                        }
+                        
+                        console.log(`Moved loser ${loserId} to losers bracket bout ${bracketBout.loser_next_bout_id}`);
+                    }
+                }
+            }
         }
 
-        console.log(`Updated bout ${boutId} and advanced winner ${victorId}`);
+        console.log(`Updated bout ${boutId} with scores A:${scoreA}-B:${scoreB}, victor: ${victorId}`);
     } catch (error) {
         console.error('Error updating bout and advancing winner:', error);
         throw error;

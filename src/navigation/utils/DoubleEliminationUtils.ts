@@ -222,14 +222,10 @@ export function advanceFencerInBracket(
                 nextBout.fencerB = winnerId;
             }
 
-            // If the next bout now has both fencers and one is undefined (BYE), automatically advance
+            // Check if both fencers are now set in the next bout
             if (nextBout.fencerA !== undefined && nextBout.fencerB !== undefined) {
-                if (nextBout.fencerA === undefined || nextBout.fencerB === undefined) {
-                    const autoWinner = nextBout.fencerA || nextBout.fencerB;
-                    nextBout.isBye = true;
-                    nextBout.winner = autoWinner;
-                    advanceFencerInBracket(bracket, nextBout.id, autoWinner!, true);
-                }
+                // Both fencers are set, so the bout is ready for scoring (not a bye)
+                console.log(`Next bout ${nextBout.id} now has both fencers set and is ready for scoring`);
             }
         }
     }
@@ -246,14 +242,9 @@ export function advanceFencerInBracket(
                 loserNextBout.fencerB = loserId;
             }
 
-            // If this bout now has both fencers, check if one is undefined (BYE)
+            // If this bout now has both fencers, it's ready for scoring
             if (loserNextBout.fencerA !== undefined && loserNextBout.fencerB !== undefined) {
-                if (loserNextBout.fencerA === undefined || loserNextBout.fencerB === undefined) {
-                    const autoWinner = loserNextBout.fencerA || loserNextBout.fencerB;
-                    loserNextBout.isBye = true;
-                    loserNextBout.winner = autoWinner;
-                    advanceFencerInBracket(bracket, loserNextBout.id, autoWinner!, true);
-                }
+                console.log(`Losers bout ${loserNextBout.id} now has both fencers and is ready for scoring`);
             }
         }
     }
