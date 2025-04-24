@@ -7,7 +7,7 @@ import { dbCalculateAndSaveSeedingFromRoundResults } from './seeding';
 import { dbCreatePoolAssignmentsAndBoutOrders } from './pool';
 import { calculatePreliminarySeeding } from '../../navigation/utils/RoundAlgorithms';
 import { dbSaveSeeding, dbGetSeedingForRound } from './seeding';
-import { createFirstRoundDEBouts } from './bracket';
+import { createDEBoutsForRound } from './bracket';
 
 /**
  * Marks a round as complete and calculates seeding
@@ -244,17 +244,17 @@ export async function dbInitializeRound(event: Event, round: Round, fencers: Fen
             // Initialize based on DE format
             if (round.deformat === 'single') {
                 console.log('Creating single elimination bracket');
-                await createFirstRoundDEBouts(event, round, fencers, seeding);
+                await createDEBoutsForRound(event, round, fencers, seeding);
             } else if (round.deformat === 'double') {
                 console.log('Double elimination bracket creation is disabled and will be reimplemented later');
                 // Fall back to single elimination instead
                 console.log('Falling back to single elimination bracket');
-                await createFirstRoundDEBouts(event, round, fencers, seeding);
+                await createDEBoutsForRound(event, round, fencers, seeding);
             } else if (round.deformat === 'compass') {
                 console.log('Compass draw bracket creation is disabled and will be reimplemented later');
                 // Fall back to single elimination instead
                 console.log('Falling back to single elimination bracket');
-                await createFirstRoundDEBouts(event, round, fencers, seeding);
+                await createDEBoutsForRound(event, round, fencers, seeding);
             }
         }
         await dbMarkRoundAsStarted(round.id);
