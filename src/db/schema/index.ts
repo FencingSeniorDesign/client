@@ -422,3 +422,25 @@ BEGIN
   VALUES (NEW.id, NEW.rfencer);
 END;
 `;
+
+
+// Create trigger to handle updates to bouts (for when fencers are assigned to later rounds)
+export const createFencerBoutsUpdateTrigger = sql`
+CREATE TRIGGER IF NOT EXISTS create_fencer_bouts_after_bout_update
+  AFTER UPDATE OF lfencer, rfencer
+  ON Bouts
+  WHEN (OLD.lfencer IS NULL AND NEW.lfencer IS NOT NULL) OR (OLD.rfencer IS NULL AND NEW.rfencer IS NOT NULL)
+BEGIN
+  -- Check if the left fencer has been newly assigned and create FencerBout if needed
+  INSERT OR IGNORE INTO FencerBouts (boutid, fencerid)
+  SELECT NEW.id, NEW.lfencer
+  WHERE NEW.lfencer IS NOT NULL
+  AND NOT EXISTS (SELECT 1 FROM FencerBouts WHERE boutid = NEW.id AND fencerid = NEW.lfencer);
+
+  -- Check if the right fencer has been newly assigned and create FencerBout if needed
+  INSERT OR IGNORE INTO FencerBouts (boutid, fencerid)
+  SELECT NEW.id, NEW.rfencer
+  WHERE NEW.rfencer IS NOT NULL
+  AND NOT EXISTS (SELECT 1 FROM FencerBouts WHERE boutid = NEW.id AND fencerid = NEW.rfencer);
+END;
+`;
