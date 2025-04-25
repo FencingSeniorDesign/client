@@ -317,6 +317,10 @@ export async function dbGetDEBouts(roundId: number): Promise<any[]> {
  * Updates a DE bout with scores and advances the winner to the next round
  * (Single elimination only)
  */
+/**
+ * Updates a DE bout with scores and advances the winner to the next round
+ * using the DEBracketBouts table structure
+ */
 export async function dbUpdateDEBoutAndAdvanceWinner(
     boutId: number,
     scoreA: number,
@@ -333,79 +337,43 @@ export async function dbUpdateDEBoutAndAdvanceWinner(
 
         // Update the bout with the victor
         await db.update(schema.bouts).set({ victor: victorId }).where(eq(schema.bouts.id, boutId));
+        
+        console.log(`Updated bout ${boutId} with scores A:${scoreA}-B:${scoreB}, victor: ${victorId}`);
 
-        // Get the bout details to determine next steps
-        const boutDetails = await db
+        // Get the bracket information for this bout to determine next steps
+        const bracketBout = await db
             .select({
-                b: {
-                    id: schema.bouts.id,
-                    roundid: schema.bouts.roundid,
-                    tableof: schema.bouts.tableof,
-                },
+                next_bout_id: schema.deBracketBouts.next_bout_id,
+                bout_order: schema.deBracketBouts.bout_order,
             })
-            .from(schema.bouts)
-            .where(eq(schema.bouts.id, boutId))
+            .from(schema.deBracketBouts)
+            .where(eq(schema.deBracketBouts.bout_id, boutId))
             .limit(1);
 
-        if (!boutDetails.length) throw new Error(`Bout with id ${boutId} not found`);
-
-        const bout = boutDetails[0].b;
-
-        // Get all bouts for the current round
-        const currentRoundBouts = await db
-            .select()
-            .from(schema.bouts)
-            .where(and(eq(schema.bouts.roundid, bout.roundid), eq(schema.bouts.tableof, bout.tableof)))
-            .orderBy(asc(schema.bouts.id)); // Sort by ID to maintain order
-
-        // Get all bouts for the next round
-        const nextRoundTableSize = bout.tableof / 2;
-        const nextRoundBouts = await db
-            .select()
-            .from(schema.bouts)
-            .where(and(eq(schema.bouts.roundid, bout.roundid), eq(schema.bouts.tableof, nextRoundTableSize)))
-            .orderBy(asc(schema.bouts.id)); // Sort by ID to maintain order
-
-        // Find the position of this bout in the current round
-        const boutIndex = currentRoundBouts.findIndex(b => b.id === boutId);
-        if (boutIndex === -1) {
-            throw new Error(`Could not find position for bout ${boutId} in the current round`);
+        if (!bracketBout.length || !bracketBout[0].next_bout_id) {
+            console.log(`No next bout found for bout ${boutId} (possibly the final)`);
+            return;
         }
 
-        console.log(`Bout ${boutId} is at position ${boutIndex} in round with table size ${bout.tableof}`);
-
-        // Calculate the next bout index - follow standard bracket progression
-        const nextBoutIndex = Math.floor(boutIndex / 2);
-
-        if (nextBoutIndex >= nextRoundBouts.length) {
-            throw new Error(
-                `Next bout index ${nextBoutIndex} is out of bounds (next round has ${nextRoundBouts.length} bouts)`
-            );
-        }
-
-        console.log(
-            `Winner will advance to bout at position ${nextBoutIndex} in next round with table size ${nextRoundTableSize}`
-        );
-
-        // Get the next bout
-        const nextBout = nextRoundBouts[nextBoutIndex];
-
-        // Determine placement (left or right) based on current bout index
-        // Even positions (0, 2, 4...) go to left side, odd positions (1, 3, 5...) go to right side
-        if (boutIndex % 2 === 0) {
+        const nextBoutId = bracketBout[0].next_bout_id;
+        const boutOrder = bracketBout[0].bout_order;
+        
+        // Determine if the winner should go to the left or right side of the next bout
+        // Even bout_order goes to left, odd goes to right
+        if (boutOrder % 2 === 0) {
             // Even positions go to left side of next bout
-            console.log(`Placing winner from bout ${boutId} in left position of next bout ${nextBout.id}`);
-            await db.update(schema.bouts).set({ lfencer: victorId }).where(eq(schema.bouts.id, nextBout.id));
+            console.log(`Placing winner ${victorId} in left position of next bout ${nextBoutId}`);
+            await db.update(schema.bouts).set({ lfencer: victorId }).where(eq(schema.bouts.id, nextBoutId));
         } else {
             // Odd positions go to right side of next bout
-            console.log(`Placing winner from bout ${boutId} in right position of next bout ${nextBout.id}`);
-            await db.update(schema.bouts).set({ rfencer: victorId }).where(eq(schema.bouts.id, nextBout.id));
+            console.log(`Placing winner ${victorId} in right position of next bout ${nextBoutId}`);
+            await db.update(schema.bouts).set({ rfencer: victorId }).where(eq(schema.bouts.id, nextBoutId));
         }
 
-        console.log(`Updated bout ${boutId} with scores A:${scoreA}-B:${scoreB}, victor: ${victorId}`);
-        console.log(`Advanced winner ${victorId} to next round bout ${nextBout.id}`);
+        console.log(`Advanced winner ${victorId} to next round bout ${nextBoutId}`);
     } catch (error) {
         console.error('Error updating bout and advancing winner:', error);
         throw error;
     }
 }
+

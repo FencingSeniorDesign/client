@@ -1,5 +1,5 @@
 // bracket.ts - DE bracket-related database functions
-import { and, count, eq, asc, desc, isNull, isNotNull } from 'drizzle-orm';
+import { and, count, eq, asc, desc, isNull, isNotNull, inArray } from 'drizzle-orm';
 import { sql } from 'drizzle-orm';
 import { db } from '../DrizzleClient';
 import * as schema from '../schema';
@@ -10,22 +10,73 @@ import type { Event, Round, Fencer } from '../../navigation/navigation/types';
  * @param tableSize The size of the DE table (must be a power of 2)
  * @returns An array of pairs [seedA, seedB] for each first round match
  */
+/**
+ * Generates the standard bracket positions for a given table size
+ * @param tableSize The size of the DE table (must be a power of 2)
+ * @returns An array of pairs [seedA, seedB] for each first round match
+ */
 export function generateBracketPositions(tableSize: number): [number, number][] {
-    const positions: [number, number][] = [];
-
-    // For a table of size N, the first round has N/2 bouts
-    for (let i = 0; i < tableSize / 2; i++) {
-        // Standard bracket pairing: 1 vs N, 2 vs N-1, etc.
-        const seedA = i + 1;
-        const seedB = tableSize - i;
-        positions.push([seedA, seedB]);
+    // Define the standard seeding patterns for different bracket sizes
+    let seedingPattern: number[];
+    
+    switch (tableSize) {
+        case 2:
+            seedingPattern = [1, 2];
+            break;
+        case 4:
+            seedingPattern = [1, 4, 3, 2];
+            break;
+        case 8:
+            seedingPattern = [1, 8, 5, 4, 3, 6, 7, 2];
+            break;
+        case 16:
+            seedingPattern = [1, 16, 9, 8, 5, 12, 13, 4, 3, 14, 11, 6, 7, 10, 15, 2];
+            break;
+        case 32:
+            seedingPattern = [
+                1, 32, 17, 16, 9, 24, 25, 8, 5, 28, 21, 12, 13, 20, 29, 4,
+                3, 30, 19, 14, 11, 22, 27, 6, 7, 26, 23, 10, 15, 18, 31, 2
+            ];
+            break;
+        case 64:
+            seedingPattern = [
+                1, 64, 33, 32, 17, 48, 49, 16, 9, 56, 41, 24, 25, 40, 57, 8,
+                5, 60, 37, 28, 21, 44, 53, 12, 13, 52, 45, 20, 29, 36, 61, 4,
+                3, 62, 35, 30, 19, 46, 51, 14, 11, 54, 43, 22, 27, 38, 59, 6,
+                7, 58, 39, 26, 23, 42, 55, 10, 15, 50, 47, 18, 31, 34, 63, 2
+            ];
+            break;
+        case 128:
+            seedingPattern = [
+                1, 128, 65, 64, 33, 96, 97, 32, 17, 112, 81, 48, 49, 80, 113, 16,
+                9, 120, 73, 56, 41, 88, 105, 24, 25, 104, 89, 40, 57, 72, 121, 8,
+                5, 124, 69, 60, 37, 92, 101, 28, 21, 108, 85, 44, 53, 76, 117, 12,
+                13, 116, 77, 52, 45, 84, 109, 20, 29, 100, 93, 36, 61, 68, 125, 4,
+                3, 126, 67, 62, 35, 94, 99, 30, 19, 110, 83, 46, 51, 78, 115, 14,
+                11, 118, 75, 54, 43, 86, 107, 22, 27, 102, 91, 38, 59, 70, 123, 6,
+                7, 122, 71, 58, 39, 90, 103, 26, 23, 106, 87, 42, 55, 74, 119, 10,
+                15, 114, 79, 50, 47, 82, 111, 18, 31, 98, 95, 34, 63, 66, 127, 2
+            ];
+            break;
+        default:
+            throw new Error(`Unsupported table size: ${tableSize}`);
     }
-
+    
+    // Create pairs of opponents for the first round
+    const positions: [number, number][] = [];
+    for (let i = 0; i < seedingPattern.length; i += 2) {
+        positions.push([seedingPattern[i], seedingPattern[i + 1]]);
+    }
+    
     return positions;
 }
 
+
 /**
  * Creates the first round DE bouts based on seeding and table size
+ */
+/**
+ * Creates the DE bouts for a round and sets up the bracket structure
  */
 export async function createDEBoutsForRound(
     event: Event,
@@ -35,7 +86,7 @@ export async function createDEBoutsForRound(
 ): Promise<void> {
     try {
         console.log(
-            `Creating first round DE bouts for event ${event.id}, round ${round.id} with ${fencers.length} fencers`
+            `Creating DE bouts for event ${event.id}, round ${round.id} with ${fencers.length} fencers`
         );
         console.log(`Seeding data: ${seeding.length} entries`);
 
@@ -72,82 +123,140 @@ export async function createDEBoutsForRound(
                 const positions = generateBracketPositions(tableSize);
                 console.log(`Generated ${positions.length} bracket positions`);
 
-                // Track created bout IDs for better error handling
-                const createdBoutIds = [];
+                // Create a map to track bouts for each round
+                const boutsByRound: Map<number, number[]> = new Map();
 
-                // Place fencers according to seeding
-                for (let i = 0; i < positions.length; i++) {
-                    const [posA, posB] = positions[i];
+                // Initialize maps for each table size
+                let currentTableSize = tableSize;
+                while (currentTableSize >= 2) {
+                    boutsByRound.set(currentTableSize, []);
+                    currentTableSize /= 2;
+                }
 
-                    // Get fencers for this bout (or null for byes)
-                    const fencerA = posA <= sortedFencers.length ? sortedFencers[posA - 1].fencer : null;
-                    const fencerB = posB <= sortedFencers.length ? sortedFencers[posB - 1].fencer : null;
+                // Create all bouts for all rounds
+                // Start with the first round (largest table size)
+                currentTableSize = tableSize;
 
-                    // If both fencers are null, skip this bout
-                    if (!fencerA && !fencerB) {
-                        console.log(`Skipping bout ${i + 1} as both fencers are null`);
+                // Create all bouts for all rounds
+                while (currentTableSize >= 2) {
+                    const boutIds: number[] = [];
+                    const numBouts = currentTableSize / 2;
+                    
+                    console.log(`Creating ${numBouts} bouts for table of ${currentTableSize}`);
+                    
+                    for (let i = 0; i < numBouts; i++) {
+                        // For the first round, place fencers according to seeding
+                        let leftFencerId = null;
+                        let rightFencerId = null;
+                        let victor = null;
+                        
+                        if (currentTableSize === tableSize) {
+                            // This is the first round, so place fencers according to seeding
+                            const [posA, posB] = positions[i];
+                            
+                            // Get fencers for this bout (or null for byes)
+                            const fencerA = posA <= sortedFencers.length ? sortedFencers[posA - 1].fencer : null;
+                            const fencerB = posB <= sortedFencers.length ? sortedFencers[posB - 1].fencer : null;
+                            
+                            leftFencerId = fencerA ? fencerA.id : null;
+                            rightFencerId = fencerB ? fencerB.id : null;
+                            
+                            // If only one fencer, it's a bye
+                            const isBye = !fencerA || !fencerB;
+                            
+                            // If it's a bye, the present fencer automatically advances
+                            victor = isBye ? (fencerA ? fencerA.id : (fencerB ? fencerB.id : null)) : null;
+                            
+                            console.log(
+                                `Creating bout ${i + 1}: ${fencerA?.fname || 'BYE'} vs ${fencerB?.fname || 'BYE'}, bye: ${isBye}, victor: ${victor}`
+                            );
+                        }
+                        
+                        // Insert the bout
+                        const boutResult = await tx
+                            .insert(schema.bouts)
+                            .values({
+                                lfencer: leftFencerId,
+                                rfencer: rightFencerId,
+                                victor: victor,
+                                eventid: event.id,
+                                roundid: round.id,
+                                tableof: currentTableSize,
+                            })
+                            .returning({ id: schema.bouts.id });
+                            
+                        const boutId = boutResult[0].id;
+                        boutIds.push(boutId);
+                        console.log(`Created bout with ID ${boutId} for table of ${currentTableSize}`);
+                    }
+                    
+                    // Store the bout IDs for this round
+                    boutsByRound.set(currentTableSize, boutIds);
+                    
+                    // Move to the next round
+                    currentTableSize /= 2;
+                }
+                
+                // Now create the DEBracketBouts entries to define the bracket structure
+                for (const [tableSize, boutIds] of boutsByRound.entries()) {
+                    if (tableSize === 2) {
+                        // This is the final - it has no next bout
+                        // But still create a bracket entry for it
+                        if (boutIds.length > 0) {
+                            await tx
+                                .insert(schema.deBracketBouts)
+                                .values({
+                                    roundid: round.id,
+                                    bout_id: boutIds[0],
+                                    bracket_type: 'winners',
+                                    bracket_round: Math.log2(tableSize),
+                                    bout_order: 0,
+                                    next_bout_id: null, // Final has no next bout
+                                    loser_next_bout_id: null, // Not used in single elimination
+                                });
+                            console.log(`Created bracket entry for final bout ${boutIds[0]}`);
+                        }
                         continue;
                     }
-
-                    // If only one fencer, it's a bye
-                    const isBye = !fencerA || !fencerB;
-
-                    // If it's a bye, the present fencer automatically advances
-                    const victor = isBye ? (fencerA ? fencerA.id : fencerB.id) : null;
-
-                    console.log(
-                        `Creating bout ${i + 1}: ${fencerA?.fname || 'BYE'} vs ${fencerB?.fname || 'BYE'}, bye: ${isBye}, victor: ${victor}`
-                    );
-
-                    // Insert the bout
-                    const boutResult = await tx
-                        .insert(schema.bouts)
-                        .values({
-                            lfencer: fencerA ? fencerA.id : null,
-                            rfencer: fencerB ? fencerB.id : null,
-                            victor: victor,
-                            eventid: event.id,
-                            roundid: round.id,
-                            tableof: tableSize,
-                        })
-                        .returning({ id: schema.bouts.id });
-
-                    const boutId = boutResult[0].id;
-                    createdBoutIds.push(boutId);
-                    console.log(`Created bout with ID ${boutId}`);
-
-                    // For byes, we don't award any points as the fencer didn't actually fence
-                    // We only mark the victor for advancement purposes
-                    if (isBye && victor) {
-                        console.log(`Bye for fencer ${victor} in bout ${boutId} - advancing without points`);
+                    
+                    const nextTableSize = tableSize / 2;
+                    const nextRoundBouts = boutsByRound.get(nextTableSize) || [];
+                    
+                    for (let i = 0; i < boutIds.length; i++) {
+                        const boutId = boutIds[i];
+                        const nextBoutIndex = Math.floor(i / 2);
+                        
+                        if (nextBoutIndex < nextRoundBouts.length) {
+                            const nextBoutId = nextRoundBouts[nextBoutIndex];
+                            
+                            // Create the DEBracketBout entry
+                            await tx
+                                .insert(schema.deBracketBouts)
+                                .values({
+                                    roundid: round.id,
+                                    bout_id: boutId,
+                                    bracket_type: 'winners',
+                                    bracket_round: Math.log2(tableSize),
+                                    bout_order: i,
+                                    next_bout_id: nextBoutId,
+                                    loser_next_bout_id: null, // Not used in single elimination
+                                });
+                                
+                            console.log(`Created bracket structure: Bout ${boutId} -> Next bout ${nextBoutId}`);
+                        }
                     }
                 }
-
-                // Create ALL rounds in advance so they appear in the UI immediately
-                let currentTableSize = tableSize;
-                while (currentTableSize > 2) {
-                    currentTableSize = currentTableSize / 2;
-                    console.log(`Creating bouts for table of ${currentTableSize}`);
-
-                    // Create placeholders for all bouts in this round
-                    for (let i = 0; i < currentTableSize / 2; i++) {
-                        await tx.insert(schema.bouts).values({
-                            lfencer: null, // Will be populated as fencers advance
-                            rfencer: null, // Will be populated as fencers advance
-                            eventid: event.id,
-                            roundid: round.id,
-                            tableof: currentTableSize,
-                        });
-                    }
-                }
-
+                
                 // For byes in the first round, advance fencers to the next round
                 if (fencers.length < tableSize) {
                     console.log(`Advancing fencers with byes to next round (${tableSize / 2})`);
-
-                    // Get all completed bouts from first round (byes)
+                    
+                    // Get all first round bouts with byes (have a victor already set)
                     const byeBouts = await tx
-                        .select()
+                        .select({
+                            id: schema.bouts.id,
+                            victor: schema.bouts.victor,
+                        })
                         .from(schema.bouts)
                         .where(
                             and(
@@ -156,56 +265,58 @@ export async function createDEBoutsForRound(
                                 isNotNull(schema.bouts.victor)
                             )
                         )
-                        .orderBy(schema.bouts.id);
-
-                    // Get next round bouts
-                    const nextRoundBouts = await tx
-                        .select()
-                        .from(schema.bouts)
-                        .where(and(eq(schema.bouts.roundid, round.id), eq(schema.bouts.tableof, tableSize / 2)))
-                        .orderBy(schema.bouts.id);
-
-                    // Place bye winners in correct positions in next round
-                    for (let i = 0; i < byeBouts.length; i += 2) {
-                        const boutA = byeBouts[i];
-                        const nextBoutIndex = Math.floor(i / 2);
-
-                        if (nextBoutIndex < nextRoundBouts.length) {
-                            const nextBout = nextRoundBouts[nextBoutIndex];
-
-                            // Place first winner
-                            if (boutA.victor) {
+                        .orderBy(asc(schema.bouts.id));
+                        
+                    console.log(`Found ${byeBouts.length} bouts with byes to advance`);
+                        
+                    // For each bye bout, find its next bout from DEBracketBouts and advance the winner
+                    for (const bout of byeBouts) {
+                        // Find the DEBracketBout entry for this bout
+                        const bracketBout = await tx
+                            .select({
+                                next_bout_id: schema.deBracketBouts.next_bout_id,
+                                bout_order: schema.deBracketBouts.bout_order,
+                            })
+                            .from(schema.deBracketBouts)
+                            .where(eq(schema.deBracketBouts.bout_id, bout.id))
+                            .limit(1);
+                            
+                        if (bracketBout.length > 0 && bracketBout[0].next_bout_id) {
+                            const nextBoutId = bracketBout[0].next_bout_id;
+                            const boutOrder = bracketBout[0].bout_order;
+                            
+                            // Even bout_order goes to left side, odd to right side
+                            if (boutOrder % 2 === 0) {
+                                // Even positions go to left side of next bout
+                                console.log(`Advancing bye winner ${bout.victor} to left position of bout ${nextBoutId}`);
                                 await tx
                                     .update(schema.bouts)
-                                    .set({ lfencer: boutA.victor })
-                                    .where(eq(schema.bouts.id, nextBout.id));
-                            }
-
-                            // Place second winner if available
-                            if (i + 1 < byeBouts.length) {
-                                const boutB = byeBouts[i + 1];
-                                if (boutB.victor) {
-                                    await tx
-                                        .update(schema.bouts)
-                                        .set({ rfencer: boutB.victor })
-                                        .where(eq(schema.bouts.id, nextBout.id));
-                                }
+                                    .set({ lfencer: bout.victor })
+                                    .where(eq(schema.bouts.id, nextBoutId));
+                            } else {
+                                // Odd positions go to right side of next bout
+                                console.log(`Advancing bye winner ${bout.victor} to right position of bout ${nextBoutId}`);
+                                await tx
+                                    .update(schema.bouts)
+                                    .set({ rfencer: bout.victor })
+                                    .where(eq(schema.bouts.id, nextBoutId));
                             }
                         }
                     }
                 }
-
-                console.log(`Successfully created all DE bouts for table size ${tableSize}`);
+                
+                console.log(`Successfully created all DE bouts and bracket structure for table size ${tableSize}`);
             } catch (error) {
                 console.error('Error in DE bout creation transaction:', error);
                 throw error; // Re-throw to trigger transaction rollback
             }
         });
     } catch (error) {
-        console.error('Error creating first round DE bouts:', error);
+        console.error('Error creating DE bouts:', error);
         throw error;
     }
 }
+
 
 /**
  * Checks if a DE round has completed (final bout has a winner)
