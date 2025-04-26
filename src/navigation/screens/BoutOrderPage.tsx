@@ -747,9 +747,30 @@ const BoutOrderPage: React.FC = () => {
             <Modal visible={alterModalVisible} transparent animationType="fade">
                 <View style={styles.modalOverlay}>
                     <View style={styles.alterModalContent}>
-                        <Text style={styles.alterModalTitle}>Alter Scores</Text>
+                        <Text style={styles.alterModalTitle}>Alter Bout Score</Text>
+                        {alterIndex !== null && (
+                            <View style={{
+                                backgroundColor: '#f0f0f0',
+                                padding: 10,
+                                borderRadius: 6,
+                                marginBottom: 16,
+                                borderWidth: 1,
+                                borderColor: navyBlue,
+                            }}>
+                                <Text style={{
+                                    fontSize: 18,
+                                    fontWeight: 'bold',
+                                    textAlign: 'center',
+                                    color: navyBlue,
+                                }}>
+                                    {bouts[alterIndex].fencerA.lname} vs {bouts[alterIndex].fencerB.lname}
+                                </Text>
+                            </View>
+                        )}
                         <View style={styles.scoreRow}>
-                            <Text style={styles.scoreFencerLabel}>Score A:</Text>
+                            <Text style={styles.scoreFencerLabel}>
+                                {alterIndex !== null ? bouts[alterIndex].fencerA.lname : 'Fencer A'}:
+                            </Text>
                             <TextInput
                                 style={styles.scoreInput}
                                 keyboardType="numeric"
@@ -758,7 +779,9 @@ const BoutOrderPage: React.FC = () => {
                             />
                         </View>
                         <View style={styles.scoreRow}>
-                            <Text style={styles.scoreFencerLabel}>Score B:</Text>
+                            <Text style={styles.scoreFencerLabel}>
+                                {alterIndex !== null ? bouts[alterIndex].fencerB.lname : 'Fencer B'}:
+                            </Text>
                             <TextInput
                                 style={styles.scoreInput}
                                 keyboardType="numeric"

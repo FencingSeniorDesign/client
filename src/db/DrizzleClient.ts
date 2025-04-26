@@ -239,6 +239,28 @@ export async function initializeDatabase() {
       END;
     `);
 
+
+
+        // Create trigger for bout updates (when fencers are assigned to later rounds)
+        await db.run(sql`
+      CREATE TRIGGER IF NOT EXISTS create_fencer_bouts_after_bout_update
+      AFTER UPDATE OF lfencer, rfencer
+      ON Bouts
+      WHEN (OLD.lfencer IS NULL AND NEW.lfencer IS NOT NULL) OR (OLD.rfencer IS NULL AND NEW.rfencer IS NOT NULL)
+      BEGIN
+        -- Check if the left fencer has been newly assigned and create FencerBout if needed
+        INSERT OR IGNORE INTO FencerBouts (boutid, fencerid)
+        SELECT NEW.id, NEW.lfencer
+        WHERE NEW.lfencer IS NOT NULL
+        AND NOT EXISTS (SELECT 1 FROM FencerBouts WHERE boutid = NEW.id AND fencerid = NEW.lfencer);
+
+        -- Check if the right fencer has been newly assigned and create FencerBout if needed
+        INSERT OR IGNORE INTO FencerBouts (boutid, fencerid)
+        SELECT NEW.id, NEW.rfencer
+        WHERE NEW.rfencer IS NOT NULL
+        AND NOT EXISTS (SELECT 1 FROM FencerBouts WHERE boutid = NEW.id AND fencerid = NEW.rfencer);
+      END;
+    `);
         console.log('Database initialized successfully');
     } catch (error) {
         console.error('Error initializing database:', error);

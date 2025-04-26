@@ -169,7 +169,9 @@ const DEBracketPage: React.FC = () => {
                     scoreA: bout.left_score !== null ? bout.left_score : undefined,
                     scoreB: bout.right_score !== null ? bout.right_score : undefined,
                     winner: bout.victor,
-                    isBye: !bout.lfencer || !bout.rfencer,
+                    // Mark as a BYE if exactly one fencer is present and the bout has a victor set
+                    // (true BYEs are automatic advancements)
+                    isBye: (!bout.lfencer && bout.rfencer) || (bout.lfencer && !bout.rfencer),
                     seedA: bout.seed_left,
                     seedB: bout.seed_right,
                 });
@@ -187,15 +189,15 @@ const DEBracketPage: React.FC = () => {
 
     const handleBoutPress = (bout: DEBout) => {
         try {
-            // Skip if it's a BYE
+            // Skip if it's a BYE - these have a single fencer who automatically advances
             if (bout.isBye) {
                 Alert.alert('BYE', 'This fencer advances automatically.');
                 return;
             }
 
-            // Skip if both fencers aren't set yet (waiting for previous round)
+            // Skip if both fencers aren't set yet (TBD - waiting for previous round)
             if (!bout.fencerA || !bout.fencerB) {
-                Alert.alert('Not Ready', 'This bout is waiting for fencers from previous rounds.');
+                Alert.alert('To Be Determined', 'This bout is waiting for fencers to advance from previous rounds.');
                 return;
             }
 
@@ -254,7 +256,7 @@ const DEBracketPage: React.FC = () => {
         }
 
         // Safely create fencer names with null checks
-        let fencerAName = 'BYE';
+        let fencerAName = 'TBD';
         if (bout.fencerA) {
             if (bout.fencerA.lname !== undefined && bout.fencerA.fname !== undefined) {
                 fencerAName = `${bout.fencerA.lname}, ${bout.fencerA.fname}`;
@@ -265,7 +267,7 @@ const DEBracketPage: React.FC = () => {
             }
         }
 
-        let fencerBName = 'BYE';
+        let fencerBName = 'TBD';
         if (bout.fencerB) {
             if (bout.fencerB.lname !== undefined && bout.fencerB.fname !== undefined) {
                 fencerBName = `${bout.fencerB.lname}, ${bout.fencerB.fname}`;
@@ -276,9 +278,11 @@ const DEBracketPage: React.FC = () => {
             }
         }
 
-        // Determine styles based on winner/BYE status
+        // Determine styles based on bout status
         const boutCompleted = bout.winner !== undefined;
-        const isBye = bout.isBye;
+        const isTBD = !bout.fencerA && !bout.fencerB;
+        // A bout is a true BYE if it's marked as such or has exactly one fencer
+        const isActualBye = bout.isBye || (!bout.fencerA && bout.fencerB) || (bout.fencerA && !bout.fencerB);
 
         // Determine winner (if completed)
         const fencerAWon = bout.winner === bout.fencerA?.id;
@@ -286,28 +290,41 @@ const DEBracketPage: React.FC = () => {
 
         return (
             <TouchableOpacity
-                style={[styles.boutContainer, isBye && styles.byeBout, boutCompleted && styles.completedBout]}
+                style={[
+                    styles.boutContainer, 
+                    isActualBye && styles.byeBout, 
+                    isTBD && styles.tbdBout, 
+                    boutCompleted && styles.completedBout
+                ]}
                 onPress={() => handleBoutPress(bout)}
-                disabled={isBye}
+                disabled={isActualBye || isTBD}
             >
                 <View style={styles.fencerRow}>
                     <View style={styles.fencerInfo}>
-                        <Text style={[styles.seedText, bout.seedA !== undefined && styles.seedVisible]}>
-                            {bout.seedA !== undefined ? `(${bout.seedA})` : ''}
+                        <Text style={[styles.seedText, bout.seedA !== undefined && bout.fencerA !== undefined && styles.seedVisible]}>
+                            {bout.seedA !== undefined && bout.fencerA !== undefined ? `(${bout.seedA})` : ''}
                         </Text>
-                        <Text style={[styles.fencerName, fencerAWon && styles.winnerText, isBye && styles.byeText]}>
-                            {fencerAName}
+                        <Text style={[
+                            styles.fencerName, 
+                            fencerAWon && styles.winnerText, 
+                            !bout.fencerA && (isTBD ? styles.tbdText : styles.byeText)
+                        ]}>
+                            {bout.fencerA ? fencerAName : (isTBD ? 'TBD' : 'BYE')}
                         </Text>
                     </View>
                     <Text style={styles.fencerScore}>{bout.scoreA !== undefined ? bout.scoreA : '-'}</Text>
                 </View>
                 <View style={styles.fencerRow}>
                     <View style={styles.fencerInfo}>
-                        <Text style={[styles.seedText, bout.seedB !== undefined && styles.seedVisible]}>
-                            {bout.seedB !== undefined ? `(${bout.seedB})` : ''}
+                        <Text style={[styles.seedText, bout.seedB !== undefined && bout.fencerB !== undefined && styles.seedVisible]}>
+                            {bout.seedB !== undefined && bout.fencerB !== undefined ? `(${bout.seedB})` : ''}
                         </Text>
-                        <Text style={[styles.fencerName, fencerBWon && styles.winnerText, isBye && styles.byeText]}>
-                            {fencerBName}
+                        <Text style={[
+                            styles.fencerName, 
+                            fencerBWon && styles.winnerText, 
+                            !bout.fencerB && (isTBD ? styles.tbdText : styles.byeText)
+                        ]}>
+                            {bout.fencerB ? fencerBName : (isTBD ? 'TBD' : 'BYE')}
                         </Text>
                     </View>
                     <Text style={styles.fencerScore}>{bout.scoreB !== undefined ? bout.scoreB : '-'}</Text>
@@ -482,6 +499,13 @@ const styles = StyleSheet.create({
         backgroundColor: '#f9f9f9',
         opacity: 0.8,
         borderStyle: 'dashed',
+        borderColor: '#ccc',
+    },
+    tbdBout: {
+        backgroundColor: '#f5f5f5',
+        opacity: 0.7,
+        borderStyle: 'dotted',
+        borderColor: '#ddd',
     },
     completedBout: {
         borderColor: '#4CAF50',
@@ -514,7 +538,13 @@ const styles = StyleSheet.create({
     },
     byeText: {
         fontStyle: 'italic',
-        color: '#999',
+        fontWeight: '500',
+        color: '#777',  // Darker color for BYEs to distinguish them
+    },
+    tbdText: {
+        fontStyle: 'italic',
+        fontWeight: '300',
+        color: '#aaa',  // Lighter color for TBDs
     },
     fencerScore: {
         fontSize: 18,
