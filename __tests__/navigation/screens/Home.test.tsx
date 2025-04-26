@@ -1,4 +1,18 @@
 // __tests__/navigation/screens/Home.test.tsx
+jest.mock(
+  '@react-native-async-storage/async-storage',
+  () => require('@react-native-async-storage/async-storage/jest/async-storage-mock')
+);
+
+// Stub out all of react-native-device-info
+jest.mock('react-native-device-info', () => ({
+  getVersion:     jest.fn(() => '1.0.0'),
+  getSystemName:  jest.fn(() => 'TestOS'),
+  getUniqueId:    jest.fn(() => 'mock-device-id'),
+  // add any other methods your code uses...
+}));
+
+// __tests__/navigation/screens/Home.test.tsx
 import React from 'react';
 import { render, fireEvent, waitFor, act } from '@testing-library/react-native';
 import { Home } from '../../../src/navigation/screens/Home';
