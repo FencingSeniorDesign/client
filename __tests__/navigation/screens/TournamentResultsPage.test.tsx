@@ -85,6 +85,7 @@ describe('TournamentResultsPage', () => {
             touchesScored: 45,
             touchesReceived: 30,
             indicator: 15,
+            seed: 1,
         },
     ];
 

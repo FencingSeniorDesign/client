@@ -41,6 +41,7 @@ interface DEResult {
     touchesScored: number;
     touchesReceived: number;
     indicator: number;
+    seed: number;
 }
 
 const TournamentResultsPage: React.FC = () => {
@@ -211,8 +212,7 @@ const TournamentResultsPage: React.FC = () => {
                     victories: number;
                     touchesScored: number;
                     touchesReceived: number;
-                    finalPlace?: number;
-                    lastRoundReached: number;
+                    eliminatedInRound: number | null; // Which round they were eliminated in (null if not eliminated)
                     seed: number;
                 }
             >();
@@ -225,7 +225,7 @@ const TournamentResultsPage: React.FC = () => {
                     victories: 0,
                     touchesScored: 0,
                     touchesReceived: 0,
-                    lastRoundReached: 0,
+                    eliminatedInRound: null, // Will be set when we find they lost
                     seed,
                 });
             });
@@ -238,23 +238,21 @@ const TournamentResultsPage: React.FC = () => {
                 const rightScore = bout.right_score ?? 0;
                 const victorId = bout.victor;
                 const tableof = bout.tableof;
-                const round = Math.log2(tableof);
-
-                // Only count if both fencers are present (skip byes)
-                if (leftId && rightId) {
+                
+                // Only process completed bouts (with both fencers and a victor)
+                if (victorId && leftId && rightId) {
                     // Update left fencer stats
                     if (fencerStatsMap.has(leftId)) {
                         const stats = fencerStatsMap.get(leftId)!;
                         stats.bouts += 1;
                         stats.touchesScored += leftScore;
                         stats.touchesReceived += rightScore;
+                        
                         if (victorId === leftId) {
                             stats.victories += 1;
-                            // Update the last round this fencer reached
-                            stats.lastRoundReached = Math.max(stats.lastRoundReached, round + 1);
                         } else {
-                            // If they lost, this was their last round
-                            stats.lastRoundReached = Math.max(stats.lastRoundReached, round);
+                            // This fencer lost in this round
+                            stats.eliminatedInRound = tableof;
                         }
                     }
 
@@ -264,51 +262,85 @@ const TournamentResultsPage: React.FC = () => {
                         stats.bouts += 1;
                         stats.touchesScored += rightScore;
                         stats.touchesReceived += leftScore;
+                        
                         if (victorId === rightId) {
                             stats.victories += 1;
-                            // Update the last round this fencer reached
-                            stats.lastRoundReached = Math.max(stats.lastRoundReached, round + 1);
                         } else {
-                            // If they lost, this was their last round
-                            stats.lastRoundReached = Math.max(stats.lastRoundReached, round);
+                            // This fencer lost in this round
+                            stats.eliminatedInRound = tableof;
                         }
                     }
                 }
             });
 
-            // Convert the map to an array of results
-            const results: DEResult[] = Array.from(fencerStatsMap.values()).map(stats => {
-                return {
+            // Group fencers by elimination round
+            const fencersByEliminationRound = new Map<number | null, Array<{
+                fencer: Fencer;
+                victories: number;
+                bouts: number;
+                touchesScored: number;
+                touchesReceived: number;
+                indicator: number;
+                seed: number;
+            }>>();
+
+            // Initialize the elimination round groups
+            fencerStatsMap.forEach(stats => {
+                const round = stats.eliminatedInRound;
+                if (!fencersByEliminationRound.has(round)) {
+                    fencersByEliminationRound.set(round, []);
+                }
+                
+                fencersByEliminationRound.get(round)!.push({
                     fencer: stats.fencer,
-                    place: 0, // We'll calculate this next
                     victories: stats.victories,
                     bouts: stats.bouts,
                     touchesScored: stats.touchesScored,
                     touchesReceived: stats.touchesReceived,
                     indicator: stats.touchesScored - stats.touchesReceived,
-                    lastRoundReached: stats.lastRoundReached,
-                    seed: stats.seed,
-                };
+                    seed: stats.seed
+                });
             });
 
-            // Sort fencers by lastRoundReached (descending), then by victories, indicator, and initial seed
-            results.sort((a, b) => {
-                if (a.lastRoundReached !== b.lastRoundReached) {
-                    return b.lastRoundReached - a.lastRoundReached;
-                }
-                if (a.victories !== b.victories) {
-                    return b.victories - a.victories;
-                }
-                if (a.indicator !== b.indicator) {
-                    return b.indicator - a.indicator;
-                }
-                // If everything else is equal, use original seeding
-                return a.seed - b.seed;
+            // Sort each group by indicator and seed
+            fencersByEliminationRound.forEach(fencers => {
+                fencers.sort((a, b) => {
+                    if (a.indicator !== b.indicator) {
+                        return b.indicator - a.indicator; // Higher indicator is better
+                    }
+                    return a.seed - b.seed; // Lower seed is better
+                });
             });
 
-            // Assign places based on the sorted order
-            results.forEach((result, index) => {
-                result.place = index + 1;
+            // Create a sorted list of rounds (null first, then table of 2, then 4, etc.)
+            const sortedRounds = Array.from(fencersByEliminationRound.keys()).sort((a, b) => {
+                if (a === null) return -1; // Null (uneliminated) comes first
+                if (b === null) return 1;
+                return a - b; // Smaller rounds (final) come before larger rounds
+            });
+
+            // Create the final results array
+            const results: DEResult[] = [];
+            let currentPlace = 1;
+
+            // Process each elimination round group
+            sortedRounds.forEach(round => {
+                const fencers = fencersByEliminationRound.get(round)!;
+                
+                // Assign places to fencers in this round
+                fencers.forEach(fencer => {
+                    results.push({
+                        fencer: fencer.fencer,
+                        place: currentPlace,
+                        victories: fencer.victories,
+                        bouts: fencer.bouts,
+                        touchesScored: fencer.touchesScored,
+                        touchesReceived: fencer.touchesReceived,
+                        indicator: fencer.indicator,
+                        seed: fencer.seed
+                    });
+                    currentPlace++;
+                });
             });
 
             // Set the DE results
