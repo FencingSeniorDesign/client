@@ -54,8 +54,9 @@ describe('DoubleEliminationPage', () => {
         });
 
         // Verify container styling
-        const container = tbdText.parent.parent;
-        expect(container.props.style).toEqual({
+        const container = tbdText.parent?.parent;
+        expect(container).not.toBeNull();
+        expect(container?.props?.style).toEqual({
             flex: 1,
             justifyContent: 'center',
             alignItems: 'center',

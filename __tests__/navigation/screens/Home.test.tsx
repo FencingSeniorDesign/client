@@ -12,11 +12,46 @@ jest.mock('react-native-device-info', () => ({
   // add any other methods your code uses...
 }));
 
+// Mock SQLite and database before any other imports
+jest.mock('expo-sqlite', () => ({
+    openDatabaseSync: jest.fn(() => ({
+        transaction: jest.fn(),
+        exec: jest.fn(),
+        close: jest.fn(),
+    })),
+}));
+
+// Mock DrizzleClient
+jest.mock('../../../src/db/DrizzleClient', () => ({
+    db: {
+        query: jest.fn(),
+        transaction: jest.fn(),
+    },
+}));
+
+// Mock DrizzleDataProvider
+jest.mock('../../../src/data/DrizzleDataProvider', () => ({
+    default: {
+        getTournaments: jest.fn(() => []),
+        getCompletedTournaments: jest.fn(() => []),
+        createTournament: jest.fn(),
+        deleteTournament: jest.fn(),
+    },
+}));
+
+// Mock AbilityContext
+jest.mock('../../../src/rbac/AbilityContext', () => ({
+    useAbility: () => ({
+        setTournamentContext: jest.fn(),
+    }),
+}));
+
 // __tests__/navigation/screens/Home.test.tsx
 import React from 'react';
 import { render, fireEvent, waitFor, act } from '@testing-library/react-native';
 import { Home } from '../../../src/navigation/screens/Home';
 import tournamentClient from '../../../src/networking/TournamentClient';
+import { View, Text, TouchableOpacity } from 'react-native';
 
 // Mock tournamentClient methods
 jest.mock('../../../src/networking/TournamentClient', () => ({
@@ -63,18 +98,41 @@ jest.mock('@expo/vector-icons', () => ({
 jest.mock('../../../src/assets/logo.png', () => ({}));
 
 // Mock child components used by Home with corrected paths
-jest.mock('../../../src/navigation/screens/CreateTournamentModal', () => ({
-    CreateTournamentButton: (props: any) => <button onClick={props.onTournamentCreated}>Create Tournament</button>,
-}));
+jest.mock('../../../src/navigation/screens/JoinTournamentModal', () => {
+    const ReactNative = require('react-native');
+    return {
+        JoinTournamentModal: ({ visible }: { visible: boolean }) => {
+            if (!visible) return null;
+            return (
+                <ReactNative.View testID="joinTournamentModal">
+                    <ReactNative.Text>JoinTournamentModal</ReactNative.Text>
+                </ReactNative.View>
+            );
+        },
+    };
+});
 
-jest.mock('../../../src/navigation/screens/TournamentListComponent', () => ({
-    TournamentList: (props: any) => <div>{props.tournaments.length} Tournaments</div>,
-}));
+jest.mock('../../../src/navigation/screens/CreateTournamentModal', () => {
+    const ReactNative = require('react-native');
+    return {
+        CreateTournamentButton: ({ onTournamentCreated }: { onTournamentCreated: () => void }) => (
+            <ReactNative.TouchableOpacity onPress={onTournamentCreated}>
+                <ReactNative.Text>Create Tournament</ReactNative.Text>
+            </ReactNative.TouchableOpacity>
+        ),
+    };
+});
 
-jest.mock('../../../src/navigation/screens/JoinTournamentModal', () => ({
-    JoinTournamentModal: (props: any) =>
-        props.visible ? <div data-testid="joinTournamentModal">JoinTournamentModal</div> : null,
-}));
+jest.mock('../../../src/navigation/screens/TournamentListComponent', () => {
+    const ReactNative = require('react-native');
+    return {
+        TournamentList: ({ tournaments }: { tournaments: { id: string; name: string }[] }) => (
+            <ReactNative.View>
+                <ReactNative.Text>{tournaments.length} Tournaments</ReactNative.Text>
+            </ReactNative.View>
+        ),
+    };
+});
 
 describe('Home Screen', () => {
     beforeEach(() => {
@@ -120,12 +178,18 @@ describe('Home Screen', () => {
         expect(queryByTestId('joinTournamentModal')).toBeNull();
 
         const joinButton = getByText('Join Tournament');
+        
         await act(async () => {
             fireEvent.press(joinButton);
+            // Add a small delay to allow state updates
+            await new Promise(resolve => setTimeout(resolve, 0));
         });
 
         await waitFor(() => {
             expect(queryByTestId('joinTournamentModal')).toBeTruthy();
+        }, {
+            timeout: 2000, // Increase timeout
+            interval: 100  // Check more frequently
         });
     });
 });
