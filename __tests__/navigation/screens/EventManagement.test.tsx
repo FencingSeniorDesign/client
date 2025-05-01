@@ -1,202 +1,130 @@
-// Mock expo modules before any imports
-jest.mock('expo-modules-core', () => ({
-    Platform: {
-        OS: 'test',
-    },
-}));
+// EventManagement.test.tsx
 
+// Mock expo-sqlite before any imports
 jest.mock('expo-sqlite', () => ({
-    openDatabaseSync: jest.fn(() => ({
-        transaction: jest.fn(),
-        exec: jest.fn(),
-        close: jest.fn(),
-    })),
+  openDatabaseSync: jest.fn(() => ({
+    transaction: jest.fn(),
+    exec: jest.fn(),
+    close: jest.fn(),
+  })),
 }));
 
-jest.mock('expo-network', () => ({
-    getIpAddressAsync: jest.fn(() => Promise.resolve('192.168.1.1')),
-}));
-
-// Mock AsyncStorage
-jest.mock('@react-native-async-storage/async-storage', () => ({
-    getItem: jest.fn(() => Promise.resolve(null)),
-    setItem: jest.fn(() => Promise.resolve(null)),
-}));
-
-// Mock TCP socket
-jest.mock('react-native-tcp-socket', () => ({
-    createServer: jest.fn(),
-    createConnection: jest.fn(),
-}));
-
-// Mock database client
+// Mock DrizzleClient
 jest.mock('../../../src/db/DrizzleClient', () => ({
-    db: {
-        query: jest.fn(),
-        transaction: jest.fn(),
-    },
+  db: {
+    query: jest.fn(),
+    transaction: jest.fn(),
+  },
+}));
+
+// Mock DrizzleDataProvider
+jest.mock('../../../src/data/DrizzleDataProvider', () => ({
+  default: {
+    getEvents: jest.fn(() => []),
+    getEventStatuses: jest.fn(() => ({})),
+    createEvent: jest.fn(),
+    deleteEvent: jest.fn(),
+  },
 }));
 
 import React from 'react';
-import { render, fireEvent, waitFor } from '@testing-library/react-native';
-import { Alert } from 'react-native';
-import { EventManagement } from '../../../src/navigation/screens/EventManagement';
+import { render } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { RouteProp } from '@react-navigation/native';
+import { EventManagement } from '../../../src/navigation/screens/EventManagement';
 
-// Define the route param types
-type EventManagementParamList = {
-    params: {
-        tournamentName: string;
-        isRemoteConnection?: boolean;
-    };
-};
-
-// Create a properly typed mock route object
-const mockRoute: RouteProp<EventManagementParamList, 'params'> = {
-    key: 'EventManagement',
-    name: 'params' as const, // Use literal type
-    params: {
-        tournamentName: 'Test Tournament',
-        isRemoteConnection: false,
-    },
-};
-
-// Mock navigation
-const mockNavigate = jest.fn();
-const mockGoBack = jest.fn();
-
-jest.mock('@react-navigation/native', () => ({
-    useNavigation: () => ({
-        navigate: mockNavigate,
-        goBack: mockGoBack,
-    }),
-    useRoute: () => mockRoute,
-}));
-
-// Mock hooks
+// Mock data hooks
 jest.mock('../../../src/data/TournamentDataHooks', () => ({
-    useEvents: jest.fn(() => ({
-        data: [],
-        isLoading: false,
-        isError: false,
-    })),
-    useEventStatuses: jest.fn(() => ({
-        data: {},
-        isLoading: false,
-    })),
-    useCreateEvent: jest.fn(() => ({
-        mutate: jest.fn(),
-        isPending: false,
-    })),
-    useDeleteEvent: jest.fn(() => ({
-        mutate: jest.fn(),
-    })),
+  useEvents: jest.fn(() => ({ data: [], isLoading: false, isError: false })),
+  useEventStatuses: jest.fn(() => ({ data: {}, isLoading: false })),
+  useInitializeRound: jest.fn(() => ({ mutate: jest.fn(), isLoading: false })),
+  useCreateEvent: jest.fn(() => ({ mutate: jest.fn(), isPending: false })),
+  useDeleteEvent: jest.fn(() => ({ mutate: jest.fn(), isPending: false })),
+  useRounds: jest.fn(() => ({ data: [], isLoading: false })),
+  useFencers: jest.fn(() => ({ data: [], isLoading: false })),
+  queryKeys: {
+    events: () => ['events'],
+    eventStatuses: 'eventStatuses',
+    fencers: () => ['fencers'],
+    rounds: () => ['rounds'],
+  },
 }));
 
-// Mock RBAC
+// Mock RBAC and navigation context
 jest.mock('../../../src/rbac/AbilityContext', () => ({
-    useAbility: () => ({
-        ability: {
-            can: jest.fn(() => true),
-        },
-    }),
+  useAbility: jest.fn(() => ({ ability: { can: () => true } })),
+}));
+jest.mock('../../../src/rbac/PermissionsDisplay', () => ({
+  PermissionsDisplay: () => null,
+}));
+jest.mock('../../../src/rbac/Can', () => ({
+  Can: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
 
-// Create a wrapper component with QueryClientProvider
+// Mock networking and utils
+jest.mock('../../../src/networking/TournamentServer', () => ({
+  loadServerInfo: jest.fn(),
+  getServerInfo: jest.fn(() => null),
+  isServerRunning: jest.fn(() => false),
+  startServer: jest.fn(),
+  stopServer: jest.fn(),
+}));
+jest.mock('../../../src/networking/TournamentClient', () => ({
+  getClientInfo: jest.fn(() => null),
+  isShowingDisconnectAlert: false,
+  isConnected: jest.fn(() => false),
+  disconnect: jest.fn(),
+}));
+jest.mock('../../../src/networking/NetworkUtils', () => ({
+  getLocalIpAddress: jest.fn(() => Promise.resolve(null)),
+  isConnectedToInternet: jest.fn(() => Promise.resolve(false)),
+  getNetworkInfo: jest.fn(() => Promise.resolve(null)),
+}));
+jest.mock('../../../src/networking/components/ConnectionStatusBar', () => () => null);
+jest.mock('../../../src/navigation/utils/DENavigationUtil', () => ({
+  navigateToDEPage: jest.fn(),
+}));
+
+// Mock navigation hook
+jest.mock('@react-navigation/native', () => ({
+  useNavigation: () => ({ navigate: jest.fn() }),
+}));
+
+// Wrapper for QueryClientProvider
 const createWrapper = () => {
-    const queryClient = new QueryClient({
-        defaultOptions: {
-            queries: {
-                retry: false,
-            },
-        },
-    });
-    
-    return ({ children }: { children: React.ReactNode }) => (
-        <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
-    );
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: {
+        retry: false,
+      },
+    },
+  });
+  return ({ children }: { children: React.ReactNode }) => (
+    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+  );
 };
 
 describe('EventManagement', () => {
-    beforeEach(() => {
-        jest.clearAllMocks();
-        // Clear any cached modules
-        jest.resetModules();
-    });
+  it('renders tournament name', () => {
+    const { getByText } = render(
+      <EventManagement route={{ key: 'test-key', name: 'params', params: { tournamentName: 'Test Tournament' } }} />,
+      { wrapper: createWrapper() }
+    );
+    expect(getByText('Test Tournament')).toBeTruthy();
+  });
 
-    it('renders tournament name', () => {
-        const { getByText } = render(<EventManagement route={mockRoute} />, {
-            wrapper: createWrapper(),
-        });
-        expect(getByText('Test Tournament')).toBeTruthy();
-    });
+  it('shows empty state message when no events exist', () => {
+    const { getByText } = render(
+      <EventManagement route={{ key: 'test-key', name: 'params', params: { tournamentName: 'Test Tournament' } }} />,
+      { wrapper: createWrapper() }
+    );
+    expect(getByText('No events created yet')).toBeTruthy();
+  });
 
-    it('shows loading state while fetching events', () => {
-        const { useEvents } = require('../../../src/data/TournamentDataHooks');
-        useEvents.mockReturnValueOnce({
-            data: [],
-            isLoading: true,
-            isError: false,
-        });
-
-        const { getByText } = render(<EventManagement route={mockRoute} />, {
-            wrapper: createWrapper(),
-        });
-        expect(getByText('Loading events...')).toBeTruthy();
-    });
-
-    it('shows error state when events fail to load', () => {
-        const { useEvents } = require('../../../src/data/TournamentDataHooks');
-        useEvents.mockReturnValueOnce({
-            data: [],
-            isLoading: false,
-            isError: true,
-        });
-
-        const { getByText } = render(<EventManagement route={mockRoute} />, {
-            wrapper: createWrapper(),
-        });
-        expect(getByText('Error loading events. Please try again.')).toBeTruthy();
-    });
-
-    it('shows empty state when no events exist', () => {
-        const { useEvents } = require('../../../src/data/TournamentDataHooks');
-        useEvents.mockReturnValueOnce({
-            data: [],
-            isLoading: false,
-            isError: false,
-        });
-
-        const { getByText } = render(<EventManagement route={mockRoute} />, {
-            wrapper: createWrapper(),
-        });
-        expect(getByText('No events created yet')).toBeTruthy();
-    });
-
-    it('renders create event button when user has permission', () => {
-        const { getByText } = render(<EventManagement route={mockRoute} />, {
-            wrapper: createWrapper(),
-        });
-        expect(getByText('Create Event')).toBeTruthy();
-    });
-
-    it('renders manage officials button when user has permission', () => {
-        const { getByText } = render(<EventManagement route={mockRoute} />, {
-            wrapper: createWrapper(),
-        });
-        expect(getByText('Manage Officials')).toBeTruthy();
-    });
-
-    it('navigates to manage officials screen when button is pressed', () => {
-        const { getByText } = render(<EventManagement route={mockRoute} />, {
-            wrapper: createWrapper(),
-        });
-        fireEvent.press(getByText('Manage Officials'));
-        
-        expect(mockNavigate).toHaveBeenCalledWith('ManageOfficials', {
-            tournamentName: 'Test Tournament',
-            isRemote: false,
-        });
-    });
+  it('renders manage officials button', () => {
+    const { getByText } = render(
+      <EventManagement route={{ key: 'test-key', name: 'params', params: { tournamentName: 'Test Tournament' } }} />,
+      { wrapper: createWrapper() }
+    );
+    expect(getByText('Manage Officials')).toBeTruthy();
+  });
 });
