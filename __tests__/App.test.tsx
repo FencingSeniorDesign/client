@@ -8,6 +8,17 @@ jest.mock('react-native-gesture-handler', () => {
     };
 });
 
+// Add this mock before other imports
+jest.mock('react-native-tcp-socket', () => ({
+    createServer: jest.fn(),
+    connect: jest.fn(),
+}));
+
+// Add AsyncStorage mock
+jest.mock('@react-native-async-storage/async-storage', () =>
+    require('@react-native-async-storage/async-storage/jest/async-storage-mock')
+);
+
 import React from 'react';
 import { render } from '@testing-library/react-native';
 import { App } from '../src/App';
