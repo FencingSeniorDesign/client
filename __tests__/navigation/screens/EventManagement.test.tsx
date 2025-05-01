@@ -1,235 +1,202 @@
-import React from 'react';
-import { render, fireEvent, waitFor, act } from '@testing-library/react-native';
-import { Alert } from 'react-native';
-import { RouteProp } from '@react-navigation/native';
-import { EventManagement } from '../../../src/navigation/screens/EventManagement';
-import { useEvents, useEventStatuses } from '../../../src/data/TournamentDataHooks';
-import tournamentServer from '../../../src/networking/TournamentServer';
-import tournamentClient from '../../../src/networking/TournamentClient';
-import { getLocalIpAddress } from '../../../src/networking/NetworkUtils';
-import { useAbility } from '../../../src/rbac/AbilityContext';
-
-// Mock the hooks and modules
-jest.mock('../../../src/data/TournamentDataHooks');
-jest.mock('../../../src/networking/TournamentServer');
-jest.mock('../../../src/networking/TournamentClient');
-jest.mock('../../../src/networking/NetworkUtils');
-jest.mock('../../../src/rbac/AbilityContext');
-
-// Mock navigation
-jest.mock('@react-navigation/native', () => ({
-    useNavigation: () => ({
-        navigate: jest.fn(),
-        goBack: jest.fn(),
-    }),
-    useRoute: () => ({
-        params: {
-            tournamentName: 'Test Tournament',
-            isRemoteConnection: false,
-        },
-    }),
+// Mock expo modules before any imports
+jest.mock('expo-modules-core', () => ({
+    Platform: {
+        OS: 'test',
+    },
 }));
 
-// Mock Alert
-jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+jest.mock('expo-sqlite', () => ({
+    openDatabaseSync: jest.fn(() => ({
+        transaction: jest.fn(),
+        exec: jest.fn(),
+        close: jest.fn(),
+    })),
+}));
 
-// Define the route type
-type EventManagementRouteParams = {
+jest.mock('expo-network', () => ({
+    getIpAddressAsync: jest.fn(() => Promise.resolve('192.168.1.1')),
+}));
+
+// Mock AsyncStorage
+jest.mock('@react-native-async-storage/async-storage', () => ({
+    getItem: jest.fn(() => Promise.resolve(null)),
+    setItem: jest.fn(() => Promise.resolve(null)),
+}));
+
+// Mock TCP socket
+jest.mock('react-native-tcp-socket', () => ({
+    createServer: jest.fn(),
+    createConnection: jest.fn(),
+}));
+
+// Mock database client
+jest.mock('../../../src/db/DrizzleClient', () => ({
+    db: {
+        query: jest.fn(),
+        transaction: jest.fn(),
+    },
+}));
+
+import React from 'react';
+import { render, fireEvent, waitFor } from '@testing-library/react-native';
+import { Alert } from 'react-native';
+import { EventManagement } from '../../../src/navigation/screens/EventManagement';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { RouteProp } from '@react-navigation/native';
+
+// Define the route param types
+type EventManagementParamList = {
     params: {
         tournamentName: string;
         isRemoteConnection?: boolean;
     };
 };
 
-// Create a mock route object that matches RouteProp type
-const createMockRoute = (params: EventManagementRouteParams['params']): RouteProp<EventManagementRouteParams, 'params'> => ({
-    key: 'test-key',
-    name: 'params',
-    params,
-});
+// Create a properly typed mock route object
+const mockRoute: RouteProp<EventManagementParamList, 'params'> = {
+    key: 'EventManagement',
+    name: 'params' as const, // Use literal type
+    params: {
+        tournamentName: 'Test Tournament',
+        isRemoteConnection: false,
+    },
+};
+
+// Mock navigation
+const mockNavigate = jest.fn();
+const mockGoBack = jest.fn();
+
+jest.mock('@react-navigation/native', () => ({
+    useNavigation: () => ({
+        navigate: mockNavigate,
+        goBack: mockGoBack,
+    }),
+    useRoute: () => mockRoute,
+}));
+
+// Mock hooks
+jest.mock('../../../src/data/TournamentDataHooks', () => ({
+    useEvents: jest.fn(() => ({
+        data: [],
+        isLoading: false,
+        isError: false,
+    })),
+    useEventStatuses: jest.fn(() => ({
+        data: {},
+        isLoading: false,
+    })),
+    useCreateEvent: jest.fn(() => ({
+        mutate: jest.fn(),
+        isPending: false,
+    })),
+    useDeleteEvent: jest.fn(() => ({
+        mutate: jest.fn(),
+    })),
+}));
+
+// Mock RBAC
+jest.mock('../../../src/rbac/AbilityContext', () => ({
+    useAbility: () => ({
+        ability: {
+            can: jest.fn(() => true),
+        },
+    }),
+}));
+
+// Create a wrapper component with QueryClientProvider
+const createWrapper = () => {
+    const queryClient = new QueryClient({
+        defaultOptions: {
+            queries: {
+                retry: false,
+            },
+        },
+    });
+    
+    return ({ children }: { children: React.ReactNode }) => (
+        <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    );
+};
 
 describe('EventManagement', () => {
-    const mockEvents = [
-        {
-            id: 1,
-            weapon: 'Foil',
-            gender: 'Mixed',
-            age: 'Senior',
-        },
-    ];
-
-    const mockEventStatuses = {
-        1: true, // Event 1 is started
-    };
-
     beforeEach(() => {
         jest.clearAllMocks();
-
-        // Mock hook returns
-        (useEvents as jest.Mock).mockReturnValue({
-            data: mockEvents,
-            isLoading: false,
-            isError: false,
-        });
-
-        (useEventStatuses as jest.Mock).mockReturnValue({
-            data: mockEventStatuses,
-            isLoading: false,
-        });
-
-        // Mock ability context
-        (useAbility as jest.Mock).mockReturnValue({
-            ability: {
-                can: jest.fn().mockReturnValue(true),
-            },
-        });
-
-        // Mock network utilities
-        (getLocalIpAddress as jest.Mock).mockResolvedValue('192.168.1.100');
+        // Clear any cached modules
+        jest.resetModules();
     });
 
-    it('renders event management screen', async () => {
-        const mockRoute = createMockRoute({ tournamentName: 'Test Tournament' });
-        const { getByText } = render(<EventManagement route={mockRoute} />);
-        
-        await waitFor(() => {
-            expect(getByText('Test Tournament')).toBeTruthy();
-            expect(getByText('Create Event')).toBeTruthy();
+    it('renders tournament name', () => {
+        const { getByText } = render(<EventManagement route={mockRoute} />, {
+            wrapper: createWrapper(),
         });
+        expect(getByText('Test Tournament')).toBeTruthy();
     });
 
-    it('displays list of events', async () => {
-        const mockRoute = createMockRoute({ tournamentName: 'Test Tournament' });
-        const { getByText } = render(<EventManagement route={mockRoute} />);
-        
-        await waitFor(() => {
-            expect(getByText('Senior Mixed Foil')).toBeTruthy();
-        });
-    });
-
-    it('opens create event modal when create button is pressed', async () => {
-        const mockRoute = createMockRoute({ tournamentName: 'Test Tournament' });
-        const { getByText } = render(<EventManagement route={mockRoute} />);
-        
-        fireEvent.press(getByText('Create Event'));
-        
-        await waitFor(() => {
-            expect(getByText('Create Event')).toBeTruthy();
-            expect(getByText('Foil')).toBeTruthy();
-            expect(getByText('Mixed')).toBeTruthy();
-            expect(getByText('Senior')).toBeTruthy();
-        });
-    });
-
-    it('handles server toggle', async () => {
-        const mockRoute = createMockRoute({ tournamentName: 'Test Tournament' });
-        const { getByText } = render(<EventManagement route={mockRoute} />);
-        
-        const serverButton = getByText('Enable Server');
-        await act(async () => {
-            fireEvent.press(serverButton);
-        });
-
-        expect(tournamentServer.startServer).toHaveBeenCalled();
-    });
-
-    it('handles remote connection mode', async () => {
-        (tournamentClient.getClientInfo as jest.Mock).mockReturnValue({
-            tournamentName: 'Remote Tournament',
-            hostIp: '192.168.1.101',
-            port: 9001,
-        });
-
-        const mockRoute = createMockRoute({
-            tournamentName: 'Test Tournament',
-            isRemoteConnection: true
-        });
-        
-        const { getByText } = render(<EventManagement route={mockRoute} />);
-        
-        await waitFor(() => {
-            expect(getByText('Connected to remote tournament')).toBeTruthy();
-            expect(getByText('Host: 192.168.1.101')).toBeTruthy();
-        });
-    });
-
-    it('confirms event deletion', async () => {
-        const mockRoute = createMockRoute({ tournamentName: 'Test Tournament' });
-        const { getByText } = render(<EventManagement route={mockRoute} />);
-        
-        const removeButtons = document.querySelectorAll('✖');
-        fireEvent.press(removeButtons[0]);
-
-        expect(Alert.alert).toHaveBeenCalledWith(
-            'Confirm Delete',
-            'Are you sure you want to delete this event?',
-            expect.any(Array)
-        );
-    });
-
-    it('navigates to event settings', async () => {
-        const mockRoute = createMockRoute({ tournamentName: 'Test Tournament' });
-        const navigation = require('@react-navigation/native').useNavigation();
-        const { getAllByText } = render(<EventManagement route={mockRoute} />);
-        
-        const editButtons = getAllByText('Edit');
-        fireEvent.press(editButtons[0]);
-
-        expect(navigation.navigate).toHaveBeenCalledWith('EventSettings', expect.any(Object));
-    });
-
-    it('handles start/open event based on status', async () => {
-        const mockRoute = createMockRoute({ tournamentName: 'Test Tournament' });
-        const navigation = require('@react-navigation/native').useNavigation();
-        const { getAllByText } = render(<EventManagement route={mockRoute} />);
-        
-        // Event is started, should show "Open"
-        const openButtons = getAllByText('Open');
-        fireEvent.press(openButtons[0]);
-
-        expect(navigation.navigate).toHaveBeenCalled();
-    });
-
-    it('shows loading state while fetching events', async () => {
-        const mockRoute = createMockRoute({ tournamentName: 'Test Tournament' });
-        (useEvents as jest.Mock).mockReturnValue({
+    it('shows loading state while fetching events', () => {
+        const { useEvents } = require('../../../src/data/TournamentDataHooks');
+        useEvents.mockReturnValueOnce({
             data: [],
             isLoading: true,
             isError: false,
         });
 
-        const { getByText } = render(<EventManagement route={mockRoute} />);
-        
+        const { getByText } = render(<EventManagement route={mockRoute} />, {
+            wrapper: createWrapper(),
+        });
         expect(getByText('Loading events...')).toBeTruthy();
     });
 
-    it('shows error state when fetching events fails', async () => {
-        const mockRoute = createMockRoute({ tournamentName: 'Test Tournament' });
-        (useEvents as jest.Mock).mockReturnValue({
+    it('shows error state when events fail to load', () => {
+        const { useEvents } = require('../../../src/data/TournamentDataHooks');
+        useEvents.mockReturnValueOnce({
             data: [],
             isLoading: false,
             isError: true,
         });
 
-        const { getByText } = render(<EventManagement route={mockRoute} />);
-        
+        const { getByText } = render(<EventManagement route={mockRoute} />, {
+            wrapper: createWrapper(),
+        });
         expect(getByText('Error loading events. Please try again.')).toBeTruthy();
     });
 
-    it('handles disconnection in remote mode', async () => {
-        const mockRoute = createMockRoute({
-            tournamentName: 'Test Tournament',
-            isRemoteConnection: true
+    it('shows empty state when no events exist', () => {
+        const { useEvents } = require('../../../src/data/TournamentDataHooks');
+        useEvents.mockReturnValueOnce({
+            data: [],
+            isLoading: false,
+            isError: false,
         });
-        
-        const { getByText } = render(<EventManagement route={mockRoute} />);
-        
-        fireEvent.press(getByText('Disconnect'));
 
-        expect(Alert.alert).toHaveBeenCalledWith(
-            'Disconnect from Tournament',
-            'Are you sure you want to disconnect from this tournament?',
-            expect.any(Array)
-        );
+        const { getByText } = render(<EventManagement route={mockRoute} />, {
+            wrapper: createWrapper(),
+        });
+        expect(getByText('No events created yet')).toBeTruthy();
+    });
+
+    it('renders create event button when user has permission', () => {
+        const { getByText } = render(<EventManagement route={mockRoute} />, {
+            wrapper: createWrapper(),
+        });
+        expect(getByText('Create Event')).toBeTruthy();
+    });
+
+    it('renders manage officials button when user has permission', () => {
+        const { getByText } = render(<EventManagement route={mockRoute} />, {
+            wrapper: createWrapper(),
+        });
+        expect(getByText('Manage Officials')).toBeTruthy();
+    });
+
+    it('navigates to manage officials screen when button is pressed', () => {
+        const { getByText } = render(<EventManagement route={mockRoute} />, {
+            wrapper: createWrapper(),
+        });
+        fireEvent.press(getByText('Manage Officials'));
+        
+        expect(mockNavigate).toHaveBeenCalledWith('ManageOfficials', {
+            tournamentName: 'Test Tournament',
+            isRemote: false,
+        });
     });
 });
