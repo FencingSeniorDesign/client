@@ -18,6 +18,29 @@ jest.mock('react-native-tcp-socket', () => ({
     })),
 }));
 
+// Mock expo-sqlite
+jest.mock('expo-sqlite', () => ({
+    openDatabase: jest.fn(),
+    SQLite: {
+        openDatabaseSync: jest.fn(() => ({
+            transaction: jest.fn(),
+            exec: jest.fn(),
+            close: jest.fn(),
+        })),
+    },
+}));
+
+// Mock DrizzleClient
+jest.mock('../../../src/db/DrizzleClient', () => ({
+    db: {
+        select: jest.fn(),
+        insert: jest.fn(),
+        update: jest.fn(),
+        delete: jest.fn(),
+    },
+    initializeDatabase: jest.fn(() => Promise.resolve()),
+}));
+
 import React from 'react';
 import { render, waitFor } from '@testing-library/react-native';
 import { NavigationContainer } from '@react-navigation/native';
@@ -104,19 +127,27 @@ describe('BoutOrderPage', () => {
     });
 
     it('renders Bout Order page with bouts data', async () => {
-        // Simulate loaded data for bouts and pools.
+        // Simulate loaded data for bouts and pools
         (useBoutsForPool as jest.Mock).mockReturnValue({ data: mockBoutsData, isLoading: false, error: null });
         (usePools as jest.Mock).mockReturnValue({ data: mockPoolsData, isLoading: false, error: null });
 
-        const { queryByText } = render(
+        const { getByText } = render(
             <NavigationContainer>
                 <BoutOrderPage />
             </NavigationContainer>
         );
 
         await waitFor(() => {
-            // Check for a unique text present in the BoutOrderPage, such as the header "Bout Order".
-            expect(queryByText('Bout Order')).toBeTruthy();
+            // Check for headers
+            expect(getByText('View Bouts')).toBeTruthy();
+            expect(getByText('Pool Bouts')).toBeTruthy();
+            
+            // Check for fencer names in the actual format
+            expect(getByText('(-) Alice (CA)')).toBeTruthy();
+            expect(getByText('(-) Bob (CB)')).toBeTruthy();
+            
+            // Check for the VS text
+            expect(getByText('VS')).toBeTruthy();
         });
     });
 });
