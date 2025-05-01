@@ -1,3 +1,68 @@
+// Mock expo modules before any other imports
+jest.mock('expo-modules-core', () => ({
+    NativeModulesProxy: {
+        ExpoNetwork: {
+            getIpAddressAsync: jest.fn(() => Promise.resolve('192.168.1.1')),
+            getNetworkStateAsync: jest.fn(() => Promise.resolve({ isConnected: true })),
+        },
+    },
+}));
+
+jest.mock('expo-network', () => ({
+    getIpAddressAsync: jest.fn(() => Promise.resolve('192.168.1.1')),
+    getNetworkStateAsync: jest.fn(() => Promise.resolve({ isConnected: true })),
+}));
+
+// Mock react-native with StyleSheet.flatten
+jest.mock('react-native', () => ({
+    NativeEventEmitter: jest.fn(() => ({
+        addListener: jest.fn(),
+        removeListener: jest.fn(),
+    })),
+    Platform: {
+        select: jest.fn(),
+        OS: 'ios',
+    },
+    Alert: {
+        alert: jest.fn(),
+    },
+    View: 'View',
+    Text: 'Text',
+    Modal: 'Modal',
+    TextInput: 'TextInput',
+    TouchableOpacity: 'TouchableOpacity',
+    ActivityIndicator: 'ActivityIndicator',
+    FlatList: 'FlatList',
+    StyleSheet: {
+        create: (styles: any) => styles,
+        flatten: (style: any) => ({ ...style }),
+        compose: (style1: any, style2: any) => ({ ...style1, ...style2 }),
+    },
+    NativeModules: {
+        ExpoNetwork: {
+            getIpAddressAsync: jest.fn(() => Promise.resolve('192.168.1.1')),
+        },
+    },
+}));
+
+jest.mock('@react-native-async-storage/async-storage', () => ({
+    setItem: jest.fn(() => Promise.resolve()),
+    getItem: jest.fn(() => Promise.resolve(null)),
+    removeItem: jest.fn(() => Promise.resolve()),
+}));
+
+jest.mock('react-native-tcp-socket', () => ({
+    createServer: jest.fn(() => ({
+        listen: jest.fn(),
+        on: jest.fn(),
+    })),
+    createConnection: jest.fn(() => ({
+        write: jest.fn(),
+        on: jest.fn(),
+        connect: jest.fn(),
+    })),
+}));
+
 import React from 'react';
 import { render, fireEvent, waitFor } from '@testing-library/react-native';
 import { Alert } from 'react-native';
@@ -8,6 +73,9 @@ import {
     stopServerDiscovery,
     serverDiscovery,
 } from '../../../src/networking/NetworkUtils';
+
+// Add act import from react test renderer
+import { act } from 'react-test-renderer';
 
 // Mock the networking modules
 jest.mock('../../../src/networking/TournamentClient');
@@ -232,7 +300,3 @@ describe('JoinTournamentModal', () => {
         expect(mockOnJoinSuccess).toHaveBeenCalledWith('Test Tournament 1');
     });
 });
-
-function act(arg0: () => Promise<void>) {
-    throw new Error('Function not implemented.');
-}
