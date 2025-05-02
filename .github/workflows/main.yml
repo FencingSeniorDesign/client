@@ -23,7 +23,7 @@ jobs:
         run: npm ci
 
       - name: Run tests with coverage
-        run: npm test -- --coverage
+        run: npm test -- --config=jest.config.js --coverage
 
       - name: Code Coverage Summary
         uses: irongut/CodeCoverageSummary@v1.3.0
