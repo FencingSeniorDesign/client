@@ -82,36 +82,5 @@
         "ts-jest": "^29.3.2",
         "typescript": "^5.7.2"
     },
-    "jest": {
-        "preset": "jest-expo",
-        "transform": {
-            "^.+\\.(js|ts|tsx)$": "babel-jest"
-        },
-        "moduleFileExtensions": [
-            "ts",
-            "tsx",
-            "js",
-            "jsx",
-            "json",
-            "node"
-        ],
-        "setupFilesAfterEnv": [
-            "@testing-library/jest-native/extend-expect"
-        ],
-        "transformIgnorePatterns": [
-            "node_modules/(?!((jest-)?react-native|@react-native(-community)?)|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@unimodules/.*|unimodules|sentry-expo|native-base|react-native-svg)"
-        ],
-        "collectCoverageFrom": [
-            "src/**/*.{js,jsx,ts,tsx}",
-            "!src/**/*.d.ts",
-            "!**/node_modules/**"
-        ],
-        "coverageReporters": [
-            "json",
-            "lcov",
-            "text",
-            "clover"
-        ]
-    },
     "private": true
 }
