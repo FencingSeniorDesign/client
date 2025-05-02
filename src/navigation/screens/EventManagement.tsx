@@ -727,18 +727,21 @@ export const EventManagement = ({ route }: Props) => {
                                 </Text>
                                 <View style={styles.eventActions}>
                                     <Can I="update" a="Event" this={event}>
-                                        <TouchableOpacity
-                                            style={[styles.actionButton, styles.flexAction]}
-                                            onPress={() =>
-                                                navigation.navigate('EventSettings', {
-                                                    event: event,
-                                                    onSave: handleSaveEventSettings,
-                                                    isRemote: isRemote,
-                                                })
-                                            }
-                                        >
-                                            <Text style={styles.buttonText}>Edit</Text>
-                                        </TouchableOpacity>
+                                        {/* Hide Edit button when tournament is started */}
+                                        {!(eventStatuses && eventStatuses[event.id] === true) && (
+                                            <TouchableOpacity
+                                                style={[styles.actionButton, styles.flexAction]}
+                                                onPress={() =>
+                                                    navigation.navigate('EventSettings', {
+                                                        event: event,
+                                                        onSave: handleSaveEventSettings,
+                                                        isRemote: isRemote,
+                                                    })
+                                                }
+                                            >
+                                                <Text style={styles.buttonText}>Edit</Text>
+                                            </TouchableOpacity>
+                                        )}
                                     </Can>
                                     <TouchableOpacity
                                         style={[styles.actionButton, styles.flexAction]}

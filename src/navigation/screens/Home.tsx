@@ -127,14 +127,13 @@ export function Home() {
             <Text style={styles.deviceIdText}>Device ID: {deviceId}</Text>
 
             {/* Referee Module Button */}
-            {/* TODO: Fix RefereeModule navigation - requires bout context. Using standard navigate with explicit typing. */}
             <TouchableOpacity
                 style={styles.refereeButton}
                 onPress={() =>
                     navigation.navigate('RefereeModule', {
                         boutIndex: 0,
-                        fencer1Name: 'Fencer A',
-                        fencer2Name: 'Fencer B',
+                        fencer1Name: 'Left',
+                        fencer2Name: 'Right',
                         currentScore1: 0,
                         currentScore2: 0,
                         /* onSaveScores: undefined - Optional */

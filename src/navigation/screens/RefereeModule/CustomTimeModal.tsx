@@ -133,7 +133,12 @@ export function CustomTimeModal({
                                 pressed && { opacity: 0.6 },
                                 !canRevertLastPoint && styles.disabledButton,
                             ]}
-                            onPress={onRevertLastPoint}
+                            onPress={() => {
+                                if (canRevertLastPoint && onRevertLastPoint) {
+                                    onRevertLastPoint();
+                                    onClose();
+                                }
+                            }}
                             disabled={!canRevertLastPoint}
                         >
                             <Text
