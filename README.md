@@ -1,9 +1,5 @@
-# TournaFence
-
-![Code Coverage](https://img.shields.io/badge/dynamic/json?url=https://raw.githubusercontent.com/FencingSeniorDesign/client/coverage-report/coverage.json&label=coverage&query=$.total.lines.pct&suffix=%&color=brightgreen)
-
 # Getting Started
-[![codecov](https://codecov.io/gh/FencingSeniorDesign/client/branch/main/graph/badge.svg)](https://codecov.io/gh/FencingSeniorDesign/client)
+[![codecov](https://codecov.io/gh/FencingSeniorDesign/client/graph/badge.svg)](https://codecov.io/gh/FencingSeniorDesign/client)
 
 ### Prerequisites
 

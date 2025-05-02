@@ -10,6 +10,8 @@ To generate and view test coverage reports locally:
 
 ```sh
 npm run test:coverage
+# or directly use the jest.config.js
+jest --config=jest.config.js
 ```
 
 2. This will generate coverage reports in the `coverage/` directory.
