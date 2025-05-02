@@ -25,11 +25,7 @@ const queryClient = new QueryClient({
 });
 
 const renderWithClient = (ui: React.ReactElement) => {
-    return render(
-        <QueryClientProvider client={queryClient}>
-            {ui}
-        </QueryClientProvider>
-    );
+    return render(<QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>);
 };
 
 // Mock the hooks and data provider
@@ -40,8 +36,8 @@ jest.mock('../../../src/data/DrizzleDataProvider');
 jest.mock('expo-sqlite', () => ({
     openDatabaseSync: () => ({
         transaction: jest.fn(),
-        exec: jest.fn()
-    })
+        exec: jest.fn(),
+    }),
 }));
 
 // Mock react-native-tcp-socket

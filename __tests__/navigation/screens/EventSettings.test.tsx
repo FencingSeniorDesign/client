@@ -106,7 +106,7 @@ jest.mock('../../../src/components/ui/ClubAutocomplete', () => {
             <input
                 data-testid="club-autocomplete"
                 value={props.value}
-                onChange={(e) => props.onValueChange(e.target.value)}
+                onChange={e => props.onValueChange(e.target.value)}
             />
         );
     };
@@ -128,9 +128,7 @@ const createWrapper = () => {
         },
     });
     return ({ children }: { children: React.ReactNode }) => (
-        <QueryClientProvider client={queryClient}>
-            {children}
-        </QueryClientProvider>
+        <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
     );
 };
 
@@ -233,7 +231,6 @@ describe('EventSettings', () => {
             expect(getByText('Current Fencers: 1')).toBeTruthy();
         });
     });
-
 
     it('handles fencer removal', async () => {
         const removeFencerMutation = { mutate: jest.fn() };

@@ -29,11 +29,7 @@ const queryClient = new QueryClient({
 });
 
 const renderWithClient = (ui: React.ReactElement) => {
-    return render(
-        <QueryClientProvider client={queryClient}>
-            {ui}
-        </QueryClientProvider>
-    );
+    return render(<QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>);
 };
 
 // Mock navigation
@@ -59,7 +55,9 @@ jest.mock('../../../src/data/TournamentDataHooks', () => ({
 
 // (Optional) If not already mocked elsewhere, mock the seeding DB function.
 jest.mock('../../../src/db/DrizzleDatabaseUtils', () => ({
-    dbGetSeedingForRound: jest.fn(() => Promise.resolve([{ seed: 1, fencer: { id: 1, fname: 'John', lname: 'Doe', frating: 'A', fyear: 2022 } }]))
+    dbGetSeedingForRound: jest.fn(() =>
+        Promise.resolve([{ seed: 1, fencer: { id: 1, fname: 'John', lname: 'Doe', frating: 'A', fyear: 2022 } }])
+    ),
 }));
 
 describe('PoolsPage', () => {
@@ -80,7 +78,13 @@ describe('PoolsPage', () => {
     it('renders list of pools correctly', async () => {
         const { usePools } = require('../../../src/data/TournamentDataHooks');
         const mockPoolsData = [
-            { poolid: 0, fencers: [{ id: 1, fname: 'John', lname: 'Doe' }, { id: 2, fname: 'Jane', lname: 'Smith' }] },
+            {
+                poolid: 0,
+                fencers: [
+                    { id: 1, fname: 'John', lname: 'Doe' },
+                    { id: 2, fname: 'Jane', lname: 'Smith' },
+                ],
+            },
             { poolid: 1, fencers: [{ id: 3, fname: 'Alice', lname: 'Wonderland' }] },
         ];
         (usePools as jest.Mock).mockReturnValue({ data: mockPoolsData, isLoading: false, error: null });
@@ -93,9 +97,7 @@ describe('PoolsPage', () => {
 
     it('opens seeding modal when "View Seeding" button is pressed', async () => {
         const { usePools } = require('../../../src/data/TournamentDataHooks');
-        const mockPoolsData = [
-            { poolid: 0, fencers: [{ id: 1, fname: 'John', lname: 'Doe' }] },
-        ];
+        const mockPoolsData = [{ poolid: 0, fencers: [{ id: 1, fname: 'John', lname: 'Doe' }] }];
         (usePools as jest.Mock).mockReturnValue({ data: mockPoolsData, isLoading: false, error: null });
         const { getByText } = renderWithClient(<PoolsPage />);
         const viewSeedingButton = getByText('View Seeding');

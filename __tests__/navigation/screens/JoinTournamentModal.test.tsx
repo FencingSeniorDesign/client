@@ -68,11 +68,7 @@ import { render, fireEvent, waitFor } from '@testing-library/react-native';
 import { Alert } from 'react-native';
 import { JoinTournamentModal } from '../../../src/navigation/screens/JoinTournamentModal';
 import tournamentClient from '../../../src/networking/TournamentClient';
-import {
-    startServerDiscovery,
-    stopServerDiscovery,
-    serverDiscovery,
-} from '../../../src/networking/NetworkUtils';
+import { startServerDiscovery, stopServerDiscovery, serverDiscovery } from '../../../src/networking/NetworkUtils';
 
 // Add act import from react test renderer
 import { act } from 'react-test-renderer';
@@ -112,11 +108,7 @@ describe('JoinTournamentModal', () => {
 
     it('renders server discovery view by default', () => {
         const { getByText, queryByPlaceholderText } = render(
-            <JoinTournamentModal
-                visible={true}
-                onClose={mockOnClose}
-                onJoinSuccess={mockOnJoinSuccess}
-            />
+            <JoinTournamentModal visible={true} onClose={mockOnClose} onJoinSuccess={mockOnJoinSuccess} />
         );
 
         expect(getByText('Join Tournament')).toBeTruthy();
@@ -126,11 +118,7 @@ describe('JoinTournamentModal', () => {
 
     it('switches to manual entry view', () => {
         const { getByText, getByPlaceholderText } = render(
-            <JoinTournamentModal
-                visible={true}
-                onClose={mockOnClose}
-                onJoinSuccess={mockOnJoinSuccess}
-            />
+            <JoinTournamentModal visible={true} onClose={mockOnClose} onJoinSuccess={mockOnJoinSuccess} />
         );
 
         fireEvent.press(getByText('Enter IP Manually'));
@@ -141,11 +129,7 @@ describe('JoinTournamentModal', () => {
 
     it('validates IP address in manual entry', async () => {
         const { getByText, getByPlaceholderText } = render(
-            <JoinTournamentModal
-                visible={true}
-                onClose={mockOnClose}
-                onJoinSuccess={mockOnJoinSuccess}
-            />
+            <JoinTournamentModal visible={true} onClose={mockOnClose} onJoinSuccess={mockOnJoinSuccess} />
         );
 
         // Switch to manual entry
@@ -162,11 +146,7 @@ describe('JoinTournamentModal', () => {
 
     it('refreshes server list', async () => {
         const { getByText } = render(
-            <JoinTournamentModal
-                visible={true}
-                onClose={mockOnClose}
-                onJoinSuccess={mockOnJoinSuccess}
-            />
+            <JoinTournamentModal visible={true} onClose={mockOnClose} onJoinSuccess={mockOnJoinSuccess} />
         );
 
         // Wait for initial render
@@ -183,11 +163,7 @@ describe('JoinTournamentModal', () => {
         (startServerDiscovery as jest.Mock).mockRejectedValue(new Error('Discovery failed'));
 
         const { getByText } = render(
-            <JoinTournamentModal
-                visible={true}
-                onClose={mockOnClose}
-                onJoinSuccess={mockOnJoinSuccess}
-            />
+            <JoinTournamentModal visible={true} onClose={mockOnClose} onJoinSuccess={mockOnJoinSuccess} />
         );
 
         // Wait for initial render
@@ -206,11 +182,7 @@ describe('JoinTournamentModal', () => {
 
     it('cleans up server discovery on close', () => {
         const { unmount } = render(
-            <JoinTournamentModal
-                visible={true}
-                onClose={mockOnClose}
-                onJoinSuccess={mockOnJoinSuccess}
-            />
+            <JoinTournamentModal visible={true} onClose={mockOnClose} onJoinSuccess={mockOnJoinSuccess} />
         );
 
         unmount();

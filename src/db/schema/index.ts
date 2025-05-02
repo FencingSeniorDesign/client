@@ -423,7 +423,6 @@ BEGIN
 END;
 `;
 
-
 // Create trigger to handle updates to bouts (for when fencers are assigned to later rounds)
 export const createFencerBoutsUpdateTrigger = sql`
 CREATE TRIGGER IF NOT EXISTS create_fencer_bouts_after_bout_update

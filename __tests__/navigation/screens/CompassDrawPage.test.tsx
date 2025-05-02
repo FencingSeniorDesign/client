@@ -11,10 +11,10 @@ describe('CompassDrawPage', () => {
     it('applies correct styles', () => {
         const { getByText } = render(<CompassDrawPage />);
         const tbdText = getByText('TBD');
-        
+
         // Get the View container (parent of the Text component)
         const container = tbdText.parent.parent;
-        
+
         // Verify text styling
         expect(tbdText.props.style).toEqual({
             fontSize: 24,

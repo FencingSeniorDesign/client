@@ -239,8 +239,6 @@ export async function initializeDatabase() {
       END;
     `);
 
-
-
         // Create trigger for bout updates (when fencers are assigned to later rounds)
         await db.run(sql`
       CREATE TRIGGER IF NOT EXISTS create_fencer_bouts_after_bout_update

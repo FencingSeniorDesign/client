@@ -1,15 +1,14 @@
 // __tests__/navigation/screens/Home.test.tsx
-jest.mock(
-  '@react-native-async-storage/async-storage',
-  () => require('@react-native-async-storage/async-storage/jest/async-storage-mock')
+jest.mock('@react-native-async-storage/async-storage', () =>
+    require('@react-native-async-storage/async-storage/jest/async-storage-mock')
 );
 
 // Stub out all of react-native-device-info
 jest.mock('react-native-device-info', () => ({
-  getVersion:     jest.fn(() => '1.0.0'),
-  getSystemName:  jest.fn(() => 'TestOS'),
-  getUniqueId:    jest.fn(() => 'mock-device-id'),
-  // add any other methods your code uses...
+    getVersion: jest.fn(() => '1.0.0'),
+    getSystemName: jest.fn(() => 'TestOS'),
+    getUniqueId: jest.fn(() => 'mock-device-id'),
+    // add any other methods your code uses...
 }));
 
 // Mock SQLite and database before any other imports
@@ -178,18 +177,21 @@ describe('Home Screen', () => {
         expect(queryByTestId('joinTournamentModal')).toBeNull();
 
         const joinButton = getByText('Join Tournament');
-        
+
         await act(async () => {
             fireEvent.press(joinButton);
             // Add a small delay to allow state updates
             await new Promise(resolve => setTimeout(resolve, 0));
         });
 
-        await waitFor(() => {
-            expect(queryByTestId('joinTournamentModal')).toBeTruthy();
-        }, {
-            timeout: 2000, // Increase timeout
-            interval: 100  // Check more frequently
-        });
+        await waitFor(
+            () => {
+                expect(queryByTestId('joinTournamentModal')).toBeTruthy();
+            },
+            {
+                timeout: 2000, // Increase timeout
+                interval: 100, // Check more frequently
+            }
+        );
     });
 });

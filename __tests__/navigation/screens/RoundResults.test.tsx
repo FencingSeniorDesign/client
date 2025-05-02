@@ -2,15 +2,15 @@
 jest.mock('expo-sqlite', () => ({
     openDatabaseSync: () => ({
         transaction: jest.fn(),
-        exec: jest.fn()
-    })
+        exec: jest.fn(),
+    }),
 }));
 
 jest.mock('../../../src/db/DrizzleClient', () => ({
     db: {
         query: jest.fn(),
-        transaction: jest.fn()
-    }
+        transaction: jest.fn(),
+    },
 }));
 
 import React from 'react';
@@ -20,29 +20,31 @@ import { useRoundResultsData as useRoundResults } from '../../../src/data/Tourna
 
 // Define the default valid round results
 const validRoundResults = {
-    poolResults: [{
-        poolid: 0,
-        stats: [
-            {
-                fencer: { id: 1, fname: 'John', lname: 'Doe' },
-                wins: 4,
-                boutsCount: 5,
-                touchesScored: 25,
-                touchesReceived: 15,
-                winRate: 0.8,
-                indicator: 10,
-            },
-            {
-                fencer: { id: 2, fname: 'Jane', lname: 'Smith' },
-                wins: 3,
-                boutsCount: 5,
-                touchesScored: 20,
-                touchesReceived: 18,
-                winRate: 0.6,
-                indicator: 2,
-            },
-        ],
-    }],
+    poolResults: [
+        {
+            poolid: 0,
+            stats: [
+                {
+                    fencer: { id: 1, fname: 'John', lname: 'Doe' },
+                    wins: 4,
+                    boutsCount: 5,
+                    touchesScored: 25,
+                    touchesReceived: 15,
+                    winRate: 0.8,
+                    indicator: 10,
+                },
+                {
+                    fencer: { id: 2, fname: 'Jane', lname: 'Smith' },
+                    wins: 3,
+                    boutsCount: 5,
+                    touchesScored: 20,
+                    touchesReceived: 18,
+                    winRate: 0.6,
+                    indicator: 2,
+                },
+            ],
+        },
+    ],
     event: {
         id: 1,
         name: 'Test Event',
@@ -159,18 +161,22 @@ describe('RoundResults', () => {
         // Now update mock with a negative indicator
         (useRoundResults as jest.Mock).mockReturnValue({
             ...validRoundResults,
-            poolResults: [{
-                poolid: 0,
-                stats: [{
-                    fencer: { id: 1, fname: 'John', lname: 'Doe' },
-                    wins: 4,
-                    boutsCount: 5,
-                    touchesScored: 25,
-                    touchesReceived: 15,
-                    winRate: 0.8,
-                    indicator: -5,
-                }],
-            }],
+            poolResults: [
+                {
+                    poolid: 0,
+                    stats: [
+                        {
+                            fencer: { id: 1, fname: 'John', lname: 'Doe' },
+                            wins: 4,
+                            boutsCount: 5,
+                            touchesScored: 25,
+                            touchesReceived: 15,
+                            winRate: 0.8,
+                            indicator: -5,
+                        },
+                    ],
+                },
+            ],
         });
         rerender(<RoundResults />);
         await waitFor(() => {

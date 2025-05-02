@@ -47,7 +47,7 @@ describe('DoubleEliminationPage', () => {
     it('applies correct styles', () => {
         const { getByText } = render(<DoubleEliminationPage />);
         const tbdText = getByText('TBD');
-        
+
         // Verify text styling
         expect(tbdText.props.style).toEqual({
             fontSize: 24,
