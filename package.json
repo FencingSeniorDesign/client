@@ -11,7 +11,8 @@
         "drizzle:studio": "drizzle-kit studio",
         "lint": "eslint . --ext .js,.jsx,.ts,.tsx",
         "format": "prettier --write \"**/*.{js,jsx,ts,tsx,json,md}\"",
-        "test": "jest"
+        "test": "jest",
+        "test:coverage": "jest --coverage"
     },
     "dependencies": {
         "@casl/ability": "^6.7.3",
@@ -66,7 +67,6 @@
         "@types/websocket": "^1.0.10",
         "@typescript-eslint/eslint-plugin": "^8.29.0",
         "@typescript-eslint/parser": "^8.29.0",
-        "babel-jest": "^29.7.0",
         "drizzle-kit": "^0.30.5",
         "eslint": "^8.57.1",
         "eslint-config-expo": "^8.0.1",
@@ -80,6 +80,32 @@
         "prettier": "^3.5.3",
         "react-test-renderer": "^18.3.1",
         "typescript": "^5.7.2"
+    },
+    "jest": {
+        "preset": "jest-expo",
+        "transform": {
+            "^.+\\.(js|ts|tsx)$": "babel-jest"
+        },
+        "moduleFileExtensions": [
+            "ts",
+            "tsx",
+            "js",
+            "jsx",
+            "json",
+            "node"
+        ],
+        "setupFilesAfterEnv": [
+            "@testing-library/jest-native/extend-expect"
+        ],
+        "transformIgnorePatterns": [
+            "node_modules/(?!((jest-)?react-native|@react-native(-community)?)|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@unimodules/.*|unimodules|sentry-expo|native-base|react-native-svg)"
+        ],
+        "collectCoverageFrom": [
+            "src/**/*.{js,jsx,ts,tsx}",
+            "!src/**/*.d.ts",
+            "!**/node_modules/**"
+        ],
+        "coverageReporters": ["json", "lcov", "text", "clover"]
     },
     "private": true
 }
