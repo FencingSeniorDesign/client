@@ -152,3 +152,5 @@ docs/hydration.md
 docs/network-mode.md
 docs/OnlineManager.md
 docs/persistQueryClient.md
+
+**/.claude/settings.local.json
