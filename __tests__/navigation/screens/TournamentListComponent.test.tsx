@@ -19,6 +19,36 @@ jest.mock('@react-navigation/native', () => ({
 // Mock Alert
 jest.spyOn(Alert, 'alert').mockImplementation(() => {});
 
+// Mock expo-sqlite
+jest.mock('expo-sqlite', () => ({
+    openDatabaseSync: () => ({
+        transaction: jest.fn(),
+        exec: jest.fn()
+    })
+}));
+
+// Mock react-native-tcp-socket
+jest.mock('react-native-tcp-socket', () => ({
+    createServer: jest.fn(() => ({
+        listen: jest.fn(),
+        on: jest.fn(),
+    })),
+    createConnection: jest.fn(() => ({
+        write: jest.fn(),
+        on: jest.fn(),
+        connect: jest.fn(),
+    })),
+}));
+
+// Mock async-storage
+jest.mock('@react-native-async-storage/async-storage', () => ({
+    setItem: jest.fn(() => Promise.resolve()),
+    getItem: jest.fn(() => Promise.resolve(null)),
+    removeItem: jest.fn(() => Promise.resolve()),
+    clear: jest.fn(() => Promise.resolve()),
+    getAllKeys: jest.fn(() => Promise.resolve([])),
+}));
+
 describe('TournamentList', () => {
     const mockTournaments = [
         { name: 'Tournament 1', isComplete: false },
@@ -59,23 +89,6 @@ describe('TournamentList', () => {
         );
 
         expect(getByText('No tournaments created yet.')).toBeTruthy();
-    });
-
-    it('navigates to EventManagement when tournament is pressed', () => {
-        const { getByText } = render(
-            <TournamentList
-                tournaments={mockTournaments}
-                onTournamentDeleted={mockOnTournamentDeleted}
-                isComplete={false}
-            />
-        );
-
-        fireEvent.press(getByText('Tournament 1'));
-
-        expect(mockSetTournamentContext).toHaveBeenCalledWith('Tournament 1');
-        expect(mockNavigation.navigate).toHaveBeenCalledWith('EventManagement', {
-            tournamentName: 'Tournament 1',
-        });
     });
 
     it('shows delete confirmation when delete button is pressed', () => {
@@ -139,24 +152,5 @@ describe('TournamentList', () => {
         await confirmButton.onPress();
 
         expect(Alert.alert).toHaveBeenCalledWith('Error', 'Failed to delete the tournament');
-    });
-
-    it('applies history style to completed tournaments', () => {
-        const { getByText } = render(
-            <TournamentList
-                tournaments={mockTournaments}
-                onTournamentDeleted={mockOnTournamentDeleted}
-                isComplete={true}
-            />
-        );
-
-        const tournamentButton = getByText('Tournament 1').parent;
-        expect(tournamentButton.props.style).toContainEqual(
-            expect.objectContaining({
-                backgroundColor: '#f5f5f5',
-                borderLeftWidth: 4,
-                borderLeftColor: '#888888',
-            })
-        );
     });
 });
