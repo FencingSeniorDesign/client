@@ -1,3 +1,7 @@
+# TournaFence
+
+![Code Coverage](https://img.shields.io/badge/dynamic/json?url=https://raw.githubusercontent.com/FencingSeniorDesign/client/coverage-report/coverage.json&label=coverage&query=$.total.lines.pct&suffix=%&color=brightgreen)
+
 # Getting Started
 
 ### Prerequisites
