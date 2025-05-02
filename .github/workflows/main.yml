@@ -16,7 +16,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: '22.14.0'
+          node-version: '22'
           cache: 'npm'
 
       - name: Install dependencies
@@ -41,3 +41,24 @@ jobs:
         with:
           recreate: true
           path: code-coverage-results.md
+          
+      - name: Save coverage report
+        uses: actions/upload-artifact@v3
+        with:
+          name: coverage-report
+          path: coverage/
+
+      - name: Publish Coverage Report
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+        run: |
+          mkdir -p /tmp/coverage
+          cp coverage/coverage-final.json /tmp/coverage/coverage.json
+          git config --global user.name 'github-actions'
+          git config --global user.email 'github-actions@github.com'
+          git fetch
+          git checkout -b coverage-report
+          mkdir -p .
+          cp /tmp/coverage/coverage.json .
+          git add coverage.json
+          git commit -m "Update coverage report"
+          git push -f origin coverage-report
