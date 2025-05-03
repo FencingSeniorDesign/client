@@ -1,5 +1,5 @@
-// Add this mock at the very top to stub out AsyncStorage.
-jest.mock('@react-native-async-storage/async-storage', () => ({
+// Add this mock at the very top to stub out expo-sqlite/kv-store.
+jest.mock('expo-sqlite/kv-store', () => ({
     __esModule: true,
     default: {
         getItem: jest.fn(() => Promise.resolve(null)),

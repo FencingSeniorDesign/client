@@ -1,24 +1,53 @@
 // Mock for expo-sqlite/kv-store
-// This is used for AsyncStorage in usePersistentStateHook.ts
+const storage: Record<string, string> = {};
 
-// In-memory storage for mocked values
-const store: Record<string, string> = {};
-
-// Mock getItem with Jest function to allow controlling behavior in tests
-const getItem = jest.fn((key: string) => {
-  // Default implementation returns the stored value or null
-  return Promise.resolve(store[key] || null);
-});
-
-// Mock setItem with Jest function to allow controlling behavior in tests
-const setItem = jest.fn((key: string, value: string) => {
-  // Default implementation stores the value
-  store[key] = value;
-  return Promise.resolve();
-});
-
-// Export the mocked functions
 export default {
-  getItem,
-  setItem,
+    getItem: jest.fn((key: string) => {
+        return Promise.resolve(storage[key] || null);
+    }),
+    setItem: jest.fn((key: string, value: string) => {
+        storage[key] = value;
+        return Promise.resolve();
+    }),
+    removeItem: jest.fn((key: string) => {
+        delete storage[key];
+        return Promise.resolve();
+    }),
+    clear: jest.fn(() => {
+        Object.keys(storage).forEach(key => {
+            delete storage[key];
+        });
+        return Promise.resolve();
+    }),
+    getAllKeys: jest.fn(() => {
+        return Promise.resolve(Object.keys(storage));
+    }),
+    multiGet: jest.fn((keys: string[]) => {
+        const result = keys.map(key => [key, storage[key] || null]);
+        return Promise.resolve(result);
+    }),
+    multiSet: jest.fn((keyValuePairs: [string, string][]) => {
+        keyValuePairs.forEach(([key, value]) => {
+            storage[key] = value;
+        });
+        return Promise.resolve();
+    }),
+    multiRemove: jest.fn((keys: string[]) => {
+        keys.forEach(key => {
+            delete storage[key];
+        });
+        return Promise.resolve();
+    }),
+    flushGetRequests: jest.fn(),
+    useAsyncStorage: jest.fn(key => ({
+        getItem: jest.fn(() => Promise.resolve(storage[key] || null)),
+        setItem: jest.fn(value => {
+            storage[key] = value;
+            return Promise.resolve();
+        }),
+        removeItem: jest.fn(() => {
+            delete storage[key];
+            return Promise.resolve();
+        }),
+    })),
 };

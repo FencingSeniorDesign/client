@@ -11,7 +11,7 @@ jest.mock('react-native-tcp-socket', () => ({
     })),
 }));
 
-jest.mock('@react-native-async-storage/async-storage', () => ({
+jest.mock('expo-sqlite/kv-store', () => ({
     getItem: jest.fn(() => Promise.resolve(null)),
     setItem: jest.fn(() => Promise.resolve(null)),
 }));

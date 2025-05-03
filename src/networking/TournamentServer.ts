@@ -2,9 +2,8 @@
 // NDJSON (Newline Delimited JSON) provides improved streaming data handling by separating
 // JSON objects with newlines, allowing for simpler parsing and better error recovery
 import TcpSocket from 'react-native-tcp-socket';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Platform } from 'react-native';
-import { Tournament, Event } from '../navigation/navigation/types';
+import AsyncStorage from 'expo-sqlite/kv-store';
+import { Tournament } from '../navigation/navigation/types';
 import { getLocalIpAddress, publishTournamentService, unpublishTournamentService } from './NetworkUtils';
 import {
     dbListEvents,
@@ -167,7 +166,7 @@ class TournamentServer {
                 this.publishService(tournament.name);
             });
 
-            // Save server info to AsyncStorage
+            // Save server info to KV store
             await AsyncStorage.setItem(SERVER_INFO_KEY, JSON.stringify(this.serverInfo));
             return true;
         } catch (error) {
@@ -261,7 +260,7 @@ class TournamentServer {
                 this.server = null;
                 this.serverInfo = null;
 
-                // Remove server info from AsyncStorage
+                // Remove server info from KV store
                 await AsyncStorage.removeItem(SERVER_INFO_KEY);
                 return true;
             }

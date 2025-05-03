@@ -328,14 +328,14 @@ describe('NetworkUtils - Device Identification', () => {
             // Setup
             const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
             (AsyncStorage.getItem as jest.Mock).mockRejectedValue(new Error('Storage error'));
-            
+
             // Test
             const result = await getDeviceId();
 
             // Only verify that we got a result, don't check length because
             // it might vary based on implementation
             expect(result).toBeTruthy();
-            
+
             // Cleanup
             consoleErrorSpy.mockRestore();
         });
