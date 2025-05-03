@@ -72,7 +72,7 @@ describe('RBAC Ability', () => {
             cannot('manage', 'Official');
             cannot('manage', 'Referee');
             const mockOfficialAbility = build();
-            
+
             expect(getRoleFromAbility(mockOfficialAbility)).toBe(Role.OFFICIAL);
         });
 

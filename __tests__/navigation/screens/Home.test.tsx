@@ -1,7 +1,13 @@
 // __tests__/navigation/screens/Home.test.tsx
-jest.mock('@react-native-async-storage/async-storage', () =>
-    require('@react-native-async-storage/async-storage/jest/async-storage-mock')
-);
+jest.mock('expo-sqlite/kv-store', () => ({
+    __esModule: true,
+    default: {
+        getItem: jest.fn(() => Promise.resolve(null)),
+        setItem: jest.fn(() => Promise.resolve(null)),
+        removeItem: jest.fn(() => Promise.resolve(null)),
+        clear: jest.fn(() => Promise.resolve(null)),
+    },
+}));
 
 // Stub out all of react-native-device-info
 jest.mock('react-native-device-info', () => ({
