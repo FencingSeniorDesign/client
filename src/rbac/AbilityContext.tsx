@@ -2,7 +2,7 @@ import React, { createContext, useState, useEffect, useContext } from 'react';
 import { AppAbility, defineAbilityFor, defaultAbility, Role } from './ability';
 import dataProvider from '../data/DrizzleDataProvider';
 import { getDeviceId } from '../networking/NetworkUtils';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import AsyncStorage from 'expo-sqlite/kv-store';
 import tournamentClient from '../networking/TournamentClient'; // Import the client instance
 
 // Create a context for the ability instance and the refresh function

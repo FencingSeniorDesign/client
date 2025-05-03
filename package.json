@@ -19,7 +19,6 @@
         "@casl/react": "^5.0.0",
         "@expo/metro-runtime": "~4.0.0",
         "@expo/vector-icons": "^14.0.4",
-        "@react-native-async-storage/async-storage": "1.23.1",
         "@react-native-community/netinfo": "^11.4.1",
         "@react-native-picker/picker": "2.9.0",
         "@react-navigation/bottom-tabs": "^7.1.1",
@@ -81,37 +80,6 @@
         "react-test-renderer": "^18.3.1",
         "ts-jest": "^29.3.2",
         "typescript": "^5.7.2"
-    },
-    "jest": {
-        "preset": "jest-expo",
-        "transform": {
-            "^.+\\.(js|ts|tsx)$": "babel-jest"
-        },
-        "moduleFileExtensions": [
-            "ts",
-            "tsx",
-            "js",
-            "jsx",
-            "json",
-            "node"
-        ],
-        "setupFilesAfterEnv": [
-            "@testing-library/jest-native/extend-expect"
-        ],
-        "transformIgnorePatterns": [
-            "node_modules/(?!((jest-)?react-native|@react-native(-community)?)|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@unimodules/.*|unimodules|sentry-expo|native-base|react-native-svg)"
-        ],
-        "collectCoverageFrom": [
-            "src/**/*.{js,jsx,ts,tsx}",
-            "!src/**/*.d.ts",
-            "!**/node_modules/**"
-        ],
-        "coverageReporters": [
-            "json",
-            "lcov",
-            "text",
-            "clover"
-        ]
     },
     "private": true
 }

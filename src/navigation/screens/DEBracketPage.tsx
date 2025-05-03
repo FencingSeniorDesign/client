@@ -291,40 +291,54 @@ const DEBracketPage: React.FC = () => {
         return (
             <TouchableOpacity
                 style={[
-                    styles.boutContainer, 
-                    isActualBye && styles.byeBout, 
-                    isTBD && styles.tbdBout, 
-                    boutCompleted && styles.completedBout
+                    styles.boutContainer,
+                    isActualBye && styles.byeBout,
+                    isTBD && styles.tbdBout,
+                    boutCompleted && styles.completedBout,
                 ]}
                 onPress={() => handleBoutPress(bout)}
                 disabled={isActualBye || isTBD}
             >
                 <View style={styles.fencerRow}>
                     <View style={styles.fencerInfo}>
-                        <Text style={[styles.seedText, bout.seedA !== undefined && bout.fencerA !== undefined && styles.seedVisible]}>
+                        <Text
+                            style={[
+                                styles.seedText,
+                                bout.seedA !== undefined && bout.fencerA !== undefined && styles.seedVisible,
+                            ]}
+                        >
                             {bout.seedA !== undefined && bout.fencerA !== undefined ? `(${bout.seedA})` : ''}
                         </Text>
-                        <Text style={[
-                            styles.fencerName, 
-                            fencerAWon && styles.winnerText, 
-                            !bout.fencerA && (isTBD ? styles.tbdText : styles.byeText)
-                        ]}>
-                            {bout.fencerA ? fencerAName : (isTBD ? 'TBD' : 'BYE')}
+                        <Text
+                            style={[
+                                styles.fencerName,
+                                fencerAWon && styles.winnerText,
+                                !bout.fencerA && (isTBD ? styles.tbdText : styles.byeText),
+                            ]}
+                        >
+                            {bout.fencerA ? fencerAName : isTBD ? 'TBD' : 'BYE'}
                         </Text>
                     </View>
                     <Text style={styles.fencerScore}>{bout.scoreA !== undefined ? bout.scoreA : '-'}</Text>
                 </View>
                 <View style={styles.fencerRow}>
                     <View style={styles.fencerInfo}>
-                        <Text style={[styles.seedText, bout.seedB !== undefined && bout.fencerB !== undefined && styles.seedVisible]}>
+                        <Text
+                            style={[
+                                styles.seedText,
+                                bout.seedB !== undefined && bout.fencerB !== undefined && styles.seedVisible,
+                            ]}
+                        >
                             {bout.seedB !== undefined && bout.fencerB !== undefined ? `(${bout.seedB})` : ''}
                         </Text>
-                        <Text style={[
-                            styles.fencerName, 
-                            fencerBWon && styles.winnerText, 
-                            !bout.fencerB && (isTBD ? styles.tbdText : styles.byeText)
-                        ]}>
-                            {bout.fencerB ? fencerBName : (isTBD ? 'TBD' : 'BYE')}
+                        <Text
+                            style={[
+                                styles.fencerName,
+                                fencerBWon && styles.winnerText,
+                                !bout.fencerB && (isTBD ? styles.tbdText : styles.byeText),
+                            ]}
+                        >
+                            {bout.fencerB ? fencerBName : isTBD ? 'TBD' : 'BYE'}
                         </Text>
                     </View>
                     <Text style={styles.fencerScore}>{bout.scoreB !== undefined ? bout.scoreB : '-'}</Text>
@@ -539,12 +553,12 @@ const styles = StyleSheet.create({
     byeText: {
         fontStyle: 'italic',
         fontWeight: '500',
-        color: '#777',  // Darker color for BYEs to distinguish them
+        color: '#777', // Darker color for BYEs to distinguish them
     },
     tbdText: {
         fontStyle: 'italic',
         fontWeight: '300',
-        color: '#aaa',  // Lighter color for TBDs
+        color: '#aaa', // Lighter color for TBDs
     },
     fencerScore: {
         fontSize: 18,

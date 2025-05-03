@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import AsyncStorage from 'expo-sqlite/kv-store';
 import { useAbility } from './AbilityContext'; // useAbility now provides { ability, role, refreshAbility }
 import { Role } from './ability'; // Remove getRoleFromAbility import
 import { getDeviceId } from '../networking/NetworkUtils';

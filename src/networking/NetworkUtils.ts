@@ -2,7 +2,7 @@
 import { Platform, NativeModules } from 'react-native';
 import * as Network from 'expo-network';
 import DeviceInfo from 'react-native-device-info';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import AsyncStorage from 'expo-sqlite/kv-store';
 import tournamentClient from './TournamentClient';
 import { EventEmitter } from 'events';
 import Zeroconf from 'react-native-zeroconf';

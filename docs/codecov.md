@@ -26,6 +26,7 @@ Codecov is integrated into our CI workflow through GitHub Actions. Every time co
 2. Uploads the coverage reports to Codecov
 
 The coverage status and reports can be viewed:
+
 - In the GitHub Pull Request UI (as a comment)
 - On the [Codecov dashboard](https://codecov.io/gh/FencingSeniorDesign/client)
 - Via the badge in our README

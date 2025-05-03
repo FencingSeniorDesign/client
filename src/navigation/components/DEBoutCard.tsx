@@ -36,10 +36,10 @@ const DEBoutCard: React.FC<DEBoutCardProps> = ({
     const isTBD = !fencerA && !fencerB;
     // Use the isBye prop that's passed in, but also check if one fencer is null and the other is defined
     const isActualBye = isBye || (!fencerA && fencerB) || (fencerA && !fencerB);
-    
+
     // For display, distinguish between TBD and BYE cases
-    const fencerAName = fencerA ? `${fencerA.lname}, ${fencerA.fname}` : (isTBD ? 'TBD' : 'BYE');
-    const fencerBName = fencerB ? `${fencerB.lname}, ${fencerB.fname}` : (isTBD ? 'TBD' : 'BYE');
+    const fencerAName = fencerA ? `${fencerA.lname}, ${fencerA.fname}` : isTBD ? 'TBD' : 'BYE';
+    const fencerBName = fencerB ? `${fencerB.lname}, ${fencerB.fname}` : isTBD ? 'TBD' : 'BYE';
 
     const boutCompleted = winner !== undefined;
     const fencerAWon = winner === fencerA?.id;
@@ -216,12 +216,12 @@ const styles = StyleSheet.create({
     byeText: {
         fontStyle: 'italic',
         fontWeight: '500',
-        color: '#777',  // Darker color for BYEs to distinguish them
+        color: '#777', // Darker color for BYEs to distinguish them
     },
     tbdText: {
         fontStyle: 'italic',
         fontWeight: '300',
-        color: '#aaa',  // Lighter color for TBDs
+        color: '#aaa', // Lighter color for TBDs
     },
     byeBadge: {
         position: 'absolute',

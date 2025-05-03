@@ -23,8 +23,8 @@ jest.spyOn(Alert, 'alert').mockImplementation(() => {});
 jest.mock('expo-sqlite', () => ({
     openDatabaseSync: () => ({
         transaction: jest.fn(),
-        exec: jest.fn()
-    })
+        exec: jest.fn(),
+    }),
 }));
 
 // Mock react-native-tcp-socket
@@ -81,11 +81,7 @@ describe('TournamentList', () => {
 
     it('displays empty state message when no tournaments exist', () => {
         const { getByText } = render(
-            <TournamentList
-                tournaments={[]}
-                onTournamentDeleted={mockOnTournamentDeleted}
-                isComplete={false}
-            />
+            <TournamentList tournaments={[]} onTournamentDeleted={mockOnTournamentDeleted} isComplete={false} />
         );
 
         expect(getByText('No tournaments created yet.')).toBeTruthy();

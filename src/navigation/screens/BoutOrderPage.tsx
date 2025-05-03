@@ -424,7 +424,7 @@ const BoutOrderPage: React.FC = () => {
             Alert.alert('Error', 'Failed to update bout scores. Please try again.');
         }
     };
-    
+
     // Handle resetting a bout from the alter scores screen
     const handleResetBout = async () => {
         if (!canScoreBouts || alterIndex === null) {
@@ -749,20 +749,24 @@ const BoutOrderPage: React.FC = () => {
                     <View style={styles.alterModalContent}>
                         <Text style={styles.alterModalTitle}>Alter Bout Score</Text>
                         {alterIndex !== null && (
-                            <View style={{
-                                backgroundColor: '#f0f0f0',
-                                padding: 10,
-                                borderRadius: 6,
-                                marginBottom: 16,
-                                borderWidth: 1,
-                                borderColor: navyBlue,
-                            }}>
-                                <Text style={{
-                                    fontSize: 18,
-                                    fontWeight: 'bold',
-                                    textAlign: 'center',
-                                    color: navyBlue,
-                                }}>
+                            <View
+                                style={{
+                                    backgroundColor: '#f0f0f0',
+                                    padding: 10,
+                                    borderRadius: 6,
+                                    marginBottom: 16,
+                                    borderWidth: 1,
+                                    borderColor: navyBlue,
+                                }}
+                            >
+                                <Text
+                                    style={{
+                                        fontSize: 18,
+                                        fontWeight: 'bold',
+                                        textAlign: 'center',
+                                        color: navyBlue,
+                                    }}
+                                >
                                     {bouts[alterIndex].fencerA.lname} vs {bouts[alterIndex].fencerB.lname}
                                 </Text>
                             </View>
@@ -800,12 +804,9 @@ const BoutOrderPage: React.FC = () => {
                                 <Text style={styles.enterButtonText}>Cancel</Text>
                             </TouchableOpacity>
                         </View>
-                            <TouchableOpacity
-                                style={[styles.resetBoutButton]}
-                                onPress={handleResetBout}
-                            >
-                                <Text style={styles.resetBoutButtonText}>Reset Bout</Text>
-                            </TouchableOpacity>
+                        <TouchableOpacity style={[styles.resetBoutButton]} onPress={handleResetBout}>
+                            <Text style={styles.resetBoutButtonText}>Reset Bout</Text>
+                        </TouchableOpacity>
                     </View>
                 </View>
             </Modal>

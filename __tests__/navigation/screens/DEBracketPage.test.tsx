@@ -40,21 +40,23 @@ const mockRound = {
     detablesize: 8,
 };
 
-const mockBouts = [{
-    id: 1,
-    tableof: 8,
-    lfencer: 1,
-    rfencer: 2,
-    left_fname: 'John',
-    left_lname: 'Doe',
-    right_fname: 'Jane',
-    right_lname: 'Smith',
-    left_score: 15,
-    right_score: 13,
-    victor: 1,
-    seed_left: 1,
-    seed_right: 8,
-}];
+const mockBouts = [
+    {
+        id: 1,
+        tableof: 8,
+        lfencer: 1,
+        rfencer: 2,
+        left_fname: 'John',
+        left_lname: 'Doe',
+        right_fname: 'Jane',
+        right_lname: 'Smith',
+        left_score: 15,
+        right_score: 13,
+        victor: 1,
+        seed_left: 1,
+        seed_right: 8,
+    },
+];
 
 jest.mock('../../../src/db/DrizzleDatabaseUtils', () => ({
     dbGetRoundsForEvent: jest.fn().mockResolvedValue([mockRound]),
@@ -82,7 +84,7 @@ describe('DEBracketPage', () => {
         dbGetDEBouts.mockRejectedValueOnce(new Error('Failed to load'));
 
         const { getByText } = render(<DEBracketPage />);
-        
+
         await waitFor(() => {
             expect(getByText('Failed to load bracket data.')).toBeTruthy();
         });
@@ -93,7 +95,7 @@ describe('DEBracketPage', () => {
         dbGetRoundsForEvent.mockResolvedValueOnce([]);
 
         const { getByText } = render(<DEBracketPage />);
-        
+
         await waitFor(() => {
             expect(getByText('Failed to load bracket data.')).toBeTruthy();
         });
@@ -106,16 +108,21 @@ describe('DEBracketPage', () => {
 
     it('handles navigation back on non-DE round', async () => {
         const { dbGetRoundsForEvent } = require('../../../src/db/DrizzleDatabaseUtils');
-        dbGetRoundsForEvent.mockResolvedValueOnce([{
-            id: 1,
-            type: 'pool', // Not a DE round
-        }]);
+        dbGetRoundsForEvent.mockResolvedValueOnce([
+            {
+                id: 1,
+                type: 'pool', // Not a DE round
+            },
+        ]);
 
         render(<DEBracketPage />);
-        
-        await waitFor(() => {
-            expect(mockAlert).toHaveBeenCalledWith('Error', 'This is not a DE round.');
-            expect(mockGoBack).toHaveBeenCalled();
-        }, { timeout: 1000 });
+
+        await waitFor(
+            () => {
+                expect(mockAlert).toHaveBeenCalledWith('Error', 'This is not a DE round.');
+                expect(mockGoBack).toHaveBeenCalled();
+            },
+            { timeout: 1000 }
+        );
     });
 });

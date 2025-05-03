@@ -2,9 +2,9 @@
 // NDJSON (Newline Delimited JSON) provides improved streaming data handling by separating
 // JSON objects with newlines, allowing for simpler parsing and better error recovery
 import { EventEmitter } from 'events';
-import { Alert, Platform } from 'react-native';
+import { Alert } from 'react-native';
 import TcpSocket from 'react-native-tcp-socket';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import AsyncStorage from 'expo-sqlite/kv-store';
 
 // Constants
 const CLIENT_INFO_KEY = 'tournament_client_info';

@@ -141,11 +141,11 @@ describe('BoutOrderPage', () => {
             // Check for headers
             expect(getByText('View Bouts')).toBeTruthy();
             expect(getByText('Pool Bouts')).toBeTruthy();
-            
+
             // Check for fencer names in the actual format
             expect(getByText('(-) Alice (CA)')).toBeTruthy();
             expect(getByText('(-) Bob (CB)')).toBeTruthy();
-            
+
             // Check for the VS text
             expect(getByText('VS')).toBeTruthy();
         });

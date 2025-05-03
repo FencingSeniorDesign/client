@@ -337,7 +337,7 @@ export async function dbUpdateDEBoutAndAdvanceWinner(
 
         // Update the bout with the victor
         await db.update(schema.bouts).set({ victor: victorId }).where(eq(schema.bouts.id, boutId));
-        
+
         console.log(`Updated bout ${boutId} with scores A:${scoreA}-B:${scoreB}, victor: ${victorId}`);
 
         // Get the bracket information for this bout to determine next steps
@@ -357,7 +357,7 @@ export async function dbUpdateDEBoutAndAdvanceWinner(
 
         const nextBoutId = bracketBout[0].next_bout_id;
         const boutOrder = bracketBout[0].bout_order;
-        
+
         // Determine if the winner should go to the left or right side of the next bout
         // Even bout_order goes to left, odd goes to right
         if (boutOrder % 2 === 0) {
@@ -376,4 +376,3 @@ export async function dbUpdateDEBoutAndAdvanceWinner(
         throw error;
     }
 }
-

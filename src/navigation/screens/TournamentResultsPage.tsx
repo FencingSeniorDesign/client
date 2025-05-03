@@ -238,7 +238,7 @@ const TournamentResultsPage: React.FC = () => {
                 const rightScore = bout.right_score ?? 0;
                 const victorId = bout.victor;
                 const tableof = bout.tableof;
-                
+
                 // Only process completed bouts (with both fencers and a victor)
                 if (victorId && leftId && rightId) {
                     // Update left fencer stats
@@ -247,7 +247,7 @@ const TournamentResultsPage: React.FC = () => {
                         stats.bouts += 1;
                         stats.touchesScored += leftScore;
                         stats.touchesReceived += rightScore;
-                        
+
                         if (victorId === leftId) {
                             stats.victories += 1;
                         } else {
@@ -262,7 +262,7 @@ const TournamentResultsPage: React.FC = () => {
                         stats.bouts += 1;
                         stats.touchesScored += rightScore;
                         stats.touchesReceived += leftScore;
-                        
+
                         if (victorId === rightId) {
                             stats.victories += 1;
                         } else {
@@ -274,15 +274,18 @@ const TournamentResultsPage: React.FC = () => {
             });
 
             // Group fencers by elimination round
-            const fencersByEliminationRound = new Map<number | null, Array<{
-                fencer: Fencer;
-                victories: number;
-                bouts: number;
-                touchesScored: number;
-                touchesReceived: number;
-                indicator: number;
-                seed: number;
-            }>>();
+            const fencersByEliminationRound = new Map<
+                number | null,
+                Array<{
+                    fencer: Fencer;
+                    victories: number;
+                    bouts: number;
+                    touchesScored: number;
+                    touchesReceived: number;
+                    indicator: number;
+                    seed: number;
+                }>
+            >();
 
             // Initialize the elimination round groups
             fencerStatsMap.forEach(stats => {
@@ -290,7 +293,7 @@ const TournamentResultsPage: React.FC = () => {
                 if (!fencersByEliminationRound.has(round)) {
                     fencersByEliminationRound.set(round, []);
                 }
-                
+
                 fencersByEliminationRound.get(round)!.push({
                     fencer: stats.fencer,
                     victories: stats.victories,
@@ -298,7 +301,7 @@ const TournamentResultsPage: React.FC = () => {
                     touchesScored: stats.touchesScored,
                     touchesReceived: stats.touchesReceived,
                     indicator: stats.touchesScored - stats.touchesReceived,
-                    seed: stats.seed
+                    seed: stats.seed,
                 });
             });
 
@@ -326,7 +329,7 @@ const TournamentResultsPage: React.FC = () => {
             // Process each elimination round group
             sortedRounds.forEach(round => {
                 const fencers = fencersByEliminationRound.get(round)!;
-                
+
                 // Assign places to fencers in this round
                 fencers.forEach(fencer => {
                     results.push({
@@ -337,7 +340,7 @@ const TournamentResultsPage: React.FC = () => {
                         touchesScored: fencer.touchesScored,
                         touchesReceived: fencer.touchesReceived,
                         indicator: fencer.indicator,
-                        seed: fencer.seed
+                        seed: fencer.seed,
                     });
                     currentPlace++;
                 });

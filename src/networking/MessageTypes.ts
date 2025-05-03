@@ -337,8 +337,10 @@ export const isWelcomeMessage = (msg: any): msg is WelcomeMessage =>
     validateMessage(msg) && msg.type === 'welcome' && typeof msg.tournamentName === 'string';
 
 export const isJoinResponseMessage = (msg: any): msg is JoinResponseMessage =>
-    validateMessage(msg) && msg.type === 'join_response' && typeof msg.success === 'boolean';
-
+    validateMessage(msg) &&
+    msg.type === 'join_response' &&
+    typeof msg.success === 'boolean' &&
+    typeof msg.message === 'string';
 export const isEventsListMessage = (msg: any): msg is EventsListMessage =>
     validateMessage(msg) &&
     msg.type === 'events_list' &&

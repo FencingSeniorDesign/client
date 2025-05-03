@@ -1,4 +1,5 @@
 # Getting Started
+
 [![codecov](https://codecov.io/gh/FencingSeniorDesign/client/graph/badge.svg)](https://codecov.io/gh/FencingSeniorDesign/client)
 
 ### Prerequisites
