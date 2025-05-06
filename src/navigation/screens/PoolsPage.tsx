@@ -22,6 +22,7 @@ import dataProvider from '../../data/DrizzleDataProvider';
 import { useQueryClient } from '@tanstack/react-query';
 import { Can } from '../../rbac/Can';
 import { useAbility } from '../../rbac/AbilityContext';
+import { useTranslation } from 'react-i18next';
 
 type PoolsPageRouteParams = {
     event: Event;
@@ -37,6 +38,7 @@ const PoolsPage: React.FC = () => {
     const navigation = useNavigation<PoolsPageNavProp>();
     const queryClient = useQueryClient();
     const { ability } = useAbility();
+    const { t } = useTranslation();
 
     const { event, currentRoundIndex, roundId, isRemote = false } = route.params;
     const [pools, setPools] = useState<{ poolid: number; fencers: Fencer[] }[]>([]);
@@ -209,15 +211,15 @@ const PoolsPage: React.FC = () => {
             setSeedingModalVisible(true);
         } catch (error) {
             console.error('Error fetching seeding:', error);
-            Alert.alert('Error', 'Could not fetch seeding information.');
+            Alert.alert(t('common.error'), t('poolsPage.errorFetchingSeeding'));
         }
     };
 
     const confirmEndRound = () => {
-        Alert.alert('End Round', 'Are you sure you want to end the round?', [
-            { text: 'Cancel', style: 'cancel' },
+        Alert.alert(t('poolsPage.endRound'), t('poolsPage.confirmEndRound'), [
+            { text: t('common.cancel'), style: 'cancel' },
             {
-                text: 'Yes',
+                text: t('common.yes'),
                 onPress: async () => {
                     try {
                         console.log(`Marking round ${roundId} as complete...`);
@@ -255,7 +257,7 @@ const PoolsPage: React.FC = () => {
                         }, 500);
                     } catch (error) {
                         console.error('Error marking round as complete:', error);
-                        Alert.alert('Error', 'Failed to complete the round. Please try again.');
+                        Alert.alert(t('common.error'), t('poolsPage.failedToCompleteRound'));
                     }
                 },
             },
@@ -265,22 +267,24 @@ const PoolsPage: React.FC = () => {
     return (
         <ScrollView contentContainerStyle={styles.container}>
             {isRemote && <ConnectionStatusBar compact={true} />}
-            <Text style={styles.title}>Pools</Text>
+            <Text style={styles.title}>{t('poolsPage.title')}</Text>
 
             <TouchableOpacity style={styles.viewSeedingButton} onPress={fetchSeeding}>
-                <Text style={styles.viewSeedingButtonText}>View Seeding</Text>
+                <Text style={styles.viewSeedingButtonText}>{t('poolsPage.viewSeeding')}</Text>
             </TouchableOpacity>
 
             {isLoading && (
                 <View style={styles.loadingContainer}>
                     <ActivityIndicator size="large" color="#0000ff" />
-                    <Text style={styles.loadingText}>Loading pools data...</Text>
+                    <Text style={styles.loadingText}>{t('poolsPage.loadingPools')}</Text>
                 </View>
             )}
 
             {error && (
                 <View style={styles.errorContainer}>
-                    <Text style={styles.errorText}>Error loading pools: {error.toString()}</Text>
+                    <Text style={styles.errorText}>
+                        {t('poolsPage.errorLoadingPools')}: {error.toString()}
+                    </Text>
                 </View>
             )}
 
@@ -288,8 +292,15 @@ const PoolsPage: React.FC = () => {
                 const displayPoolNumber = poolObj.poolid + 1;
                 const isExpanded = expandedPools[index];
                 const complete = poolCompletionStatus[poolObj.poolid] || false;
-                const stripText = poolStrips[poolObj.poolid] ? ` on strip ${poolStrips[poolObj.poolid]}` : '';
-                const headerText = `Pool ${displayPoolNumber} : ${poolObj.fencers.length} fencer${poolObj.fencers.length !== 1 ? 's' : ''}${stripText}`;
+                const stripText = poolStrips[poolObj.poolid]
+                    ? t('poolsPage.onStrip', { strip: poolStrips[poolObj.poolid] })
+                    : '';
+
+                // Build the header text manually to avoid template string issues
+                const fencerCount = poolObj.fencers.length;
+                const fencerText = fencerCount === 1 ? t('poolsPage.fencerSingular') : t('poolsPage.fencerPlural');
+
+                const headerText = `${t('poolsPage.poolPrefix')} ${displayPoolNumber}: ${fencerCount} ${fencerText}${stripText}`;
                 return (
                     <View key={poolObj.poolid} style={styles.poolContainer}>
                         <TouchableOpacity
@@ -313,7 +324,7 @@ const PoolsPage: React.FC = () => {
                                         </Text>
                                     ))
                                 ) : (
-                                    <Text style={styles.noFencersText}>No fencers assigned to this pool</Text>
+                                    <Text style={styles.noFencersText}>{t('poolsPage.noFencers')}</Text>
                                 )}
                                 <TouchableOpacity
                                     style={styles.refereeButton}
@@ -328,9 +339,9 @@ const PoolsPage: React.FC = () => {
                                     <Text style={styles.refereeButtonText}>
                                         {ability.can('score', 'Bout')
                                             ? complete
-                                                ? 'Edit Completed Pool'
-                                                : 'Referee'
-                                            : 'Open'}
+                                                ? t('poolsPage.editCompletedPool')
+                                                : t('poolsPage.referee')
+                                            : t('poolsPage.open')}
                                     </Text>
                                 </TouchableOpacity>
                             </View>
@@ -368,7 +379,7 @@ const PoolsPage: React.FC = () => {
                             }
                         >
                             <Text style={[styles.endRoundButtonText, !allowed && styles.disabledText]}>
-                                {isRoundCompleted ? 'Show Results' : 'End Round'}
+                                {isRoundCompleted ? t('poolsPage.showResults') : t('poolsPage.endRound')}
                             </Text>
                         </TouchableOpacity>
                     );
@@ -384,22 +395,22 @@ const PoolsPage: React.FC = () => {
             >
                 <View style={styles.modalOverlay}>
                     <View style={styles.modalContent}>
-                        <Text style={styles.modalTitle}>Enter Strip Number</Text>
+                        <Text style={styles.modalTitle}>{t('poolsPage.enterStripNumber')}</Text>
                         <TextInput
                             style={styles.stripInput}
                             keyboardType="number-pad"
-                            placeholder="e.g., 17"
+                            placeholder={t('poolsPage.stripPlaceholder')}
                             value={stripInput}
                             onChangeText={setStripInput}
                         />
                         <TouchableOpacity style={styles.modalButton} onPress={submitStripNumber}>
-                            <Text style={styles.modalButtonText}>Submit</Text>
+                            <Text style={styles.modalButtonText}>{t('common.submit')}</Text>
                         </TouchableOpacity>
                         <TouchableOpacity
                             style={[styles.modalButton, styles.cancelButton]}
                             onPress={() => setStripModalVisible(false)}
                         >
-                            <Text style={styles.modalButtonText}>Cancel</Text>
+                            <Text style={styles.modalButtonText}>{t('common.cancel')}</Text>
                         </TouchableOpacity>
                     </View>
                 </View>
@@ -414,7 +425,7 @@ const PoolsPage: React.FC = () => {
             >
                 <View style={styles.modalOverlay}>
                     <View style={styles.modalContent}>
-                        <Text style={styles.modalTitle}>Current Seeding</Text>
+                        <Text style={styles.modalTitle}>{t('poolsPage.currentSeeding')}</Text>
                         <ScrollView style={styles.seedingList}>
                             {seeding.map(item => (
                                 <View key={item.fencer.id} style={styles.seedingItem}>
@@ -431,7 +442,7 @@ const PoolsPage: React.FC = () => {
                             ))}
                         </ScrollView>
                         <TouchableOpacity style={styles.closeButton} onPress={() => setSeedingModalVisible(false)}>
-                            <Text style={styles.closeButtonText}>Close</Text>
+                            <Text style={styles.closeButtonText}>{t('common.close')}</Text>
                         </TouchableOpacity>
                     </View>
                 </View>

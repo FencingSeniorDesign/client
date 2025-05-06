@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, Modal, StyleSheet, TextInput, TouchableOpacity, Alert } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { dbCreateTournament } from '../../db/DrizzleDatabaseUtils';
+import { useTranslation } from 'react-i18next';
 
 interface CreateTournamentButtonProps {
     onTournamentCreated: () => void;
@@ -10,10 +11,11 @@ interface CreateTournamentButtonProps {
 export const CreateTournamentButton: React.FC<CreateTournamentButtonProps> = ({ onTournamentCreated }) => {
     const [modalVisible, setModalVisible] = useState(false);
     const [tournamentName, setTournamentName] = useState('');
+    const { t } = useTranslation();
 
     const handleSubmit = async () => {
         if (!tournamentName.trim()) {
-            Alert.alert('Error', 'Please enter a tournament name');
+            Alert.alert(t('common.error'), t('createTournament.errorEmptyName'));
             return;
         }
 
@@ -23,7 +25,7 @@ export const CreateTournamentButton: React.FC<CreateTournamentButtonProps> = ({ 
             setTournamentName('');
             onTournamentCreated(); // Notify the parent component to refresh the list
         } catch (error) {
-            Alert.alert('Error', 'Failed to create tournament. It might already exist.');
+            Alert.alert(t('common.error'), t('createTournament.errorCreateFailed'));
             console.error(error);
         }
     };
@@ -32,7 +34,7 @@ export const CreateTournamentButton: React.FC<CreateTournamentButtonProps> = ({ 
         <View>
             <TouchableOpacity style={styles.button} onPress={() => setModalVisible(true)}>
                 <MaterialIcons name="add-circle" size={24} color="#fff" style={styles.buttonIcon} />
-                <Text style={styles.buttonText}>Create Tournament</Text>
+                <Text style={styles.buttonText}>{t('home.createTournament')}</Text>
             </TouchableOpacity>
 
             <Modal
@@ -43,13 +45,13 @@ export const CreateTournamentButton: React.FC<CreateTournamentButtonProps> = ({ 
             >
                 <View style={styles.modalContainer}>
                     <View style={styles.modalContent}>
-                        <Text style={styles.modalTitle}>Create New Tournament</Text>
+                        <Text style={styles.modalTitle}>{t('createTournament.title')}</Text>
 
                         <TextInput
                             style={styles.input}
                             value={tournamentName}
                             onChangeText={setTournamentName}
-                            placeholder="Enter tournament name"
+                            placeholder={t('createTournament.enterName')}
                             autoFocus
                         />
 
@@ -61,11 +63,11 @@ export const CreateTournamentButton: React.FC<CreateTournamentButtonProps> = ({ 
                                     setTournamentName('');
                                 }}
                             >
-                                <Text style={styles.buttonText}>Cancel</Text>
+                                <Text style={styles.buttonText}>{t('common.cancel')}</Text>
                             </TouchableOpacity>
 
                             <TouchableOpacity style={[styles.modalButton, styles.submitButton]} onPress={handleSubmit}>
-                                <Text style={styles.buttonText}>Submit</Text>
+                                <Text style={styles.buttonText}>{t('common.submit')}</Text>
                             </TouchableOpacity>
                         </View>
                     </View>

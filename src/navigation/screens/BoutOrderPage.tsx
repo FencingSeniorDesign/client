@@ -19,6 +19,7 @@ import { useBoutsForPool, useUpdatePoolBoutScores, usePools } from '../../data/T
 import { assignPoolPositions, getBoutOrder } from '../utils/BoutOrderUtils';
 import tournamentClient from '../../networking/TournamentClient';
 import ConnectionStatusBar from '../../networking/components/ConnectionStatusBar';
+import { useTranslation } from 'react-i18next';
 
 type BoutOrderPageRouteProps = RouteProp<RootStackParamList, 'BoutOrderPage'>;
 type BoutOrderPageNavProp = StackNavigationProp<RootStackParamList, 'BoutOrderPage'>;
@@ -28,6 +29,7 @@ const BoutOrderPage: React.FC = () => {
     const navigation = useNavigation<BoutOrderPageNavProp>();
     const { roundId, poolId, isRemote = false } = route.params;
     const { ability } = useAbility();
+    const { t } = useTranslation();
 
     // Check if user has permission to score bouts
     const canScoreBouts = ability.can('score', 'Bout');
@@ -218,7 +220,7 @@ const BoutOrderPage: React.FC = () => {
             setExpandedBoutIndex(null);
         } catch (error) {
             console.error('Error updating bout scores:', error);
-            Alert.alert('Error', 'Failed to update bout scores. Please try again.');
+            Alert.alert(t('common.error'), t('boutOrderPage.failedToUpdateScores'));
         }
     };
 
@@ -303,7 +305,7 @@ const BoutOrderPage: React.FC = () => {
             setAlterIndex(null);
         } catch (error) {
             console.error('Error updating bout scores:', error);
-            Alert.alert('Error', 'Failed to update bout scores. Please try again.');
+            Alert.alert(t('common.error'), t('boutOrderPage.failedToUpdateScores'));
         }
     };
 
@@ -421,7 +423,7 @@ const BoutOrderPage: React.FC = () => {
             setSelectedWinnerId(null);
         } catch (error) {
             console.error('Error updating tied bout:', error);
-            Alert.alert('Error', 'Failed to update bout scores. Please try again.');
+            Alert.alert(t('common.error'), t('boutOrderPage.failedToUpdateScores'));
         }
     };
 
@@ -465,7 +467,7 @@ const BoutOrderPage: React.FC = () => {
             setAlterIndex(null);
         } catch (error) {
             console.error('Error resetting bout:', error);
-            Alert.alert('Error', 'Failed to reset bout. Please try again.');
+            Alert.alert(t('common.error'), t('boutOrderPage.failedToResetBout'));
         }
     };
 
@@ -516,7 +518,7 @@ const BoutOrderPage: React.FC = () => {
                     } as Bout;
                 } catch (error) {
                     console.error(`Error updating bout ${bout.id} with random scores:`, error);
-                    Alert.alert('Error', `Failed to update bout ${bout.id} with random scores.`);
+                    Alert.alert(t('common.error'), t('boutOrderPage.failedToUpdateRandomScores', { boutId: bout.id }));
                     return bout;
                 }
             })
@@ -529,7 +531,7 @@ const BoutOrderPage: React.FC = () => {
         return (
             <View style={styles.loadingContainer}>
                 <ActivityIndicator size="large" color="#0000ff" />
-                <Text style={styles.loadingText}>Loading bouts...</Text>
+                <Text style={styles.loadingText}>{t('boutOrderPage.loadingBouts')}</Text>
             </View>
         );
     }
@@ -538,7 +540,9 @@ const BoutOrderPage: React.FC = () => {
     if (boutsError || poolsError) {
         return (
             <View style={styles.errorContainer}>
-                <Text style={styles.errorText}>Error loading bouts: {(boutsError || poolsError)?.toString()}</Text>
+                <Text style={styles.errorText}>
+                    {t('boutOrderPage.errorLoadingBouts')}: {(boutsError || poolsError)?.toString()}
+                </Text>
             </View>
         );
     }
@@ -592,7 +596,7 @@ const BoutOrderPage: React.FC = () => {
                         {/* For referees with scoring permissions and pending bouts - show score entry */}
                         {canScoreBouts && bout.status === 'pending' ? (
                             <>
-                                <Text style={styles.scoreEntryTitle}>Enter Scores</Text>
+                                <Text style={styles.scoreEntryTitle}>{t('boutOrderPage.enterScores')}</Text>
                                 <View style={styles.scoreRow}>
                                     <Text style={styles.scoreFencerLabel}>
                                         {bout.fencerA.lname}, {bout.fencerA.fname}:
@@ -620,13 +624,13 @@ const BoutOrderPage: React.FC = () => {
                                         style={styles.enterButton}
                                         onPress={() => handleSubmitScores(index)}
                                     >
-                                        <Text style={styles.enterButtonText}>Enter</Text>
+                                        <Text style={styles.enterButtonText}>{t('boutOrderPage.enter')}</Text>
                                     </TouchableOpacity>
                                     <TouchableOpacity
                                         style={styles.refModuleButton}
                                         onPress={() => openRefModuleForBout(index)}
                                     >
-                                        <Text style={styles.refModuleButtonText}>Ref Module</Text>
+                                        <Text style={styles.refModuleButtonText}>{t('boutOrderPage.refModule')}</Text>
                                     </TouchableOpacity>
                                 </View>
                             </>
@@ -634,7 +638,9 @@ const BoutOrderPage: React.FC = () => {
                             // For viewers or completed bouts - show detailed info
                             <View style={styles.boutDetailsContainer}>
                                 <Text style={styles.boutDetailsTitle}>
-                                    {bout.status === 'completed' ? 'Bout Result' : 'Pending Bout'}
+                                    {bout.status === 'completed'
+                                        ? t('boutOrderPage.boutResult')
+                                        : t('boutOrderPage.pendingBout')}
                                 </Text>
                                 <View style={styles.fencerDetailRow}>
                                     <Text
@@ -685,12 +691,12 @@ const BoutOrderPage: React.FC = () => {
                                                     bout.winnerId === bout.fencerA.id
                                                         ? bout.fencerA.lname
                                                         : bout.fencerB.lname;
-                                                return `Winner: ${winnerName}`;
+                                                return t('boutOrderPage.winner', { winnerName: winnerName });
                                             } else {
-                                                return 'No winner recorded';
+                                                return t('boutOrderPage.noWinnerRecorded');
                                             }
                                         } else {
-                                            return 'Bout not yet scored';
+                                            return t('boutOrderPage.boutNotYetScored');
                                         }
                                     })()}
                                 </Text>
@@ -709,11 +715,15 @@ const BoutOrderPage: React.FC = () => {
 
             {/* Header - double stripping toggle only shown to referees */}
             <View style={styles.header}>
-                <Text style={styles.headerTitle}>{canScoreBouts ? 'Referee Mode' : 'View Bouts'}</Text>
+                <Text style={styles.headerTitle}>
+                    {canScoreBouts ? t('boutOrderPage.refereeMode') : t('boutOrderPage.viewBouts')}
+                </Text>
                 {canScoreBouts && (
                     <TouchableOpacity style={styles.toggleButton} onPress={() => setDoubleStripping(prev => !prev)}>
                         <Text style={styles.toggleButtonText}>
-                            {doubleStripping ? 'Double Stripping On' : 'Double Stripping Off'}
+                            {doubleStripping
+                                ? t('boutOrderPage.doubleStrippingOn')
+                                : t('boutOrderPage.doubleStrippingOff')}
                         </Text>
                     </TouchableOpacity>
                 )}
@@ -726,20 +736,20 @@ const BoutOrderPage: React.FC = () => {
                         style={[styles.toggleButtonSmall, protectedScores && styles.toggleButtonActive]}
                         onPress={() => setProtectedScores(!protectedScores)}
                     >
-                        <Text style={styles.toggleButtonText}>Protected Scores</Text>
+                        <Text style={styles.toggleButtonText}>{t('boutOrderPage.protectedScores')}</Text>
                     </TouchableOpacity>
                 </View>
             )}
 
             <ScrollView contentContainerStyle={styles.container}>
-                <Text style={styles.title}>Pool Bouts</Text>
+                <Text style={styles.title}>{t('boutOrderPage.poolBouts')}</Text>
                 {bouts.map((bout, index) => renderBoutWithRank(bout, index))}
             </ScrollView>
 
             {/* Random Scores Button - only shown to referees */}
             {canScoreBouts && (
                 <TouchableOpacity style={styles.randomScoresButton} onPress={handleRandomScores}>
-                    <Text style={styles.randomScoresButtonText}>Random Scores</Text>
+                    <Text style={styles.randomScoresButtonText}>{t('boutOrderPage.randomScores')}</Text>
                 </TouchableOpacity>
             )}
 
@@ -747,7 +757,7 @@ const BoutOrderPage: React.FC = () => {
             <Modal visible={alterModalVisible} transparent animationType="fade">
                 <View style={styles.modalOverlay}>
                     <View style={styles.alterModalContent}>
-                        <Text style={styles.alterModalTitle}>Alter Bout Score</Text>
+                        <Text style={styles.alterModalTitle}>{t('boutOrderPage.alterBoutScore')}</Text>
                         {alterIndex !== null && (
                             <View
                                 style={{
@@ -795,17 +805,17 @@ const BoutOrderPage: React.FC = () => {
                         </View>
                         <View style={styles.scoreButtonsRow}>
                             <TouchableOpacity style={styles.enterButton} onPress={handleAlterSave}>
-                                <Text style={styles.enterButtonText}>Save</Text>
+                                <Text style={styles.enterButtonText}>{t('boutOrderPage.save')}</Text>
                             </TouchableOpacity>
                             <TouchableOpacity
                                 style={[styles.enterButton, { backgroundColor: '#666' }]}
                                 onPress={() => setAlterModalVisible(false)}
                             >
-                                <Text style={styles.enterButtonText}>Cancel</Text>
+                                <Text style={styles.enterButtonText}>{t('boutOrderPage.cancel')}</Text>
                             </TouchableOpacity>
                         </View>
                         <TouchableOpacity style={[styles.resetBoutButton]} onPress={handleResetBout}>
-                            <Text style={styles.resetBoutButtonText}>Reset Bout</Text>
+                            <Text style={styles.resetBoutButtonText}>{t('boutOrderPage.resetBout')}</Text>
                         </TouchableOpacity>
                     </View>
                 </View>
@@ -816,7 +826,7 @@ const BoutOrderPage: React.FC = () => {
                 <View style={styles.modalOverlay}>
                     <View style={styles.loadingContainer}>
                         <ActivityIndicator size="large" color="#fff" />
-                        <Text style={styles.loadingText}>Updating scores...</Text>
+                        <Text style={styles.loadingText}>{t('boutOrderPage.updatingScores')}</Text>
                     </View>
                 </View>
             )}
@@ -825,8 +835,8 @@ const BoutOrderPage: React.FC = () => {
             <Modal visible={tieModalVisible} transparent animationType="fade">
                 <View style={styles.modalOverlay}>
                     <View style={styles.alterModalContent}>
-                        <Text style={styles.alterModalTitle}>Select Winner for Tied Bout</Text>
-                        <Text style={styles.tieWarningText}>Bouts cannot end in a tie. Please select the winner:</Text>
+                        <Text style={styles.alterModalTitle}>{t('boutOrderPage.selectWinnerForTiedBout')}</Text>
+                        <Text style={styles.tieWarningText}>{t('boutOrderPage.boutsCannotEndInTie')}</Text>
 
                         {tieBoutIndex !== null && (
                             <>
@@ -864,7 +874,7 @@ const BoutOrderPage: React.FC = () => {
                                 onPress={handleTieWinnerSubmit}
                                 disabled={!selectedWinnerId}
                             >
-                                <Text style={styles.enterButtonText}>Submit</Text>
+                                <Text style={styles.enterButtonText}>{t('boutOrderPage.submit')}</Text>
                             </TouchableOpacity>
                             <TouchableOpacity
                                 style={[styles.enterButton, { backgroundColor: '#666' }]}
@@ -874,7 +884,7 @@ const BoutOrderPage: React.FC = () => {
                                     setSelectedWinnerId(null);
                                 }}
                             >
-                                <Text style={styles.enterButtonText}>Cancel</Text>
+                                <Text style={styles.enterButtonText}>{t('boutOrderPage.cancel')}</Text>
                             </TouchableOpacity>
                         </View>
                     </View>

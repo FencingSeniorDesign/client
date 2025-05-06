@@ -4,6 +4,7 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIn
 import { useRoute, RouteProp, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList, Event, Fencer, Round } from '../navigation/types';
+import { useTranslation } from 'react-i18next';
 import {
     dbGetDEBouts,
     dbGetRoundsForEvent,
@@ -50,6 +51,7 @@ const DEBracketPage: React.FC = () => {
     const route = useRoute<DEBracketPageRouteProp>();
     const navigation = useNavigation<DEBracketPageNavProp>();
     const { event, currentRoundIndex, roundId, isRemote = false } = route.params;
+    const { t } = useTranslation();
 
     const [round, setRound] = useState<Round | null>(null);
     const [bracketData, setBracketData] = useState<DEBracketData | null>(null);
@@ -78,7 +80,7 @@ const DEBracketPage: React.FC = () => {
                 setIsFinalRound(currentRoundIndex === rounds.length - 1);
 
                 if (currentRound.type !== 'de') {
-                    Alert.alert('Error', 'This is not a DE round.');
+                    Alert.alert(t('common.error'), t('deBracketPage.notDERound'));
                     navigation.goBack();
                     return;
                 }
@@ -102,7 +104,7 @@ const DEBracketPage: React.FC = () => {
                 setBracketData(processedBracket);
             } catch (error) {
                 console.error('Error loading DE bracket:', error);
-                Alert.alert('Error', 'Failed to load the bracket.');
+                Alert.alert(t('common.error'), t('deBracketPage.failedToLoadBracket'));
             } finally {
                 setLoading(false);
             }
@@ -191,13 +193,13 @@ const DEBracketPage: React.FC = () => {
         try {
             // Skip if it's a BYE - these have a single fencer who automatically advances
             if (bout.isBye) {
-                Alert.alert('BYE', 'This fencer advances automatically.');
+                Alert.alert(t('deBracketPage.byeTitle'), t('deBracketPage.byeMessage'));
                 return;
             }
 
             // Skip if both fencers aren't set yet (TBD - waiting for previous round)
             if (!bout.fencerA || !bout.fencerB) {
-                Alert.alert('To Be Determined', 'This bout is waiting for fencers to advance from previous rounds.');
+                Alert.alert(t('deBracketPage.tbdTitle'), t('deBracketPage.tbdMessage'));
                 return;
             }
 
@@ -207,7 +209,7 @@ const DEBracketPage: React.FC = () => {
                     fencerAId: bout.fencerA.id,
                     fencerBId: bout.fencerB.id,
                 });
-                Alert.alert('Error', 'Invalid fencer data. Please refresh and try again.');
+                Alert.alert(t('common.error'), t('deBracketPage.invalidFencerData'));
                 return;
             }
 
@@ -231,13 +233,13 @@ const DEBracketPage: React.FC = () => {
                         setRefreshKey(prev => prev + 1);
                     } catch (error) {
                         console.error('Error updating bout scores:', error);
-                        Alert.alert('Error', 'Failed to save scores.');
+                        Alert.alert(t('common.error'), t('deBracketPage.failedToSaveScores'));
                     }
                 },
             });
         } catch (error) {
             console.error('Error in handleBoutPress:', error);
-            Alert.alert('Error', 'An unexpected error occurred when processing this bout.');
+            Alert.alert(t('common.error'), t('deBracketPage.unexpectedBoutError'));
         }
     };
 
@@ -316,7 +318,7 @@ const DEBracketPage: React.FC = () => {
                                 !bout.fencerA && (isTBD ? styles.tbdText : styles.byeText),
                             ]}
                         >
-                            {bout.fencerA ? fencerAName : isTBD ? 'TBD' : 'BYE'}
+                            {bout.fencerA ? fencerAName : isTBD ? t('deBracketPage.tbd') : t('deBracketPage.bye')}
                         </Text>
                     </View>
                     <Text style={styles.fencerScore}>{bout.scoreA !== undefined ? bout.scoreA : '-'}</Text>
@@ -338,7 +340,7 @@ const DEBracketPage: React.FC = () => {
                                 !bout.fencerB && (isTBD ? styles.tbdText : styles.byeText),
                             ]}
                         >
-                            {bout.fencerB ? fencerBName : isTBD ? 'TBD' : 'BYE'}
+                            {bout.fencerB ? fencerBName : isTBD ? t('deBracketPage.tbd') : t('deBracketPage.bye')}
                         </Text>
                     </View>
                     <Text style={styles.fencerScore}>{bout.scoreB !== undefined ? bout.scoreB : '-'}</Text>
@@ -351,7 +353,7 @@ const DEBracketPage: React.FC = () => {
         return (
             <View style={styles.loadingContainer}>
                 <ActivityIndicator size="large" color="#007AFF" />
-                <Text style={styles.loadingText}>Loading bracket...</Text>
+                <Text style={styles.loadingText}>{t('deBracketPage.loadingBracket')}</Text>
             </View>
         );
     }
@@ -359,7 +361,7 @@ const DEBracketPage: React.FC = () => {
     if (!bracketData || !round) {
         return (
             <View style={styles.errorContainer}>
-                <Text style={styles.errorText}>Failed to load bracket data.</Text>
+                <Text style={styles.errorText}>{t('deBracketPage.failedToLoadBracketData')}</Text>
             </View>
         );
     }
@@ -372,19 +374,19 @@ const DEBracketPage: React.FC = () => {
             </Text>
 
             <Text style={styles.formatText}>
-                Format: {bracketFormat.charAt(0).toUpperCase() + bracketFormat.slice(1)} Elimination
+                {t('deBracketPage.format')}: {t(`deBracketPage.${bracketFormat}Elimination`)}
             </Text>
 
             {/* Add View Results button if this is the final round and it's complete */}
             {isRoundComplete && isFinalRound && (
                 <TouchableOpacity style={styles.viewResultsButton} onPress={handleViewResults}>
-                    <Text style={styles.viewResultsButtonText}>View Tournament Results</Text>
+                    <Text style={styles.viewResultsButtonText}>{t('deBracketPage.viewTournamentResults')}</Text>
                 </TouchableOpacity>
             )}
 
             {bracketData.rounds.map((round, index) => (
                 <View key={index} style={styles.roundContainer}>
-                    <Text style={styles.roundTitle}>{getRoundName(round.tableOf)}</Text>
+                    <Text style={styles.roundTitle}>{getRoundName(round.tableOf, t)}</Text>
                     <View style={styles.boutsContainer}>
                         {round.matches.map((bout, boutIndex) => (
                             <View key={boutIndex} style={styles.boutWrapper}>
@@ -399,26 +401,27 @@ const DEBracketPage: React.FC = () => {
 };
 
 // Helper function to get round name based on tableOf value
-function getRoundName(tableOf: number): string {
+// Now accepts the translation function as a parameter to avoid hook rules violation
+function getRoundName(tableOf: number, t: (key: string, options?: any) => string): string {
     switch (tableOf) {
         case 2:
-            return 'Finals';
+            return t('deBracketPage.finals');
         case 4:
-            return 'Semi-Finals';
+            return t('deBracketPage.semiFinals');
         case 8:
-            return 'Quarter-Finals';
+            return t('deBracketPage.quarterFinals');
         case 16:
-            return 'Table of 16';
+            return t('deBracketPage.tableOf16');
         case 32:
-            return 'Table of 32';
+            return t('deBracketPage.tableOf32');
         case 64:
-            return 'Table of 64';
+            return t('deBracketPage.tableOf64');
         case 128:
-            return 'Table of 128';
+            return t('deBracketPage.tableOf128');
         case 256:
-            return 'Table of 256';
+            return t('deBracketPage.tableOf256');
         default:
-            return `Table of ${tableOf}`;
+            return t('deBracketPage.tableOfX', { number: tableOf });
     }
 }
 

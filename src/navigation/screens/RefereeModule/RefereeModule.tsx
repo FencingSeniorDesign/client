@@ -8,6 +8,7 @@ import { RootStackParamList } from '../../navigation/types';
 import tournamentClient from '../../../networking/TournamentClient';
 import tournamentServer from '../../../networking/TournamentServer';
 import ConnectionStatusBar from '../../../networking/components/ConnectionStatusBar';
+import { useTranslation } from 'react-i18next';
 
 type CardColor = 'yellow' | 'red' | 'black' | null;
 type FencerCard = { color: CardColor };
@@ -17,10 +18,11 @@ type RefereeModuleRouteProp = RouteProp<RootStackParamList, 'RefereeModule'>;
 export function RefereeModule() {
     const route = useRoute<RefereeModuleRouteProp>();
     const navigation = useNavigation();
+    const { t } = useTranslation();
 
     const {
-        fencer1Name = 'Left',
-        fencer2Name = 'Right',
+        fencer1Name = t('refereeModule.defaultLeft'),
+        fencer2Name = t('refereeModule.defaultRight'),
         boutIndex,
         currentScore1 = 0,
         currentScore2 = 0,
@@ -294,16 +296,20 @@ export function RefereeModule() {
     // (Optional) A long-press on the passivity timer can still show an alert to revert it
     const handlePassivityTimerLongPress = () => {
         if (savedPassivityTime !== null) {
-            Alert.alert('Revert Timer', `Revert timer to ${formatTime(savedPassivityTime)}?`, [
-                { text: 'Cancel', style: 'cancel' },
-                {
-                    text: 'Revert',
-                    onPress: () => {
-                        setPassivityTime(savedPassivityTime);
-                        setSavedPassivityTime(null);
+            Alert.alert(
+                t('refereeModule.revertTimer'),
+                t('refereeModule.revertTimerTo', { time: formatTime(savedPassivityTime) }),
+                [
+                    { text: t('common.cancel'), style: 'cancel' },
+                    {
+                        text: t('refereeModule.revert'),
+                        onPress: () => {
+                            setPassivityTime(savedPassivityTime);
+                            setSavedPassivityTime(null);
+                        },
                     },
-                },
-            ]);
+                ]
+            );
         }
     };
 
@@ -333,14 +339,18 @@ export function RefereeModule() {
                     <Text style={styles.passivityTimerText}>{formatTime(passivityTime)}</Text>
                 </Pressable>
                 <Text style={[styles.timerStatus, isRunning ? styles.timerStatusRunning : styles.timerStatusStopped]}>
-                    {isRunning ? 'Tap to pause, hold for options' : 'Tap to start, hold for options'}
+                    {isRunning
+                        ? t('refereeModule.tapToPauseHoldForOptions')
+                        : t('refereeModule.tapToStartHoldForOptions')}
                 </Text>
             </TouchableOpacity>
 
             <View style={styles.scoreContainer}>
                 <View style={styles.fencerContainer}>
                     <View style={styles.cardsContainer}>{renderAggregatedCards(fencer1Cards)}</View>
-                    <Text style={styles.fencerLabel}>{kawaiiMode ? 'Kitten 1' : getLastName(fencer1Name)}</Text>
+                    <Text style={styles.fencerLabel}>
+                        {kawaiiMode ? t('refereeModule.kitten1') : getLastName(fencer1Name)}
+                    </Text>
                     <Text style={styles.scoreText}>{fencer1Score}</Text>
                     <View style={styles.buttonContainer}>
                         <TouchableOpacity
@@ -360,7 +370,9 @@ export function RefereeModule() {
 
                 <View style={styles.fencerContainer}>
                     <View style={styles.cardsContainer}>{renderAggregatedCards(fencer2Cards)}</View>
-                    <Text style={styles.fencerLabel}>{kawaiiMode ? 'Kitten 2' : getLastName(fencer2Name)}</Text>
+                    <Text style={styles.fencerLabel}>
+                        {kawaiiMode ? t('refereeModule.kitten2') : getLastName(fencer2Name)}
+                    </Text>
                     <Text style={styles.scoreText}>{fencer2Score}</Text>
                     <View style={styles.buttonContainer}>
                         <TouchableOpacity
@@ -386,7 +398,7 @@ export function RefereeModule() {
                     updateScore(2, true);
                 }}
             >
-                <Text style={styles.doubleTouchButtonText}>Double Touch</Text>
+                <Text style={styles.doubleTouchButtonText}>{t('refereeModule.doubleTouch')}</Text>
             </TouchableOpacity>
 
             {onSaveScores && (
@@ -397,7 +409,7 @@ export function RefereeModule() {
                         navigation.goBack();
                     }}
                 >
-                    <Text style={styles.saveScoresButtonText}>Save Scores</Text>
+                    <Text style={styles.saveScoresButtonText}>{t('refereeModule.saveScores')}</Text>
                 </TouchableOpacity>
             )}
 
@@ -412,26 +424,30 @@ export function RefereeModule() {
                         <View style={styles.modalContainer}>
                             {removalMode ? (
                                 <>
-                                    <Text style={styles.modalText}>Remove {selectedCard} card from:</Text>
+                                    <Text style={styles.modalText}>
+                                        {t('refereeModule.removeCardFrom', {
+                                            color: selectedCard ? t(`refereeModule.${selectedCard}`) : '',
+                                        })}
+                                    </Text>
                                     <View style={styles.modalButtonContainer}>
                                         <TouchableOpacity style={styles.modalButton} onPress={() => removeCard(1)}>
-                                            <Text style={styles.modalButtonText}>Left</Text>
+                                            <Text style={styles.modalButtonText}>{t('refereeModule.left')}</Text>
                                         </TouchableOpacity>
                                         <TouchableOpacity style={styles.modalButton} onPress={() => removeCard(2)}>
-                                            <Text style={styles.modalButtonText}>Right</Text>
+                                            <Text style={styles.modalButtonText}>{t('refereeModule.right')}</Text>
                                         </TouchableOpacity>
                                     </View>
                                 </>
                             ) : (
                                 <>
                                     <View style={[styles.colorPreview, { backgroundColor: selectedCard || '#fff' }]} />
-                                    <Text style={styles.modalText}>Assign card to:</Text>
+                                    <Text style={styles.modalText}>{t('refereeModule.assignCardTo')}</Text>
                                     <View style={styles.modalButtonContainer}>
                                         <TouchableOpacity style={styles.modalButton} onPress={() => assignCard(1)}>
-                                            <Text style={styles.modalButtonText}>Left</Text>
+                                            <Text style={styles.modalButtonText}>{t('refereeModule.left')}</Text>
                                         </TouchableOpacity>
                                         <TouchableOpacity style={styles.modalButton} onPress={() => assignCard(2)}>
-                                            <Text style={styles.modalButtonText}>Right</Text>
+                                            <Text style={styles.modalButtonText}>{t('refereeModule.right')}</Text>
                                         </TouchableOpacity>
                                     </View>
                                 </>
@@ -440,7 +456,7 @@ export function RefereeModule() {
                                 style={styles.modalCloseButton}
                                 onPress={() => setShowCardActionModal(false)}
                             >
-                                <Text style={styles.modalCloseButtonText}>Cancel</Text>
+                                <Text style={styles.modalCloseButtonText}>{t('common.cancel')}</Text>
                             </TouchableOpacity>
                         </View>
                     </View>
@@ -457,7 +473,7 @@ export function RefereeModule() {
                     onPress={() => handleCardPress('yellow', false)}
                     onLongPress={() => handleCardPress('yellow', true)}
                 >
-                    <Text style={styles.cardButtonText}>Yellow</Text>
+                    <Text style={styles.cardButtonText}>{t('refereeModule.yellow')}</Text>
                 </Pressable>
                 <Pressable
                     style={({ pressed }) => [
@@ -468,7 +484,7 @@ export function RefereeModule() {
                     onPress={() => handleCardPress('red', false)}
                     onLongPress={() => handleCardPress('red', true)}
                 >
-                    <Text style={styles.cardButtonText}>Red</Text>
+                    <Text style={styles.cardButtonText}>{t('refereeModule.red')}</Text>
                 </Pressable>
                 <Pressable
                     style={({ pressed }) => [
@@ -479,7 +495,7 @@ export function RefereeModule() {
                     onPress={() => handleCardPress('black', false)}
                     onLongPress={() => handleCardPress('black', true)}
                 >
-                    <Text style={[styles.cardButtonText, { color: 'white' }]}>Black</Text>
+                    <Text style={[styles.cardButtonText, { color: 'white' }]}>{t('refereeModule.black')}</Text>
                 </Pressable>
             </View>
 

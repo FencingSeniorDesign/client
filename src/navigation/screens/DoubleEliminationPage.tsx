@@ -1,11 +1,14 @@
 // src/navigation/screens/DoubleEliminationPage.tsx
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
 const DoubleEliminationPage: React.FC = () => {
+    const { t } = useTranslation();
+
     return (
         <View style={styles.container}>
-            <Text style={styles.text}>TBD</Text>
+            <Text style={styles.text}>{t('doubleEliminationPage.tbd')}</Text>
         </View>
     );
 };
