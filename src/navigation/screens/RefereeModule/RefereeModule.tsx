@@ -1,6 +1,7 @@
 // src/navigation/screens/RefereeModule/RefereeModule.tsx with networking support
 import React, { useState, useRef, useEffect } from 'react';
 import { View, Text, TouchableOpacity, Pressable, StyleSheet, Modal, Alert } from 'react-native';
+import { AntDesign } from '@expo/vector-icons';
 import { CustomTimeModal } from './CustomTimeModal';
 import { usePersistentState } from '../../../hooks/usePersistentStateHook';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
@@ -424,40 +425,63 @@ export function RefereeModule() {
                         <View style={styles.modalContainer}>
                             {removalMode ? (
                                 <>
-                                    <Text style={styles.modalText}>
-                                        {t('refereeModule.removeCardFrom', {
-                                            color: selectedCard ? t(`refereeModule.${selectedCard}`) : '',
-                                        })}
-                                    </Text>
-                                    <View style={styles.modalButtonContainer}>
-                                        <TouchableOpacity style={styles.modalButton} onPress={() => removeCard(1)}>
-                                            <Text style={styles.modalButtonText}>{t('refereeModule.left')}</Text>
-                                        </TouchableOpacity>
-                                        <TouchableOpacity style={styles.modalButton} onPress={() => removeCard(2)}>
-                                            <Text style={styles.modalButtonText}>{t('refereeModule.right')}</Text>
-                                        </TouchableOpacity>
+                                    <View style={[styles.colorPreview, { backgroundColor: selectedCard || '#fff' }]} />
+                                    <View style={styles.modalFooter}>
+                                        <Text style={styles.modalTitle}>
+                                            {t('refereeModule.removeCardFrom', {
+                                                color: selectedCard ? t(`refereeModule.${selectedCard}`) : '',
+                                            })}
+                                        </Text>
+                                        <View style={styles.modalActionContainer}>
+                                            <TouchableOpacity
+                                                style={styles.modalButtonLeft}
+                                                onPress={() => removeCard(1)}
+                                            >
+                                                <Text style={styles.modalButtonText}>{t('refereeModule.left')}</Text>
+                                            </TouchableOpacity>
+                                            <TouchableOpacity
+                                                style={styles.modalCloseButton}
+                                                onPress={() => setShowCardActionModal(false)}
+                                            >
+                                                <AntDesign name="closecircle" size={36} color="#333" />
+                                            </TouchableOpacity>
+                                            <TouchableOpacity
+                                                style={styles.modalButtonRight}
+                                                onPress={() => removeCard(2)}
+                                            >
+                                                <Text style={styles.modalButtonText}>{t('refereeModule.right')}</Text>
+                                            </TouchableOpacity>
+                                        </View>
                                     </View>
                                 </>
                             ) : (
                                 <>
                                     <View style={[styles.colorPreview, { backgroundColor: selectedCard || '#fff' }]} />
-                                    <Text style={styles.modalText}>{t('refereeModule.assignCardTo')}</Text>
-                                    <View style={styles.modalButtonContainer}>
-                                        <TouchableOpacity style={styles.modalButton} onPress={() => assignCard(1)}>
-                                            <Text style={styles.modalButtonText}>{t('refereeModule.left')}</Text>
-                                        </TouchableOpacity>
-                                        <TouchableOpacity style={styles.modalButton} onPress={() => assignCard(2)}>
-                                            <Text style={styles.modalButtonText}>{t('refereeModule.right')}</Text>
-                                        </TouchableOpacity>
+                                    <View style={styles.modalFooter}>
+                                        <Text style={styles.modalTitle}>{t('refereeModule.assignCardTo')}</Text>
+                                        <View style={styles.modalActionContainer}>
+                                            <TouchableOpacity
+                                                style={styles.modalButtonLeft}
+                                                onPress={() => assignCard(1)}
+                                            >
+                                                <Text style={styles.modalButtonText}>{t('refereeModule.left')}</Text>
+                                            </TouchableOpacity>
+                                            <TouchableOpacity
+                                                style={styles.modalCloseButton}
+                                                onPress={() => setShowCardActionModal(false)}
+                                            >
+                                                <AntDesign name="closecircle" size={36} color="#333" />
+                                            </TouchableOpacity>
+                                            <TouchableOpacity
+                                                style={styles.modalButtonRight}
+                                                onPress={() => assignCard(2)}
+                                            >
+                                                <Text style={styles.modalButtonText}>{t('refereeModule.right')}</Text>
+                                            </TouchableOpacity>
+                                        </View>
                                     </View>
                                 </>
                             )}
-                            <TouchableOpacity
-                                style={styles.modalCloseButton}
-                                onPress={() => setShowCardActionModal(false)}
-                            >
-                                <Text style={styles.modalCloseButtonText}>{t('common.cancel')}</Text>
-                            </TouchableOpacity>
                         </View>
                     </View>
                 </Modal>
@@ -616,7 +640,7 @@ const styles = StyleSheet.create({
     cardButtonsContainer: {
         flexDirection: 'row',
         position: 'absolute',
-        bottom: 5,
+        bottom: 0,
         left: 0,
         right: 0,
         height: 80,
@@ -624,7 +648,7 @@ const styles = StyleSheet.create({
     cardButton: {
         flex: 1,
         justifyContent: 'center',
-        borderRadius: 8,
+        borderRadius: 0,
         borderColor: '#5a0b0b',
         alignItems: 'center',
     },
@@ -643,51 +667,59 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     modalContainer: {
+        flex: 1,
+        width: '100%',
         backgroundColor: '#fff',
-        width: '80%',
-        borderRadius: 10,
-        padding: 20,
-        alignItems: 'center',
-        minHeight: 700,
+        display: 'flex',
+        flexDirection: 'column',
     },
     colorPreview: {
         width: '100%',
-        height: 500,
-        borderRadius: 10,
-        marginBottom: 20,
+        flex: 1,
+        marginBottom: 0,
     },
-    modalText: {
-        fontSize: 18,
-        marginBottom: 20,
-        textAlign: 'center',
-    },
-    modalButtonContainer: {
-        flexDirection: 'row',
-        justifyContent: 'space-around',
+    modalFooter: {
         width: '100%',
-        marginBottom: 20,
+        paddingVertical: 20,
     },
-    modalButton: {
+    modalTitle: {
+        fontSize: 20,
+        textAlign: 'center',
+        marginBottom: 15,
+        paddingHorizontal: 20,
+    },
+    modalActionContainer: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        width: '100%',
+        paddingHorizontal: 20,
+    },
+    modalButtonLeft: {
         backgroundColor: '#001f3f',
-        paddingVertical: 10,
-        paddingHorizontal: 15,
+        paddingVertical: 15,
+        paddingHorizontal: 20,
         borderRadius: 5,
-        marginVertical: 5,
+        width: '30%',
+        alignItems: 'center',
+    },
+    modalButtonRight: {
+        backgroundColor: '#001f3f',
+        paddingVertical: 15,
+        paddingHorizontal: 20,
+        borderRadius: 5,
+        width: '30%',
+        alignItems: 'center',
     },
     modalButtonText: {
         color: '#fff',
-        fontSize: 16,
+        fontSize: 18,
         textAlign: 'center',
+        fontWeight: 'bold',
     },
     modalCloseButton: {
-        backgroundColor: '#ccc',
-        paddingVertical: 10,
-        paddingHorizontal: 15,
-        borderRadius: 5,
-    },
-    modalCloseButtonText: {
-        color: '#000',
-        fontSize: 16,
+        alignItems: 'center',
+        justifyContent: 'center',
     },
     doubleTouchButton: {
         backgroundColor: '#001f3f',
