@@ -4,6 +4,7 @@ import { initReactI18next } from 'react-i18next';
 // Import translations
 import en from './translations/en';
 import es from './translations/es';
+import zh from './translations/zh';
 
 // Define namespace and resource type
 declare module 'i18next' {
@@ -28,6 +29,9 @@ i18n
             },
             es: {
                 translation: es,
+            },
+            zh: {
+                translation: zh,
             },
         },
         lng: 'en', // Default language
