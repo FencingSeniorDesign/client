@@ -1,6 +1,7 @@
 import React from 'react';
 import { StyleSheet, View, FlatList, Text, TouchableOpacity, Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { useTranslation } from 'react-i18next';
 import { dbDeleteTournament } from '../../db/DrizzleDatabaseUtils';
 import { Tournament } from '../navigation/types';
 import { useAbility } from '../../rbac/AbilityContext'; // Import useAbility
@@ -12,6 +13,7 @@ interface TournamentListProps {
 }
 
 export const TournamentList: React.FC<TournamentListProps> = ({ tournaments, onTournamentDeleted, isComplete }) => {
+    const { t } = useTranslation();
     const navigation = useNavigation();
     const { setTournamentContext } = useAbility(); // Get the context setter function
 
@@ -23,25 +25,29 @@ export const TournamentList: React.FC<TournamentListProps> = ({ tournaments, onT
     };
 
     const handleDelete = async (tournamentName: string) => {
-        Alert.alert('Delete Tournament', `Are you sure you want to delete "${tournamentName}"?`, [
-            {
-                text: 'Cancel',
-                style: 'cancel',
-            },
-            {
-                text: 'Delete',
-                style: 'destructive',
-                onPress: async () => {
-                    try {
-                        await dbDeleteTournament(tournamentName);
-                        onTournamentDeleted(); // Refresh the tournament list
-                    } catch (error) {
-                        Alert.alert('Error', 'Failed to delete the tournament');
-                        console.error(error);
-                    }
+        Alert.alert(
+            t('tournamentList.deleteTournament'),
+            t('tournamentList.deleteTournamentConfirm', { name: tournamentName }),
+            [
+                {
+                    text: t('common.cancel'),
+                    style: 'cancel',
                 },
-            },
-        ]);
+                {
+                    text: t('common.delete'),
+                    style: 'destructive',
+                    onPress: async () => {
+                        try {
+                            await dbDeleteTournament(tournamentName);
+                            onTournamentDeleted(); // Refresh the tournament list
+                        } catch (error) {
+                            Alert.alert(t('common.error'), t('tournamentList.deleteFailed'));
+                            console.error(error);
+                        }
+                    },
+                },
+            ]
+        );
     };
 
     const renderTournament = ({ item }: { item: Tournament }) => (
@@ -61,7 +67,7 @@ export const TournamentList: React.FC<TournamentListProps> = ({ tournaments, onT
     return (
         <View style={styles.listContainer}>
             {tournaments.length === 0 ? (
-                <Text style={styles.emptyText}>No tournaments created yet.</Text>
+                <Text style={styles.emptyText}>{t('tournamentList.noTournaments')}</Text>
             ) : (
                 <FlatList
                     data={tournaments}

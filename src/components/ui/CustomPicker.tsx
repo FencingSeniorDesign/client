@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Modal, FlatList, SafeAreaView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 
 interface PickerOption {
     label: string;
@@ -21,6 +22,7 @@ interface CustomPickerProps {
  */
 export const CustomPicker = ({ label, selectedValue, onValueChange, options, containerStyle }: CustomPickerProps) => {
     const [modalVisible, setModalVisible] = React.useState(false);
+    const { t } = useTranslation();
 
     // Find the selected option to display its label
     const selectedOption = options.find(option => option.value === selectedValue);
@@ -30,7 +32,7 @@ export const CustomPicker = ({ label, selectedValue, onValueChange, options, con
             <Text style={styles.pickerLabel}>{label}</Text>
             <TouchableOpacity style={styles.pickerButton} onPress={() => setModalVisible(true)}>
                 <Text style={styles.pickerButtonText} numberOfLines={1}>
-                    {selectedOption?.label || 'Select...'}
+                    {selectedOption?.label || t('customPicker.select')}
                 </Text>
                 <Ionicons name="chevron-down" size={16} color="#001f3f" />
             </TouchableOpacity>
@@ -44,7 +46,7 @@ export const CustomPicker = ({ label, selectedValue, onValueChange, options, con
                 <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setModalVisible(false)}>
                     <SafeAreaView style={styles.modalContent}>
                         <View style={styles.modalHeader}>
-                            <Text style={styles.modalTitle}>{`Select ${label}`}</Text>
+                            <Text style={styles.modalTitle}>{t('customPicker.selectItem', { item: label })}</Text>
                             <TouchableOpacity onPress={() => setModalVisible(false)}>
                                 <Ionicons name="close-circle" size={24} color="#001f3f" />
                             </TouchableOpacity>
@@ -94,11 +96,13 @@ export const FencerCreationControls = ({
     handleRatingChange,
     handleYearChange,
 }) => {
+    const { t } = useTranslation();
+
     // Define options for each picker
     const weaponOptions = [
-        { label: 'Epee', value: 'epee' },
-        { label: 'Foil', value: 'foil' },
-        { label: 'Saber', value: 'saber' },
+        { label: t('eventFilters.epee'), value: 'epee' },
+        { label: t('eventFilters.foil'), value: 'foil' },
+        { label: t('eventFilters.saber'), value: 'saber' },
     ];
 
     const ratingOptions = [
@@ -121,7 +125,7 @@ export const FencerCreationControls = ({
         <View style={styles.horizontalFormRow}>
             {/* Weapon Selection */}
             <CustomPicker
-                label="Weapon"
+                label={t('eventSettings.weapon')}
                 selectedValue={selectedWeapon}
                 onValueChange={setSelectedWeapon}
                 options={weaponOptions}
@@ -130,7 +134,7 @@ export const FencerCreationControls = ({
 
             {/* Rating Selection */}
             <CustomPicker
-                label="Rating"
+                label={t('eventSettings.rating')}
                 selectedValue={currentRating}
                 onValueChange={handleRatingChange}
                 options={ratingOptions}
@@ -140,7 +144,7 @@ export const FencerCreationControls = ({
             {/* Year Selection - Only shown when rating isn't "U" */}
             {currentRating !== 'U' && (
                 <CustomPicker
-                    label="Year"
+                    label={t('eventSettings.year')}
                     selectedValue={currentYear}
                     onValueChange={handleYearChange}
                     options={yearOptions}

@@ -13,6 +13,8 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { useOngoingTournaments, useCompletedTournaments } from '../../data/TournamentDataHooks';
 import { getDeviceId } from '../../networking/NetworkUtils';
 import { useAbility } from '../../rbac/AbilityContext'; // Import useAbility
+import { useTranslation } from 'react-i18next'; // Import translation hook
+import LanguageSwitcher from '../../components/ui/LanguageSwitcher';
 
 // Import the logo image
 import logo from '../../assets/logo.png';
@@ -22,6 +24,7 @@ export function Home() {
     const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
     const queryClient = useQueryClient();
     const { setTournamentContext } = useAbility(); // Get the context setter
+    const { t } = useTranslation(); // Initialize the translation hook
 
     // State for join tournament modal
     const [joinModalVisible, setJoinModalVisible] = useState(false);
@@ -51,14 +54,14 @@ export function Home() {
 
     const handleJoinSuccess = (tournamentName: string) => {
         setConnectedTournament(tournamentName);
-        Alert.alert('Success', `Connected to tournament: ${tournamentName}`);
+        Alert.alert(t('common.success'), `${t('home.connectedTo')} ${tournamentName}`);
     };
 
     const handleDisconnect = async () => {
         await tournamentClient.disconnect();
         setConnectedTournament(null);
         setTournamentContext(null); // Reset the ability context
-        Alert.alert('Disconnected', 'You have disconnected from the tournament');
+        Alert.alert(t('home.disconnected'), t('home.disconnectedMessage'));
     };
 
     const refreshTournaments = () => {
@@ -76,27 +79,29 @@ export function Home() {
                 {/* Join Tournament Button or Connection Status */}
                 {connectedTournament ? (
                     <View style={styles.connectedContainer}>
-                        <Text style={styles.connectedText}>Connected to: {connectedTournament}</Text>
+                        <Text style={styles.connectedText}>
+                            {t('home.connectedTo')} {connectedTournament}
+                        </Text>
                         <TouchableOpacity style={styles.disconnectButton} onPress={handleDisconnect}>
-                            <Text style={styles.disconnectButtonText}>Disconnect</Text>
+                            <Text style={styles.disconnectButtonText}>{t('home.disconnect')}</Text>
                         </TouchableOpacity>
                     </View>
                 ) : (
                     <TouchableOpacity style={styles.joinButton} onPress={() => setJoinModalVisible(true)}>
                         <MaterialIcons name="people" size={24} color="#fff" style={styles.buttonIcon} />
-                        <Text style={styles.buttonText}>Join Tournament</Text>
+                        <Text style={styles.buttonText}>{t('home.joinTournament')}</Text>
                     </TouchableOpacity>
                 )}
             </View>
 
             <View style={styles.contentContainer}>
                 {/* Ongoing Tournaments */}
-                <Text style={styles.tournamentHistoryTitle}>Ongoing Tournaments</Text>
+                <Text style={styles.tournamentHistoryTitle}>{t('home.ongoingTournaments')}</Text>
                 <View style={styles.ongoingTournamentsContainer}>
                     {ongoingTournamentsQuery.isLoading ? (
                         <ActivityIndicator size="large" color="#001f3f" />
                     ) : ongoingTournamentsQuery.isError ? (
-                        <Text style={styles.errorText}>Error loading tournaments</Text>
+                        <Text style={styles.errorText}>{t('home.errorLoadingTournaments')}</Text>
                     ) : (
                         <TournamentList
                             tournaments={ongoingTournamentsQuery.data || []}
@@ -107,12 +112,12 @@ export function Home() {
                 </View>
 
                 {/* Tournament History Section */}
-                <Text style={styles.tournamentHistoryTitle}>Tournament History</Text>
+                <Text style={styles.tournamentHistoryTitle}>{t('home.tournamentHistory')}</Text>
                 <View style={styles.historyContainer}>
                     {completedTournamentsQuery.isLoading ? (
                         <ActivityIndicator size="large" color="#001f3f" />
                     ) : completedTournamentsQuery.isError ? (
-                        <Text style={styles.errorText}>Error loading tournament history</Text>
+                        <Text style={styles.errorText}>{t('home.errorLoadingHistory')}</Text>
                     ) : (
                         <TournamentList
                             tournaments={completedTournamentsQuery.data || []}
@@ -124,7 +129,14 @@ export function Home() {
             </View>
 
             {/* Device ID display */}
-            <Text style={styles.deviceIdText}>Device ID: {deviceId}</Text>
+            <Text style={styles.deviceIdText}>
+                {t('home.deviceId')} {deviceId}
+            </Text>
+
+            {/* Language Switcher */}
+            <View style={styles.languageSwitcherContainer}>
+                <LanguageSwitcher />
+            </View>
 
             {/* Referee Module Button */}
             <TouchableOpacity
@@ -132,8 +144,8 @@ export function Home() {
                 onPress={() =>
                     navigation.navigate('RefereeModule', {
                         boutIndex: 0,
-                        fencer1Name: 'Left',
-                        fencer2Name: 'Right',
+                        fencer1Name: t('refereeModule.defaultLeft'),
+                        fencer2Name: t('refereeModule.defaultRight'),
                         currentScore1: 0,
                         currentScore2: 0,
                         /* onSaveScores: undefined - Optional */
@@ -141,7 +153,7 @@ export function Home() {
                 }
             >
                 <MaterialIcons name="timer" size={24} color="#fff" style={styles.buttonIcon} />
-                <Text style={styles.buttonText}>Referee Module</Text>
+                <Text style={styles.buttonText}>{t('home.refereeModule')}</Text>
             </TouchableOpacity>
 
             {/* Join Tournament Modal */}
@@ -173,6 +185,10 @@ const styles = StyleSheet.create({
         color: '#666',
         marginBottom: 5,
         alignSelf: 'center',
+    },
+    languageSwitcherContainer: {
+        width: '100%',
+        marginBottom: 15,
     },
     buttonContainer: {
         width: '100%',

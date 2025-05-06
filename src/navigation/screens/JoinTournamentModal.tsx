@@ -23,6 +23,7 @@ import {
     DiscoveredServer,
 } from '../../networking/NetworkUtils';
 import { RootStackParamList } from '../navigation/types';
+import { useTranslation } from 'react-i18next';
 
 interface JoinTournamentModalProps {
     visible: boolean;
@@ -43,6 +44,7 @@ export const JoinTournamentModal: React.FC<JoinTournamentModalProps> = ({ visibl
     const [isDiscovering, setIsDiscovering] = useState(false);
 
     const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+    const { t } = useTranslation();
 
     // Start server discovery when modal is visible
     useEffect(() => {
@@ -137,18 +139,18 @@ export const JoinTournamentModal: React.FC<JoinTournamentModalProps> = ({ visibl
     const handleManualConnect = async () => {
         // Validate inputs
         if (!hostIp.trim()) {
-            setError('Please enter a host IP address');
+            setError(t('joinTournament.errorEmptyIp'));
             return;
         }
 
         if (!isValidIpAddress(hostIp)) {
-            setError('Please enter a valid IP address (e.g., 192.168.1.5)');
+            setError(t('joinTournament.errorInvalidIp'));
             return;
         }
 
         const portNum = parseInt(port, 10);
         if (isNaN(portNum) || !isValidPort(portNum)) {
-            setError('Please enter a valid port number (1024-65535)');
+            setError(t('joinTournament.errorInvalidPort'));
             return;
         }
 
@@ -159,11 +161,11 @@ export const JoinTournamentModal: React.FC<JoinTournamentModalProps> = ({ visibl
             const success = await tournamentClient.connectToServer(hostIp, portNum);
             if (!success) {
                 setConnecting(false);
-                setError('Failed to connect to the tournament server');
+                setError(t('joinTournament.errorConnectionFailed'));
             }
         } catch (error: any) {
             setConnecting(false);
-            setError(error.message || 'Failed to connect to the tournament server');
+            setError(error.message || t('joinTournament.errorConnectionFailed'));
         }
     };
 
@@ -178,11 +180,11 @@ export const JoinTournamentModal: React.FC<JoinTournamentModalProps> = ({ visibl
             const success = await tournamentClient.connectToServer(server.hostIp, server.port);
             if (!success) {
                 setConnecting(false);
-                setError(`Failed to connect to "${server.tournamentName}"`);
+                setError(t('joinTournament.errorConnectionFailed'));
             }
         } catch (error: any) {
             setConnecting(false);
-            setError(error.message || `Failed to connect to "${server.tournamentName}"`);
+            setError(error.message || t('joinTournament.errorConnectionFailed'));
         }
     };
 
@@ -196,7 +198,7 @@ export const JoinTournamentModal: React.FC<JoinTournamentModalProps> = ({ visibl
             setDiscoveredServers(servers);
         } catch (error: any) {
             console.error('Error discovering servers:', error);
-            setError('Failed to discover servers on the local network');
+            setError(t('joinTournament.errorConnectionFailed'));
         } finally {
             setIsDiscovering(false);
         }
@@ -221,7 +223,7 @@ export const JoinTournamentModal: React.FC<JoinTournamentModalProps> = ({ visibl
         <Modal visible={visible} transparent={true} animationType="slide" onRequestClose={onClose}>
             <View style={styles.modalContainer}>
                 <View style={styles.modalContent}>
-                    <Text style={styles.modalTitle}>Join Tournament</Text>
+                    <Text style={styles.modalTitle}>{t('joinTournament.title')}</Text>
 
                     {error && <Text style={styles.errorText}>{error}</Text>}
 
@@ -229,12 +231,12 @@ export const JoinTournamentModal: React.FC<JoinTournamentModalProps> = ({ visibl
                     {!showManualEntry ? (
                         <>
                             {sortedServers.length > 0 ? (
-                                <Text style={styles.sectionTitle}>Available Tournaments</Text>
+                                <Text style={styles.sectionTitle}>{t('joinTournament.availableTournaments')}</Text>
                             ) : (
                                 <Text style={styles.emptyText}>
                                     {isDiscovering
-                                        ? 'Searching for tournaments...'
-                                        : 'No tournaments found on your network.\nYou may need to enter the IP address manually.'}
+                                        ? t('joinTournament.searching')
+                                        : t('joinTournament.noTournamentsFound')}
                                 </Text>
                             )}
 
@@ -258,14 +260,14 @@ export const JoinTournamentModal: React.FC<JoinTournamentModalProps> = ({ visibl
                                     {isDiscovering ? (
                                         <ActivityIndicator color="#fff" size="small" />
                                     ) : (
-                                        <Text style={styles.buttonText}>Refresh</Text>
+                                        <Text style={styles.buttonText}>{t('joinTournament.refresh')}</Text>
                                     )}
                                 </TouchableOpacity>
                             </View>
 
                             <View style={styles.buttonContainer}>
                                 <TouchableOpacity style={styles.cancelButton} onPress={onClose} disabled={connecting}>
-                                    <Text style={styles.buttonText}>Cancel</Text>
+                                    <Text style={styles.buttonText}>{t('common.cancel')}</Text>
                                 </TouchableOpacity>
 
                                 <TouchableOpacity
@@ -273,33 +275,33 @@ export const JoinTournamentModal: React.FC<JoinTournamentModalProps> = ({ visibl
                                     onPress={() => setShowManualEntry(true)}
                                     disabled={connecting}
                                 >
-                                    <Text style={styles.buttonText}>Enter IP Manually</Text>
+                                    <Text style={styles.buttonText}>{t('joinTournament.enterIpManually')}</Text>
                                 </TouchableOpacity>
                             </View>
                         </>
                     ) : (
                         // Manual connection view
                         <>
-                            <Text style={styles.sectionTitle}>Manual Connection</Text>
+                            <Text style={styles.sectionTitle}>{t('joinTournament.manualConnection')}</Text>
 
-                            <Text style={styles.inputLabel}>Host IP Address:</Text>
+                            <Text style={styles.inputLabel}>{t('joinTournament.hostIpAddress')}</Text>
                             <TextInput
                                 style={styles.input}
                                 value={hostIp}
                                 onChangeText={setHostIp}
-                                placeholder="Enter host IP (e.g., 192.168.1.5)"
+                                placeholder={t('joinTournament.enterHostIp')}
                                 autoCapitalize="none"
                                 autoCorrect={false}
                                 keyboardType="numeric"
                                 editable={!connecting}
                             />
 
-                            <Text style={styles.inputLabel}>Port:</Text>
+                            <Text style={styles.inputLabel}>{t('joinTournament.port')}</Text>
                             <TextInput
                                 style={styles.input}
                                 value={port}
                                 onChangeText={setPort}
-                                placeholder="Enter port (default: 9001)"
+                                placeholder={t('joinTournament.enterPort')}
                                 keyboardType="numeric"
                                 editable={!connecting}
                             />
@@ -310,7 +312,7 @@ export const JoinTournamentModal: React.FC<JoinTournamentModalProps> = ({ visibl
                                     onPress={() => setShowManualEntry(false)}
                                     disabled={connecting}
                                 >
-                                    <Text style={styles.buttonText}>Back</Text>
+                                    <Text style={styles.buttonText}>{t('common.back')}</Text>
                                 </TouchableOpacity>
 
                                 <TouchableOpacity
@@ -321,7 +323,7 @@ export const JoinTournamentModal: React.FC<JoinTournamentModalProps> = ({ visibl
                                     {connecting ? (
                                         <ActivityIndicator color="#fff" size="small" />
                                     ) : (
-                                        <Text style={styles.buttonText}>Connect</Text>
+                                        <Text style={styles.buttonText}>{t('joinTournament.connect')}</Text>
                                     )}
                                 </TouchableOpacity>
                             </View>

@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator, TouchableOpacity, Alert } from 'react-native';
 import { useRoute, RouteProp, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useTranslation } from 'react-i18next';
 import { RootStackParamList, Fencer } from '../navigation/types';
 import { useInitializeRound, useRoundResultsData, useRounds, useRoundStarted } from '../../data/TournamentDataHooks';
 import { navigateToDEPage } from '../utils/DENavigationUtil';
@@ -33,6 +34,7 @@ type ViewMode = 'list' | 'poolSheet' | 'overall';
  * with multiple view options (List View, Pool Sheet, Overall Results)
  */
 const RoundResults: React.FC = () => {
+    const { t } = useTranslation();
     const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
     const route = useRoute<RoundResultsRouteProp>();
     const { roundId, eventId, currentRoundIndex, isRemote = false } = route.params;
@@ -97,7 +99,7 @@ const RoundResults: React.FC = () => {
                     roundId: nextRound.id,
                 });
 
-                Alert.alert('Success', 'Next round initialized successfully!');
+                Alert.alert(t('common.success'), t('roundResults.nextRoundInitialized'));
 
                 // Navigate to the next round
                 navigateToNextRound();
@@ -107,7 +109,7 @@ const RoundResults: React.FC = () => {
             }
         } catch (error) {
             console.error('Error handling next round:', error);
-            Alert.alert('Error', 'Failed to initialize or open the next round.');
+            Alert.alert(t('common.error'), t('roundResults.failedToInitializeNextRound'));
         } finally {
             setIsInitializingNextRound(false);
         }
@@ -142,7 +144,7 @@ const RoundResults: React.FC = () => {
         return (
             <View style={styles.loadingContainer}>
                 <ActivityIndicator size="large" color="#0000ff" />
-                <Text style={styles.loadingText}>Loading round results...</Text>
+                <Text style={styles.loadingText}>{t('roundResults.loadingResults')}</Text>
             </View>
         );
     }
@@ -151,14 +153,14 @@ const RoundResults: React.FC = () => {
     if (isError) {
         return (
             <View style={styles.errorContainer}>
-                <Text style={styles.errorText}>Error loading round results. Please try again.</Text>
+                <Text style={styles.errorText}>{t('roundResults.errorLoadingResults')}</Text>
             </View>
         );
     }
 
     return (
         <ScrollView contentContainerStyle={styles.container}>
-            <Text style={styles.title}>Round Results</Text>
+            <Text style={styles.title}>{t('roundResults.title')}</Text>
 
             {/* View mode selection buttons */}
             <View style={styles.viewModeContainer}>
@@ -167,7 +169,7 @@ const RoundResults: React.FC = () => {
                     onPress={() => setViewMode('list')}
                 >
                     <Text style={[styles.viewModeButtonText, viewMode === 'list' && styles.activeViewModeButtonText]}>
-                        List View
+                        {t('roundResults.listView')}
                     </Text>
                 </TouchableOpacity>
                 <TouchableOpacity
@@ -177,7 +179,7 @@ const RoundResults: React.FC = () => {
                     <Text
                         style={[styles.viewModeButtonText, viewMode === 'poolSheet' && styles.activeViewModeButtonText]}
                     >
-                        Pool Sheet
+                        {t('roundResults.poolSheet')}
                     </Text>
                 </TouchableOpacity>
                 <TouchableOpacity
@@ -187,7 +189,7 @@ const RoundResults: React.FC = () => {
                     <Text
                         style={[styles.viewModeButtonText, viewMode === 'overall' && styles.activeViewModeButtonText]}
                     >
-                        Overall Results
+                        {t('roundResults.overallResults')}
                     </Text>
                 </TouchableOpacity>
             </View>
@@ -204,7 +206,7 @@ const RoundResults: React.FC = () => {
             {/* If this is the final round, show the "View Tournament Results" button */}
             {isFinalRound && (
                 <TouchableOpacity style={styles.viewResultsButton} onPress={handleViewResults}>
-                    <Text style={styles.viewResultsButtonText}>View Tournament Results</Text>
+                    <Text style={styles.viewResultsButtonText}>{t('roundResults.viewTournamentResults')}</Text>
                 </TouchableOpacity>
             )}
 
@@ -219,7 +221,7 @@ const RoundResults: React.FC = () => {
                         <ActivityIndicator size="small" color="#fff" />
                     ) : (
                         <Text style={styles.nextRoundButtonText}>
-                            {isNextRoundStarted ? 'Next Round' : 'Start Next Round'}
+                            {isNextRoundStarted ? t('roundResults.nextRound') : t('roundResults.startNextRound')}
                         </Text>
                     )}
                 </TouchableOpacity>
@@ -230,6 +232,8 @@ const RoundResults: React.FC = () => {
 
 // Separated into component to ensure consistent hook usage
 const PoolListView: React.FC<{ poolResult: PoolResult }> = ({ poolResult }) => {
+    const { t } = useTranslation();
+
     // Pre-calculate rankings to avoid mutating arrays during render
     const fencerRankings = useMemo(() => {
         const sortedStats = [...poolResult.stats].sort(
@@ -246,14 +250,16 @@ const PoolListView: React.FC<{ poolResult: PoolResult }> = ({ poolResult }) => {
 
     return (
         <View style={styles.poolContainer}>
-            <Text style={styles.poolTitle}>Pool {poolResult.poolid + 1}</Text>
+            <Text style={styles.poolTitle}>
+                {t('roundResults.pool')} {poolResult.poolid + 1}
+            </Text>
             <View style={styles.tableHeader}>
-                <Text style={[styles.tableHeaderCell, { flex: 2 }]}>Fencer</Text>
-                <Text style={styles.tableHeaderCell}>WR</Text>
-                <Text style={styles.tableHeaderCell}>TS</Text>
-                <Text style={styles.tableHeaderCell}>TR</Text>
-                <Text style={styles.tableHeaderCell}>IND</Text>
-                <Text style={styles.tableHeaderCell}>PL</Text>
+                <Text style={[styles.tableHeaderCell, { flex: 2 }]}>{t('roundResults.fencer')}</Text>
+                <Text style={styles.tableHeaderCell}>{t('roundResults.winRate')}</Text>
+                <Text style={styles.tableHeaderCell}>{t('roundResults.touchesScored')}</Text>
+                <Text style={styles.tableHeaderCell}>{t('roundResults.touchesReceived')}</Text>
+                <Text style={styles.tableHeaderCell}>{t('roundResults.indicator')}</Text>
+                <Text style={styles.tableHeaderCell}>{t('roundResults.place')}</Text>
             </View>
             {poolResult.stats.map(stat => (
                 <View key={stat.fencer.id} style={styles.tableRow}>
@@ -273,6 +279,7 @@ const PoolListView: React.FC<{ poolResult: PoolResult }> = ({ poolResult }) => {
 
 // Separated pool sheet view component
 const PoolSheetView: React.FC<{ poolResult: PoolResult }> = ({ poolResult }) => {
+    const { t } = useTranslation();
     const { stats } = poolResult;
     const fencerCount = stats.length;
 
@@ -330,13 +337,15 @@ const PoolSheetView: React.FC<{ poolResult: PoolResult }> = ({ poolResult }) => 
     return (
         <View style={styles.poolSheetContainer}>
             <View style={styles.poolSheetHeader}>
-                <Text style={styles.poolSheetTitle}>Pool {poolResult.poolid + 1} Sheet</Text>
+                <Text style={styles.poolSheetTitle}>
+                    {t('roundResults.pool')} {poolResult.poolid + 1} {t('roundResults.sheet')}
+                </Text>
             </View>
             <View style={styles.poolSheetTableContainer}>
                 {/* Header row with column numbers */}
                 <View style={styles.poolSheetHeaderRow}>
                     <View style={styles.poolSheetNameHeader}>
-                        <Text style={styles.poolSheetHeaderText}>Name</Text>
+                        <Text style={styles.poolSheetHeaderText}>{t('roundResults.name')}</Text>
                     </View>
                     {Array.from({ length: fencerCount }).map((_, idx) => (
                         <View key={`col-${idx}`} style={styles.poolSheetColHeader}>
@@ -344,16 +353,16 @@ const PoolSheetView: React.FC<{ poolResult: PoolResult }> = ({ poolResult }) => 
                         </View>
                     ))}
                     <View style={styles.poolSheetStatsHeader}>
-                        <Text style={styles.poolSheetHeaderText}>V/M</Text>
+                        <Text style={styles.poolSheetHeaderText}>{t('roundResults.victoryRatio')}</Text>
                     </View>
                     <View style={styles.poolSheetStatsHeader}>
-                        <Text style={styles.poolSheetHeaderText}>TS</Text>
+                        <Text style={styles.poolSheetHeaderText}>{t('roundResults.touchesScoredShort')}</Text>
                     </View>
                     <View style={styles.poolSheetStatsHeader}>
-                        <Text style={styles.poolSheetHeaderText}>TR</Text>
+                        <Text style={styles.poolSheetHeaderText}>{t('roundResults.touchesReceivedShort')}</Text>
                     </View>
                     <View style={styles.poolSheetStatsHeader}>
-                        <Text style={styles.poolSheetHeaderText}>Ind</Text>
+                        <Text style={styles.poolSheetHeaderText}>{t('roundResults.indicatorShort')}</Text>
                     </View>
                 </View>
 
@@ -428,16 +437,18 @@ const PoolSheetView: React.FC<{ poolResult: PoolResult }> = ({ poolResult }) => 
 
 // Separated overall results view component
 const OverallResultsView: React.FC<{ fencerStats: FencerStats[] }> = ({ fencerStats }) => {
+    const { t } = useTranslation();
+
     return (
         <View style={styles.overallContainer}>
-            <Text style={styles.overallTitle}>Overall Results</Text>
+            <Text style={styles.overallTitle}>{t('roundResults.overallResults')}</Text>
             <View style={styles.tableHeader}>
-                <Text style={[styles.tableHeaderCell, { flex: 0.5 }]}>Rank</Text>
-                <Text style={[styles.tableHeaderCell, { flex: 2 }]}>Fencer</Text>
-                <Text style={styles.tableHeaderCell}>V/M</Text>
-                <Text style={styles.tableHeaderCell}>TS</Text>
-                <Text style={styles.tableHeaderCell}>TR</Text>
-                <Text style={styles.tableHeaderCell}>IND</Text>
+                <Text style={[styles.tableHeaderCell, { flex: 0.5 }]}>{t('roundResults.rank')}</Text>
+                <Text style={[styles.tableHeaderCell, { flex: 2 }]}>{t('roundResults.fencer')}</Text>
+                <Text style={styles.tableHeaderCell}>{t('roundResults.victoryRatio')}</Text>
+                <Text style={styles.tableHeaderCell}>{t('roundResults.touchesScoredShort')}</Text>
+                <Text style={styles.tableHeaderCell}>{t('roundResults.touchesReceivedShort')}</Text>
+                <Text style={styles.tableHeaderCell}>{t('roundResults.indicatorShort')}</Text>
             </View>
             {fencerStats.map((stat, index) => (
                 <View key={stat.fencer.id} style={styles.tableRow}>

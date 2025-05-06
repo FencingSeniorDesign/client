@@ -4,6 +4,7 @@ import AsyncStorage from 'expo-sqlite/kv-store';
 import { useAbility } from './AbilityContext'; // useAbility now provides { ability, role, refreshAbility }
 import { Role } from './ability'; // Remove getRoleFromAbility import
 import { getDeviceId } from '../networking/NetworkUtils';
+import { useTranslation } from 'react-i18next';
 
 interface PermissionsDisplayProps {
     tournamentName?: string;
@@ -17,6 +18,7 @@ export const PermissionsDisplay: React.FC<PermissionsDisplayProps> = ({ tourname
     // Get ability, role, and refresh function from context
     const { ability, role, refreshAbility } = useAbility();
     const [deviceId, setDeviceId] = useState<string | null>(null);
+    const { t } = useTranslation();
     // Remove local role state, as we get it from context now
 
     // Get the device ID when the component mounts
@@ -43,14 +45,14 @@ export const PermissionsDisplay: React.FC<PermissionsDisplayProps> = ({ tourname
     const getRoleDisplay = (): string => {
         switch (role) {
             case Role.TOURNAMENT_CREATOR:
-                return 'Tournament Creator';
+                return t('permissions.tournamentCreator');
             case Role.OFFICIAL:
-                return 'Tournament Official';
+                return t('permissions.official');
             case Role.REFEREE:
-                return 'Referee';
+                return t('permissions.referee');
             case Role.VIEWER:
             default:
-                return 'Viewer';
+                return t('permissions.viewer');
         }
     };
 
@@ -70,11 +72,13 @@ export const PermissionsDisplay: React.FC<PermissionsDisplayProps> = ({ tourname
     return (
         <View style={styles.container}>
             <View style={styles.content}>
-                <Text style={styles.title}>Permissions</Text>
+                <Text style={styles.title}>{t('permissions.title')}</Text>
                 <Text style={styles.roleText}>
-                    Role: <Text style={styles.highlight}>{getRoleDisplay()}</Text>
+                    {t('permissions.role')} <Text style={styles.highlight}>{getRoleDisplay()}</Text>
                 </Text>
-                <Text style={styles.deviceText}>Device ID: {deviceId}</Text>
+                <Text style={styles.deviceText}>
+                    {t('permissions.deviceId')} {deviceId}
+                </Text>
             </View>
         </View>
     );

@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import tournamentClient from '../TournamentClient';
+import { useTranslation } from 'react-i18next';
 
 interface ConnectionStatusBarProps {
     tournamentName?: string;
@@ -16,6 +17,7 @@ export const ConnectionStatusBar: React.FC<ConnectionStatusBarProps> = ({
 }) => {
     const [connected, setConnected] = useState(false);
     const [activeTournament, setActiveTournament] = useState<string | null>(null);
+    const { t } = useTranslation();
 
     useEffect(() => {
         // Set initial state
@@ -55,7 +57,9 @@ export const ConnectionStatusBar: React.FC<ConnectionStatusBarProps> = ({
         return (
             <View style={styles.compactContainer}>
                 <View style={[styles.statusDot, connected ? styles.connectedDot : styles.disconnectedDot]} />
-                <Text style={styles.compactText}>{connected ? 'Connected' : 'Disconnected'}</Text>
+                <Text style={styles.compactText}>
+                    {connected ? t('connectionStatus.connected') : t('connectionStatus.disconnected')}
+                </Text>
             </View>
         );
     }
@@ -65,12 +69,14 @@ export const ConnectionStatusBar: React.FC<ConnectionStatusBarProps> = ({
             <View style={styles.infoContainer}>
                 <View style={[styles.statusDot, connected ? styles.connectedDot : styles.disconnectedDot]} />
                 <Text style={styles.statusText}>
-                    {connected ? `Connected to: ${displayName}` : `Not connected to ${displayName}`}
+                    {connected
+                        ? t('connectionStatus.connectedTo', { host: displayName })
+                        : t('connectionStatus.notConnectedTo', { host: displayName })}
                 </Text>
             </View>
             {onDisconnect && connected && (
                 <TouchableOpacity style={styles.disconnectButton} onPress={onDisconnect}>
-                    <Text style={styles.disconnectText}>Disconnect</Text>
+                    <Text style={styles.disconnectText}>{t('home.disconnect')}</Text>
                 </TouchableOpacity>
             )}
         </View>

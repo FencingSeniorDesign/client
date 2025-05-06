@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useRoute, RouteProp, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useTranslation } from 'react-i18next';
 import { RootStackParamList, Event, Fencer, Round } from '../navigation/types';
 import { useRounds } from '../../data/TournamentDataHooks';
 import { useQueryClient } from '@tanstack/react-query';
@@ -45,6 +46,7 @@ interface DEResult {
 }
 
 const TournamentResultsPage: React.FC = () => {
+    const { t } = useTranslation();
     const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
     const route = useRoute<TournamentResultsRouteProp>();
     const { eventId, isRemote = false } = route.params;
@@ -69,7 +71,7 @@ const TournamentResultsPage: React.FC = () => {
                 setEvent(eventData);
             } catch (err) {
                 console.error('Error fetching event data:', err);
-                setError('Failed to load event data');
+                setError(t('tournamentResults.failedToLoadEventData'));
             }
         };
 
@@ -88,7 +90,7 @@ const TournamentResultsPage: React.FC = () => {
                 const selectedRound = rounds[selectedRoundIndex];
 
                 if (!selectedRound) {
-                    setError('Round not found');
+                    setError(t('tournamentResults.roundNotFound'));
                     setLoading(false);
                     return;
                 }
@@ -102,7 +104,7 @@ const TournamentResultsPage: React.FC = () => {
                 }
             } catch (err) {
                 console.error('Error fetching round results:', err);
-                setError('Failed to load round results');
+                setError(t('tournamentResults.failedToLoadRoundResults'));
             } finally {
                 setLoading(false);
             }
@@ -351,7 +353,7 @@ const TournamentResultsPage: React.FC = () => {
             setPoolResults([]);
         } catch (err) {
             console.error('Error fetching DE results:', err);
-            setError('Failed to load direct elimination results');
+            setError(t('tournamentResults.failedToLoadDEResults'));
         }
     };
 
@@ -366,7 +368,9 @@ const TournamentResultsPage: React.FC = () => {
                         onPress={() => setSelectedRoundIndex(index)}
                     >
                         <Text style={[styles.tabText, selectedRoundIndex === index && styles.activeTabText]}>
-                            {round.type === 'pool' ? `Pool Round ${index + 1}` : `DE Round ${index + 1}`}
+                            {round.type === 'pool'
+                                ? t('tournamentResults.poolRound', { number: index + 1 })
+                                : t('tournamentResults.deRound', { number: index + 1 })}
                         </Text>
                     </TouchableOpacity>
                 ))}
@@ -391,7 +395,7 @@ const TournamentResultsPage: React.FC = () => {
         if (!poolResults.length) {
             return (
                 <View style={styles.noDataContainer}>
-                    <Text style={styles.noDataText}>No pool results available</Text>
+                    <Text style={styles.noDataText}>{t('tournamentResults.noPoolResults')}</Text>
                 </View>
             );
         }
@@ -400,13 +404,15 @@ const TournamentResultsPage: React.FC = () => {
             <>
                 {poolResults.map(poolResult => (
                     <View key={poolResult.poolid} style={styles.poolContainer}>
-                        <Text style={styles.poolTitle}>Pool {poolResult.poolid + 1}</Text>
+                        <Text style={styles.poolTitle}>
+                            {t('roundResults.pool')} {poolResult.poolid + 1}
+                        </Text>
                         <View style={styles.tableHeader}>
-                            <Text style={[styles.tableHeaderCell, { flex: 2 }]}>Fencer</Text>
-                            <Text style={styles.tableHeaderCell}>V/M</Text>
-                            <Text style={styles.tableHeaderCell}>TS</Text>
-                            <Text style={styles.tableHeaderCell}>TR</Text>
-                            <Text style={styles.tableHeaderCell}>Ind</Text>
+                            <Text style={[styles.tableHeaderCell, { flex: 2 }]}>{t('roundResults.fencer')}</Text>
+                            <Text style={styles.tableHeaderCell}>{t('roundResults.victoryRatio')}</Text>
+                            <Text style={styles.tableHeaderCell}>{t('roundResults.touchesScoredShort')}</Text>
+                            <Text style={styles.tableHeaderCell}>{t('roundResults.touchesReceivedShort')}</Text>
+                            <Text style={styles.tableHeaderCell}>{t('roundResults.indicatorShort')}</Text>
                         </View>
                         {poolResult.stats.map((stat, index) => (
                             <View key={stat.fencer.id} style={styles.tableRow}>
@@ -432,21 +438,21 @@ const TournamentResultsPage: React.FC = () => {
         if (!deResults.length) {
             return (
                 <View style={styles.noDataContainer}>
-                    <Text style={styles.noDataText}>No direct elimination results available</Text>
+                    <Text style={styles.noDataText}>{t('tournamentResults.noDEResults')}</Text>
                 </View>
             );
         }
 
         return (
             <View style={styles.deContainer}>
-                <Text style={styles.deTitle}>Final Results</Text>
+                <Text style={styles.deTitle}>{t('tournamentResults.finalResults')}</Text>
                 <View style={styles.tableHeader}>
-                    <Text style={[styles.tableHeaderCell, { flex: 0.5 }]}>Place</Text>
-                    <Text style={[styles.tableHeaderCell, { flex: 2 }]}>Fencer</Text>
-                    <Text style={styles.tableHeaderCell}>V/M</Text>
-                    <Text style={styles.tableHeaderCell}>TS</Text>
-                    <Text style={styles.tableHeaderCell}>TR</Text>
-                    <Text style={styles.tableHeaderCell}>Ind</Text>
+                    <Text style={[styles.tableHeaderCell, { flex: 0.5 }]}>{t('tournamentResults.place')}</Text>
+                    <Text style={[styles.tableHeaderCell, { flex: 2 }]}>{t('roundResults.fencer')}</Text>
+                    <Text style={styles.tableHeaderCell}>{t('tournamentResults.victories')}</Text>
+                    <Text style={styles.tableHeaderCell}>{t('roundResults.touchesScoredShort')}</Text>
+                    <Text style={styles.tableHeaderCell}>{t('roundResults.touchesReceivedShort')}</Text>
+                    <Text style={styles.tableHeaderCell}>{t('roundResults.indicatorShort')}</Text>
                 </View>
                 {deResults.map(result => (
                     <View key={result.fencer.id} style={styles.tableRow}>
@@ -475,7 +481,7 @@ const TournamentResultsPage: React.FC = () => {
             return (
                 <View style={styles.loadingContainer}>
                     <ActivityIndicator size="large" color="#001f3f" />
-                    <Text style={styles.loadingText}>Loading results...</Text>
+                    <Text style={styles.loadingText}>{t('tournamentResults.loadingResults')}</Text>
                 </View>
             );
         }
@@ -483,7 +489,7 @@ const TournamentResultsPage: React.FC = () => {
         if (error || roundsError) {
             return (
                 <View style={styles.errorContainer}>
-                    <Text style={styles.errorText}>{error || 'Failed to load round results'}</Text>
+                    <Text style={styles.errorText}>{error || t('tournamentResults.failedToLoadRoundResults')}</Text>
                 </View>
             );
         }
@@ -491,7 +497,7 @@ const TournamentResultsPage: React.FC = () => {
         if (!rounds.length) {
             return (
                 <View style={styles.noDataContainer}>
-                    <Text style={styles.noDataText}>No rounds found for this event</Text>
+                    <Text style={styles.noDataText}>{t('tournamentResults.noRoundsFound')}</Text>
                 </View>
             );
         }
@@ -502,12 +508,14 @@ const TournamentResultsPage: React.FC = () => {
             <>
                 <View style={styles.roundInfoContainer}>
                     <Text style={styles.roundInfoText}>
-                        {selectedRound.type === 'pool' ? 'Pool Round' : 'Direct Elimination Round'}
+                        {selectedRound.type === 'pool'
+                            ? t('tournamentResults.poolRoundInfo')
+                            : t('tournamentResults.deRoundInfo')}
                     </Text>
                     {selectedRound.type === 'de' && (
                         <Text style={styles.formatInfoText}>
-                            Format: {selectedRound.deformat.charAt(0).toUpperCase() + selectedRound.deformat.slice(1)}{' '}
-                            Elimination
+                            {t('tournamentResults.format')}:{' '}
+                            {t(`tournamentResults.${selectedRound.deformat}EliminationFormat`)}
                         </Text>
                     )}
                 </View>
@@ -519,22 +527,12 @@ const TournamentResultsPage: React.FC = () => {
     return (
         <View style={styles.container}>
             {isRemote && <ConnectionStatusBar compact={true} />}
-
-            <View style={styles.header}>
-                <Text style={styles.title}>Tournament Results</Text>
-                {event && (
-                    <Text style={styles.eventName}>
-                        {event.gender} {event.age} {event.weapon}
-                    </Text>
-                )}
-            </View>
-
             {renderRoundTabs()}
 
             <ScrollView contentContainerStyle={styles.contentContainer}>{renderContent()}</ScrollView>
 
             <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-                <Text style={styles.backButtonText}>Back to Event</Text>
+                <Text style={styles.backButtonText}>{t('tournamentResults.backToEvent')}</Text>
             </TouchableOpacity>
         </View>
     );
@@ -544,22 +542,6 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: '#fff',
-    },
-    header: {
-        padding: 16,
-        backgroundColor: '#001f3f',
-        alignItems: 'center',
-    },
-    title: {
-        fontSize: 24,
-        fontWeight: 'bold',
-        color: '#fff',
-        marginBottom: 4,
-    },
-    eventName: {
-        fontSize: 18,
-        color: '#fff',
-        opacity: 0.8,
     },
     tabsContainer: {
         flexGrow: 0,
