@@ -121,7 +121,7 @@ describe('EventManagement', () => {
             />,
             { wrapper: createWrapper() }
         );
-        expect(getByText('No events created yet')).toBeTruthy();
+        expect(getByText('noEvents')).toBeTruthy();
     });
 
     it('renders manage officials button', () => {
@@ -131,6 +131,6 @@ describe('EventManagement', () => {
             />,
             { wrapper: createWrapper() }
         );
-        expect(getByText('Manage Officials')).toBeTruthy();
+        expect(getByText('manageOfficials')).toBeTruthy();
     });
 });

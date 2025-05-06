@@ -135,21 +135,139 @@ function changeLanguage(lng: string) {
 
 ## Testing Translations
 
-When writing tests for components that use translations, you need to wrap your component with the translation provider:
+When writing tests for components that use translations, we use a consistent approach that mocks the translation
+function to return predictable values.
 
-```typescript
-import { render } from '@testing-library/react-native';
-import { I18nextProvider } from 'react-i18next';
-import i18n from '../path-to-your-i18n-instance';
-import YourComponent from './YourComponent';
+### Mock Implementation
 
-test('renders correctly', () => {
-  const { getByText } = render(
-    <I18nextProvider i18n={i18n}>
-      <YourComponent />
-    </I18nextProvider>
-  );
-  
-  // Your test assertions
+We've implemented a Jest mock for `react-i18next` at `__mocks__/react-i18next.js` that returns the last part of the
+translation key:
+
+```javascript
+// Mock for react-i18next
+const reactI18next = jest.createMockFromModule('react-i18next');
+
+// This function takes translation keys (like 'compassDrawPage.tbd') 
+// and returns just the last part ('tbd') for easier test assertions
+const getLastKeyPart = (key) => {
+  if (typeof key !== 'string') return key;
+  const parts = key.split('.');
+  return parts[parts.length - 1];
+};
+
+// Mock useTranslation hook
+reactI18next.useTranslation = () => {
+  return {
+    t: jest.fn(getLastKeyPart),
+    i18n: {
+      changeLanguage: jest.fn(() => Promise.resolve()),
+      language: 'en',
+    },
+  };
+};
+
+// Mock Trans component
+reactI18next.Trans = ({ i18nKey, children }) => {
+  return i18nKey ? getLastKeyPart(i18nKey) : (children || '');
+};
+
+// Mock withTranslation HOC
+reactI18next.withTranslation = () => (Component) => {
+  Component.defaultProps = {
+    ...Component.defaultProps,
+    t: getLastKeyPart,
+  };
+  return Component;
+};
+
+// Mock I18nextProvider
+reactI18next.I18nextProvider = ({ children }) => children;
+
+// Mock initReactI18next module
+reactI18next.initReactI18next = {
+  type: '3rdParty',
+  init: () => {},
+};
+
+module.exports = reactI18next;
+```
+
+### Testing Components with Translations
+
+When testing components that use translations, you should expect the last part of the translation key, not the full
+translated text:
+
+```tsx
+// Component code
+const MyComponent = () => {
+  const { t } = useTranslation();
+  return <Text>{t('myComponent.greeting')}</Text>;
+};
+
+// Test code
+it('renders a greeting', () => {
+  const { getByText } = render(<MyComponent />);
+  // Note: we test for 'greeting', not 'myComponent.greeting'
+  expect(getByText('greeting')).toBeTruthy();
 });
 ```
+
+### Best Practices for Testing
+
+1. **Always use the last part of the key in tests**:
+   ```tsx
+   // Component: t('button.submit')
+   // Test: expect(getByText('submit')).toBeTruthy();
+   ```
+
+2. **Use regular expressions for dynamic content**:
+   ```tsx
+   // For text that might include variable content
+   expect(getByText(/errorMessage/)).toBeTruthy();
+   ```
+
+3. **Handle template strings carefully**:
+   Components may use template interpolation, so focus on the static parts or use regex patterns in tests.
+
+4. **Remember that the mock returns the key's last part**:
+   If you have a key like `common.buttons.save`, the mock will return `save`.
+
+5. **For more complex testing needs**:
+   You can still use the traditional approach of wrapping components with the I18nextProvider if you need to test actual
+   translation behavior:
+
+   ```typescript
+   import { render } from '@testing-library/react-native';
+   import { I18nextProvider } from 'react-i18next';
+   import i18n from '../path-to-your-i18n-instance';
+   import YourComponent from './YourComponent';
+
+   test('renders correctly with real translations', () => {
+     const { getByText } = render(
+       <I18nextProvider i18n={i18n}>
+         <YourComponent />
+       </I18nextProvider>
+     );
+     
+     // Your test assertions using actual translated text
+   });
+   ```
+
+6. **Handling act() warnings**:
+   When testing components with async operations or state updates, you may encounter act() warnings. To resolve these:
+
+   ```typescript
+   import { render, act } from '@testing-library/react-native';
+
+   test('component with async operations', async () => {
+     const { getByText } = render(<MyComponent />);
+     
+     // Wait for any async operations to complete
+     await act(async () => {
+       await Promise.resolve();
+     });
+     
+     // Now test the component in its final state
+     expect(getByText(/translationKey/)).toBeTruthy();
+   });
+   ```

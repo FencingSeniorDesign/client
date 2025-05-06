@@ -110,7 +110,7 @@ describe('BoutOrderPage', () => {
                 <BoutOrderPage />
             </NavigationContainer>
         );
-        expect(getByText('Loading bouts...')).toBeTruthy();
+        expect(getByText('loadingBouts')).toBeTruthy();
     });
 
     it('renders error state', () => {
@@ -123,7 +123,7 @@ describe('BoutOrderPage', () => {
                 <BoutOrderPage />
             </NavigationContainer>
         );
-        expect(getByText(/Error loading bouts/)).toBeTruthy();
+        expect(getByText(/errorLoadingBouts/)).toBeTruthy();
     });
 
     it('renders Bout Order page with bouts data', async () => {
@@ -139,8 +139,8 @@ describe('BoutOrderPage', () => {
 
         await waitFor(() => {
             // Check for headers
-            expect(getByText('View Bouts')).toBeTruthy();
-            expect(getByText('Pool Bouts')).toBeTruthy();
+            expect(getByText('viewBouts')).toBeTruthy();
+            expect(getByText('poolBouts')).toBeTruthy();
 
             // Check for fencer names in the actual format
             expect(getByText('(-) Alice (CA)')).toBeTruthy();

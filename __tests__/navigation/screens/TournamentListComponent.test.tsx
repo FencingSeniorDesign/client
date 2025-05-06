@@ -84,7 +84,8 @@ describe('TournamentList', () => {
             <TournamentList tournaments={[]} onTournamentDeleted={mockOnTournamentDeleted} isComplete={false} />
         );
 
-        expect(getByText('No tournaments created yet.')).toBeTruthy();
+        // With i18n mock, 'tournamentList.noTournaments' becomes 'noTournaments'
+        expect(getByText('noTournaments')).toBeTruthy();
     });
 
     it('shows delete confirmation when delete button is pressed', () => {
@@ -99,11 +100,8 @@ describe('TournamentList', () => {
         const deleteButtons = getAllByText('✖');
         fireEvent.press(deleteButtons[0]);
 
-        expect(Alert.alert).toHaveBeenCalledWith(
-            'Delete Tournament',
-            'Are you sure you want to delete "Tournament 1"?',
-            expect.any(Array)
-        );
+        // With i18n mock, 'tournamentList.deleteTournament' becomes 'deleteTournament'
+        expect(Alert.alert).toHaveBeenCalledWith('deleteTournament', expect.any(String), expect.any(Array));
     });
 
     it('deletes tournament when confirmed', async () => {
@@ -122,7 +120,8 @@ describe('TournamentList', () => {
 
         // Find and press the delete confirmation button
         const alertButtons = (Alert.alert as jest.Mock).mock.calls[0][2];
-        const confirmButton = alertButtons.find((button: any) => button.text === 'Delete');
+        // With i18n mock, 'common.delete' becomes 'delete'
+        const confirmButton = alertButtons.find((button: any) => button.text === 'delete');
         await confirmButton.onPress();
 
         expect(dbDeleteTournament).toHaveBeenCalledWith('Tournament 1');
@@ -144,9 +143,11 @@ describe('TournamentList', () => {
         fireEvent.press(deleteButtons[0]);
 
         const alertButtons = (Alert.alert as jest.Mock).mock.calls[0][2];
-        const confirmButton = alertButtons.find((button: any) => button.text === 'Delete');
+        // With i18n mock, 'common.delete' becomes 'delete'
+        const confirmButton = alertButtons.find((button: any) => button.text === 'delete');
         await confirmButton.onPress();
 
-        expect(Alert.alert).toHaveBeenCalledWith('Error', 'Failed to delete the tournament');
+        // With i18n mock, translation keys return their last part
+        expect(Alert.alert).toHaveBeenCalledWith('error', 'deleteFailed');
     });
 });

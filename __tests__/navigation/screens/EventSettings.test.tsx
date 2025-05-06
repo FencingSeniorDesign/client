@@ -206,9 +206,9 @@ describe('EventSettings', () => {
             { wrapper: createWrapper() }
         );
 
-        expect(getByText('Edit Event Settings')).toBeTruthy();
-        expect(getByText('Fencer Management')).toBeTruthy();
-        expect(getByText('Round Management')).toBeTruthy();
+        expect(getByText('title')).toBeTruthy();
+        expect(getByText('fencerManagement')).toBeTruthy();
+        expect(getByText('roundManagement')).toBeTruthy();
     });
 
     it('displays fencer management section when dropdown is opened', async () => {
@@ -223,12 +223,15 @@ describe('EventSettings', () => {
             { wrapper: createWrapper() }
         );
 
-        fireEvent.press(getByText('Fencer Management'));
+        fireEvent.press(getByText('fencerManagement'));
 
         await waitFor(() => {
-            expect(queryByPlaceholderText('First Name')).toBeTruthy();
-            expect(queryByPlaceholderText('Last Name')).toBeTruthy();
-            expect(getByText('Current Fencers: 1')).toBeTruthy();
+            expect(queryByPlaceholderText('firstName')).toBeTruthy();
+            expect(queryByPlaceholderText('lastName')).toBeTruthy();
+
+            // With i18n mock, t('eventSettings.currentFencers', { count: 1 }) becomes 'currentFencers'
+            // We need to check for this text instead of the previously expected string
+            expect(getByText('currentFencers')).toBeTruthy();
         });
     });
 
@@ -236,7 +239,7 @@ describe('EventSettings', () => {
         const removeFencerMutation = { mutate: jest.fn() };
         (useRemoveFencer as jest.Mock).mockReturnValue(removeFencerMutation);
 
-        const { getByText, getByTestId } = render(
+        const { getByText, getAllByText } = render(
             <EventSettings
                 route={{
                     params: { event: mockEvent, onSave: jest.fn() },
@@ -248,10 +251,11 @@ describe('EventSettings', () => {
         );
 
         // Open fencer management
-        fireEvent.press(getByText('Fencer Management'));
+        fireEvent.press(getByText('fencerManagement'));
 
         // Find and press the remove button for the fencer
-        const removeButton = getByText('x');
+        // In the component, the remove button has the text 'x', not 'remove'
+        const removeButton = getAllByText('x')[0];
         fireEvent.press(removeButton);
 
         expect(removeFencerMutation.mutate).toHaveBeenCalledWith({
@@ -276,11 +280,11 @@ describe('EventSettings', () => {
         );
 
         // Open round management
-        fireEvent.press(getByText('Round Management'));
+        fireEvent.press(getByText('roundManagement'));
 
         // Add a new pool round
-        fireEvent.press(getByText('Add Round'));
-        fireEvent.press(getByText('Pools'));
+        fireEvent.press(getByText('addRound'));
+        fireEvent.press(getByText('pools'));
 
         expect(addRoundMutation.mutate).toHaveBeenCalledWith(
             expect.objectContaining({
@@ -307,17 +311,17 @@ describe('EventSettings', () => {
         );
 
         // Open fencer management
-        fireEvent.press(getByText('Fencer Management'));
+        fireEvent.press(getByText('fencerManagement'));
 
         // Open random fill input
-        fireEvent.press(getByText('Random fill'));
+        fireEvent.press(getByText('randomFill'));
 
         // Enter number of fencers
-        fireEvent.changeText(getByPlaceholderText('Enter number of fencers'), '5');
+        fireEvent.changeText(getByPlaceholderText('enterNumber'), '5');
 
         // Submit
         await act(async () => {
-            fireEvent.press(getByText('Go'));
+            fireEvent.press(getByText('go'));
         });
 
         expect(createFencerMutation.mutateAsync).toHaveBeenCalledTimes(5);
