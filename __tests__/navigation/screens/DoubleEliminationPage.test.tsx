@@ -41,12 +41,12 @@ describe('DoubleEliminationPage', () => {
 
     it('renders correctly', () => {
         const { getByText } = render(<DoubleEliminationPage />);
-        expect(getByText('TBD')).toBeTruthy();
+        expect(getByText('tbd')).toBeTruthy();
     });
 
     it('applies correct styles', () => {
         const { getByText } = render(<DoubleEliminationPage />);
-        const tbdText = getByText('TBD');
+        const tbdText = getByText('tbd');
 
         // Verify text styling
         expect(tbdText.props.style).toEqual({

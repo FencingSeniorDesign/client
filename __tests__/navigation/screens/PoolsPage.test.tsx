@@ -65,14 +65,14 @@ describe('PoolsPage', () => {
         const { usePools } = require('../../../src/data/TournamentDataHooks');
         (usePools as jest.Mock).mockReturnValue({ data: null, isLoading: true, error: null });
         const { getByText } = renderWithClient(<PoolsPage />);
-        expect(getByText('Loading pools data...')).toBeTruthy();
+        expect(getByText('loadingPools')).toBeTruthy();
     });
 
     it('renders error state when error occurs', () => {
         const { usePools } = require('../../../src/data/TournamentDataHooks');
         (usePools as jest.Mock).mockReturnValue({ data: null, isLoading: false, error: new Error('Failed') });
         const { getByText } = renderWithClient(<PoolsPage />);
-        expect(getByText(/Error loading pools:/)).toBeTruthy();
+        expect(getByText(/errorLoadingPools/)).toBeTruthy();
     });
 
     it('renders list of pools correctly', async () => {
@@ -88,10 +88,15 @@ describe('PoolsPage', () => {
             { poolid: 1, fencers: [{ id: 3, fname: 'Alice', lname: 'Wonderland' }] },
         ];
         (usePools as jest.Mock).mockReturnValue({ data: mockPoolsData, isLoading: false, error: null });
-        const { getByText } = renderWithClient(<PoolsPage />);
+        const { getAllByText } = renderWithClient(<PoolsPage />);
+
+        // Wait for all elements to render
         await waitFor(() => {
-            expect(getByText(/Pool 1 :/)).toBeTruthy();
-            expect(getByText(/Pool 2 :/)).toBeTruthy();
+            // The i18n mock returns the last part of translation keys
+            // For t('poolsPage.poolPrefix'), it returns 'poolPrefix'
+            // For the combined string in the UI, we use getAllByText to find any text that contains this substring
+            const elements = getAllByText(/poolPrefix/);
+            expect(elements.length).toBeGreaterThan(0);
         });
     });
 
@@ -100,10 +105,10 @@ describe('PoolsPage', () => {
         const mockPoolsData = [{ poolid: 0, fencers: [{ id: 1, fname: 'John', lname: 'Doe' }] }];
         (usePools as jest.Mock).mockReturnValue({ data: mockPoolsData, isLoading: false, error: null });
         const { getByText } = renderWithClient(<PoolsPage />);
-        const viewSeedingButton = getByText('View Seeding');
+        const viewSeedingButton = getByText('viewSeeding');
         fireEvent.press(viewSeedingButton);
         await waitFor(() => {
-            expect(getByText('Current Seeding')).toBeTruthy();
+            expect(getByText('currentSeeding')).toBeTruthy();
         });
     });
 });

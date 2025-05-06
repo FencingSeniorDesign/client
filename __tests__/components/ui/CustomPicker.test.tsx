@@ -35,7 +35,7 @@ describe('CustomPicker Component', () => {
         expect(getByText('Option 2')).toBeTruthy(); // Selected value should be displayed
     });
 
-    it('shows "Select..." when no option is selected', () => {
+    it('shows the select placeholder when no option is selected', () => {
         const { getByText } = render(
             <CustomPicker
                 label="Test Picker"
@@ -45,7 +45,7 @@ describe('CustomPicker Component', () => {
             />
         );
 
-        expect(getByText('Select...')).toBeTruthy();
+        expect(getByText('select')).toBeTruthy();
     });
 
     it('opens modal when picker button is pressed', () => {
@@ -59,13 +59,13 @@ describe('CustomPicker Component', () => {
         );
 
         // Modal should not be visible initially
-        expect(queryByText('Select Test Picker')).toBeNull();
+        expect(queryByText('selectItem')).toBeNull();
 
         // Press the picker button
         fireEvent.press(getByText('Option 1'));
 
         // Modal title should be visible
-        expect(getByText('Select Test Picker')).toBeTruthy();
+        expect(getByText('selectItem')).toBeTruthy();
     });
 
     it('shows all options in the modal', () => {
@@ -142,9 +142,9 @@ describe('FencerCreationControls Component', () => {
         const { getAllByText } = render(<FencerCreationControls {...mockProps} />);
 
         // Should find three labels for the pickers
-        expect(getAllByText('Weapon')[0]).toBeTruthy();
-        expect(getAllByText('Rating')[0]).toBeTruthy();
-        expect(getAllByText('Year')[0]).toBeTruthy();
+        expect(getAllByText('weapon')[0]).toBeTruthy();
+        expect(getAllByText('rating')[0]).toBeTruthy();
+        expect(getAllByText('year')[0]).toBeTruthy();
     });
 
     it('hides the Year picker when rating is "U"', () => {
@@ -152,19 +152,19 @@ describe('FencerCreationControls Component', () => {
         const { getAllByText, queryByText } = render(<FencerCreationControls {...props} />);
 
         // Should find two labels for the pickers
-        expect(getAllByText('Weapon')[0]).toBeTruthy();
-        expect(getAllByText('Rating')[0]).toBeTruthy();
-        expect(queryByText('Year')).toBeNull();
+        expect(getAllByText('weapon')[0]).toBeTruthy();
+        expect(getAllByText('rating')[0]).toBeTruthy();
+        expect(queryByText('year')).toBeNull();
     });
 
     it('calls the appropriate handler when a weapon is selected', () => {
         const { getAllByText } = render(<FencerCreationControls {...mockProps} />);
 
         // Open the Weapon picker
-        fireEvent.press(getAllByText('Epee')[0]);
+        fireEvent.press(getAllByText('epee')[0]);
 
         // Select Foil
-        fireEvent.press(getAllByText('Foil')[0]);
+        fireEvent.press(getAllByText('foil')[0]);
 
         // Check that setSelectedWeapon was called with 'foil'
         expect(mockProps.setSelectedWeapon).toHaveBeenCalledWith('foil');

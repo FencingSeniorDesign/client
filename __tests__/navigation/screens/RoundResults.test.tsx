@@ -91,13 +91,13 @@ describe('RoundResults', () => {
     it('renders round results table', async () => {
         const { getByText } = render(<RoundResults />);
         await waitFor(() => {
-            expect(getByText('Round Results')).toBeTruthy();
-            expect(getByText('Fencer')).toBeTruthy();
-            expect(getByText('WR')).toBeTruthy();
-            expect(getByText('TS')).toBeTruthy();
-            expect(getByText('TR')).toBeTruthy();
-            expect(getByText('IND')).toBeTruthy();
-            expect(getByText('PL')).toBeTruthy();
+            expect(getByText('title')).toBeTruthy();
+            expect(getByText('fencer')).toBeTruthy();
+            expect(getByText('winRate')).toBeTruthy();
+            expect(getByText('touchesScored')).toBeTruthy();
+            expect(getByText('touchesReceived')).toBeTruthy();
+            expect(getByText('indicator')).toBeTruthy();
+            expect(getByText('place')).toBeTruthy();
         });
     });
 
@@ -122,7 +122,7 @@ describe('RoundResults', () => {
             isError: false,
         });
         const { getByText } = render(<RoundResults />);
-        expect(getByText('Loading round results...')).toBeTruthy();
+        expect(getByText('loadingResults')).toBeTruthy();
     });
 
     it('shows error state', () => {
@@ -133,7 +133,7 @@ describe('RoundResults', () => {
             isError: true,
         });
         const { getByText } = render(<RoundResults />);
-        expect(getByText('Error loading round results. Please try again.')).toBeTruthy();
+        expect(getByText('errorLoadingResults')).toBeTruthy();
     });
 
     it('sorts fencers by place', async () => {
@@ -188,7 +188,7 @@ describe('RoundResults', () => {
         // Default valid mock: nextRound was null, so no "Start Next Round" button.
         const { queryByText, rerender, getByText } = render(<RoundResults />);
         await waitFor(() => {
-            expect(queryByText('Start Next Round')).toBeNull();
+            expect(queryByText('startNextRound')).toBeNull();
         });
         // Now simulate an incomplete round (nextRound provided)
         (useRoundResults as jest.Mock).mockReturnValue({
@@ -198,7 +198,7 @@ describe('RoundResults', () => {
         });
         rerender(<RoundResults />);
         await waitFor(() => {
-            expect(getByText('Start Next Round')).toBeTruthy();
+            expect(getByText('startNextRound')).toBeTruthy();
         });
     });
 
@@ -219,7 +219,9 @@ describe('RoundResults', () => {
     it('handles different round types', async () => {
         const { getByText, rerender } = render(<RoundResults />);
         await waitFor(() => {
-            expect(getByText('Round Results')).toBeTruthy();
+            // Our mock for i18next returns the last part of the key
+            // For t('roundResults.title'), it returns 'title'
+            expect(getByText('title')).toBeTruthy();
         });
         // Update the route params for a DE (Direct Elimination) round.
         jest.spyOn(require('@react-navigation/native'), 'useRoute').mockReturnValue({
@@ -234,7 +236,7 @@ describe('RoundResults', () => {
         rerender(<RoundResults />);
         await waitFor(() => {
             // Adjust expectation if your component changes header for DE rounds.
-            expect(getByText('Round Results')).toBeTruthy();
+            expect(getByText('title')).toBeTruthy();
         });
     });
 });

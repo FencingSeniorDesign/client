@@ -122,7 +122,7 @@ jest.mock('../../../src/navigation/screens/CreateTournamentModal', () => {
     return {
         CreateTournamentButton: ({ onTournamentCreated }: { onTournamentCreated: () => void }) => (
             <ReactNative.TouchableOpacity onPress={onTournamentCreated}>
-                <ReactNative.Text>Create Tournament</ReactNative.Text>
+                <ReactNative.Text>createTournament</ReactNative.Text>
             </ReactNative.TouchableOpacity>
         ),
     };
@@ -150,7 +150,7 @@ describe('Home Screen', () => {
 
         const { getByText } = render(<Home />);
         await waitFor(() => {
-            expect(getByText('Join Tournament')).toBeTruthy();
+            expect(getByText('joinTournament')).toBeTruthy();
         });
     });
 
@@ -163,10 +163,10 @@ describe('Home Screen', () => {
 
         const { getByText } = render(<Home />);
         await waitFor(() => {
-            expect(getByText(/Connected to:/)).toBeTruthy();
+            expect(getByText(/connectedTo/)).toBeTruthy();
         });
 
-        const disconnectButton = getByText('Disconnect');
+        const disconnectButton = getByText('disconnect');
         expect(disconnectButton).toBeTruthy();
 
         await act(async () => {
@@ -182,7 +182,7 @@ describe('Home Screen', () => {
         const { getByText, queryByTestId } = render(<Home />);
         expect(queryByTestId('joinTournamentModal')).toBeNull();
 
-        const joinButton = getByText('Join Tournament');
+        const joinButton = getByText('joinTournament');
 
         await act(async () => {
             fireEvent.press(joinButton);

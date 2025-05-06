@@ -35,7 +35,7 @@ describe('PermissionsDisplay Component', () => {
         expect(toJSON()).toBeNull();
     });
 
-    it('should display viewer role correctly', () => {
+    it('should display viewer role correctly', async () => {
         // Setup
         (useAbility as jest.Mock).mockReturnValue({
             ability: { can: jest.fn(), cannot: jest.fn() },
@@ -43,14 +43,22 @@ describe('PermissionsDisplay Component', () => {
             refreshAbility: jest.fn(),
         });
 
-        // Render
+        // Mock getDeviceId to resolve immediately to prevent act warnings
+        (getDeviceId as jest.Mock).mockImplementation(() => Promise.resolve('test-id'));
+
         const { getByText } = render(<PermissionsDisplay tournamentName="Test Tournament" />);
 
-        // Assert
-        expect(getByText('Role: Viewer')).toBeTruthy();
+        // Wait for async operations to complete
+        await act(async () => {
+            await Promise.resolve();
+        });
+
+        // Assert - with i18n mock, translation keys are returned as their last part
+        expect(getByText(/role/)).toBeTruthy();
+        expect(getByText(/viewer/)).toBeTruthy();
     });
 
-    it('should display tournament creator role correctly', () => {
+    it('should display tournament creator role correctly', async () => {
         // Setup
         (useAbility as jest.Mock).mockReturnValue({
             ability: { can: jest.fn(), cannot: jest.fn() },
@@ -58,14 +66,21 @@ describe('PermissionsDisplay Component', () => {
             refreshAbility: jest.fn(),
         });
 
-        // Render
+        // Mock getDeviceId to resolve immediately
+        (getDeviceId as jest.Mock).mockImplementation(() => Promise.resolve('test-id'));
+
         const { getByText } = render(<PermissionsDisplay tournamentName="Test Tournament" />);
 
-        // Assert
-        expect(getByText('Role: Tournament Creator')).toBeTruthy();
+        // Wait for async operations to complete
+        await act(async () => {
+            await Promise.resolve();
+        });
+
+        // Assert - using regex pattern to match partial text
+        expect(getByText(/tournamentCreator/)).toBeTruthy();
     });
 
-    it('should display official role correctly', () => {
+    it('should display official role correctly', async () => {
         // Setup
         (useAbility as jest.Mock).mockReturnValue({
             ability: { can: jest.fn(), cannot: jest.fn() },
@@ -73,14 +88,21 @@ describe('PermissionsDisplay Component', () => {
             refreshAbility: jest.fn(),
         });
 
-        // Render
+        // Mock getDeviceId to resolve immediately
+        (getDeviceId as jest.Mock).mockImplementation(() => Promise.resolve('test-id'));
+
         const { getByText } = render(<PermissionsDisplay tournamentName="Test Tournament" />);
 
-        // Assert
-        expect(getByText('Role: Tournament Official')).toBeTruthy();
+        // Wait for async operations to complete
+        await act(async () => {
+            await Promise.resolve();
+        });
+
+        // Assert - using regex pattern to match partial text
+        expect(getByText(/official/)).toBeTruthy();
     });
 
-    it('should display referee role correctly', () => {
+    it('should display referee role correctly', async () => {
         // Setup
         (useAbility as jest.Mock).mockReturnValue({
             ability: { can: jest.fn(), cannot: jest.fn() },
@@ -88,19 +110,30 @@ describe('PermissionsDisplay Component', () => {
             refreshAbility: jest.fn(),
         });
 
-        // Render
+        // Mock getDeviceId to resolve immediately
+        (getDeviceId as jest.Mock).mockImplementation(() => Promise.resolve('test-id'));
+
         const { getByText } = render(<PermissionsDisplay tournamentName="Test Tournament" />);
 
-        // Assert
-        expect(getByText('Role: Referee')).toBeTruthy();
+        // Wait for async operations to complete
+        await act(async () => {
+            await Promise.resolve();
+        });
+
+        // Assert - using regex pattern to match partial text
+        expect(getByText(/referee/)).toBeTruthy();
     });
 
-    it('should call getDeviceId', () => {
+    it('should call getDeviceId', async () => {
         // Setup
-        (getDeviceId as jest.Mock).mockResolvedValue('mock-device-id-123');
+        (getDeviceId as jest.Mock).mockReturnValue(Promise.resolve('mock-device-id-123'));
 
-        // Render
         render(<PermissionsDisplay tournamentName="Test Tournament" />);
+
+        // Wait for async operations to complete
+        await act(async () => {
+            await Promise.resolve();
+        });
 
         // Initial render should call getDeviceId
         expect(getDeviceId).toHaveBeenCalled();
@@ -118,15 +151,16 @@ describe('PermissionsDisplay Component', () => {
         expect(getDeviceId).toHaveBeenCalled();
 
         // Wait for the async effect to complete
-        await new Promise(resolve => setTimeout(resolve, 0));
+        await act(async () => {
+            // Wait for promises to resolve
+            await Promise.resolve();
+        });
 
         expect(consoleErrorSpy).toHaveBeenCalledWith('Error fetching device ID:', expect.any(Error));
-
-        // Clean up
         consoleErrorSpy.mockRestore();
     });
 
-    it('should render in compact mode', () => {
+    it('should render in compact mode', async () => {
         // Setup
         (useAbility as jest.Mock).mockReturnValue({
             ability: { can: jest.fn(), cannot: jest.fn() },
@@ -134,14 +168,22 @@ describe('PermissionsDisplay Component', () => {
             refreshAbility: jest.fn(),
         });
 
+        // Mock getDeviceId to resolve immediately
+        (getDeviceId as jest.Mock).mockImplementation(() => Promise.resolve('test-id'));
+
         // Render in compact mode
         const { getByText, queryByText } = render(
             <PermissionsDisplay tournamentName="Test Tournament" compact={true} />
         );
 
+        // Wait for async operations to complete
+        await act(async () => {
+            await Promise.resolve();
+        });
+
         // Should show role but not the other elements
-        expect(getByText('Tournament Creator')).toBeTruthy();
-        expect(queryByText('Device ID:')).toBeNull();
-        expect(queryByText('Permissions')).toBeNull();
+        expect(getByText(/tournamentCreator/)).toBeTruthy();
+        expect(queryByText(/deviceId/)).toBeNull();
+        expect(queryByText(/title/)).toBeNull();
     });
 });

@@ -60,12 +60,12 @@ jest.mock('../src/networking/TournamentServer', () => ({
 }));
 
 // Optionally, mock the Navigation component to isolate tests for App.
-// Here we render a simple Text element with testID "navigation" in place of Navigation.
+// Here we render a simple Text element with testID "navigation" in place of AppNavigator.
 jest.mock('../src/navigation', () => {
     const React = require('react');
     const { Text } = require('react-native');
     return {
-        Navigation: (props: any) => <Text testID="navigation">Navigation Component</Text>,
+        AppNavigator: (props: any) => <Text testID="navigation">Navigation Component</Text>,
     };
 });
 
