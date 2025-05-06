@@ -134,7 +134,6 @@ export default {
         loadingRounds: 'Cargando rondas...',
         noRounds: 'Aún no se han configurado rondas.',
         addRound: 'Añadir Ronda',
-        pools: 'Poules',
         de: 'ED',
         addingRound: 'Añadiendo ronda...',
         updatingRound: 'Actualizando ronda...',

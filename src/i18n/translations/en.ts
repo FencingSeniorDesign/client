@@ -130,7 +130,6 @@ export default {
         loadingRounds: 'Loading rounds...',
         noRounds: 'No rounds configured yet.',
         addRound: 'Add Round',
-        pools: 'Pools',
         de: 'DE',
         addingRound: 'Adding round...',
         updatingRound: 'Updating round...',
