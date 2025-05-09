@@ -11,6 +11,7 @@ interface Language {
 const LANGUAGES: Language[] = [
     { code: 'en', name: 'English' },
     { code: 'es', name: 'Español' },
+    { code: 'zh', name: '中文' },
 ];
 
 export const LanguageSwitcher: React.FC = () => {
