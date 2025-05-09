@@ -91,6 +91,7 @@ const DEBoutCard: React.FC<DEBoutCardProps> = ({
 
     return (
         <TouchableOpacity
+            testID="bout-card"
             style={[
                 styles.container,
                 isActualBye && styles.byeBout,
