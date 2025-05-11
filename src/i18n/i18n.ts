@@ -4,6 +4,7 @@ import { initReactI18next } from 'react-i18next';
 // Import translations
 import en from './translations/en';
 import es from './translations/es';
+import fr from './translations/fr';
 import zh from './translations/zh';
 
 // Define namespace and resource type
@@ -29,6 +30,9 @@ i18n
             },
             es: {
                 translation: es,
+            },
+            fr: {
+                translation: fr,
             },
             zh: {
                 translation: zh,
