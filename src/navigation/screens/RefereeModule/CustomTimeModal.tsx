@@ -1,5 +1,6 @@
 import React from 'react';
 import { Modal, View, Text, Pressable, StyleSheet, TextInput } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
 interface CustomTimeModalProps {
     visible: boolean;
@@ -30,6 +31,7 @@ export function CustomTimeModal({
     kawaiiMode = false,
     canRevertLastPoint = false,
 }: CustomTimeModalProps) {
+    const { t } = useTranslation();
     const handleCustomTime = () => {
         const minutes = parseInt(customMinutes) || 0;
         const seconds = parseInt(customSeconds) || 0;
@@ -44,7 +46,7 @@ export function CustomTimeModal({
         <Modal animationType="slide" transparent={true} visible={visible} onRequestClose={onClose}>
             <View style={styles.modalContainer}>
                 <View style={styles.modalContent}>
-                    <Text style={styles.modalTitle}>Set Timer Duration</Text>
+                    <Text style={styles.modalTitle}>{t('refereeModule.setTimerDuration')}</Text>
 
                     <Pressable
                         style={({ pressed }) => [
@@ -54,7 +56,7 @@ export function CustomTimeModal({
                         ]}
                         onPress={() => onSetTime(1)}
                     >
-                        <Text style={styles.modalButtonText}>1 Minute</Text>
+                        <Text style={styles.modalButtonText}>{t('refereeModule.oneMinute')}</Text>
                     </Pressable>
 
                     <Pressable
@@ -65,7 +67,7 @@ export function CustomTimeModal({
                         ]}
                         onPress={() => onSetTime(3)}
                     >
-                        <Text style={styles.modalButtonText}>3 Minutes</Text>
+                        <Text style={styles.modalButtonText}>{t('refereeModule.threeMinutes')}</Text>
                     </Pressable>
 
                     <Pressable
@@ -76,15 +78,15 @@ export function CustomTimeModal({
                         ]}
                         onPress={() => onSetTime(5)}
                     >
-                        <Text style={styles.modalButtonText}>5 Minutes</Text>
+                        <Text style={styles.modalButtonText}>{t('refereeModule.fiveMinutes')}</Text>
                     </Pressable>
 
                     <View style={styles.customTimeContainer}>
-                        <Text style={styles.customTimeLabel}>Custom Time:</Text>
+                        <Text style={styles.customTimeLabel}>{t('refereeModule.customTime')}:</Text>
                         <View style={styles.customTimeInputs}>
                             <TextInput
                                 style={styles.customTimeInput}
-                                placeholder="Min"
+                                placeholder={t('refereeModule.min')}
                                 keyboardType="number-pad"
                                 value={customMinutes}
                                 onChangeText={setCustomMinutes}
@@ -93,7 +95,7 @@ export function CustomTimeModal({
                             <Text>:</Text>
                             <TextInput
                                 style={styles.customTimeInput}
-                                placeholder="Sec"
+                                placeholder={t('refereeModule.sec')}
                                 keyboardType="number-pad"
                                 value={customSeconds}
                                 onChangeText={setCustomSeconds}
@@ -108,7 +110,7 @@ export function CustomTimeModal({
                             ]}
                             onPress={handleCustomTime}
                         >
-                            <Text style={styles.modalButtonText}>Set Custom Time</Text>
+                            <Text style={styles.modalButtonText}>{t('refereeModule.setCustomTime')}</Text>
                         </Pressable>
                     </View>
 
@@ -121,7 +123,9 @@ export function CustomTimeModal({
                             ]}
                             onPress={onKawaiiMode}
                         >
-                            <Text style={[styles.modalButtonText, styles.kawaiiButtonText]}>Kawaii Mode</Text>
+                            <Text style={[styles.modalButtonText, styles.kawaiiButtonText]}>
+                                {t('refereeModule.kawaiiMode')}
+                            </Text>
                         </Pressable>
                     )}
 
@@ -148,7 +152,7 @@ export function CustomTimeModal({
                                     !canRevertLastPoint && styles.disabledButtonText,
                                 ]}
                             >
-                                Revert Last Point
+                                {t('refereeModule.revertLastPoint')}
                             </Text>
                         </Pressable>
                     )}
@@ -162,7 +166,7 @@ export function CustomTimeModal({
                         ]}
                         onPress={onClose}
                     >
-                        <Text style={styles.modalButtonText}>Back</Text>
+                        <Text style={styles.modalButtonText}>{t('common.back')}</Text>
                     </Pressable>
                 </View>
             </View>

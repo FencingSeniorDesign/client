@@ -5,12 +5,12 @@ import CompassDrawPage from '../../../src/navigation/screens/CompassDrawPage';
 describe('CompassDrawPage', () => {
     it('renders correctly', () => {
         const { getByText } = render(<CompassDrawPage />);
-        expect(getByText('TBD')).toBeTruthy();
+        expect(getByText('tbd')).toBeTruthy();
     });
 
     it('applies correct styles', () => {
         const { getByText } = render(<CompassDrawPage />);
-        const tbdText = getByText('TBD');
+        const tbdText = getByText('tbd');
 
         // Get the View container (parent of the Text component)
         const container = tbdText.parent.parent;

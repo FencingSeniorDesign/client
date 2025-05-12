@@ -1,7 +1,8 @@
 // PoolUtils.ts
 import { and, count, eq } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/sqlite-core';
-import { db, schema } from './CommonUtils';
+import { db } from '../DrizzleClient';
+import * as schema from '../schema';
 import { buildPools } from '../../navigation/utils/RoundAlgorithms';
 import type { Fencer, Event, Round, Bout } from '../../navigation/navigation/types';
 

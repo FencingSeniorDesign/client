@@ -76,7 +76,7 @@ describe('DEBracketPage', () => {
 
     it('renders loading state initially', () => {
         const { getByText } = render(<DEBracketPage />);
-        expect(getByText('Loading bracket...')).toBeTruthy();
+        expect(getByText('loadingBracket')).toBeTruthy();
     });
 
     it('shows error for invalid bout data', async () => {
@@ -86,7 +86,7 @@ describe('DEBracketPage', () => {
         const { getByText } = render(<DEBracketPage />);
 
         await waitFor(() => {
-            expect(getByText('Failed to load bracket data.')).toBeTruthy();
+            expect(getByText('failedToLoadBracketData')).toBeTruthy();
         });
     });
 
@@ -97,13 +97,13 @@ describe('DEBracketPage', () => {
         const { getByText } = render(<DEBracketPage />);
 
         await waitFor(() => {
-            expect(getByText('Failed to load bracket data.')).toBeTruthy();
+            expect(getByText('failedToLoadBracketData')).toBeTruthy();
         });
     });
 
     it('shows loading indicator', () => {
         const { getByText } = render(<DEBracketPage />);
-        expect(getByText('Loading bracket...')).toBeTruthy();
+        expect(getByText('loadingBracket')).toBeTruthy();
     });
 
     it('handles navigation back on non-DE round', async () => {
@@ -119,7 +119,7 @@ describe('DEBracketPage', () => {
 
         await waitFor(
             () => {
-                expect(mockAlert).toHaveBeenCalledWith('Error', 'This is not a DE round.');
+                expect(mockAlert).toHaveBeenCalledWith('error', 'notDERound');
                 expect(mockGoBack).toHaveBeenCalled();
             },
             { timeout: 1000 }

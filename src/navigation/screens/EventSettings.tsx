@@ -18,6 +18,7 @@ import * as FileSystem from 'expo-file-system';
 // Import our custom picker component instead of the native one
 import CustomPickerComponent from '../../components/ui/CustomPicker';
 const { CustomPicker, FencerCreationControls } = CustomPickerComponent;
+import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
 import {
     useFencers,
@@ -60,14 +61,23 @@ function calculatePoolConfigurations(totalFencers: number): PoolConfiguration[] 
     return configurations;
 }
 
-function formatPoolLabel(config: PoolConfiguration): string {
+function formatPoolLabel(config: PoolConfiguration, t: any): string {
     const { pools, baseSize, extraPools } = config;
     if (extraPools === 0) {
-        return `${pools} ${pools === 1 ? 'pool' : 'pools'} of ${baseSize} fencers`;
+        // Return directly formatted text without using translation keys for plurals
+        const poolText = pools === 1 ? t('eventSettings.pool') : t('eventSettings.pools');
+        return `${pools} ${poolText} ${t('eventSettings.of')} ${baseSize} ${t('eventSettings.fencers')}`;
     } else {
         const evenPools = pools - extraPools;
-        const extraLabel = `${extraPools} ${extraPools === 1 ? 'pool' : 'pools'} of ${baseSize + 1} fencers`;
-        const evenLabel = `${evenPools} ${evenPools === 1 ? 'pool' : 'pools'} of ${baseSize} fencers`;
+
+        // Format first part
+        const extraPoolText = extraPools === 1 ? t('eventSettings.pool') : t('eventSettings.pools');
+        const extraLabel = `${extraPools} ${extraPoolText} ${t('eventSettings.of')} ${baseSize + 1} ${t('eventSettings.fencers')}`;
+
+        // Format second part
+        const evenPoolText = evenPools === 1 ? t('eventSettings.pool') : t('eventSettings.pools');
+        const evenLabel = `${evenPools} ${evenPoolText} ${t('eventSettings.of')} ${baseSize} ${t('eventSettings.fencers')}`;
+
         return `${extraLabel}, ${evenLabel}`;
     }
 }
@@ -85,11 +95,12 @@ type Props = {
 
 export const EventSettings = ({ route }: Props) => {
     const { event: initialEvent, onSave, isRemote = false } = route.params || {};
+    const { t } = useTranslation();
 
     if (!initialEvent) {
         return (
             <View style={styles.errorContainer}>
-                <Text style={styles.errorText}>Error: No event data provided.</Text>
+                <Text style={styles.errorText}>{t('eventSettings.noEventData')}</Text>
             </View>
         );
     }
@@ -157,7 +168,7 @@ export const EventSettings = ({ route }: Props) => {
                 queryClient.invalidateQueries({ queryKey: ['rounds', event.id] });
             } catch (error) {
                 console.error('Failed to reorder rounds:', error);
-                Alert.alert('Error', 'Failed to save the new round order.');
+                Alert.alert(t('common.error'), t('eventSettings.updatingRound'));
                 // Revert optimistic update on failure
                 queryClient.setQueryData(['rounds', event.id], rounds);
             }
@@ -275,11 +286,11 @@ export const EventSettings = ({ route }: Props) => {
                     }
                 }
 
-                Alert.alert('Success', 'Fencers imported successfully');
+                Alert.alert(t('common.success'), t('eventSettings.fencersImported'));
             }
         } catch (error) {
             console.error('Error reading CSV file:', error);
-            Alert.alert('Error', 'Failed to import fencers from CSV');
+            Alert.alert(t('common.error'), t('eventSettings.importFailed'));
         }
     }, [createFencerMutation, event]);
 
@@ -365,7 +376,7 @@ export const EventSettings = ({ route }: Props) => {
         }
 
         if (addedCount < count) {
-            Alert.alert('Warning', 'Not enough unique fencer names available to add all requested random fencers.');
+            Alert.alert(t('common.error'), t('eventSettings.failedToAddFencers'));
         }
     };
 
@@ -383,16 +394,16 @@ export const EventSettings = ({ route }: Props) => {
     const handleRandomFillGo = async () => {
         const count = parseInt(randomFillInput, 10);
         if (isNaN(count) || count <= 0) {
-            Alert.alert('Invalid input', 'Please enter a valid number greater than 0.');
+            Alert.alert(t('eventSettings.invalidInput'), t('eventSettings.enterValidNumber'));
             return;
         }
         try {
             await addRandomFencers(count);
-            Alert.alert('Success', `${count} random fencers added.`);
+            Alert.alert(t('common.success'), t('eventSettings.fencersAdded', { count }));
             setRandomFillInput('');
             setShowRandomFillInput(false);
         } catch (error) {
-            Alert.alert('Error', 'Failed to add random fencers.');
+            Alert.alert(t('common.error'), t('eventSettings.failedToAddFencers'));
         }
     };
 
@@ -588,47 +599,47 @@ export const EventSettings = ({ route }: Props) => {
 
     return (
         <ScrollView ref={scrollViewRef} style={styles.container} contentContainerStyle={styles.content}>
-            <Text style={styles.title}>Edit Event Settings</Text>
+            <Text style={styles.title}>{t('eventSettings.title')}</Text>
 
             {/* Fencing Management Dropdown */}
             <TouchableOpacity
                 style={styles.dropdownHeader}
                 onPress={() => setFencingDropdownOpen(!fencingDropdownOpen)}
             >
-                <Text style={styles.dropdownHeaderText}>Fencer Management</Text>
+                <Text style={styles.dropdownHeaderText}>{t('eventSettings.fencerManagement')}</Text>
             </TouchableOpacity>
             {fencingDropdownOpen && (
                 <View style={styles.dropdownContent}>
                     <View style={styles.section}>
-                        <Text style={styles.sectionTitle}>Search Fencers</Text>
+                        <Text style={styles.sectionTitle}>{t('eventSettings.searchFencers')}</Text>
                         <TextInput
                             style={styles.input}
-                            placeholder="Search by Name"
+                            placeholder={t('eventSettings.searchByName')}
                             value={searchQuery}
                             onChangeText={setSearchQuery}
                         />
                         {searchLoading ? (
                             <View style={styles.loadingContainer}>
                                 <ActivityIndicator size="small" color="#001f3f" />
-                                <Text style={styles.loadingText}>Searching...</Text>
+                                <Text style={styles.loadingText}>{t('eventSettings.searching')}</Text>
                             </View>
                         ) : fencerSuggestions.length > 0 ? (
                             renderFencerSuggestions()
                         ) : searchQuery.trim().length > 0 ? (
-                            <Text style={styles.note}>No matching fencers found</Text>
+                            <Text style={styles.note}>{t('eventSettings.noMatchingFencers')}</Text>
                         ) : null}
                     </View>
                     <View style={styles.section}>
-                        <Text style={styles.sectionTitle}>Add Fencer</Text>
+                        <Text style={styles.sectionTitle}>{t('eventSettings.addFencer')}</Text>
                         <TextInput
                             style={styles.input}
-                            placeholder="First Name"
+                            placeholder={t('eventSettings.firstName')}
                             value={fencerFirstName}
                             onChangeText={setFencerFirstName}
                         />
                         <TextInput
                             style={styles.input}
-                            placeholder="Last Name"
+                            placeholder={t('eventSettings.lastName')}
                             value={fencerLastName}
                             onChangeText={setFencerLastName}
                         />
@@ -686,47 +697,49 @@ export const EventSettings = ({ route }: Props) => {
                             {createFencerMutation.isPending ? (
                                 <View style={styles.buttonLoadingContainer}>
                                     <ActivityIndicator size="small" color="#fff" />
-                                    <Text style={styles.addFencerButtonText}>Adding...</Text>
+                                    <Text style={styles.addFencerButtonText}>{t('eventSettings.adding')}</Text>
                                 </View>
                             ) : (
-                                <Text style={styles.addFencerButtonText}>Add Fencer</Text>
+                                <Text style={styles.addFencerButtonText}>{t('eventSettings.addFencer')}</Text>
                             )}
                         </TouchableOpacity>
                         {/* New Random Fill Button */}
                         <TouchableOpacity onPress={handleRandomFill} style={styles.randomFillButton}>
-                            <Text style={styles.randomFillButtonText}>Random fill</Text>
+                            <Text style={styles.randomFillButtonText}>{t('eventSettings.randomFill')}</Text>
                         </TouchableOpacity>
                         {showRandomFillInput && (
                             <View style={styles.randomFillDropdown}>
                                 <TextInput
                                     style={styles.randomFillInput}
-                                    placeholder="Enter number of fencers"
+                                    placeholder={t('eventSettings.enterNumber')}
                                     value={randomFillInput}
                                     onChangeText={setRandomFillInput}
                                     keyboardType="numeric"
                                 />
                                 <TouchableOpacity onPress={handleRandomFillGo} style={styles.randomFillGoButton}>
-                                    <Text style={styles.randomFillGoButtonText}>Go</Text>
+                                    <Text style={styles.randomFillGoButtonText}>{t('common.go')}</Text>
                                 </TouchableOpacity>
                             </View>
                         )}
                     </View>
                     <View style={styles.fencerListContainer}>
-                        <Text style={styles.fencerListHeader}>Current Fencers: {fencers.length}</Text>
+                        <Text style={styles.fencerListHeader}>
+                            {t('eventSettings.currentFencers', { count: fencers.length })}
+                        </Text>
                         {fencersLoading ? (
                             <View style={styles.loadingContainer}>
                                 <ActivityIndicator size="small" color="#001f3f" />
-                                <Text style={styles.loadingText}>Loading fencers...</Text>
+                                <Text style={styles.loadingText}>{t('eventSettings.loadingFencers')}</Text>
                             </View>
                         ) : fencers.length === 0 ? (
-                            <Text style={styles.note}>No fencers added yet.</Text>
+                            <Text style={styles.note}>{t('eventSettings.noFencers')}</Text>
                         ) : (
                             renderFencers()
                         )}
                         {createFencerMutation.isPending && (
                             <View style={styles.pendingActionContainer}>
                                 <ActivityIndicator size="small" color="#001f3f" />
-                                <Text style={styles.pendingActionText}>Adding fencer...</Text>
+                                <Text style={styles.pendingActionText}>{t('eventSettings.addingFencer')}</Text>
                             </View>
                         )}
                     </View>
@@ -753,14 +766,14 @@ export const EventSettings = ({ route }: Props) => {
                     }
                 }}
             >
-                <Text style={styles.dropdownHeaderText}>Round Management</Text>
+                <Text style={styles.dropdownHeaderText}>{t('eventSettings.roundManagement')}</Text>
             </TouchableOpacity>
             {roundDropdownOpen && (
                 <View ref={roundsDropdownRef} style={styles.dropdownContent}>
                     {roundsLoading ? (
                         <View style={styles.loadingContainer}>
-                            <ActivityIndicator size="small" color="#001f3f" /> {/* Changed size to small */}
-                            <Text style={styles.loadingText}>Loading rounds...</Text>
+                            <ActivityIndicator size="small" color="#001f3f" />
+                            <Text style={styles.loadingText}>{t('eventSettings.loadingRounds')}</Text>
                         </View>
                     ) : rounds.length > 0 ? (
                         <View style={styles.roundsList}>
@@ -805,7 +818,9 @@ export const EventSettings = ({ route }: Props) => {
                                             </TouchableOpacity>
                                         </View>
                                         <Text style={styles.roundLabelText}>
-                                            {round.type === 'pool' ? 'Pools Round' : 'DE Round'}
+                                            {round.type === 'pool'
+                                                ? t('eventSettings.poolsRound')
+                                                : t('eventSettings.deRound')}
                                         </Text>
                                         <View style={styles.roundItemActions}>
                                             <TouchableOpacity
@@ -841,7 +856,9 @@ export const EventSettings = ({ route }: Props) => {
                                                                 handleUpdateRound(updatedRound);
                                                             }}
                                                         >
-                                                            <Text style={styles.configOptionText}>Promotion %</Text>
+                                                            <Text style={styles.configOptionText}>
+                                                                {t('eventSettings.promotion')}
+                                                            </Text>
                                                         </TouchableOpacity>
                                                         <TouchableOpacity
                                                             style={[
@@ -857,7 +874,9 @@ export const EventSettings = ({ route }: Props) => {
                                                                 handleUpdateRound(updatedRound);
                                                             }}
                                                         >
-                                                            <Text style={styles.configOptionText}>Target Bracket</Text>
+                                                            <Text style={styles.configOptionText}>
+                                                                {t('eventSettings.targetBracket')}
+                                                            </Text>
                                                         </TouchableOpacity>
                                                     </View>
                                                     {round.poolsoption === 'promotion' ? (
@@ -865,7 +884,7 @@ export const EventSettings = ({ route }: Props) => {
                                                             style={styles.configInput}
                                                             keyboardType="numeric"
                                                             value={promotionInputText} // Use state variable
-                                                            placeholder="Enter Promotion %"
+                                                            placeholder={t('eventSettings.enterPromotion')}
                                                             onChangeText={setPromotionInputText} // Update state variable
                                                             onEndEditing={() => {
                                                                 // Parse the final value from state and update
@@ -902,7 +921,9 @@ export const EventSettings = ({ route }: Props) => {
                                                         </View>
                                                     )}
                                                     <View style={styles.poolConfigContainer}>
-                                                        <Text style={styles.configTitle}>Pool Configurations</Text>
+                                                        <Text style={styles.configTitle}>
+                                                            {t('eventSettings.poolConfigurations')}
+                                                        </Text>
                                                         {poolConfigurations.map((config, index) => {
                                                             // Determine the expected poolsize based on this config.
                                                             const expectedPoolSize =
@@ -930,7 +951,7 @@ export const EventSettings = ({ route }: Props) => {
                                                                     }}
                                                                 >
                                                                     <Text style={styles.poolConfigButtonText}>
-                                                                        {formatPoolLabel(config)}
+                                                                        {formatPoolLabel(config, t)}
                                                                     </Text>
                                                                 </TouchableOpacity>
                                                             );
@@ -939,7 +960,9 @@ export const EventSettings = ({ route }: Props) => {
                                                 </View>
                                             ) : (
                                                 <View style={styles.deConfig}>
-                                                    <Text style={styles.configLabel}>Elimination Format:</Text>
+                                                    <Text style={styles.configLabel}>
+                                                        {t('eventSettings.eliminationFormat')}
+                                                    </Text>
                                                     <View style={styles.deFormatContainer}>
                                                         {['single', 'double', 'compass'].map(format => (
                                                             <TouchableOpacity
@@ -968,43 +991,36 @@ export const EventSettings = ({ route }: Props) => {
                                                                             styles.deFormatButtonTextSelected,
                                                                     ]}
                                                                 >
-                                                                    {format.charAt(0).toUpperCase() + format.slice(1)}
+                                                                    {t(`eventSettings.${format}`)}
                                                                 </Text>
                                                             </TouchableOpacity>
                                                         ))}
                                                     </View>
 
-                                                    <Text style={styles.deFormatInfoHeader}>Format Information:</Text>
+                                                    <Text style={styles.deFormatInfoHeader}>
+                                                        {t('eventSettings.formatInformation')}
+                                                    </Text>
 
                                                     <View style={styles.deFormatInfo}>
                                                         {round.deformat === 'single' && (
                                                             <Text style={styles.deFormatDescription}>
-                                                                Single elimination: Fencers are eliminated after one
-                                                                loss. The bracket size will be automatically determined
-                                                                based on the number of registered fencers.
+                                                                {t('eventSettings.singleDescription')}
                                                             </Text>
                                                         )}
                                                         {round.deformat === 'double' && (
                                                             <Text style={styles.deFormatDescription}>
-                                                                Double elimination: Fencers continue in a losers bracket
-                                                                after first loss. All fencers get at least two bouts
-                                                                before elimination. The bracket size will be
-                                                                automatically determined.
+                                                                {t('eventSettings.doubleDescription')}
                                                             </Text>
                                                         )}
                                                         {round.deformat === 'compass' && (
                                                             <Text style={styles.deFormatDescription}>
-                                                                Compass format: All fencers continue in different
-                                                                brackets based on when they lose. This format maximizes
-                                                                the number of bouts per fencer. Bracket size will be
-                                                                calculated automatically.
+                                                                {t('eventSettings.compassDescription')}
                                                             </Text>
                                                         )}
                                                     </View>
 
                                                     <Text style={styles.fencerCountNote}>
-                                                        The bracket will be sized as the smallest power of 2 (8, 16, 32,
-                                                        64, etc.) that can accommodate all registered fencers.
+                                                        {t('eventSettings.bracketSizeNote')}
                                                     </Text>
                                                 </View>
                                             )}
@@ -1014,7 +1030,7 @@ export const EventSettings = ({ route }: Props) => {
                             ))}
                         </View>
                     ) : (
-                        <Text style={styles.note}>No rounds configured yet.</Text>
+                        <Text style={styles.note}>{t('eventSettings.noRounds')}</Text>
                     )}
 
                     <TouchableOpacity
@@ -1036,7 +1052,7 @@ export const EventSettings = ({ route }: Props) => {
                             }
                         }}
                     >
-                        <Text style={styles.addRoundButtonText}>Add Round</Text>
+                        <Text style={styles.addRoundButtonText}>{t('eventSettings.addRound')}</Text>
                     </TouchableOpacity>
                     {showRoundTypeOptions && (
                         <View ref={roundTypeMenuRef} style={styles.roundTypeMenu}>
@@ -1047,7 +1063,7 @@ export const EventSettings = ({ route }: Props) => {
                                     setShowRoundTypeOptions(false);
                                 }}
                             >
-                                <Text style={styles.roundTypeChoiceText}>Pools</Text>
+                                <Text style={styles.roundTypeChoiceText}>{t('eventSettings.pools')}</Text>
                             </TouchableOpacity>
                             <TouchableOpacity
                                 style={styles.roundTypeChoice}
@@ -1056,7 +1072,7 @@ export const EventSettings = ({ route }: Props) => {
                                     setShowRoundTypeOptions(false);
                                 }}
                             >
-                                <Text style={styles.roundTypeChoiceText}>DE</Text>
+                                <Text style={styles.roundTypeChoiceText}>{t('eventSettings.de')}</Text>
                             </TouchableOpacity>
                         </View>
                     )}
@@ -1066,10 +1082,10 @@ export const EventSettings = ({ route }: Props) => {
                             <ActivityIndicator size="small" color="#001f3f" />
                             <Text style={styles.pendingActionText}>
                                 {addRoundMutation.isPending
-                                    ? 'Adding round...'
+                                    ? t('eventSettings.addingRound')
                                     : updateRoundMutation.isPending
-                                      ? 'Updating round...'
-                                      : 'Deleting round...'}
+                                      ? t('eventSettings.updatingRound')
+                                      : t('eventSettings.deletingRound')}
                             </Text>
                         </View>
                     )}

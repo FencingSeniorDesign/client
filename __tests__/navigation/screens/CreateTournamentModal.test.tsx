@@ -26,7 +26,7 @@ describe('CreateTournamentButton', () => {
 
     it('renders create tournament button', () => {
         const { getByText } = render(<CreateTournamentButton onTournamentCreated={mockOnTournamentCreated} />);
-        expect(getByText('Create Tournament')).toBeTruthy();
+        expect(getByText('createTournament')).toBeTruthy();
     });
 
     it('opens modal when create button is pressed', () => {
@@ -34,8 +34,8 @@ describe('CreateTournamentButton', () => {
             <CreateTournamentButton onTournamentCreated={mockOnTournamentCreated} />
         );
 
-        fireEvent.press(getByText('Create Tournament'));
-        expect(getByPlaceholderText('Enter tournament name')).toBeTruthy();
+        fireEvent.press(getByText('createTournament'));
+        expect(getByPlaceholderText('enterName')).toBeTruthy();
     });
 
     it('shows error when submitting empty tournament name', async () => {
@@ -44,12 +44,12 @@ describe('CreateTournamentButton', () => {
         );
 
         // Open modal
-        fireEvent.press(getByText('Create Tournament'));
+        fireEvent.press(getByText('createTournament'));
 
         // Submit without entering name
-        fireEvent.press(getByText('Submit'));
+        fireEvent.press(getByText('submit'));
 
-        expect(Alert.alert).toHaveBeenCalledWith('Error', 'Please enter a tournament name');
+        expect(Alert.alert).toHaveBeenCalledWith('error', 'errorEmptyName');
         expect(dbCreateTournament).not.toHaveBeenCalled();
     });
 
@@ -59,14 +59,14 @@ describe('CreateTournamentButton', () => {
         );
 
         // Open modal
-        fireEvent.press(getByText('Create Tournament'));
+        fireEvent.press(getByText('createTournament'));
 
         // Enter tournament name
-        const input = getByPlaceholderText('Enter tournament name');
+        const input = getByPlaceholderText('enterName');
         fireEvent.changeText(input, 'Test Tournament');
 
         // Submit form
-        fireEvent.press(getByText('Submit'));
+        fireEvent.press(getByText('submit'));
 
         await waitFor(() => {
             expect(dbCreateTournament).toHaveBeenCalledWith('Test Tournament');
@@ -83,17 +83,17 @@ describe('CreateTournamentButton', () => {
         );
 
         // Open modal
-        fireEvent.press(getByText('Create Tournament'));
+        fireEvent.press(getByText('createTournament'));
 
         // Enter tournament name
-        const input = getByPlaceholderText('Enter tournament name');
+        const input = getByPlaceholderText('enterName');
         fireEvent.changeText(input, 'Test Tournament');
 
         // Submit form
-        fireEvent.press(getByText('Submit'));
+        fireEvent.press(getByText('submit'));
 
         await waitFor(() => {
-            expect(Alert.alert).toHaveBeenCalledWith('Error', 'Failed to create tournament. It might already exist.');
+            expect(Alert.alert).toHaveBeenCalledWith('error', 'errorCreateFailed');
         });
     });
 
@@ -103,17 +103,17 @@ describe('CreateTournamentButton', () => {
         );
 
         // Open modal
-        fireEvent.press(getByText('Create Tournament'));
+        fireEvent.press(getByText('createTournament'));
 
         // Enter some text
-        const input = getByPlaceholderText('Enter tournament name');
+        const input = getByPlaceholderText('enterName');
         fireEvent.changeText(input, 'Test Tournament');
 
         // Press cancel
-        fireEvent.press(getByText('Cancel'));
+        fireEvent.press(getByText('cancel'));
 
         // Reopen modal to verify input was cleared
-        fireEvent.press(getByText('Create Tournament'));
-        expect(getByPlaceholderText('Enter tournament name').props.value).toBe('');
+        fireEvent.press(getByText('createTournament'));
+        expect(getByPlaceholderText('enterName').props.value).toBe('');
     });
 });

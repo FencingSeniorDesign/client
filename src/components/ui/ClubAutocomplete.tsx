@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { generateClubAbbreviation } from '../../navigation/utils/BoutOrderUtils';
 import { useSearchClubs, useCreateClub } from '../../data/TournamentDataHooks';
+import { useTranslation } from 'react-i18next';
 
 interface Club {
     id?: number;
@@ -21,6 +22,7 @@ export const ClubAutocomplete = ({ value, abbreviation, onValueChange, container
     const [abbr, setAbbr] = useState(abbreviation || '');
     const [showDropdown, setShowDropdown] = useState(false);
     const [showAbbreviation, setShowAbbreviation] = useState(false);
+    const { t } = useTranslation();
 
     // Use real hooks instead of mocks
     const { data: clubs = [], isLoading } = useSearchClubs(query);
@@ -78,31 +80,33 @@ export const ClubAutocomplete = ({ value, abbreviation, onValueChange, container
 
     return (
         <View style={[styles.container, containerStyle]}>
-            <Text style={styles.label}>Club</Text>
+            <Text style={styles.label}>{t('clubAutocomplete.label')}</Text>
             <TextInput
                 style={styles.input}
                 value={query}
                 onChangeText={handleInputChange}
                 onFocus={() => setShowDropdown(query.length > 0)}
-                placeholder="Enter club name"
+                placeholder={t('clubAutocomplete.enterName')}
             />
 
             {query.length > 0 && (
                 <TouchableOpacity style={styles.abbrToggle} onPress={() => setShowAbbreviation(!showAbbreviation)}>
                     <Text style={styles.abbrToggleText}>
-                        {showAbbreviation ? 'Hide Abbreviation' : 'Show Abbreviation'}
+                        {showAbbreviation
+                            ? t('clubAutocomplete.hideAbbreviation')
+                            : t('clubAutocomplete.showAbbreviation')}
                     </Text>
                 </TouchableOpacity>
             )}
 
             {showAbbreviation && (
                 <View style={styles.abbrContainer}>
-                    <Text style={styles.abbrLabel}>Abbreviation (2-5 chars)</Text>
+                    <Text style={styles.abbrLabel}>{t('clubAutocomplete.abbreviationInfo')}</Text>
                     <TextInput
                         style={styles.abbrInput}
                         value={abbr}
                         onChangeText={handleAbbrChange}
-                        placeholder="Abbreviation"
+                        placeholder={t('clubAutocomplete.abbreviation')}
                         maxLength={5}
                         autoCapitalize="characters"
                     />
@@ -117,7 +121,7 @@ export const ClubAutocomplete = ({ value, abbreviation, onValueChange, container
                         <View>
                             {clubs.length === 0 && query.length > 0 && (
                                 <View style={styles.emptyResult}>
-                                    <Text style={styles.emptyResultText}>No matching clubs found</Text>
+                                    <Text style={styles.emptyResultText}>{t('clubAutocomplete.noMatches')}</Text>
                                 </View>
                             )}
 
@@ -143,11 +147,13 @@ export const ClubAutocomplete = ({ value, abbreviation, onValueChange, container
                                     {createClubMutation.isPending ? (
                                         <View style={styles.buttonLoadingContainer}>
                                             <ActivityIndicator size="small" color="#001f3f" />
-                                            <Text style={styles.createItemText}>Creating...</Text>
+                                            <Text style={styles.createItemText}>{t('clubAutocomplete.creating')}</Text>
                                         </View>
                                     ) : (
                                         <>
-                                            <Text style={styles.createItemText}>Create "{query}"</Text>
+                                            <Text style={styles.createItemText}>
+                                                {t('clubAutocomplete.create', { name: query })}
+                                            </Text>
                                             {abbr && <Text style={styles.abbreviation}>({abbr})</Text>}
                                         </>
                                     )}

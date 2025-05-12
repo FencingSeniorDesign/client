@@ -3,13 +3,15 @@ import { Assets as NavigationAssets } from '@react-navigation/elements';
 import { Asset } from 'expo-asset';
 import * as SplashScreen from 'expo-splash-screen';
 import * as React from 'react';
-import { Navigation } from './navigation';
+import { Navigation, AppNavigator } from './navigation';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { setupTournamentSync } from './data/TournamentDataHooks';
 import { initializeDatabase } from './db/DrizzleClient';
 import tournamentServer from './networking/TournamentServer';
 import { AbilityProvider } from './rbac/AbilityContext';
+// Import i18n instance
+import './i18n';
 
 // Create a client
 const queryClient = new QueryClient({
@@ -42,18 +44,7 @@ export function App() {
             <GestureHandlerRootView style={{ flex: 1 }}>
                 {/* Add AbilityProvider for RBAC */}
                 <AbilityProvider>
-                    <Navigation
-                        linking={{
-                            enabled: 'auto',
-                            prefixes: [
-                                // Change the scheme to match your app's scheme defined in app.json
-                                'helloworld://',
-                            ],
-                        }}
-                        onReady={() => {
-                            SplashScreen.hideAsync();
-                        }}
-                    />
+                    <AppNavigator />
                 </AbilityProvider>
             </GestureHandlerRootView>
         </QueryClientProvider>

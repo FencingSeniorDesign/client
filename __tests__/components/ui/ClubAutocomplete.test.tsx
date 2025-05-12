@@ -43,16 +43,16 @@ describe('ClubAutocomplete Component', () => {
             <ClubAutocomplete value="Test Club" onValueChange={mockOnValueChange} />
         );
 
-        expect(getByText('Club')).toBeTruthy();
-        expect(getByPlaceholderText('Enter club name')).toBeTruthy();
-        const input = getByPlaceholderText('Enter club name');
+        expect(getByText('label')).toBeTruthy();
+        expect(getByPlaceholderText('enterName')).toBeTruthy();
+        const input = getByPlaceholderText('enterName');
         expect(input.props.value).toBe('Test Club');
     });
 
     it('updates input when user types and generates abbreviation', () => {
         const { getByPlaceholderText } = render(<ClubAutocomplete value="" onValueChange={mockOnValueChange} />);
 
-        const input = getByPlaceholderText('Enter club name');
+        const input = getByPlaceholderText('enterName');
         fireEvent.changeText(input, 'New Club');
 
         expect(input.props.value).toBe('New Club');
@@ -78,7 +78,7 @@ describe('ClubAutocomplete Component', () => {
         expect(queryByText('Club One')).toBeNull();
 
         // Type to trigger search
-        const input = getByPlaceholderText('Enter club name');
+        const input = getByPlaceholderText('enterName');
         fireEvent.changeText(input, 'Club');
 
         // Wait for dropdown to appear
@@ -103,7 +103,7 @@ describe('ClubAutocomplete Component', () => {
         );
 
         // Type to trigger search
-        const input = getByPlaceholderText('Enter club name');
+        const input = getByPlaceholderText('enterName');
         fireEvent.changeText(input, 'Club');
 
         // Wait for dropdown to appear and click an item
@@ -135,12 +135,13 @@ describe('ClubAutocomplete Component', () => {
         );
 
         // Type a club name
-        const input = getByPlaceholderText('Enter club name');
+        const input = getByPlaceholderText('enterName');
         fireEvent.changeText(input, 'New Club');
 
         // Find and click the "Create" option
         await waitFor(() => {
-            const createOption = getByText('Create "New Club"');
+            // We need to match the translated key pattern
+            const createOption = getByText(/create/);
             fireEvent.press(createOption);
         });
 
@@ -163,12 +164,10 @@ describe('ClubAutocomplete Component', () => {
             isLoading: true,
         });
 
-        const { getByPlaceholderText, getByTestId } = render(
-            <ClubAutocomplete value="" onValueChange={mockOnValueChange} />
-        );
+        const { getByPlaceholderText } = render(<ClubAutocomplete value="" onValueChange={mockOnValueChange} />);
 
         // Type to trigger search
-        const input = getByPlaceholderText('Enter club name');
+        const input = getByPlaceholderText('enterName');
         fireEvent.changeText(input, 'Club');
 
         // Add testID to ActivityIndicator in the component first
@@ -187,13 +186,13 @@ describe('ClubAutocomplete Component', () => {
         );
 
         // Initially, abbreviation field is not shown
-        expect(queryByPlaceholderText('Abbreviation')).toBeNull();
+        expect(queryByPlaceholderText('abbreviation')).toBeNull();
 
         // Show abbreviation field
-        fireEvent.press(getByText('Show Abbreviation'));
+        fireEvent.press(getByText('showAbbreviation'));
 
         // Abbreviation field should now be visible
-        const abbrInput = getByPlaceholderText('Abbreviation');
+        const abbrInput = getByPlaceholderText('abbreviation');
         expect(abbrInput).toBeTruthy();
 
         // Type in abbreviation field
@@ -203,10 +202,10 @@ describe('ClubAutocomplete Component', () => {
         expect(mockOnValueChange).toHaveBeenCalledWith('Test Club', undefined, 'TCLUB');
 
         // Hide abbreviation field
-        fireEvent.press(getByText('Hide Abbreviation'));
+        fireEvent.press(getByText('hideAbbreviation'));
 
         // Abbreviation field should be hidden again
-        expect(queryByPlaceholderText('Abbreviation')).toBeNull();
+        expect(queryByPlaceholderText('abbreviation')).toBeNull();
     });
 
     it('shows "No matching clubs found" when search returns empty results', async () => {
@@ -221,12 +220,12 @@ describe('ClubAutocomplete Component', () => {
         );
 
         // Type to trigger search
-        const input = getByPlaceholderText('Enter club name');
+        const input = getByPlaceholderText('enterName');
         fireEvent.changeText(input, 'Nonexistent Club');
 
         // Wait for dropdown to appear
         await waitFor(() => {
-            expect(getByText('No matching clubs found')).toBeTruthy();
+            expect(getByText('noMatches')).toBeTruthy();
         });
     });
 
@@ -242,12 +241,12 @@ describe('ClubAutocomplete Component', () => {
         );
 
         // Type a club name
-        const input = getByPlaceholderText('Enter club name');
+        const input = getByPlaceholderText('enterName');
         fireEvent.changeText(input, 'New Club');
 
         // Check for loading indicator text
         await waitFor(() => {
-            expect(getByText('Creating...')).toBeTruthy();
+            expect(getByText('creating')).toBeTruthy();
         });
     });
 
@@ -267,12 +266,12 @@ describe('ClubAutocomplete Component', () => {
         );
 
         // Type a club name
-        const input = getByPlaceholderText('Enter club name');
+        const input = getByPlaceholderText('enterName');
         fireEvent.changeText(input, 'New Club');
 
         // Find and click the "Create" option
         await waitFor(() => {
-            const createOption = getByText('Create "New Club"');
+            const createOption = getByText(/create/);
             fireEvent.press(createOption);
         });
 

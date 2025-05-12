@@ -12,6 +12,7 @@ import {
     useRemoveReferee,
 } from '../../data/TournamentDataHooks';
 import { getDeviceId } from '../../networking/NetworkUtils';
+import { useTranslation } from 'react-i18next';
 
 interface ManageOfficialsProps {
     navigation: NativeStackNavigationProp<RootStackParamList, 'ManageOfficials'>;
@@ -20,6 +21,7 @@ interface ManageOfficialsProps {
 
 const ManageOfficials: React.FC<ManageOfficialsProps> = ({ route, navigation }) => {
     const { tournamentName, isRemote } = route.params;
+    const { t } = useTranslation();
 
     // Use TanStack Query hooks for data fetching
     const { data: officials = [], isLoading: officialsLoading } = useOfficials(tournamentName);
@@ -57,13 +59,13 @@ const ManageOfficials: React.FC<ManageOfficialsProps> = ({ route, navigation }) 
 
     const handleAddPerson = () => {
         if (!firstName.trim()) {
-            Alert.alert('Error', 'First name is required');
+            Alert.alert(t('common.error'), t('manageOfficials.firstNameRequiredError'));
             return;
         }
 
         // Validate device ID if provided
         if (deviceId && deviceId.length !== 5) {
-            Alert.alert('Error', 'Device ID must be exactly 5 characters');
+            Alert.alert(t('common.error'), t('manageOfficials.deviceIdError'));
             return;
         }
 
@@ -92,7 +94,7 @@ const ManageOfficials: React.FC<ManageOfficialsProps> = ({ route, navigation }) 
             resetFormFields();
         } catch (error) {
             console.error('Error adding referee:', error);
-            Alert.alert('Error', 'Failed to add referee');
+            Alert.alert(t('common.error'), t('manageOfficials.failedToAddReferee'));
         }
     };
 
@@ -114,7 +116,7 @@ const ManageOfficials: React.FC<ManageOfficialsProps> = ({ route, navigation }) 
             resetFormFields();
         } catch (error) {
             console.error('Error adding tournament official:', error);
-            Alert.alert('Error', 'Failed to add tournament official');
+            Alert.alert(t('common.error'), t('manageOfficials.failedToAddOfficial'));
         }
     };
 
@@ -133,17 +135,17 @@ const ManageOfficials: React.FC<ManageOfficialsProps> = ({ route, navigation }) 
 
     const handleRemoveOfficial = (official: Official) => {
         if (!official.id) {
-            Alert.alert('Error', 'Official ID not found');
+            Alert.alert(t('common.error'), t('common.error'));
             return;
         }
 
         Alert.alert(
-            'Confirm Removal',
-            `Are you sure you want to remove ${official.fname} ${official.lname} from tournament officials?`,
+            t('manageOfficials.confirmRemoval'),
+            t('manageOfficials.confirmRemoveOfficial', { firstName: official.fname, lastName: official.lname }),
             [
-                { text: 'Cancel', style: 'cancel' },
+                { text: t('common.cancel'), style: 'cancel' },
                 {
-                    text: 'Remove',
+                    text: t('common.remove'),
                     style: 'destructive',
                     onPress: async () => {
                         try {
@@ -153,7 +155,7 @@ const ManageOfficials: React.FC<ManageOfficialsProps> = ({ route, navigation }) 
                             });
                         } catch (error) {
                             console.error('Error removing official:', error);
-                            Alert.alert('Error', 'Failed to remove official');
+                            Alert.alert(t('common.error'), t('manageOfficials.failedToRemoveOfficial'));
                         }
                     },
                 },
@@ -163,17 +165,17 @@ const ManageOfficials: React.FC<ManageOfficialsProps> = ({ route, navigation }) 
 
     const handleRemoveReferee = (referee: Official) => {
         if (!referee.id) {
-            Alert.alert('Error', 'Referee ID not found');
+            Alert.alert(t('common.error'), t('common.error'));
             return;
         }
 
         Alert.alert(
-            'Confirm Removal',
-            `Are you sure you want to remove ${referee.fname} ${referee.lname} from referees?`,
+            t('manageOfficials.confirmRemoval'),
+            t('manageOfficials.confirmRemoveReferee', { firstName: referee.fname, lastName: referee.lname }),
             [
-                { text: 'Cancel', style: 'cancel' },
+                { text: t('common.cancel'), style: 'cancel' },
                 {
-                    text: 'Remove',
+                    text: t('common.remove'),
                     style: 'destructive',
                     onPress: async () => {
                         try {
@@ -183,7 +185,7 @@ const ManageOfficials: React.FC<ManageOfficialsProps> = ({ route, navigation }) 
                             });
                         } catch (error) {
                             console.error('Error removing referee:', error);
-                            Alert.alert('Error', 'Failed to remove referee');
+                            Alert.alert(t('common.error'), t('manageOfficials.failedToRemoveReferee'));
                         }
                     },
                 },
@@ -197,7 +199,9 @@ const ManageOfficials: React.FC<ManageOfficialsProps> = ({ route, navigation }) 
                 <Text style={styles.name}>
                     {item.fname} {item.lname}
                 </Text>
-                <Text style={styles.deviceId}>Device ID: {item.device_id || 'Not set'}</Text>
+                <Text style={styles.deviceId}>
+                    {t('manageOfficials.deviceId', { id: item.device_id || t('manageOfficials.notSet') })}
+                </Text>
             </View>
             {!isRemote && (
                 <TouchableOpacity
@@ -217,7 +221,9 @@ const ManageOfficials: React.FC<ManageOfficialsProps> = ({ route, navigation }) 
                 <Text style={styles.name}>
                     {item.fname} {item.lname}
                 </Text>
-                <Text style={styles.deviceId}>Device ID: {item.device_id || 'Not set'}</Text>
+                <Text style={styles.deviceId}>
+                    {t('manageOfficials.deviceId', { id: item.device_id || t('manageOfficials.notSet') })}
+                </Text>
             </View>
             {!isRemote && (
                 <TouchableOpacity
@@ -235,7 +241,7 @@ const ManageOfficials: React.FC<ManageOfficialsProps> = ({ route, navigation }) 
 
     return (
         <View style={styles.container}>
-            <Text style={styles.title}>Manage Officials - {tournamentName}</Text>
+            <Text style={styles.title}>{t('manageOfficials.title', { tournamentName })}</Text>
 
             {!isRemote && (
                 <View style={styles.actionButtons}>
@@ -246,7 +252,7 @@ const ManageOfficials: React.FC<ManageOfficialsProps> = ({ route, navigation }) 
                             setModalVisible(true);
                         }}
                     >
-                        <Text style={styles.buttonText}>Add Referee</Text>
+                        <Text style={styles.buttonText}>{t('manageOfficials.addReferee')}</Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity
@@ -256,16 +262,16 @@ const ManageOfficials: React.FC<ManageOfficialsProps> = ({ route, navigation }) 
                             setModalVisible(true);
                         }}
                     >
-                        <Text style={styles.buttonText}>Add Official</Text>
+                        <Text style={styles.buttonText}>{t('manageOfficials.addOfficial')}</Text>
                     </TouchableOpacity>
                 </View>
             )}
 
             <ScrollView style={styles.scrollView}>
                 <View style={styles.section}>
-                    <Text style={styles.sectionHeader}>Referees</Text>
+                    <Text style={styles.sectionHeader}>{t('manageOfficials.referees')}</Text>
                     {isLoading ? (
-                        <Text style={styles.loadingText}>Loading referees...</Text>
+                        <Text style={styles.loadingText}>{t('manageOfficials.loadingReferees')}</Text>
                     ) : referees.length > 0 ? (
                         <FlatList
                             data={referees}
@@ -274,14 +280,14 @@ const ManageOfficials: React.FC<ManageOfficialsProps> = ({ route, navigation }) 
                             scrollEnabled={false}
                         />
                     ) : (
-                        <Text style={styles.emptyText}>No referees assigned</Text>
+                        <Text style={styles.emptyText}>{t('manageOfficials.noReferees')}</Text>
                     )}
                 </View>
 
                 <View style={styles.section}>
-                    <Text style={styles.sectionHeader}>Tournament Officials</Text>
+                    <Text style={styles.sectionHeader}>{t('manageOfficials.tournamentOfficials')}</Text>
                     {isLoading ? (
-                        <Text style={styles.loadingText}>Loading officials...</Text>
+                        <Text style={styles.loadingText}>{t('manageOfficials.loadingOfficials')}</Text>
                     ) : officials.length > 0 ? (
                         <FlatList
                             data={officials}
@@ -290,17 +296,16 @@ const ManageOfficials: React.FC<ManageOfficialsProps> = ({ route, navigation }) 
                             scrollEnabled={false}
                         />
                     ) : (
-                        <Text style={styles.emptyText}>No tournament officials assigned</Text>
+                        <Text style={styles.emptyText}>{t('manageOfficials.noOfficials')}</Text>
                     )}
                 </View>
 
                 <View style={styles.deviceInfoSection}>
-                    <Text style={styles.deviceInfoHeader}>This Device</Text>
-                    <Text style={styles.deviceInfoText}>Device ID: {currentDeviceId || 'Loading...'}</Text>
-                    <Text style={styles.helpText}>
-                        When adding officials or referees, you can assign a device ID to allow automatic role assignment
-                        when joining from that device.
+                    <Text style={styles.deviceInfoHeader}>{t('manageOfficials.thisDevice')}</Text>
+                    <Text style={styles.deviceInfoText}>
+                        {t('manageOfficials.deviceId', { id: currentDeviceId || t('common.loading') })}
                     </Text>
+                    <Text style={styles.helpText}>{t('manageOfficials.deviceInfo')}</Text>
                 </View>
             </ScrollView>
 
@@ -314,19 +319,19 @@ const ManageOfficials: React.FC<ManageOfficialsProps> = ({ route, navigation }) 
                 <View style={styles.modalOverlay}>
                     <View style={styles.modalContent}>
                         <Text style={styles.modalTitle}>
-                            {isAddingReferee ? 'Add Referee' : 'Add Tournament Official'}
+                            {isAddingReferee ? t('manageOfficials.addReferee') : t('manageOfficials.addOfficial')}
                         </Text>
 
                         <TextInput
                             style={styles.input}
-                            placeholder="First Name *"
+                            placeholder={t('manageOfficials.firstNameRequired')}
                             value={firstName}
                             onChangeText={setFirstName}
                         />
 
                         <TextInput
                             style={styles.input}
-                            placeholder="Last Name"
+                            placeholder={t('manageOfficials.lastName')}
                             value={lastName}
                             onChangeText={setLastName}
                         />
@@ -334,7 +339,7 @@ const ManageOfficials: React.FC<ManageOfficialsProps> = ({ route, navigation }) 
                         <View style={styles.deviceIdInputContainer}>
                             <TextInput
                                 style={[styles.input, styles.deviceIdInput]}
-                                placeholder="Device ID (5 characters)"
+                                placeholder={t('manageOfficials.deviceIdInfo')}
                                 value={deviceId}
                                 onChangeText={text => setDeviceId(text.slice(0, 5).toUpperCase())}
                                 maxLength={5}
@@ -342,14 +347,11 @@ const ManageOfficials: React.FC<ManageOfficialsProps> = ({ route, navigation }) 
                             />
 
                             <TouchableOpacity style={styles.copyButton} onPress={copyDeviceId}>
-                                <Text style={styles.copyButtonText}>Use This Device</Text>
+                                <Text style={styles.copyButtonText}>{t('manageOfficials.useThisDevice')}</Text>
                             </TouchableOpacity>
                         </View>
 
-                        <Text style={styles.idExplanationText}>
-                            When this person connects to the tournament using a device with this ID, they will
-                            automatically be assigned the appropriate role.
-                        </Text>
+                        <Text style={styles.idExplanationText}>{t('manageOfficials.deviceAssignmentInfo')}</Text>
 
                         <View style={styles.modalActions}>
                             <TouchableOpacity
@@ -359,8 +361,8 @@ const ManageOfficials: React.FC<ManageOfficialsProps> = ({ route, navigation }) 
                             >
                                 <Text style={styles.modalActionText}>
                                     {addOfficialMutation.isPending || addRefereeMutation.isPending
-                                        ? 'Adding...'
-                                        : 'Add'}
+                                        ? t('eventSettings.adding')
+                                        : t('common.add')}
                                 </Text>
                             </TouchableOpacity>
 
@@ -372,7 +374,7 @@ const ManageOfficials: React.FC<ManageOfficialsProps> = ({ route, navigation }) 
                                 }}
                                 disabled={addOfficialMutation.isPending || addRefereeMutation.isPending}
                             >
-                                <Text style={styles.modalActionText}>Cancel</Text>
+                                <Text style={styles.modalActionText}>{t('common.cancel')}</Text>
                             </TouchableOpacity>
                         </View>
                     </View>

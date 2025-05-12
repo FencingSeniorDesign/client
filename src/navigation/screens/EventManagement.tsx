@@ -36,6 +36,7 @@ import dataProvider from '../../data/DrizzleDataProvider';
 import { PermissionsDisplay } from '../../rbac/PermissionsDisplay';
 import { Can } from '../../rbac/Can';
 import { useAbility } from '../../rbac/AbilityContext';
+import { useTranslation } from 'react-i18next';
 
 type Props = {
     route: RouteProp<{ params: { tournamentName: string; isRemoteConnection?: boolean } }, 'params'>;
@@ -44,6 +45,7 @@ type Props = {
 export const EventManagement = ({ route }: Props) => {
     const { tournamentName, isRemoteConnection = false } = route.params;
     const queryClient = useQueryClient();
+    const { t } = useTranslation();
 
     // Use TanStack Query for fetching events
     const { data: events = [], isLoading: eventsLoading, isError: eventsError } = useEvents(tournamentName);
@@ -86,10 +88,14 @@ export const EventManagement = ({ route }: Props) => {
         if (isRemote) {
             const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
                 // Show a confirmation dialog before disconnecting
-                Alert.alert('Disconnect from Tournament', 'Are you sure you want to disconnect from this tournament?', [
-                    { text: 'Cancel', style: 'cancel', onPress: () => {} },
+                Alert.alert(t('eventManagement.disconnectTournament'), t('eventManagement.disconnectConfirm'), [
                     {
-                        text: 'Disconnect',
+                        text: t('common.cancel'),
+                        style: 'cancel',
+                        onPress: () => {},
+                    },
+                    {
+                        text: t('home.disconnect'),
                         style: 'destructive',
                         onPress: () => {
                             // Set flag to true to prevent disconnect alert
@@ -109,7 +115,7 @@ export const EventManagement = ({ route }: Props) => {
             return () => backHandler.remove();
         }
         return undefined;
-    }, [isRemote, navigation]);
+    }, [isRemote, navigation, t]);
 
     // Get connection info when in remote mode
     useEffect(() => {
@@ -250,7 +256,7 @@ export const EventManagement = ({ route }: Props) => {
             }
             setModalVisible(false);
         } catch (error) {
-            Alert.alert('Error', 'Failed to save event.');
+            Alert.alert(t('common.error'), t('eventManagement.failedToOpenEvent'));
             console.error(error);
         }
     };
@@ -265,11 +271,11 @@ export const EventManagement = ({ route }: Props) => {
 
     const confirmRemoveEvent = (id: number) => {
         Alert.alert(
-            'Confirm Delete',
-            'Are you sure you want to delete this event?',
+            t('eventManagement.confirmDelete'),
+            t('eventManagement.confirmDeleteMessage'),
             [
-                { text: 'Cancel', style: 'cancel' },
-                { text: 'OK', onPress: () => handleRemoveEvent(id) },
+                { text: t('common.cancel'), style: 'cancel' },
+                { text: t('common.confirm'), onPress: () => handleRemoveEvent(id) },
             ],
             { cancelable: true }
         );
@@ -277,11 +283,11 @@ export const EventManagement = ({ route }: Props) => {
 
     const confirmStartEvent = (id: number) => {
         Alert.alert(
-            'Confirm Start',
-            'Are you sure you want to start this event?',
+            t('eventManagement.confirmStart'),
+            t('eventManagement.confirmStartMessage'),
             [
-                { text: 'Cancel', style: 'cancel' },
-                { text: 'OK', onPress: () => handleStartEvent(id) },
+                { text: t('common.cancel'), style: 'cancel' },
+                { text: t('common.confirm'), onPress: () => handleStartEvent(id) },
             ],
             { cancelable: true }
         );
@@ -610,18 +616,15 @@ export const EventManagement = ({ route }: Props) => {
 
     return (
         <ScrollView contentContainerStyle={styles.container}>
+            {/* Tournament title at the top, centered */}
             <Text style={styles.title}>
-                {isRemote ? remoteConnectionInfo?.tournamentName || tournamentName || 'Tournament' : 'Edit Tournament'}
+                {isRemote ? remoteConnectionInfo?.tournamentName || tournamentName || 'Tournament' : tournamentName}
             </Text>
 
             {/* Display user permissions */}
             <PermissionsDisplay tournamentName={tournamentName} />
 
             <View style={styles.headerContainer}>
-                <Text style={styles.tournamentName}>
-                    {isRemote ? remoteConnectionInfo?.tournamentName || tournamentName : tournamentName}
-                </Text>
-
                 {/* Connection Status (for remote connection only) */}
                 {isRemote && (
                     <View style={styles.remoteConnectionBanner}>
@@ -697,28 +700,32 @@ export const EventManagement = ({ route }: Props) => {
                         })
                     }
                 >
-                    <Text style={styles.manageOfficialsText}>Manage Officials</Text>
+                    <Text style={styles.manageOfficialsText}>{t('eventManagement.manageOfficials')}</Text>
                 </TouchableOpacity>
             </Can>
 
             {/* Use CASL's Can component to enable creating events only if user has permission */}
             <Can I="create" a="Event">
-                <Button title="Create Event" onPress={openCreateModal} disabled={createEventMutation.isPending} />
+                <Button
+                    title={t('eventManagement.createEvent')}
+                    onPress={openCreateModal}
+                    disabled={createEventMutation.isPending}
+                />
             </Can>
 
             {eventsLoading ? (
                 <View style={styles.loadingContainer}>
                     <ActivityIndicator size="large" color="#001f3f" />
-                    <Text style={styles.loadingText}>Loading events...</Text>
+                    <Text style={styles.loadingText}>{t('common.loading')}</Text>
                 </View>
             ) : eventsError ? (
                 <View style={styles.errorContainer}>
-                    <Text style={styles.errorText}>Error loading events. Please try again.</Text>
+                    <Text style={styles.errorText}>{t('eventManagement.errorLoading')}</Text>
                 </View>
             ) : (
                 <View style={styles.eventList}>
                     {events.length === 0 ? (
-                        <Text style={styles.noEventsText}>No events created yet</Text>
+                        <Text style={styles.noEventsText}>{t('eventManagement.noEvents')}</Text>
                     ) : (
                         events.map(event => (
                             <View key={event.id} style={styles.eventItem}>
@@ -772,7 +779,9 @@ export const EventManagement = ({ route }: Props) => {
                                                     styles.disabledText,
                                             ]}
                                         >
-                                            {eventStatuses && eventStatuses[event.id] === true ? 'Open' : 'Start'}
+                                            {eventStatuses && eventStatuses[event.id] === true
+                                                ? t('eventManagement.open')
+                                                : t('eventManagement.start')}
                                         </Text>
                                     </TouchableOpacity>
                                     <TouchableOpacity
@@ -809,31 +818,36 @@ export const EventManagement = ({ route }: Props) => {
             >
                 <View style={styles.modalOverlay}>
                     <View style={styles.modalContent}>
-                        <Text style={styles.modalTitle}>Create Event</Text>
+                        <Text style={styles.modalTitle}>{t('eventManagement.createEvent')}</Text>
 
                         {/* AGE SELECTOR */}
                         <View style={styles.rowGroup}>
-                            {['Cadet', 'Senior', 'Veteran'].map(ageOption => (
-                                <TouchableOpacity
-                                    key={ageOption}
-                                    style={[styles.optionButton, selectedAge === ageOption && styles.selectedButton]}
-                                    onPress={() => setSelectedAge(ageOption)}
-                                >
-                                    <Text
+                            {[t('eventFilters.cadet'), t('eventFilters.senior'), t('eventFilters.veteran')].map(
+                                ageOption => (
+                                    <TouchableOpacity
+                                        key={ageOption}
                                         style={[
-                                            styles.optionText,
-                                            { color: selectedAge === ageOption ? '#fff' : '#000' },
+                                            styles.optionButton,
+                                            selectedAge === ageOption && styles.selectedButton,
                                         ]}
+                                        onPress={() => setSelectedAge(ageOption)}
                                     >
-                                        {ageOption}
-                                    </Text>
-                                </TouchableOpacity>
-                            ))}
+                                        <Text
+                                            style={[
+                                                styles.optionText,
+                                                { color: selectedAge === ageOption ? '#fff' : '#000' },
+                                            ]}
+                                        >
+                                            {ageOption}
+                                        </Text>
+                                    </TouchableOpacity>
+                                )
+                            )}
                         </View>
 
                         {/* GENDER BUTTONS */}
                         <View style={styles.rowGroup}>
-                            {["Men's", 'Mixed', "Women's"].map(gender => (
+                            {[t('eventFilters.mens'), t('eventFilters.mixed'), t('eventFilters.womens')].map(gender => (
                                 <TouchableOpacity
                                     key={gender}
                                     style={[styles.optionButton, selectedGender === gender && styles.selectedButton]}
@@ -853,7 +867,7 @@ export const EventManagement = ({ route }: Props) => {
 
                         {/* WEAPON BUTTONS */}
                         <View style={styles.rowGroup}>
-                            {['Epee', 'Foil', 'Saber'].map(weapon => (
+                            {[t('eventFilters.epee'), t('eventFilters.foil'), t('eventFilters.saber')].map(weapon => (
                                 <TouchableOpacity
                                     key={weapon}
                                     style={[styles.optionButton, selectedWeapon === weapon && styles.selectedButton]}
@@ -873,13 +887,13 @@ export const EventManagement = ({ route }: Props) => {
 
                         <View style={styles.modalActions}>
                             <TouchableOpacity style={styles.modalActionButton} onPress={handleSubmitEvent}>
-                                <Text style={styles.modalActionText}>Submit</Text>
+                                <Text style={styles.modalActionText}>{t('common.submit')}</Text>
                             </TouchableOpacity>
                             <TouchableOpacity
                                 style={[styles.modalActionButton, styles.cancelButton]}
                                 onPress={() => setModalVisible(false)}
                             >
-                                <Text style={styles.modalActionText}>Cancel</Text>
+                                <Text style={styles.modalActionText}>{t('common.cancel')}</Text>
                             </TouchableOpacity>
                         </View>
                     </View>
@@ -902,8 +916,10 @@ const styles = StyleSheet.create({
     },
     title: {
         fontSize: 26,
-        marginBottom: 10,
+        marginBottom: 20,
         color: navyBlue,
+        textAlign: 'center',
+        fontWeight: 'bold',
     },
     headerContainer: {
         width: '100%',
