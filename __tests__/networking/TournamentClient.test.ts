@@ -4,6 +4,7 @@ import AsyncStorage from 'expo-sqlite/kv-store';
 import TcpSocket from 'react-native-tcp-socket';
 import tournamentClient from '../../src/networking/TournamentClient';
 import * as NetworkUtils from '../../src/networking/NetworkUtils';
+import { ConnectionOptions } from 'react-native-tcp-socket/lib/types/Socket';
 
 // Mock dependencies
 jest.mock('react-native', () => ({
@@ -16,16 +17,27 @@ jest.mock('react-native', () => ({
     NativeModules: {},
 }));
 
-jest.mock('react-native-tcp-socket', () => ({
-    createConnection: jest.fn(() => ({
-        on: jest.fn((event, callback) => {
+jest.mock('react-native-tcp-socket', () => {
+    const mockSocketCallbacks: Record<string, Function> = {};
+    const mockSocket: any = {
+        on: jest.fn((event: string, callback: (...args: any[]) => void): any => {
             mockSocketCallbacks[event] = callback;
-            return this;
+            return mockSocket;
         }),
         write: jest.fn().mockReturnValue(true),
         destroy: jest.fn(),
-    })),
-}));
+    };
+    const createConnection = jest.fn(
+        (options: ConnectionOptions, callback: () => void) => {
+            setTimeout(callback, 10);
+            return mockSocket;
+        }
+    );
+    return {
+        createConnection,
+        __mockSocketCallbacks: mockSocketCallbacks,
+    };
+});
 
 jest.mock('expo-sqlite/kv-store', () => ({
     getItem: jest.fn(),
@@ -38,29 +50,27 @@ jest.mock('../../src/networking/NetworkUtils', () => ({
     getClientId: jest.fn().mockResolvedValue('client-123'),
 }));
 
+
 // Store mock callbacks for simulating socket events
-const mockSocketCallbacks: Record<string, Function> = {};
+//const mockSocketCallbacks: Record<string, Function> = {};
+const mockSocketCallbacks: Record<string, Function> = (TcpSocket as any).__mockSocketCallbacks;
+const createConnectionMock = TcpSocket.createConnection as jest.Mock;
 
 describe('TournamentClient', () => {
     beforeEach(() => {
         jest.clearAllMocks();
-        // Reset mock socket callbacks
-        Object.keys(mockSocketCallbacks).forEach(key => {
-            delete mockSocketCallbacks[key];
-        });
-
-        // Reset internal state of tournamentClient
-        // This is necessary since we're testing a singleton
-        // @ts-ignore - accessing private properties for testing
-        tournamentClient.socket = null;
+        Object.keys(mockSocketCallbacks).forEach(key => delete mockSocketCallbacks[key]);
+        // Reset internal singleton state using bracket + ts-ignore
         // @ts-ignore
-        tournamentClient.clientInfo = null;
+        tournamentClient['socket'] = null;
         // @ts-ignore
-        tournamentClient.reconnectTimer = null;
+        tournamentClient['clientInfo'] = null;
         // @ts-ignore
-        tournamentClient.messageQueue = [];
+        tournamentClient['reconnectTimer'] = null;
         // @ts-ignore
-        tournamentClient.connectionAttempts = 0;
+        tournamentClient['messageQueue'] = [];
+        // @ts-ignore
+        tournamentClient['connectionAttempts'] = 0;
     });
 
     describe('Message handling', () => {
@@ -113,7 +123,7 @@ describe('TournamentClient', () => {
 
             // Simulate successful connection callback
             const mockSocket = TcpSocket.createConnection.mock.results[0].value;
-            mockSocket.on.mock.calls.find(call => call[0] === 'data')[1](
+            mockSocket.on.mock.calls.find((call: string[]) => call[0] === 'data')[1](
                 Buffer.from('{"type":"welcome","tournamentName":"Test Tournament"}\n')
             );
 
@@ -169,7 +179,7 @@ describe('TournamentClient', () => {
         it('should handle socket errors', async () => {
             // Create a socket with a mock error handler
             const mockSocket = {
-                on: jest.fn((event, callback) => {
+                on: jest.fn((event, callback): any => {
                     if (event === 'error') {
                         setTimeout(() => callback(new Error('Socket error')), 10);
                     }
