@@ -9,19 +9,15 @@ describe('CompassDrawPage', () => {
     });
 
     it('applies correct styles', () => {
-        const { getByText } = render(<CompassDrawPage />);
+        const { getByText, getByTestId } = render(<CompassDrawPage />);
         const tbdText = getByText('tbd');
 
-        // Get the View container (parent of the Text component)
-        const container = tbdText.parent.parent;
+        // Use toHaveStyle for style assertions
+        expect(tbdText).toHaveStyle({ fontSize: 24 });
 
-        // Verify text styling
-        expect(tbdText.props.style).toEqual({
-            fontSize: 24,
-        });
-
-        // Verify container styling
-        expect(container.props.style).toEqual({
+        // If container has no testID, modify CompassDrawPage to add one
+        const container = getByTestId('compass-container');
+        expect(container).toHaveStyle({
             flex: 1,
             justifyContent: 'center',
             alignItems: 'center',

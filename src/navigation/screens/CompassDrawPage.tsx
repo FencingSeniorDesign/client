@@ -7,7 +7,7 @@ const CompassDrawPage: React.FC = () => {
     const { t } = useTranslation();
 
     return (
-        <View style={styles.container}>
+        <View style={styles.container} testID="compass-container">
             <Text style={styles.text}>{t('compassDrawPage.tbd')}</Text>
         </View>
     );

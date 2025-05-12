@@ -28,6 +28,7 @@ describe('DENavigationUtil', () => {
 
     beforeEach(() => {
         jest.clearAllMocks();
+        jest.spyOn(console, 'error').mockImplementation(() => {}); //new
     });
 
     describe('navigateToDEPage', () => {
@@ -117,11 +118,12 @@ describe('DENavigationUtil', () => {
         });
 
         it('handles invalid inputs gracefully', () => {
-            // Test with undefined round
+            // Undefined round
             navigateToDEPage(mockNavigation as any, mockEvent as any, undefined as any, 0);
             expect(mockNavigation.navigate).not.toHaveBeenCalled();
-
-            // Test with undefined event
+            expect(console.error).toHaveBeenCalledWith('navigateToDEPage: round is undefined');
+        
+            // Undefined event
             navigateToDEPage(
                 mockNavigation as any,
                 undefined as any,
@@ -129,10 +131,12 @@ describe('DENavigationUtil', () => {
                 0
             );
             expect(mockNavigation.navigate).not.toHaveBeenCalled();
-
-            // Test with non-DE round
+            expect(console.error).toHaveBeenCalledWith('navigateToDEPage: event is undefined');
+        
+            // Non-DE round
             navigateToDEPage(mockNavigation as any, mockEvent as any, { id: 1, type: 'pool' } as any, 0);
             expect(mockNavigation.navigate).not.toHaveBeenCalled();
+            expect(console.error).toHaveBeenCalledWith('This function should only be used for DE rounds');
         });
     });
 

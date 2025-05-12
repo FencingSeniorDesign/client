@@ -2,6 +2,7 @@
 import { Alert } from 'react-native';
 import AsyncStorage from 'expo-sqlite/kv-store';
 import tournamentClient from '../../src/networking/TournamentClient';
+import { ConnectionOptions } from 'react-native-tcp-socket/lib/types/Socket';
 
 // Mocking dependencies
 jest.mock('react-native', () => ({
@@ -199,11 +200,14 @@ describe('ClientInfo operations', () => {
                 destroy: jest.fn(),
             };
             const mockTcpSocket = require('react-native-tcp-socket');
-            mockTcpSocket.createConnection.mockImplementation((options, callback) => {
-                // Simulate successful connection by calling the callback
-                setTimeout(callback, 10);
-                return mockSocket;
-            });
+
+            mockTcpSocket.createConnection.mockImplementation(
+                (options: ConnectionOptions, callback: () => void) => {
+                    setTimeout(callback, 10);
+                    return mockSocket;
+                }
+            );
+            
 
             // Spy on the emit method and sendMessageRaw
             const emitSpy = jest.spyOn(tournamentClient, 'emit');
