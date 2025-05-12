@@ -282,6 +282,46 @@ describe('BoutOrderUtils', () => {
             const originalIds = fencers.map(f => f.id).sort();
             expect(assignedIds).toEqual(originalIds);
         });
+
+        // This test directly targets line 386 by mocking the implementation of map
+        it('falls back to original fencer when a fencer is null in the array', () => {
+            const fencers: Fencer[] = [
+                { id: 1, fname: 'Alice', lname: 'Smith', club: 'Club A' } as Fencer,
+                { id: 2, fname: 'Bob', lname: 'Jones', club: 'Club B' } as Fencer,
+                { id: 3, fname: 'Charlie', lname: 'Brown', club: 'Club C' } as Fencer,
+                { id: 4, fname: 'David', lname: 'Miller', club: 'Club D' } as Fencer,
+            ];
+
+            // Mock Array.prototype.map to simulate the specific case
+            const originalMap = Array.prototype.map;
+            Array.prototype.map = function(callback) {
+                const result = [];
+                for (let i = 0; i < this.length; i++) {
+                    // For index 2, pass null as the fencer to trigger the fallback
+                    const fencer = i === 2 ? null : this[i];
+                    result.push(callback(fencer, i, this));
+                }
+                return result;
+            };
+
+            try {
+                const result = assignPoolPositions(fencers);
+                
+                // Verify all positions have fencers with pool numbers
+                expect(result.length).toBe(fencers.length);
+                for (let i = 0; i < result.length; i++) {
+                    expect(result[i]).toBeDefined();
+                    expect(result[i].poolNumber).toBe(i + 1);
+                }
+
+                // Specifically verify that position 2 used the original fencer
+                expect(result[2].id).toBe(fencers[2].id);
+                expect(result[2].fname).toBe('Charlie');
+            } finally {
+                // Restore the original map function
+                Array.prototype.map = originalMap;
+            }
+        });
     });
 
     describe('getBoutOrder', () => {
