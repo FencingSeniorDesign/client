@@ -1,5 +1,6 @@
 module.exports = {
   preset: 'jest-expo',
+  testEnvironment: 'jsdom',
   transform: {
     '^.+\\.(js|ts|tsx)$': 'babel-jest',
   },

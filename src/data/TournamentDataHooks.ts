@@ -106,7 +106,7 @@ export function useRoundCompleted(roundId: number) {
         }, // Fetch the full round
         enabled: !!roundId,
         staleTime: 0, // Don't cache this at all - always refetch when requested
-        cacheTime: 0, // Don't keep old data in cache
+        //cacheTime: 0, // Don't keep old data in cache
         refetchOnMount: true, // Always refetch when the component mounts
         refetchOnWindowFocus: true, // Refetch when the window regains focus
         refetchInterval: 3000, // Poll every 3 seconds to pick up changes
