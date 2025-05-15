@@ -744,60 +744,83 @@ This section describes the static architecture of the application's major compon
 ```mermaid
 classDiagram
     class Home {
-        -tournamentList: Tournament[]
-        -ongoingTournaments: Tournament[]
-        -completedTournaments: Tournament[]
-        -modalVisible: boolean
-        +loadTournaments(): void
-        +createTournament(): void
-        +selectTournament(tournament: Tournament): void
-        +openRefereeModule(): void
+        -joinModalVisible: boolean
+        -connectedTournament: string|null
+        -deviceId: string
+        +useOngoingTournaments(): QueryResult
+        +useCompletedTournaments(): QueryResult
+        +handleJoinSuccess(tournamentName: string): void
+        +handleDisconnect(): void
+        +refreshTournaments(): void
         +render(): JSX.Element
     }
 
-    class CreateTournamentModal {
+    class AbilityContext {
+        -ability: Ability
+        -setTournamentContext(ctx: any): void
+        +can(action: string, subject: any): boolean
+        +provide(): JSX.Element
+    }
+
+    class QueryClient {
+        -queryCache: QueryCache
+        -mutationCache: MutationCache
+        +invalidateQueries(key: any): void
+        +prefetchQuery(key: any, fn: any): void
+    }
+
+    class CreateTournamentButton {
+        -modalVisible: boolean
         -tournamentName: string
-        -isVisible: boolean
-        -error: string|null
-        +setTournamentName(name: string): void
-        +validateName(): boolean
-        +createTournament(): void
-        +dismiss(): void
+        -onTournamentCreated: Function
+        +handleSubmit(): void
         +render(): JSX.Element
     }
 
-    class TournamentListComponent {
+    class JoinTournamentModal {
+        -serverAddress: string
+        -port: number
+        -tournamentName: string
+        -onJoinSuccess: Function
+        +handleConnect(): void
+        +render(): JSX.Element
+    }
+
+    class TournamentList {
         -tournaments: Tournament[]
-        -title: string
-        -onSelect(tournament: Tournament): void
+        -onTournamentDeleted: Function
+        -isComplete: boolean
+        +navigateToEvent(tournament: Tournament): void
         +render(): JSX.Element
     }
 
-    Home --> CreateTournamentModal: opens
-    Home --> TournamentListComponent: displays ongoing tournaments
-    Home --> TournamentListComponent: displays completed tournaments
-```
-
-The Home screen is the entry point of the application, providing access to tournament management features. It maintains lists of ongoing and completed tournaments, and allows the user to create new tournaments or select existing ones.
-
-##### 4.2.1.1 Home
-
-```mermaid
-classDiagram
-    class Home {
-        -tournamentList: Tournament[]
-        -ongoingTournaments: Tournament[]
-        -completedTournaments: Tournament[]
-        -modalVisible: boolean
-        +loadTournaments(): void
-        +createTournament(): void
-        +selectTournament(tournament: Tournament): void
-        +openRefereeModule(): void
+    class LanguageSwitcher {
+        -languages: string[]
+        +changeLanguage(lng: string): void
         +render(): JSX.Element
     }
+
+    class TournamentClient {
+        -socket: Socket
+        -clientInfo: ClientInfo
+        +connect(host: string, port: number): Promise
+        +disconnect(): Promise
+        +loadClientInfo(): Promise
+        +getClientInfo(): ClientInfo
+    }
+
+    Home --> CreateTournamentButton: renders
+    Home --> JoinTournamentModal: opens
+    Home --> TournamentList: displays tournaments
+    Home --> LanguageSwitcher: renders
+    Home --> QueryClient: uses for data
+    Home --> AbilityContext: uses for permissions
+    Home --> TournamentClient: manages connection
 ```
 
-###### 4.2.1.1.1 Attributes
+The Home screen is the entry point of the application, providing access to tournament management features. The current implementation uses TanStack Query hooks (`useOngoingTournaments` and `useCompletedTournaments`) for data management instead of direct database calls. It also incorporates role-based access control through the AbilityContext and internationalization for multilingual support.
+
+The screen manages tournament connectivity through the TournamentClient service, allowing users to join remote tournaments. The UI is divided into sections for ongoing tournaments and completed tournaments, with each rendered through the TournamentList component. The LanguageSwitcher component enables users to change the application language.
 
 | Name                 | Access  | Type         | Description                                                |
 | -------------------- | ------- | ------------ | ---------------------------------------------------------- |
@@ -928,47 +951,76 @@ classDiagram
 classDiagram
     class EventManagement {
         -tournamentName: string
-        -events: Event[]
-        -loading: boolean
-        -modalVisible: boolean
-        +loadEvents(): void
-        +createEvent(eventData: EventData): void
-        +deleteEvent(eventId: number): void
-        +startEvent(event: Event): void
+        -isRemote: boolean
+        -serverEnabled: boolean
+        -isNetworkConnected: boolean
+        +useEvents(tournamentName): QueryResult
+        +useEventStatuses(events): QueryResult
+        +createEventMutation: MutationResult
+        +checkServerStatus(): Promise<boolean>
+        +checkNetworkConnectivity(): Promise<boolean>
+        +handleStartServer(): void
+        +handleStopServer(): void
         +render(): JSX.Element
     }
 
-    class EventItem {
+    class QueryClient {
+        -queryCache: QueryCache
+        -mutationCache: MutationCache
+        +invalidateQueries(key: any): void
+        +prefetchQuery(key: any, fn: any): void
+    }
+
+    class TournamentServer {
+        -server: Server
+        -serverInfo: ServerInfo
+        +startServer(port: number): Promise
+        +stopServer(): Promise
+        +isServerRunning(): boolean
+        +getServerInfo(): ServerInfo
+        +setQueryClient(client: QueryClient): void
+    }
+    
+    class AbilityContext {
+        -ability: Ability
+        +can(action: string, subject: any): boolean
+    }
+
+    class ConnectionStatusBar {
+        -isConnected: boolean
+        -serverInfo: ServerInfo
+        -isNetworkConnected: boolean
+        +render(): JSX.Element
+    }
+
+    class EventCard {
         -event: Event
-        -onStart(event: Event): void
+        -isStarted: boolean
+        -onConfigure(event: Event): void
         -onDelete(eventId: number): void
-        -onEdit(event: Event): void
+        -onNavigateToEvent(event: Event): void
         +render(): JSX.Element
     }
 
-    class CreateEventModal {
-        -eventName: string
-        -weapon: string
-        -gender: string
-        -ageClass: string
-        -isVisible: boolean
-        -error: string|null
-        +setEventName(name: string): void
-        +setWeapon(weapon: string): void
-        +setGender(gender: string): void
-        +setAgeClass(ageClass: string): void
-        +validateEvent(): boolean
-        +createEvent(): void
-        +dismiss(): void
-        +render(): JSX.Element
+    class Can {
+        -I: string
+        -a: string
+        -this: any
+        -do: string
+        -on: any
+        -children: ReactNode
+        +render(): JSX.Element|null
     }
 
-    EventManagement --> EventItem: displays
-    EventManagement --> CreateEventModal: opens
-    EventManagement --> TournamentDatabaseUtils: uses
+    EventManagement --> QueryClient: uses for data
+    EventManagement --> TournamentServer: manages server
+    EventManagement --> AbilityContext: checks permissions
+    EventManagement --> ConnectionStatusBar: displays network status
+    EventManagement --> EventCard: displays events
+    EventManagement --> Can: controls access
 ```
 
-The Event Management screen displays and manages events within a selected tournament. It allows users to create, delete, and start events.
+The Event Management screen displays and manages events within a selected tournament. The current implementation supports both local and remote tournament management, with the ability to host a tournament server or connect to a remote one. It uses TanStack Query for data management and RBAC for permission control.
 
 ##### 4.2.2.1 EventManagement
 
@@ -976,422 +1028,265 @@ The Event Management screen displays and manages events within a selected tourna
 classDiagram
     class EventManagement {
         -tournamentName: string
-        -events: Event[]
-        -loading: boolean
-        -modalVisible: boolean
-        +loadEvents(): void
-        +createEvent(eventData: EventData): void
-        +deleteEvent(eventId: number): void
-        +startEvent(event: Event): void
+        -isRemote: boolean
+        -serverEnabled: boolean
+        -isNetworkConnected: boolean
+        -serverInfo: {ip: string, port: number}
+        -localIpAddress: string
+        -serverOperationPending: boolean
+        -selectedGender: string
+        -selectedWeapon: string
+        -selectedAge: string
+        +useEvents(tournamentName): QueryResult
+        +useEventStatuses(events): QueryResult
+        +createEventMutation: MutationResult
+        +handleCreateEvent(): void
         +render(): JSX.Element
     }
 ```
 
 ###### 4.2.2.1.1 Attributes
 
-| Name           | Access  | Type    | Description                                   |
-| -------------- | ------- | ------- | --------------------------------------------- |
-| tournamentName | private | string  | Name of the selected tournament               |
-| events         | private | Event[] | List of events within the tournament          |
-| loading        | private | boolean | Indicates if data is being loaded             |
-| modalVisible   | private | boolean | Controls visibility of the create event modal |
+| Name                 | Access  | Type                  | Description                                      |
+| -------------------- | ------- | --------------------- | ------------------------------------------------ |
+| tournamentName       | private | string               | Name of the selected tournament                  |
+| isRemote             | private | boolean              | Indicates if this is a remote connection         |
+| serverEnabled        | private | boolean              | Indicates if server hosting is active            |
+| isNetworkConnected   | private | boolean              | Indicates if device has network connectivity     |
+| serverInfo           | private | {ip: string, port: number} | Information about the hosted server        |
+| localIpAddress       | private | string               | Device's local IP address for server hosting     |
+| serverOperationPending | private | boolean           | Indicates if server operations are in progress   |
+| selectedGender       | private | string               | Gender selection for new events                  |
+| selectedWeapon       | private | string               | Weapon selection for new events                  |
+| selectedAge          | private | string               | Age class selection for new events               |
 
 ###### 4.2.2.1.2 Methods
 
-| Name:            | loadEvents                                                       |
-| ---------------- | ---------------------------------------------------------------- |
-| **Input:**       | None                                                             |
-| **Output:**      | void                                                             |
-| **Description:** | Fetches event data for the current tournament from the database. |
+| Name:            | useEvents                                                                       |
+| ---------------- | ------------------------------------------------------------------------------- |
+| **Input:**       | string tournamentName : Name of the tournament to fetch events for              |
+| **Output:**      | QueryResult<Event[]>                                                           |
+| **Description:** | TanStack Query hook that fetches and caches events for the specified tournament |
 
-| Name:            | createEvent                                                        |
-| ---------------- | ------------------------------------------------------------------ |
-| **Input:**       | EventData eventData : The data for the new event                   |
-| **Output:**      | void                                                               |
-| **Description:** | Creates a new event with the specified parameters in the database. |
+| Name:            | useEventStatuses                                                               |
+| ---------------- | ------------------------------------------------------------------------------ |
+| **Input:**       | Event[] events : Array of events to fetch statuses for                         |
+| **Output:**      | QueryResult<{[eventId: number]: boolean}>                                     |
+| **Description:** | TanStack Query hook that fetches and caches status information for each event  |
 
-| Name:            | deleteEvent                                            |
-| ---------------- | ------------------------------------------------------ |
-| **Input:**       | number eventId : The identifier of the event to delete |
-| **Output:**      | void                                                   |
-| **Description:** | Deletes an event from the database after confirmation. |
-
-| Name:            | startEvent                                                               |
-| ---------------- | ------------------------------------------------------------------------ |
-| **Input:**       | Event event : The event to start or configure                            |
-| **Output:**      | void                                                                     |
-| **Description:** | Navigates to the event settings screen to configure and start the event. |
-
-| Name:            | render                                                                   |
-| ---------------- | ------------------------------------------------------------------------ |
-| **Input:**       | None                                                                     |
-| **Output:**      | JSX.Element                                                              |
-| **Description:** | Renders the event management screen with event list and control buttons. |
-
-##### 4.2.2.2 EventItem
-
-```mermaid
-classDiagram
-    class EventItem {
-        -event: Event
-        -onStart(event: Event): void
-        -onDelete(eventId: number): void
-        -onEdit(event: Event): void
-        +render(): JSX.Element
-    }
-```
-
-###### 4.2.2.2.1 Attributes
-
-| Name     | Access  | Type     | Description                          |
-| -------- | ------- | -------- | ------------------------------------ |
-| event    | private | Event    | The event data to display            |
-| onStart  | private | function | Callback when user starts the event  |
-| onDelete | private | function | Callback when user deletes the event |
-| onEdit   | private | function | Callback when user edits the event   |
-
-###### 4.2.2.2.2 Methods
-
-| Name:            | render                                                                  |
-| ---------------- | ----------------------------------------------------------------------- |
+| Name:            | checkServerStatus                                                      |
+| ---------------- | ---------------------------------------------------------------------- |
 | **Input:**       | None                                                                    |
-| **Output:**      | JSX.Element                                                             |
-| **Description:** | Renders an individual event item with event details and action buttons. |
+| **Output:**      | Promise<boolean>                                                       |
+| **Description:** | Checks if the tournament server is running and updates UI state         |
 
-##### 4.2.2.3 CreateEventModal
+| Name:            | checkNetworkConnectivity                                                    |
+| ---------------- | --------------------------------------------------------------------------- |
+| **Input:**       | None                                                                         |
+| **Output:**      | Promise<boolean>                                                            |
+| **Description:** | Checks if the device has network connectivity and updates the UI accordingly |
 
-```mermaid
-classDiagram
-    class CreateEventModal {
-        -eventName: string
-        -weapon: string
-        -gender: string
-        -ageClass: string
-        -isVisible: boolean
-        -error: string|null
-        +setEventName(name: string): void
-        +setWeapon(weapon: string): void
-        +setGender(gender: string): void
-        +setAgeClass(ageClass: string): void
-        +validateEvent(): boolean
-        +createEvent(): void
-        +dismiss(): void
-        +render(): JSX.Element
-    }
-```
+| Name:            | handleStartServer                                                                 |
+| ---------------- | --------------------------------------------------------------------------------- |
+| **Input:**       | None                                                                               |
+| **Output:**      | void                                                                               |
+| **Description:** | Starts the tournament server for hosting, allowing other devices to connect to it  |
 
-###### 4.2.2.3.1 Attributes
+| Name:            | handleCreateEvent                                                            |
+| ---------------- | ---------------------------------------------------------------------------- |
+| **Input:**       | None                                                                         |
+| **Output:**      | void                                                                         |
+| **Description:** | Creates an event with the selected weapon, gender, and age class parameters using the createEventMutation function from TanStack Query |
 
-| Name      | Access  | Type         | Description                                        |
-| --------- | ------- | ------------ | -------------------------------------------------- |
-| eventName | private | string       | Name input for the new event                       |
-| weapon    | private | string       | Selected weapon type (foil, epee, saber)           |
-| gender    | private | string       | Selected gender category (mixed, men, women)       |
-| ageClass  | private | string       | Selected age classification (senior, junior, etc.) |
-| isVisible | private | boolean      | Controls modal visibility                          |
-| error     | private | string\|null | Holds validation or persistence error messages     |
-
-###### 4.2.2.3.2 Methods
-
-| Name:            | setEventName                                  |
-| ---------------- | --------------------------------------------- |
-| **Input:**       | string name : The name to set for the event   |
-| **Output:**      | void                                          |
-| **Description:** | Updates the event name state with user input. |
-
-| Name:            | setWeapon                              |
-| ---------------- | -------------------------------------- |
-| **Input:**       | string weapon : The weapon type to set |
-| **Output:**      | void                                   |
-| **Description:** | Updates the weapon type selection.     |
-
-| Name:            | setGender                                  |
-| ---------------- | ------------------------------------------ |
-| **Input:**       | string gender : The gender category to set |
-| **Output:**      | void                                       |
-| **Description:** | Updates the gender category selection.     |
-
-| Name:            | setAgeClass                                     |
-| ---------------- | ----------------------------------------------- |
-| **Input:**       | string ageClass : The age classification to set |
-| **Output:**      | void                                            |
-| **Description:** | Updates the age classification selection.       |
-
-| Name:            | validateEvent                                                           |
-| ---------------- | ----------------------------------------------------------------------- |
-| **Input:**       | None                                                                    |
-| **Output:**      | boolean                                                                 |
-| **Description:** | Validates event data to ensure all required fields are properly filled. |
-
-| Name:            | createEvent                                                        |
-| ---------------- | ------------------------------------------------------------------ |
-| **Input:**       | None                                                               |
-| **Output:**      | void                                                               |
-| **Description:** | Creates a new event with the specified parameters in the database. |
-
-| Name:            | dismiss                                  |
-| ---------------- | ---------------------------------------- |
-| **Input:**       | None                                     |
-| **Output:**      | void                                     |
-| **Description:** | Closes the modal without saving changes. |
-
-| Name:            | render                                                               |
-| ---------------- | -------------------------------------------------------------------- |
-| **Input:**       | None                                                                 |
-| **Output:**      | JSX.Element                                                          |
-| **Description:** | Renders the modal dialog with event input fields and action buttons. |
+| Name:            | render                                                                         |
+| ---------------- | ------------------------------------------------------------------------------ |
+| **Input:**       | None                                                                           |
+| **Output:**      | JSX.Element                                                                    |
+| **Description:** | Renders the event management UI with event list, server controls, and actions  |
 
 #### 4.2.3 Event Settings
 
 ```mermaid
 classDiagram
     class EventSettings {
-        -eventId: number
         -event: Event
-        -tournamentName: string
-        -fencers: Fencer[]
-        -referees: Referee[]
-        -loading: boolean
-        +loadEventDetails(): void
-        +loadFencers(): void
-        +loadReferees(): void
-        +addFencer(fencer: Fencer): void
-        +removeFencer(fencerId: number): void
-        +addReferee(referee: Referee): void
-        +removeReferee(refereeId: number): void
-        +updateEventSettings(settings: EventSettings): void
-        +startEvent(): void
+        -isRemote: boolean
+        -selectedPoolConfig: PoolConfiguration
+        -importedCsvData: Fencer[]
+        +useRounds(eventId): QueryResult
+        +useFencers(event): QueryResult
+        +useAddFencer(): MutationResult
+        +useRemoveFencer(): MutationResult
+        +useCreateFencer(): MutationResult
+        +useAddRound(): MutationResult
+        +useInitializeRound(): MutationResult
+        +calculatePoolConfigurations(totalFencers): PoolConfiguration[]
+        +handleImportCSV(): void
+        +handleAddFencer(fencer: Fencer): void
+        +handleRemoveFencer(fencer: Fencer): void
+        +handleStartEvent(): void
         +render(): JSX.Element
     }
 
-    class FencerList {
-        -fencers: Fencer[]
-        -onRemove(fencerId: number): void
+    class QueryClient {
+        -queryCache: QueryCache
+        -mutationCache: MutationCache
+        +invalidateQueries(key: any): void
+        +prefetchQuery(key: any, fn: any): void
+    }
+
+    class ClubAutocomplete {
+        -query: string
+        -selectedClub: Club|null
+        -clubs: Club[]
+        +useSearchClubs(query): QueryResult
+        +useCreateClub(): MutationResult
+        +handleSelectClub(club: Club): void
+        +handleCreateClub(name: string): void
         +render(): JSX.Element
     }
 
-    class RefereeList {
-        -referees: Referee[]
-        -onRemove(refereeId: number): void
+    class CustomPicker {
+        -options: Option[]
+        -selectedValue: string
+        -onValueChange: Function
         +render(): JSX.Element
     }
 
-    class FormatSelection {
-        -selectedFormat: string
-        -onFormatChange(format: string): void
-        +render(): JSX.Element
+    class DocumentPicker {
+        +getDocumentAsync(): Promise<DocumentResult>
     }
 
-    EventSettings --> FencerList: displays
-    EventSettings --> RefereeList: displays
-    EventSettings --> FormatSelection: displays
-    EventSettings --> TournamentDatabaseUtils: uses
+    class FileSystem {
+        +readAsStringAsync(uri: string): Promise<string>
+    }
+    
+    class i18n {
+        +t(key: string): string
+    }
+
+    EventSettings --> QueryClient: uses for data
+    EventSettings --> ClubAutocomplete: displays
+    EventSettings --> CustomPicker: displays
+    EventSettings --> DocumentPicker: uses for CSV import
+    EventSettings --> FileSystem: uses for file reading
+    EventSettings --> i18n: uses for translations
 ```
 
-The Event Settings screen configures all aspects of an event before it begins, including format selection, participant management, and referee assignment.
+The Event Settings screen configures all aspects of an event before it begins, including format selection, participant management, and pool configuration. The current implementation uses TanStack Query for data management and provides advanced features like CSV import for fencers and intelligent pool configuration suggestions.
 
 ##### 4.2.3.1 EventSettings
 
 ```mermaid
 classDiagram
     class EventSettings {
-        -eventId: number
         -event: Event
-        -tournamentName: string
-        -fencers: Fencer[]
-        -referees: Referee[]
-        -loading: boolean
-        +loadEventDetails(): void
-        +loadFencers(): void
-        +loadReferees(): void
-        +addFencer(fencer: Fencer): void
-        +removeFencer(fencerId: number): void
-        +addReferee(referee: Referee): void
-        +removeReferee(refereeId: number): void
-        +updateEventSettings(settings: EventSettings): void
-        +startEvent(): void
+        -isRemote: boolean
+        -fencerSearch: string
+        -selectedClub: Club|null
+        -selectedPoolConfig: PoolConfiguration
+        -formatOptions: string[]
+        -importedCsvData: Fencer[]
+        +useRounds(eventId): QueryResult
+        +useFencers(event): QueryResult
+        +useAddFencer(): MutationResult
+        +useRemoveFencer(): MutationResult
+        +handleImportCSV(): void
         +render(): JSX.Element
     }
-```
-
 ###### 4.2.3.1.1 Attributes
 
-| Name           | Access  | Type      | Description                              |
-| -------------- | ------- | --------- | ---------------------------------------- |
-| eventId        | private | number    | Identifier of the event being configured |
-| event          | private | Event     | Complete event data object               |
-| tournamentName | private | string    | Name of the parent tournament            |
-| fencers        | private | Fencer[]  | List of fencers assigned to the event    |
-| referees       | private | Referee[] | List of referees assigned to the event   |
-| loading        | private | boolean   | Indicates if data is being loaded        |
+| Name                 | Access  | Type               | Description                                     |
+| -------------------- | ------- | ------------------ | ----------------------------------------------- |
+| event                | private | Event              | Event object containing configuration data      |
+| isRemote             | private | boolean            | Flag indicating if this is a remote connection  |
+| fencerSearch         | private | string             | Search query for fencer lookup                  |
+| selectedClub         | private | Club \| null       | Currently selected club for fencer registration |
+| selectedPoolConfig   | private | PoolConfiguration  | Selected pool distribution configuration        |
+| formatOptions        | private | string[]           | Available tournament format options             |
+| importedCsvData      | private | Fencer[]           | Data imported from CSV file                     |
 
 ###### 4.2.3.1.2 Methods
 
-| Name:            | loadEventDetails                                                                         |
-| ---------------- | ---------------------------------------------------------------------------------------- |
-| **Input:**       | None                                                                                     |
-| **Output:**      | void                                                                                     |
-| **Description:** | Fetches event details from the database including basic information and format settings. |
+| Name:            | useRounds                                                                        |
+| ---------------- | -------------------------------------------------------------------------------- |
+| **Input:**       | number eventId : ID of the event to get rounds for                              |
+| **Output:**      | QueryResult<Round[]>                                                            |
+| **Description:** | TanStack Query hook that fetches and manages round data for the specified event |
 
-| Name:            | loadFencers                                            |
-| ---------------- | ------------------------------------------------------ |
-| **Input:**       | None                                                   |
-| **Output:**      | void                                                   |
-| **Description:** | Fetches the list of fencers registered for this event. |
+| Name:            | useFencers                                                                |
+| ---------------- | ------------------------------------------------------------------------- |
+| **Input:**       | Event event : Event object to get fencers for                            |
+| **Output:**      | QueryResult<Fencer[]>                                                    |
+| **Description:** | TanStack Query hook that fetches and manages fencers for the given event |
 
-| Name:            | loadReferees                                         |
-| ---------------- | ---------------------------------------------------- |
-| **Input:**       | None                                                 |
-| **Output:**      | void                                                 |
-| **Description:** | Fetches the list of referees assigned to this event. |
+| Name:            | useAddFencer                                                                |
+| ---------------- | --------------------------------------------------------------------------- |
+| **Input:**       | None                                                                        |
+| **Output:**      | MutationResult<{ fencer: Fencer, event: Event }, unknown>                  |
+| **Description:** | TanStack Query mutation hook for adding a fencer to an event               |
 
-| Name:            | addFencer                                                           |
-| ---------------- | ------------------------------------------------------------------- |
-| **Input:**       | Fencer fencer : The fencer to add to the event                      |
-| **Output:**      | void                                                                |
-| **Description:** | Adds a fencer to the event and persists the change in the database. |
+| Name:            | useRemoveFencer                                                              |
+| ---------------- | ---------------------------------------------------------------------------- |
+| **Input:**       | None                                                                         |
+| **Output:**      | MutationResult<{ fencer: Fencer, event: Event }, unknown>                   |
+| **Description:** | TanStack Query mutation hook for removing a fencer from an event            |
 
-| Name:            | removeFencer                                              |
-| ---------------- | --------------------------------------------------------- |
-| **Input:**       | number fencerId : The identifier of the fencer to remove  |
-| **Output:**      | void                                                      |
-| **Description:** | Removes a fencer from the event and updates the database. |
+| Name:            | calculatePoolConfigurations                                                       |
+| ---------------- | --------------------------------------------------------------------------------- |
+| **Input:**       | number totalFencers : Total number of fencers to distribute                      |
+| **Output:**      | PoolConfiguration[]                                                              |
+| **Description:** | Calculates optimal pool distributions based on the number of participating fencers |
 
-| Name:            | addReferee                                                           |
-| ---------------- | -------------------------------------------------------------------- |
-| **Input:**       | Referee referee : The referee to add to the event                    |
-| **Output:**      | void                                                                 |
-| **Description:** | Adds a referee to the event and persists the change in the database. |
+| Name:            | handleImportCSV                                                                   |
+| ---------------- | --------------------------------------------------------------------------------- |
+| **Input:**       | None                                                                              |
+| **Output:**      | Promise<void>                                                                     |
+| **Description:** | Opens file picker, reads CSV, parses data, and converts it to fencer objects     |
 
-| Name:            | removeReferee                                              |
-| ---------------- | ---------------------------------------------------------- |
-| **Input:**       | number refereeId : The identifier of the referee to remove |
-| **Output:**      | void                                                       |
-| **Description:** | Removes a referee from the event and updates the database. |
+| Name:            | handleStartEvent                                                                  |
+| ---------------- | --------------------------------------------------------------------------------- |
+| **Input:**       | None                                                                              |
+| **Output:**      | Promise<void>                                                                     |
+| **Description:** | Creates a round, initializes it with the selected format, and navigates to the appropriate screen based on the format |
 
-| Name:            | updateEventSettings                                              |
-| ---------------- | ---------------------------------------------------------------- |
-| **Input:**       | EventSettings settings : The updated event settings              |
-| **Output:**      | void                                                             |
-| **Description:** | Updates the event configuration including format and parameters. |
+| Name:            | render                                                                          |
+| ---------------- | ------------------------------------------------------------------------------- |
+| **Input:**       | None                                                                            |
+| **Output:**      | JSX.Element                                                                     |
+| **Description:** | Renders the event settings UI with fencer management and format configuration   |
 
-| Name:            | startEvent                                                                                           |
-| ---------------- | ---------------------------------------------------------------------------------------------------- |
-| **Input:**       | None                                                                                                 |
-| **Output:**      | void                                                                                                 |
-| **Description:** | Initializes the event with current settings and navigates to the appropriate screen based on format. |
+#### 4.2.4 Pool Management 
 
-| Name:            | render                                                                                  |
-| ---------------- | --------------------------------------------------------------------------------------- |
-| **Input:**       | None                                                                                    |
-| **Output:**      | JSX.Element                                                                             |
-| **Description:** | Renders the event settings screen with all configuration options and participant lists. |
+The Pool Management components have been updated to integrate with TanStack Query for state management and real-time synchronization. Details about these components are described in section 4.1.5.
 
-##### 4.2.3.2 FencerList
+#### 4.2.5 Direct Elimination Management
 
-```mermaid
-classDiagram
-    class FencerList {
-        -fencers: Fencer[]
-        -onRemove(fencerId: number): void
-        +render(): JSX.Element
-    }
-```
+The Direct Elimination components have been updated to use TanStack Query for data management and real-time updates. Details about these components are described in section 4.1.6.
 
-###### 4.2.3.2.1 Attributes
+#### 4.2.6 Referee Module
 
-| Name     | Access  | Type     | Description                                |
-| -------- | ------- | -------- | ------------------------------------------ |
-| fencers  | private | Fencer[] | List of fencers to display                 |
-| onRemove | private | function | Callback function when a fencer is removed |
+The Referee Module components have been updated to support network connectivity, timer persistence, and card management. Details about these components are described in section 4.1.9.
 
-###### 4.2.3.2.2 Methods
+#### 4.2.7 Network Connectivity
 
-| Name:            | render                                                                 |
-| ---------------- | ---------------------------------------------------------------------- |
-| **Input:**       | None                                                                   |
-| **Output:**      | JSX.Element                                                            |
-| **Description:** | Renders the list of fencers with their information and remove buttons. |
+The application now includes comprehensive networking capabilities for distributed tournament management:
 
-##### 4.2.3.3 RefereeList
+1. The TournamentClient component handles connection to remote servers
+2. The TournamentServer component enables hosting tournaments for other devices
+3. The ConnectionStatusBar component displays current network status
+4. All data operations support both local and remote modes
 
-```mermaid
-classDiagram
-    class RefereeList {
-        -referees: Referee[]
-        -onRemove(refereeId: number): void
-        +render(): JSX.Element
-    }
-```
+#### 4.2.8 Role-Based Access Control
 
-###### 4.2.3.3.1 Attributes
+The application implements RBAC using the CASL library:
 
-| Name     | Access  | Type      | Description                                 |
-| -------- | ------- | --------- | ------------------------------------------- |
-| referees | private | Referee[] | List of referees to display                 |
-| onRemove | private | function  | Callback function when a referee is removed |
+1. The AbilityProvider component provides permission context
+2. The Can component handles conditional rendering based on permissions
+3. The ability.ts file defines permission rules for different user roles
+4. All components check permissions before performing restricted actions
 
-###### 4.2.3.3.2 Methods
-
-| Name:            | render                                                                  |
-| ---------------- | ----------------------------------------------------------------------- |
-| **Input:**       | None                                                                    |
-| **Output:**      | JSX.Element                                                             |
-| **Description:** | Renders the list of referees with their information and remove buttons. |
-
-##### 4.2.3.4 FormatSelection
-
-```mermaid
-classDiagram
-    class FormatSelection {
-        -selectedFormat: string
-        -onFormatChange(format: string): void
-        +render(): JSX.Element
-    }
-```
-
-###### 4.2.3.4.1 Attributes
-
-| Name           | Access  | Type     | Description                              |
-| -------------- | ------- | -------- | ---------------------------------------- |
-| selectedFormat | private | string   | Currently selected tournament format     |
-| onFormatChange | private | function | Callback function when format is changed |
-
-###### 4.2.3.4.2 Methods
-
-| Name:            | render                                                                                                                  |
-| ---------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| **Input:**       | None                                                                                                                    |
-| **Output:**      | JSX.Element                                                                                                             |
-| **Description:** | Renders the format selection controls with options for pools, single elimination, double elimination, and compass draw. |
-
-#### 4.2.4 Pools Page
-
-```mermaid
-classDiagram
-    class PoolsPage {
-        -eventId: number
-        -roundId: number
-        -pools: Pool[]
-        -loading: boolean
-        +loadPools(): void
-        +viewBoutOrder(poolId: number): void
-        +completePool(poolId: number): void
-        +calculateResults(): void
-        +render(): JSX.Element
-    }
-
-    class PoolDisplay {
-        -pool: Pool
-        -fencers: PoolFencer[]
-        -isComplete: boolean
-        -onViewBoutOrder(): void
-        -onComplete(): void
-        +render(): JSX.Element
-    }
-
-    class PoolTable {
-        -fencers: PoolFencer[]
+## 5. Data Model
         -boutResults: BoutResult[]
         +render(): JSX.Element
     }
