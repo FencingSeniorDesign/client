@@ -265,10 +265,12 @@ export class TournaFenceBoxService extends ScoringBoxService {
             });
 
             this.state.deviceId = targetDeviceId;
+            // Set the device name from the connected device
+            this.state.deviceName = this.device.name || this.device.localName || TOURNAFENCE_DEVICE_NAME;
             this.updateConnectionState(ConnectionState.CONNECTED);
             this.reconnectAttempts = 0;
 
-            console.log('Connected successfully to TournaFence box');
+            console.log('Connected successfully to TournaFence box', this.state.deviceName);
         } catch (error) {
             this.updateConnectionState(ConnectionState.DISCONNECTED, error.message);
 
