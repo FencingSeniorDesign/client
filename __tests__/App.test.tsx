@@ -1,4 +1,8 @@
 // __tests__/App.test.tsx
+import React from 'react';
+import { render } from '@testing-library/react-native';
+import { App } from '../src/App';
+
 jest.mock('react-native-gesture-handler', () => {
     const { View } = require('react-native');
     return {
@@ -24,10 +28,6 @@ jest.mock('expo-sqlite/kv-store', () => ({
         clear: jest.fn(() => Promise.resolve(null)),
     },
 }));
-
-import React from 'react';
-import { render } from '@testing-library/react-native';
-import { App } from '../src/App';
 
 // Mock expo modules to avoid executing their real logic during tests
 jest.mock('expo-asset', () => ({

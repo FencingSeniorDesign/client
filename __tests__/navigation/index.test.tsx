@@ -4,6 +4,9 @@ import { render, act } from '@testing-library/react-native';
 import { useTranslation } from 'react-i18next';
 import * as SplashScreen from 'expo-splash-screen';
 
+// Import the components to test after all mocks are set up
+import { AppNavigator, Navigation } from '../../src/navigation';
+
 // Mock the navigation-related dependencies
 jest.mock('@react-navigation/native-stack', () => ({
     createNativeStackNavigator: jest.fn(() => ({
@@ -81,9 +84,6 @@ jest.mock('react-i18next', () => ({
 jest.mock('expo-splash-screen', () => ({
     hideAsync: jest.fn(),
 }));
-
-// Import the components to test after all mocks are set up
-import { AppNavigator, Navigation } from '../../src/navigation';
 
 describe('Navigation Components', () => {
     beforeEach(() => {

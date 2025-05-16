@@ -980,7 +980,7 @@ classDiagram
         +getServerInfo(): ServerInfo
         +setQueryClient(client: QueryClient): void
     }
-    
+
     class AbilityContext {
         -ability: Ability
         +can(action: string, subject: any): boolean
@@ -1047,62 +1047,62 @@ classDiagram
 
 ###### 4.2.2.1.1 Attributes
 
-| Name                 | Access  | Type                  | Description                                      |
-| -------------------- | ------- | --------------------- | ------------------------------------------------ |
-| tournamentName       | private | string               | Name of the selected tournament                  |
-| isRemote             | private | boolean              | Indicates if this is a remote connection         |
-| serverEnabled        | private | boolean              | Indicates if server hosting is active            |
-| isNetworkConnected   | private | boolean              | Indicates if device has network connectivity     |
-| serverInfo           | private | {ip: string, port: number} | Information about the hosted server        |
-| localIpAddress       | private | string               | Device's local IP address for server hosting     |
-| serverOperationPending | private | boolean           | Indicates if server operations are in progress   |
-| selectedGender       | private | string               | Gender selection for new events                  |
-| selectedWeapon       | private | string               | Weapon selection for new events                  |
-| selectedAge          | private | string               | Age class selection for new events               |
+| Name                   | Access  | Type                       | Description                                    |
+| ---------------------- | ------- | -------------------------- | ---------------------------------------------- |
+| tournamentName         | private | string                     | Name of the selected tournament                |
+| isRemote               | private | boolean                    | Indicates if this is a remote connection       |
+| serverEnabled          | private | boolean                    | Indicates if server hosting is active          |
+| isNetworkConnected     | private | boolean                    | Indicates if device has network connectivity   |
+| serverInfo             | private | {ip: string, port: number} | Information about the hosted server            |
+| localIpAddress         | private | string                     | Device's local IP address for server hosting   |
+| serverOperationPending | private | boolean                    | Indicates if server operations are in progress |
+| selectedGender         | private | string                     | Gender selection for new events                |
+| selectedWeapon         | private | string                     | Weapon selection for new events                |
+| selectedAge            | private | string                     | Age class selection for new events             |
 
 ###### 4.2.2.1.2 Methods
 
 | Name:            | useEvents                                                                       |
 | ---------------- | ------------------------------------------------------------------------------- |
 | **Input:**       | string tournamentName : Name of the tournament to fetch events for              |
-| **Output:**      | QueryResult<Event[]>                                                           |
+| **Output:**      | QueryResult<Event[]>                                                            |
 | **Description:** | TanStack Query hook that fetches and caches events for the specified tournament |
 
-| Name:            | useEventStatuses                                                               |
-| ---------------- | ------------------------------------------------------------------------------ |
-| **Input:**       | Event[] events : Array of events to fetch statuses for                         |
+| Name:            | useEventStatuses                                                              |
+| ---------------- | ----------------------------------------------------------------------------- |
+| **Input:**       | Event[] events : Array of events to fetch statuses for                        |
 | **Output:**      | QueryResult<{[eventId: number]: boolean}>                                     |
-| **Description:** | TanStack Query hook that fetches and caches status information for each event  |
+| **Description:** | TanStack Query hook that fetches and caches status information for each event |
 
-| Name:            | checkServerStatus                                                      |
-| ---------------- | ---------------------------------------------------------------------- |
-| **Input:**       | None                                                                    |
-| **Output:**      | Promise<boolean>                                                       |
-| **Description:** | Checks if the tournament server is running and updates UI state         |
+| Name:            | checkServerStatus                                               |
+| ---------------- | --------------------------------------------------------------- |
+| **Input:**       | None                                                            |
+| **Output:**      | Promise<boolean>                                                |
+| **Description:** | Checks if the tournament server is running and updates UI state |
 
-| Name:            | checkNetworkConnectivity                                                    |
-| ---------------- | --------------------------------------------------------------------------- |
+| Name:            | checkNetworkConnectivity                                                     |
+| ---------------- | ---------------------------------------------------------------------------- |
 | **Input:**       | None                                                                         |
-| **Output:**      | Promise<boolean>                                                            |
+| **Output:**      | Promise<boolean>                                                             |
 | **Description:** | Checks if the device has network connectivity and updates the UI accordingly |
 
 | Name:            | handleStartServer                                                                 |
 | ---------------- | --------------------------------------------------------------------------------- |
-| **Input:**       | None                                                                               |
-| **Output:**      | void                                                                               |
-| **Description:** | Starts the tournament server for hosting, allowing other devices to connect to it  |
+| **Input:**       | None                                                                              |
+| **Output:**      | void                                                                              |
+| **Description:** | Starts the tournament server for hosting, allowing other devices to connect to it |
 
-| Name:            | handleCreateEvent                                                            |
-| ---------------- | ---------------------------------------------------------------------------- |
-| **Input:**       | None                                                                         |
-| **Output:**      | void                                                                         |
+| Name:            | handleCreateEvent                                                                                                                      |
+| ---------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| **Input:**       | None                                                                                                                                   |
+| **Output:**      | void                                                                                                                                   |
 | **Description:** | Creates an event with the selected weapon, gender, and age class parameters using the createEventMutation function from TanStack Query |
 
-| Name:            | render                                                                         |
-| ---------------- | ------------------------------------------------------------------------------ |
-| **Input:**       | None                                                                           |
-| **Output:**      | JSX.Element                                                                    |
-| **Description:** | Renders the event management UI with event list, server controls, and actions  |
+| Name:            | render                                                                        |
+| ---------------- | ----------------------------------------------------------------------------- |
+| **Input:**       | None                                                                          |
+| **Output:**      | JSX.Element                                                                   |
+| **Description:** | Renders the event management UI with event list, server controls, and actions |
 
 #### 4.2.3 Event Settings
 
@@ -1160,7 +1160,7 @@ classDiagram
     class FileSystem {
         +readAsStringAsync(uri: string): Promise<string>
     }
-    
+
     class i18n {
         +t(key: string): string
     }
@@ -1256,7 +1256,7 @@ classDiagram
 | **Output:**      | JSX.Element                                                                     |
 | **Description:** | Renders the event settings UI with fencer management and format configuration   |
 
-#### 4.2.4 Pool Management 
+#### 4.2.4 Pool Management
 
 The Pool Management components have been updated to integrate with TanStack Query for state management and real-time synchronization. Details about these components are described in section 4.1.5.
 

@@ -1,4 +1,11 @@
 // __tests__/navigation/screens/Home.test.tsx
+// __tests__/navigation/screens/Home.test.tsx
+import React from 'react';
+import { render, fireEvent, waitFor, act } from '@testing-library/react-native';
+import { Home } from '../../../src/navigation/screens/Home';
+import tournamentClient from '../../../src/networking/TournamentClient';
+import { View, Text, TouchableOpacity } from 'react-native';
+
 jest.mock('expo-sqlite/kv-store', () => ({
     __esModule: true,
     default: {
@@ -50,13 +57,6 @@ jest.mock('../../../src/rbac/AbilityContext', () => ({
         setTournamentContext: jest.fn(),
     }),
 }));
-
-// __tests__/navigation/screens/Home.test.tsx
-import React from 'react';
-import { render, fireEvent, waitFor, act } from '@testing-library/react-native';
-import { Home } from '../../../src/navigation/screens/Home';
-import tournamentClient from '../../../src/networking/TournamentClient';
-import { View, Text, TouchableOpacity } from 'react-native';
 
 // Mock tournamentClient methods
 jest.mock('../../../src/networking/TournamentClient', () => ({

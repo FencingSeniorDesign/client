@@ -294,7 +294,7 @@ describe('BoutOrderUtils', () => {
 
             // Mock Array.prototype.map to simulate the specific case
             const originalMap = Array.prototype.map;
-            Array.prototype.map = function(callback) {
+            Array.prototype.map = function (callback) {
                 const result = [];
                 for (let i = 0; i < this.length; i++) {
                     // For index 2, pass null as the fencer to trigger the fallback
@@ -306,7 +306,7 @@ describe('BoutOrderUtils', () => {
 
             try {
                 const result = assignPoolPositions(fencers);
-                
+
                 // Verify all positions have fencers with pool numbers
                 expect(result.length).toBe(fencers.length);
                 for (let i = 0; i < result.length; i++) {

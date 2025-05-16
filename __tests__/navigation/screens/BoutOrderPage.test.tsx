@@ -1,4 +1,12 @@
 // Add this mock at the very top to stub out expo-sqlite/kv-store.
+import React from 'react';
+import { render, waitFor, fireEvent, act } from '@testing-library/react-native';
+import { NavigationContainer } from '@react-navigation/native';
+import { Alert } from 'react-native';
+import BoutOrderPage from '../../../src/navigation/screens/BoutOrderPage';
+import { useBoutsForPool, usePools, useUpdatePoolBoutScores } from '../../../src/data/TournamentDataHooks';
+import { AppAbility } from '../../../src/rbac/ability';
+
 jest.mock('expo-sqlite/kv-store', () => ({
     __esModule: true,
     default: {
@@ -40,14 +48,6 @@ jest.mock('../../../src/db/DrizzleClient', () => ({
     },
     initializeDatabase: jest.fn(() => Promise.resolve()),
 }));
-
-import React from 'react';
-import { render, waitFor, fireEvent, act } from '@testing-library/react-native';
-import { NavigationContainer } from '@react-navigation/native';
-import { Alert } from 'react-native';
-import BoutOrderPage from '../../../src/navigation/screens/BoutOrderPage';
-import { useBoutsForPool, usePools, useUpdatePoolBoutScores } from '../../../src/data/TournamentDataHooks';
-import { AppAbility } from '../../../src/rbac/ability';
 
 // Mock the hooks used inside BoutOrderPage.
 jest.mock('../../../src/data/TournamentDataHooks', () => ({

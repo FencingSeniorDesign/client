@@ -278,7 +278,7 @@ const TournamentResultsPage: React.FC = () => {
             // Group fencers by elimination round
             const fencersByEliminationRound = new Map<
                 number | null,
-                Array<{
+                {
                     fencer: Fencer;
                     victories: number;
                     bouts: number;
@@ -286,7 +286,7 @@ const TournamentResultsPage: React.FC = () => {
                     touchesReceived: number;
                     indicator: number;
                     seed: number;
-                }>
+                }[]
             >();
 
             // Initialize the elimination round groups

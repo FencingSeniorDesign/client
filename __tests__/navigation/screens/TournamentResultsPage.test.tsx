@@ -1,3 +1,10 @@
+import React from 'react';
+import { render, fireEvent, waitFor } from '@testing-library/react-native';
+import TournamentResultsPage from '../../../src/navigation/screens/TournamentResultsPage';
+import { useRounds } from '../../../src/data/TournamentDataHooks';
+import dataProvider from '../../../src/data/DrizzleDataProvider';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+
 const mockGoBack = jest.fn();
 jest.mock('@react-navigation/native', () => ({
     useNavigation: () => ({
@@ -11,13 +18,6 @@ jest.mock('@react-navigation/native', () => ({
         },
     }),
 }));
-
-import React from 'react';
-import { render, fireEvent, waitFor } from '@testing-library/react-native';
-import TournamentResultsPage from '../../../src/navigation/screens/TournamentResultsPage';
-import { useRounds } from '../../../src/data/TournamentDataHooks';
-import dataProvider from '../../../src/data/DrizzleDataProvider';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 // Create a test query client
 const queryClient = new QueryClient({

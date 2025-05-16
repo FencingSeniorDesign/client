@@ -27,12 +27,10 @@ jest.mock('react-native-tcp-socket', () => {
         write: jest.fn().mockReturnValue(true),
         destroy: jest.fn(),
     };
-    const createConnection = jest.fn(
-        (options: ConnectionOptions, callback: () => void) => {
-            setTimeout(callback, 10);
-            return mockSocket;
-        }
-    );
+    const createConnection = jest.fn((options: ConnectionOptions, callback: () => void) => {
+        setTimeout(callback, 10);
+        return mockSocket;
+    });
     return {
         createConnection,
         __mockSocketCallbacks: mockSocketCallbacks,
@@ -49,7 +47,6 @@ jest.mock('../../src/networking/NetworkUtils', () => ({
     getDeviceId: jest.fn().mockResolvedValue('TEST01'),
     getClientId: jest.fn().mockResolvedValue('client-123'),
 }));
-
 
 // Store mock callbacks for simulating socket events
 //const mockSocketCallbacks: Record<string, Function> = {};

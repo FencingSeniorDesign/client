@@ -1,4 +1,20 @@
 // Mock expo modules before any other imports
+import React from 'react';
+import { render, fireEvent, waitFor } from '@testing-library/react-native';
+import { Alert } from 'react-native';
+import { JoinTournamentModal } from '../../../src/navigation/screens/JoinTournamentModal';
+import tournamentClient from '../../../src/networking/TournamentClient';
+import {
+    startServerDiscovery,
+    stopServerDiscovery,
+    serverDiscovery,
+    isValidIpAddress,
+    isValidPort,
+} from '../../../src/networking/NetworkUtils';
+
+// Add act import from react test renderer
+import { act } from 'react-test-renderer';
+
 jest.mock('expo-modules-core', () => ({
     NativeModulesProxy: {
         ExpoNetwork: {
@@ -63,22 +79,6 @@ jest.mock('react-native-tcp-socket', () => ({
     })),
 }));
 
-import React from 'react';
-import { render, fireEvent, waitFor } from '@testing-library/react-native';
-import { Alert } from 'react-native';
-import { JoinTournamentModal } from '../../../src/navigation/screens/JoinTournamentModal';
-import tournamentClient from '../../../src/networking/TournamentClient';
-import {
-    startServerDiscovery,
-    stopServerDiscovery,
-    serverDiscovery,
-    isValidIpAddress,
-    isValidPort
-} from '../../../src/networking/NetworkUtils';
-
-// Add act import from react test renderer
-import { act } from 'react-test-renderer';
-
 // Mock the networking modules
 jest.mock('../../../src/networking/TournamentClient');
 jest.mock('../../../src/networking/NetworkUtils');
@@ -117,12 +117,12 @@ describe('JoinTournamentModal', () => {
         (serverDiscovery.removeListener as jest.Mock) = jest.fn();
 
         // Mock IP validation
-        (isValidIpAddress as jest.Mock).mockImplementation((ip) => {
+        (isValidIpAddress as jest.Mock).mockImplementation(ip => {
             return /^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(ip);
         });
 
         // Mock port validation
-        (isValidPort as jest.Mock).mockImplementation((port) => {
+        (isValidPort as jest.Mock).mockImplementation(port => {
             return port >= 1 && port <= 65535;
         });
 
@@ -256,7 +256,7 @@ describe('JoinTournamentModal', () => {
         // Verify the effects of the joined callback
         expect(mockNavigate).toHaveBeenCalledWith('EventManagement', {
             tournamentName: 'Test Tournament',
-            isRemoteConnection: true
+            isRemoteConnection: true,
         });
         expect(mockOnJoinSuccess).toHaveBeenCalledWith('Test Tournament');
         expect(mockOnClose).toHaveBeenCalled();
@@ -327,11 +327,7 @@ describe('JoinTournamentModal', () => {
 
         // Render the component with a custom implementation
         const { getByText, getByTestId } = render(
-            <JoinTournamentModal
-                visible={true}
-                onClose={mockOnClose}
-                onJoinSuccess={mockOnJoinSuccess}
-            />
+            <JoinTournamentModal visible={true} onClose={mockOnClose} onJoinSuccess={mockOnJoinSuccess} />
         );
 
         // Verify the server discovery functionality
@@ -411,9 +407,7 @@ describe('JoinTournamentModal', () => {
         ];
 
         // Create a sorted copy using the same sort function as in the component
-        const sortedServers = [...unsortedServers].sort((a, b) =>
-            a.tournamentName.localeCompare(b.tournamentName)
-        );
+        const sortedServers = [...unsortedServers].sort((a, b) => a.tournamentName.localeCompare(b.tournamentName));
 
         // Verify sorting works as expected
         expect(sortedServers[0].tournamentName).toBe('A Tournament');
@@ -481,7 +475,7 @@ describe('JoinTournamentModal', () => {
         // Force isDiscovering state to true
         (startServerDiscovery as jest.Mock).mockImplementation(() => {
             // This will keep the promise pending, so isDiscovering remains true
-            return new Promise((resolve) => {
+            return new Promise(resolve => {
                 setTimeout(() => resolve([]), 1000);
             });
         });

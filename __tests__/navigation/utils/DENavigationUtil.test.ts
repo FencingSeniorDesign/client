@@ -122,7 +122,7 @@ describe('DENavigationUtil', () => {
             navigateToDEPage(mockNavigation as any, mockEvent as any, undefined as any, 0);
             expect(mockNavigation.navigate).not.toHaveBeenCalled();
             expect(console.error).toHaveBeenCalledWith('navigateToDEPage: round is undefined');
-        
+
             // Undefined event
             navigateToDEPage(
                 mockNavigation as any,
@@ -132,7 +132,7 @@ describe('DENavigationUtil', () => {
             );
             expect(mockNavigation.navigate).not.toHaveBeenCalled();
             expect(console.error).toHaveBeenCalledWith('navigateToDEPage: event is undefined');
-        
+
             // Non-DE round
             navigateToDEPage(mockNavigation as any, mockEvent as any, { id: 1, type: 'pool' } as any, 0);
             expect(mockNavigation.navigate).not.toHaveBeenCalled();
