@@ -404,6 +404,10 @@ export class TournaFenceBoxService extends ScoringBoxService {
         }
     }
 
+    async getStatus(): Promise<void> {
+        await this.sendCommand('status');
+    }
+
     private handleNotification(message: string): void {
         // Handle score notifications
         if (message === 'SCORE:FENCER1') {
@@ -454,6 +458,26 @@ export class TournaFenceBoxService extends ScoringBoxService {
                         timestamp: Date.now(),
                     });
                 }
+            }
+        }
+
+        // Handle status messages
+        else if (message.startsWith('STATUS:TIMER:')) {
+            // Parse timer status format: STATUS:TIMER:timeMs:RUNNING/STOPPED
+            const parts = message.split(':');
+            if (parts.length >= 4) {
+                const timeMs = parseInt(parts[2]);
+                const isRunning = parts[3] === 'RUNNING';
+                
+                this.timerState.timeMs = timeMs;
+                this.timerState.isRunning = isRunning;
+                
+                this.callbacks.onTimerUpdate?.({
+                    ...this.timerState,
+                    timestamp: Date.now(),
+                });
+                
+                console.log('Timer status updated:', { timeMs, isRunning });
             }
         }
 

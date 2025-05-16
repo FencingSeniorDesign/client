@@ -198,8 +198,13 @@ export function useScoringBox({
                         await boxService.current.startTimer();
                     }
                 } else {
-                    // Box is the source - we'll receive updates via notifications
-                    // The box state is already being sent to us via handleScoreUpdate and handleTimerUpdate
+                    // Box is the source - request current status from the box
+                    if (boxService.current.type === ScoringBoxType.TOURNAFENCE) {
+                        // TournaFence box supports getStatus command
+                        const tournaFenceService = boxService.current as TournaFenceBoxService;
+                        await tournaFenceService.getStatus();
+                    }
+                    // For other box types, we'll receive updates via notifications
                 }
                 setInitialSyncCompleted(true);
             } catch (error) {
