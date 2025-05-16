@@ -68,24 +68,24 @@ export function RefereeModule() {
     const [removalMode, setRemovalMode] = useState(false);
     const [fencer1Cards, setFencer1Cards] = useState<FencerCard[]>([]);
     const [fencer2Cards, setFencer2Cards] = useState<FencerCard[]>([]);
-    
+
     // BLE connection state
     const [showBLEModal, setShowBLEModal] = useState(false);
     const [showDataSourceDialog, setShowDataSourceDialog] = useState(false);
-    
+
     // Initialize BLE hook
     const {
         connectionState,
         connectedBoxType,
         connectedDeviceName,
-        dataSource,
+        initialSyncCompleted,
         scan,
         cancelScan,
         connect,
         disconnect,
         selectDataSource,
-        syncScoreToBox,
-        syncTimerToBox,
+        sendScoreToBox,
+        sendTimerToBox,
         startTimer: bleStartTimer,
         stopTimer: bleStopTimer,
         resetTimer: bleResetTimer,
@@ -200,12 +200,12 @@ export function RefereeModule() {
             newScore = Math.max(0, increment ? fencer2Score + 1 : fencer2Score - 1);
             setFencer2Score(newScore);
         }
-        
-        // Sync to BLE box if connected and app is data source
-        if (connectionState === ConnectionState.CONNECTED && dataSource === 'app') {
+
+        // Send score update to BLE box if connected
+        if (connectionState === ConnectionState.CONNECTED && initialSyncCompleted) {
             const newLeftScore = fencer === 1 ? newScore : fencer1Score;
             const newRightScore = fencer === 2 ? newScore : fencer2Score;
-            syncScoreToBox(newLeftScore, newRightScore);
+            sendScoreToBox(newLeftScore, newRightScore);
         }
 
         // If connected to a network, broadcast the score update
@@ -258,12 +258,12 @@ export function RefereeModule() {
     const startTimer = () => {
         if (!isRunning && time > 0) {
             setIsRunning(true);
-            
+
             // Sync to BLE box if connected
             if (connectionState === ConnectionState.CONNECTED) {
                 bleStartTimer();
             }
-            
+
             timerRef.current = setInterval(() => {
                 setTime(prevTime => {
                     if (prevTime <= 1) {
@@ -289,7 +289,7 @@ export function RefereeModule() {
             passivityTimerRef.current = null;
         }
         setIsRunning(false);
-        
+
         // Sync to BLE box if connected
         if (connectionState === ConnectionState.CONNECTED) {
             bleStopTimer();
@@ -309,7 +309,7 @@ export function RefereeModule() {
         const newTimeSeconds = minutes * 60;
         setTime(newTimeSeconds);
         setModalVisible(false);
-        
+
         // Sync to BLE box if connected
         if (connectionState === ConnectionState.CONNECTED) {
             bleResetTimer(newTimeSeconds * 1000); // Convert to milliseconds
@@ -324,7 +324,7 @@ export function RefereeModule() {
             setModalVisible(false);
             setCustomMinutes('');
             setCustomSeconds('');
-            
+
             // Sync to BLE box if connected
             if (connectionState === ConnectionState.CONNECTED) {
                 bleResetTimer(totalSeconds * 1000); // Convert to milliseconds
@@ -334,7 +334,7 @@ export function RefereeModule() {
 
     const renderAggregatedCards = (cards: FencerCard[]) => {
         const cardTypes: CardColor[] = ['yellow', 'red', 'black'];
-        let elements: JSX.Element[] = [];
+        const elements: JSX.Element[] = [];
         cardTypes.forEach(type => {
             const count = cards.filter(card => card.color === type).length;
             if (count === 0) return;
@@ -386,16 +386,13 @@ export function RefereeModule() {
         <View style={[styles.container, kawaiiMode && kawaiiModeStyles.container]}>
             {/* Connection status bar at the top */}
             <ConnectionStatusBar compact={true} />
-            
+
             {/* BLE Connection Button */}
-            <TouchableOpacity
-                style={styles.bleButton}
-                onPress={() => setShowBLEModal(true)}
-            >
-                <FontAwesome5 
-                    name="mobile-alt" 
-                    size={24} 
-                    color={connectionState === ConnectionState.CONNECTED ? "#4CAF50" : "#666"}
+            <TouchableOpacity style={styles.bleButton} onPress={() => setShowBLEModal(true)}>
+                <FontAwesome5
+                    name="mobile-alt"
+                    size={24}
+                    color={connectionState === ConnectionState.CONNECTED ? '#4CAF50' : '#666'}
                 />
             </TouchableOpacity>
 
@@ -404,7 +401,7 @@ export function RefereeModule() {
                 connectionState={connectionState}
                 connectedBoxType={connectedBoxType}
                 connectedDeviceName={connectedDeviceName}
-                dataSource={dataSource}
+                initialSyncCompleted={initialSyncCompleted}
             />
 
             <TouchableOpacity
@@ -656,7 +653,7 @@ export function RefereeModule() {
             {/* Data Source Selection Dialog */}
             <DataSourceDialog
                 visible={showDataSourceDialog}
-                onSelectSource={(source) => {
+                onSelectSource={source => {
                     selectDataSource(source);
                     setShowDataSourceDialog(false);
                 }}
