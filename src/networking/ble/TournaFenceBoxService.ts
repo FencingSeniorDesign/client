@@ -222,13 +222,20 @@ export class TournaFenceBoxService extends ScoringBoxService {
             // Subscribe to notifications
             try {
                 if (controlChar.isNotifiable) {
-                    // Small delay to ensure iOS is ready
-                    await new Promise(resolve => setTimeout(resolve, 100));
+                    // Increased delay for iOS BLE stack to stabilize after connection
+                    await new Promise(resolve => setTimeout(resolve, 500));
 
                     this.notificationSubscription = controlChar.monitor((error, char) => {
                         if (error) {
+                            // Check if it's a known cancellation error
+                            if (error.message && error.message.includes('Operation was cancelled')) {
+                                if (!this.isIntentionalDisconnect) {
+                                    console.log('Notification cancelled - likely due to disconnection');
+                                }
+                                return;
+                            }
                             console.error('Notification error:', error);
-                            // Don't return here - continue processing if possible
+                            return;
                         }
 
                         if (char && char.value) {
@@ -237,17 +244,22 @@ export class TournaFenceBoxService extends ScoringBoxService {
                         }
                     });
 
-                    console.log('Notification subscription created');
+                    console.log('Notification subscription created successfully');
                 } else {
                     console.log('Control characteristic does not support notifications');
                 }
             } catch (error) {
-                console.log('Failed to setup notifications:', error);
+                console.error('Failed to setup notifications:', error);
                 // Continue without notifications - write operations will still work
             }
 
             // Monitor connection state
             this.device.onDisconnected(error => {
+                // Don't log or handle if this was intentional
+                if (this.isIntentionalDisconnect) {
+                    console.log('Device disconnected (intentionally)');
+                    return;
+                }
                 console.log('Device disconnected:', error?.message || 'Unknown reason');
                 this.handleDisconnection();
             });
@@ -271,7 +283,10 @@ export class TournaFenceBoxService extends ScoringBoxService {
 
     async disconnect(): Promise<void> {
         // Mark this as an intentional disconnect first to prevent race conditions
+        // Set this BEFORE any async operations to ensure callbacks see it
         this.isIntentionalDisconnect = true;
+        
+        console.log('Starting intentional disconnect');
         
         try {
             this.updateConnectionState(ConnectionState.DISCONNECTING);
@@ -280,13 +295,24 @@ export class TournaFenceBoxService extends ScoringBoxService {
             this.clearReconnectTimeout();
             this.reconnectAttempts = 0;
 
+            // Remove notification subscription before disconnecting
             if (this.notificationSubscription) {
-                this.notificationSubscription.remove();
+                try {
+                    this.notificationSubscription.remove();
+                } catch (error) {
+                    // Ignore errors when removing subscription
+                    console.log('Error removing notification subscription:', error);
+                }
                 this.notificationSubscription = null;
             }
 
             if (this.device) {
-                await this.device.cancelConnection();
+                try {
+                    await this.device.cancelConnection();
+                } catch (error) {
+                    // Ignore errors during disconnect
+                    console.log('Error cancelling connection:', error);
+                }
                 this.device = null;
             }
 
@@ -295,15 +321,20 @@ export class TournaFenceBoxService extends ScoringBoxService {
             this.state.deviceName = undefined;
 
             // Give iOS time to clean up the connection
-            await new Promise(resolve => setTimeout(resolve, 200));
+            await new Promise(resolve => setTimeout(resolve, 500));
 
             this.updateConnectionState(ConnectionState.DISCONNECTED);
+            console.log('Intentional disconnect completed');
         } catch (error) {
+            console.log('Error during disconnect:', error);
             // During intentional disconnect, don't report errors
             this.updateConnectionState(ConnectionState.DISCONNECTED);
         } finally {
-            // Reset the flag after disconnect is complete
-            this.isIntentionalDisconnect = false;
+            // Keep the flag true for a bit longer to handle any delayed callbacks
+            setTimeout(() => {
+                this.isIntentionalDisconnect = false;
+                console.log('Intentional disconnect flag cleared');
+            }, 1000);
         }
     }
 
@@ -452,17 +483,13 @@ export class TournaFenceBoxService extends ScoringBoxService {
     }
 
     private handleDisconnection(): void {
-        // Only report an error if this wasn't an intentional disconnect
-        if (!this.isIntentionalDisconnect) {
-            this.updateConnectionState(ConnectionState.DISCONNECTED, 'Device disconnected unexpectedly');
-            
-            // Attempt auto-reconnect if we have a device ID
-            if (this.state.deviceId && this.reconnectAttempts < this.maxReconnectAttempts) {
-                this.scheduleReconnect(this.state.deviceId);
-            }
-        } else {
-            // For intentional disconnects, just update the state without error
-            this.updateConnectionState(ConnectionState.DISCONNECTED);
+        // This method should only be called for unintentional disconnects
+        // Intentional disconnects are handled in the disconnect() method
+        this.updateConnectionState(ConnectionState.DISCONNECTED, 'Device disconnected unexpectedly');
+        
+        // Attempt auto-reconnect if we have a device ID
+        if (this.state.deviceId && this.reconnectAttempts < this.maxReconnectAttempts) {
+            this.scheduleReconnect(this.state.deviceId);
         }
     }
 
