@@ -189,7 +189,14 @@ export function useScoringBox({
                 if (source === 'app') {
                     // Sync current app state to the box
                     await boxService.current.sendScore(scoreRef.current.left, scoreRef.current.right);
-                    await boxService.current.sendTimer(timerRef.current.timeMs, timerRef.current.isRunning);
+                    
+                    // Use resetTimer to actually update the time on the box
+                    await boxService.current.resetTimer(timerRef.current.timeMs);
+                    
+                    // If the timer was running in the app, start it on the box
+                    if (timerRef.current.isRunning) {
+                        await boxService.current.startTimer();
+                    }
                 } else {
                     // Box is the source - we'll receive updates via notifications
                     // The box state is already being sent to us via handleScoreUpdate and handleTimerUpdate
