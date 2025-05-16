@@ -71,4 +71,10 @@ export class SkeweredBoxService extends ScoringBoxService {
   async resetTimer(timeMs: number): Promise<void> {
     console.log('Skewered box does not support timer control');
   }
+  
+  cancelScan(): void {
+    // Placeholder implementation  
+    this.updateConnectionState(ConnectionState.DISCONNECTED);
+    console.log('Skewered scan cancellation');
+  }
 }

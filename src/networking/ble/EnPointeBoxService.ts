@@ -74,4 +74,10 @@ export class EnPointeBoxService extends ScoringBoxService {
   async resetTimer(timeMs: number): Promise<void> {
     console.log('EnPointe box does not support timer control');
   }
+  
+  cancelScan(): void {
+    // Placeholder implementation
+    this.updateConnectionState(ConnectionState.DISCONNECTED);
+    console.log('EnPointe scan cancellation');
+  }
 }

@@ -21,6 +21,7 @@ interface ConnectionModalProps {
   onScan: (boxType: ScoringBoxType) => Promise<Device[]>;
   onConnect: (boxType: ScoringBoxType, deviceId: string) => Promise<void>;
   onDisconnect: () => void;
+  onCancelScan: () => void;
   connectionState: ConnectionState;
   connectedBoxType?: ScoringBoxType;
   connectedDeviceName?: string;
@@ -40,6 +41,7 @@ export function ConnectionModal({
   onScan,
   onConnect,
   onDisconnect,
+  onCancelScan,
   connectionState,
   connectedBoxType,
   connectedDeviceName,
@@ -88,6 +90,14 @@ export function ConnectionModal({
       // Already connected to this box type
       return;
     }
+    
+    // If we're already scanning this box type, cancel the scan
+    if (isScanning && selectedBox === box.type) {
+      onCancelScan();
+      setIsScanning(false);
+      setSelectedBox(null);
+      return;
+    }
 
     setSelectedBox(box.type);
     setIsScanning(true);
@@ -102,11 +112,14 @@ export function ConnectionModal({
       console.error('Scan failed:', error);
       setIsScanning(false);
       setSelectedBox(null);
-      Alert.alert(
-        t('ble.scanFailed'),
-        error.message || t('ble.unknownError'),
-        [{ text: t('common.ok') }]
-      );
+      // Don't show alert if scan was cancelled
+      if (error.message !== 'Scan cancelled') {
+        Alert.alert(
+          t('ble.scanFailed'),
+          error.message || t('ble.unknownError'),
+          [{ text: t('common.ok') }]
+        );
+      }
     }
   };
 
@@ -133,12 +146,16 @@ export function ConnectionModal({
   // Reset state when modal closes
   useEffect(() => {
     if (!visible) {
+      // Cancel any ongoing scan when modal closes
+      if (isScanning) {
+        onCancelScan();
+      }
       setIsScanning(false);
       setSelectedBox(null);
       setFoundDevices([]);
       setShowDeviceSelection(false);
     }
-  }, [visible]);
+  }, [visible, isScanning, onCancelScan]);
 
   const renderBoxOption = ({ item }: { item: BoxOption }) => {
     const isConnected = connectionState === ConnectionState.CONNECTED && connectedBoxType === item.type;
@@ -153,7 +170,7 @@ export function ConnectionModal({
           !item.available && styles.boxOptionDisabled,
         ]}
         onPress={() => handleBoxSelection(item)}
-        disabled={isScanning}
+        disabled={isScanning && !isThisBoxScanning}
       >
         <View style={styles.boxIconContainer}>
           <FontAwesome5 
@@ -186,12 +203,19 @@ export function ConnectionModal({
     );
   };
 
+  const handleClose = () => {
+    if (isScanning) {
+      onCancelScan();
+    }
+    onClose();
+  };
+  
   return (
     <Modal
       visible={visible}
       animationType="slide"
       transparent={true}
-      onRequestClose={onClose}
+      onRequestClose={handleClose}
     >
       <View style={styles.modalOverlay}>
         <View style={styles.modalContent}>
@@ -199,7 +223,7 @@ export function ConnectionModal({
             <Text style={styles.modalTitle}>
               {showDeviceSelection ? t('ble.selectDevice') : t('ble.connectToScoringBox')}
             </Text>
-            <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+            <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
               <FontAwesome5 name="times" size={24} color="#333" />
             </TouchableOpacity>
           </View>

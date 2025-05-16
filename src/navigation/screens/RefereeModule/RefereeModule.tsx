@@ -80,6 +80,7 @@ export function RefereeModule() {
         connectedDeviceName,
         dataSource,
         scan,
+        cancelScan,
         connect,
         disconnect,
         selectDataSource,
@@ -633,6 +634,7 @@ export function RefereeModule() {
                 visible={showBLEModal}
                 onClose={() => setShowBLEModal(false)}
                 onScan={scan}
+                onCancelScan={cancelScan}
                 onConnect={async (boxType, deviceId) => {
                     try {
                         const connected = await connect(boxType, deviceId);

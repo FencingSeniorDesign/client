@@ -476,10 +476,10 @@ export default {
         boxDataSource: 'Box Control',
         tapNfcToPair: 'Tap NFC tag to pair',
         scanning: 'Scanning for devices...',
+        selectDevice: 'Select Device',
+        foundDevices: 'Found {{count}} device(s)',
+        unknownDevice: 'Unknown Device',
         scanFailed: 'Scan Failed',
         unknownError: 'An unknown error occurred',
-        selectDevice: 'Select Device',
-        foundDevices: '{{count}} device(s) found',
-        unknownDevice: 'Unknown Device',
     },
 };

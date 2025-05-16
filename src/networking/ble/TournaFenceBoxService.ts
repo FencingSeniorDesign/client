@@ -28,6 +28,7 @@ export class TournaFenceBoxService extends ScoringBoxService {
   private currentScore = { left: 0, right: 0 };
   private timerState = { timeMs: 180000, isRunning: false }; // Default 3 minutes
   private reconnectAttempts = 0;
+  private scanInProgress: boolean = false;
   private maxReconnectAttempts = 3;
   private reconnectTimeout: NodeJS.Timeout | null = null;
   
@@ -44,6 +45,7 @@ export class TournaFenceBoxService extends ScoringBoxService {
         this.bleManager.enableBluetooth().then(() => {
           this.updateConnectionState(ConnectionState.SCANNING);
           this.foundDevices = [];
+          this.scanInProgress = true;
           let scanStopped = false;
           
           console.log('Starting BLE scan for TournaFence boxes...');
@@ -57,6 +59,7 @@ export class TournaFenceBoxService extends ScoringBoxService {
                 this.updateConnectionState(ConnectionState.DISCONNECTED, error.message);
                 if (!scanStopped) {
                   scanStopped = true;
+                  this.scanInProgress = false;
                   reject(error);
                 }
                 return;
@@ -80,10 +83,11 @@ export class TournaFenceBoxService extends ScoringBoxService {
           
           // Stop scanning after timeout
           setTimeout(() => {
-            if (!scanStopped) {
+            if (!scanStopped && this.scanInProgress) {
               console.log('Scan timeout reached');
               this.bleManager.getBleManager().stopDeviceScan();
               scanStopped = true;
+              this.scanInProgress = false;
               
               this.updateConnectionState(ConnectionState.DISCONNECTED);
               
@@ -98,16 +102,28 @@ export class TournaFenceBoxService extends ScoringBoxService {
           
         }).catch((error) => {
           console.error('Failed to enable Bluetooth:', error);
+          this.scanInProgress = false;
           this.updateConnectionState(ConnectionState.DISCONNECTED, error.message);
           reject(error);
         });
         
       } catch (error) {
         console.error('Scan failed:', error);
+        this.scanInProgress = false;
         this.updateConnectionState(ConnectionState.DISCONNECTED, error.message);
         reject(error);
       }
     });
+  }
+  
+  cancelScan(): void {
+    console.log('Cancelling scan...');
+    if (this.scanInProgress) {
+      this.scanInProgress = false;
+      this.bleManager.getBleManager().stopDeviceScan();
+      this.updateConnectionState(ConnectionState.DISCONNECTED);
+      this.foundDevices = [];
+    }
   }
   
   getFoundDevices(): Device[] {

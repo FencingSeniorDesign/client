@@ -132,6 +132,12 @@ export function useScoringBox({
       throw error;
     }
   };
+  
+  const cancelScan = () => {
+    if (boxService.current) {
+      boxService.current.cancelScan();
+    }
+  };
 
   const connect = async (boxType: ScoringBoxType, deviceId: string) => {
     try {
@@ -252,6 +258,7 @@ export function useScoringBox({
     connectedDeviceName,
     dataSource,
     scan,
+    cancelScan,
     connect,
     disconnect,
     selectDataSource,

@@ -60,6 +60,7 @@ export interface IScoringBoxService {
   connect(deviceId?: string): Promise<void>;
   disconnect(): Promise<void>;
   scan(timeout?: number): Promise<any>;
+  cancelScan(): void;
   
   // Data synchronization
   sendScore(leftScore: number, rightScore: number): Promise<void>;
