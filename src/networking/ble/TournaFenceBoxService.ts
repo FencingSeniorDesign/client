@@ -39,6 +39,13 @@ export class TournaFenceBoxService extends ScoringBoxService {
   private foundDevices: Device[] = [];
 
   async scan(timeout: number = 30000): Promise<Device[]> {
+    // Always stop any existing scan before starting a new one
+    try {
+      this.bleManager.getBleManager().stopDeviceScan();
+    } catch (e) {
+      // Ignore errors from stopping scan
+    }
+    
     return new Promise((resolve, reject) => {
       try {
         // Ensure BLE is ready
@@ -49,11 +56,28 @@ export class TournaFenceBoxService extends ScoringBoxService {
           let scanStopped = false;
           
           console.log('Starting BLE scan for TournaFence boxes...');
+          console.log('Current state:', this.state);
           
-          this.bleManager.getBleManager().startDeviceScan(
-            null, // Scan for all services
-            { allowDuplicates: false },
-            (error, device) => {
+          // If we were recently connected, add a small delay before scanning
+          // This helps with iOS BLE state caching issues
+          const wasConnected = !!this.state.deviceId;
+          
+          // Clear state before scanning to ensure clean scan
+          if (wasConnected) {
+            this.state.deviceId = undefined;
+            this.state.deviceName = undefined;
+          }
+          
+          const scanDelay = wasConnected ? 500 : 0;
+          console.log(`Using scan delay: ${scanDelay}ms`);
+          
+          setTimeout(() => {
+            if (scanStopped || !this.scanInProgress) return;
+            
+            this.bleManager.getBleManager().startDeviceScan(
+              null, // Scan for all services
+              { allowDuplicates: true }, // Allow duplicates to ensure we can find recently disconnected devices
+              (error, device) => {
               if (error) {
                 console.error('Scan error:', error);
                 this.updateConnectionState(ConnectionState.DISCONNECTED, error.message);
@@ -69,7 +93,13 @@ export class TournaFenceBoxService extends ScoringBoxService {
                 console.log('Found device:', device.name || 'NO NAME', device.id, device.localName);
                 
                 // Check both name and localName as some devices use localName
-                if (device.name === TOURNAFENCE_DEVICE_NAME || device.localName === TOURNAFENCE_DEVICE_NAME) {
+                // Also check case-insensitive in case the device name changes case after reconnection
+                const deviceName = device.name?.toLowerCase() || '';
+                const localName = device.localName?.toLowerCase() || '';
+                const targetName = TOURNAFENCE_DEVICE_NAME.toLowerCase();
+                
+                if (deviceName === targetName || localName === targetName || 
+                    device.name === TOURNAFENCE_DEVICE_NAME || device.localName === TOURNAFENCE_DEVICE_NAME) {
                   console.log('Found TournaFence box!');
                   
                   // Add to list if not already present
@@ -79,7 +109,8 @@ export class TournaFenceBoxService extends ScoringBoxService {
                 }
               }
             }
-          );
+            );
+          }, scanDelay);
           
           // Stop scanning after timeout
           setTimeout(() => {
@@ -98,7 +129,7 @@ export class TournaFenceBoxService extends ScoringBoxService {
                 resolve(this.foundDevices);
               }
             }
-          }, timeout);
+          }, timeout + scanDelay);
           
         }).catch((error) => {
           console.error('Failed to enable Bluetooth:', error);
@@ -238,6 +269,14 @@ export class TournaFenceBoxService extends ScoringBoxService {
         await this.device.cancelConnection();
         this.device = null;
       }
+      
+      // Clear the state
+      this.state.deviceId = undefined;
+      this.state.deviceName = undefined;
+      this.characteristic = null;
+      
+      // Give iOS time to clean up the connection
+      await new Promise(resolve => setTimeout(resolve, 200));
       
       this.updateConnectionState(ConnectionState.DISCONNECTED);
       
