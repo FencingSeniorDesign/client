@@ -1,10 +1,8 @@
-import { Device, Characteristic, Subscription } from 'react-native-ble-plx';
+import { Device, Subscription } from 'react-native-ble-plx';
 import {
     ScoringBoxType,
     BoxCapabilities,
     ConnectionState,
-    ScoreUpdate,
-    TimerUpdate,
     TOURNAFENCE_SERVICE_UUID,
     TOURNAFENCE_CONTROL_UUID,
     TOURNAFENCE_DEVICE_NAME,
@@ -31,6 +29,7 @@ export class TournaFenceBoxService extends ScoringBoxService {
     private scanInProgress: boolean = false;
     private maxReconnectAttempts = 3;
     private reconnectTimeout: NodeJS.Timeout | null = null;
+    private isIntentionalDisconnect: boolean = false;
 
     constructor() {
         super(ScoringBoxType.TOURNAFENCE);
@@ -42,7 +41,7 @@ export class TournaFenceBoxService extends ScoringBoxService {
         // Always stop any existing scan before starting a new one
         try {
             this.bleManager.getBleManager().stopDeviceScan();
-        } catch (e) {
+        } catch {
             // Ignore errors from stopping scan
         }
 
@@ -178,6 +177,9 @@ export class TournaFenceBoxService extends ScoringBoxService {
                 throw new Error('No device ID provided');
             }
 
+            // Reset the intentional disconnect flag when connecting
+            this.isIntentionalDisconnect = false;
+
             this.updateConnectionState(ConnectionState.CONNECTING);
 
             // Connect to device
@@ -268,6 +270,9 @@ export class TournaFenceBoxService extends ScoringBoxService {
     }
 
     async disconnect(): Promise<void> {
+        // Mark this as an intentional disconnect first to prevent race conditions
+        this.isIntentionalDisconnect = true;
+        
         try {
             this.updateConnectionState(ConnectionState.DISCONNECTING);
 
@@ -288,14 +293,17 @@ export class TournaFenceBoxService extends ScoringBoxService {
             // Clear the state
             this.state.deviceId = undefined;
             this.state.deviceName = undefined;
-            this.characteristic = null;
 
             // Give iOS time to clean up the connection
             await new Promise(resolve => setTimeout(resolve, 200));
 
             this.updateConnectionState(ConnectionState.DISCONNECTED);
         } catch (error) {
-            this.updateConnectionState(ConnectionState.DISCONNECTED, error.message);
+            // During intentional disconnect, don't report errors
+            this.updateConnectionState(ConnectionState.DISCONNECTED);
+        } finally {
+            // Reset the flag after disconnect is complete
+            this.isIntentionalDisconnect = false;
         }
     }
 
@@ -437,18 +445,24 @@ export class TournaFenceBoxService extends ScoringBoxService {
             const bytes = new Uint8Array(decoded.split('').map(char => char.charCodeAt(0)));
             const decoder = new TextDecoder();
             return decoder.decode(bytes);
-        } catch (error) {
+        } catch {
             // If decoding fails, assume it's already a plain string
             return data;
         }
     }
 
     private handleDisconnection(): void {
-        this.updateConnectionState(ConnectionState.DISCONNECTED, 'Device disconnected unexpectedly');
-
-        // Attempt auto-reconnect if we have a device ID
-        if (this.state.deviceId && this.reconnectAttempts < this.maxReconnectAttempts) {
-            this.scheduleReconnect(this.state.deviceId);
+        // Only report an error if this wasn't an intentional disconnect
+        if (!this.isIntentionalDisconnect) {
+            this.updateConnectionState(ConnectionState.DISCONNECTED, 'Device disconnected unexpectedly');
+            
+            // Attempt auto-reconnect if we have a device ID
+            if (this.state.deviceId && this.reconnectAttempts < this.maxReconnectAttempts) {
+                this.scheduleReconnect(this.state.deviceId);
+            }
+        } else {
+            // For intentional disconnects, just update the state without error
+            this.updateConnectionState(ConnectionState.DISCONNECTED);
         }
     }
 
