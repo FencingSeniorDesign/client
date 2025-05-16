@@ -18,7 +18,7 @@ export class SkeweredBoxService extends ScoringBoxService {
         super(ScoringBoxType.SKEWERED);
     }
 
-    async scan(timeout: number = 5000): Promise<any> {
+    async scan(timeout: number = 3000): Promise<any> {
         // Placeholder implementation for BLE advertisement scanning
         this.updateConnectionState(ConnectionState.SCANNING);
 

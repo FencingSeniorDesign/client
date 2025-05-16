@@ -37,7 +37,7 @@ export class TournaFenceBoxService extends ScoringBoxService {
 
     private foundDevices: Device[] = [];
 
-    async scan(timeout: number = 30000): Promise<Device[]> {
+    async scan(timeout: number = 3000): Promise<Device[]> {
         // Always stop any existing scan before starting a new one
         try {
             this.bleManager.getBleManager().stopDeviceScan();
