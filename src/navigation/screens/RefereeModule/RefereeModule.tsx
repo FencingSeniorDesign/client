@@ -257,13 +257,14 @@ export function RefereeModule() {
 
     const startTimer = () => {
         if (!isRunning && time > 0) {
-            setIsRunning(true);
-
-            // Sync to BLE box if connected
+            // If connected to BLE box, only send command
             if (connectionState === ConnectionState.CONNECTED) {
                 bleStartTimer();
+                return; // Don't run local timer
             }
-
+            
+            // Only run local timer when not connected to a box
+            setIsRunning(true);
             timerRef.current = setInterval(() => {
                 setTime(prevTime => {
                     if (prevTime <= 1) {
@@ -280,6 +281,13 @@ export function RefereeModule() {
     };
 
     const stopTimer = () => {
+        // If connected to BLE box, only send command
+        if (connectionState === ConnectionState.CONNECTED) {
+            bleStopTimer();
+            return; // Don't manage local timer
+        }
+        
+        // Only manage local timer when not connected to a box
         if (timerRef.current) {
             clearInterval(timerRef.current);
             timerRef.current = null;
@@ -289,11 +297,6 @@ export function RefereeModule() {
             passivityTimerRef.current = null;
         }
         setIsRunning(false);
-
-        // Sync to BLE box if connected
-        if (connectionState === ConnectionState.CONNECTED) {
-            bleStopTimer();
-        }
     };
 
     const toggleTimer = () => {
