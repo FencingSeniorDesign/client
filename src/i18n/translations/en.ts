@@ -321,6 +321,7 @@ export default {
         failedToUpdateScores: 'Failed to update bout scores. Please try again.',
         failedToResetBout: 'Failed to reset bout. Please try again.',
         failedToUpdateRandomScores: 'Failed to update bout {{boutId}} with random scores.',
+        connectedToBox: 'Connected to {{boxName}}',
     },
     deBracketPage: {
         loadingBracket: 'Loading bracket...',
