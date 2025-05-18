@@ -480,6 +480,7 @@ export default {
         syncPending: 'Sincronización Pendiente',
         tapNfcToPair: 'Toca la etiqueta NFC para emparejar',
         scanning: 'Buscando dispositivos...',
+        connectedToBox: 'Conectado a {{boxName}}',
         selectDevice: 'Seleccionar dispositivo',
         foundDevices: '{{count}} dispositivo(s) encontrado(s)',
         unknownDevice: 'Dispositivo desconocido',

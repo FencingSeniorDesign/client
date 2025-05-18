@@ -18,6 +18,7 @@ import * as FileSystem from 'expo-file-system';
 // Import our custom picker component instead of the native one
 import CustomPickerComponent from '../../components/ui/CustomPicker';
 import { useTranslation } from 'react-i18next';
+import { BLEStatusBar } from '../../networking/components/BLEStatusBar';
 import { useQueryClient } from '@tanstack/react-query';
 import {
     useFencers,
@@ -599,6 +600,7 @@ export const EventSettings = ({ route }: Props) => {
 
     return (
         <ScrollView ref={scrollViewRef} style={styles.container} contentContainerStyle={styles.content}>
+            <BLEStatusBar compact={true} />
             <Text style={styles.title}>{t('eventSettings.title')}</Text>
 
             {/* Fencing Management Dropdown */}

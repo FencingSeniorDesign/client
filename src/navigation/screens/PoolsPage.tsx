@@ -23,6 +23,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Can } from '../../rbac/Can';
 import { useAbility } from '../../rbac/AbilityContext';
 import { useTranslation } from 'react-i18next';
+import { BLEStatusBar } from '../../networking/components/BLEStatusBar';
 
 type PoolsPageRouteParams = {
     event: Event;
@@ -267,6 +268,7 @@ const PoolsPage: React.FC = () => {
     return (
         <ScrollView contentContainerStyle={styles.container}>
             {isRemote && <ConnectionStatusBar compact={true} />}
+            {ability.can('score', 'Bout') && <BLEStatusBar compact={true} />}
             <Text style={styles.title}>{t('poolsPage.title')}</Text>
 
             <TouchableOpacity style={styles.viewSeedingButton} onPress={fetchSeeding}>

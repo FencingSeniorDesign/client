@@ -5,6 +5,7 @@ import { useRoute, RouteProp, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList, Event, Fencer, Round } from '../navigation/types';
 import { useTranslation } from 'react-i18next';
+import { BLEStatusBar } from '../../networking/components/BLEStatusBar';
 import {
     dbGetDEBouts,
     dbGetRoundsForEvent,
@@ -369,6 +370,7 @@ const DEBracketPage: React.FC = () => {
     // Render based on the bracket format
     return (
         <ScrollView style={styles.container}>
+            <BLEStatusBar compact={true} />
             <Text style={styles.title}>
                 {event.weapon} {event.gender} {event.age} DE
             </Text>

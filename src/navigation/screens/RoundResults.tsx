@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { RootStackParamList, Fencer } from '../navigation/types';
 import { useInitializeRound, useRoundResultsData, useRounds, useRoundStarted } from '../../data/TournamentDataHooks';
 import { navigateToDEPage } from '../utils/DENavigationUtil';
+import { BLEStatusBar } from '../../networking/components/BLEStatusBar';
 
 type RoundResultsRouteProp = RouteProp<RootStackParamList, 'RoundResults'>;
 
@@ -160,6 +161,7 @@ const RoundResults: React.FC = () => {
 
     return (
         <ScrollView contentContainerStyle={styles.container}>
+            <BLEStatusBar compact={true} />
             <Text style={styles.title}>{t('roundResults.title')}</Text>
 
             {/* View mode selection buttons */}

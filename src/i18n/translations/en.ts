@@ -477,6 +477,7 @@ export default {
         syncPending: 'Sync Pending',
         tapNfcToPair: 'Tap NFC tag to pair',
         scanning: 'Scanning for devices...',
+        connectedToBox: 'Connected to {{boxName}}',
         selectDevice: 'Select Device',
         foundDevices: 'Found {{count}} device(s)',
         unknownDevice: 'Unknown Device',

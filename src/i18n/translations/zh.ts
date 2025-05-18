@@ -466,6 +466,7 @@ export default {
         syncPending: '同步待处理',
         tapNfcToPair: '点击NFC标签进行配对',
         scanning: '正在搜索设备...',
+        connectedToBox: '已连接到 {{boxName}}',
         selectDevice: '选择设备',
         foundDevices: '找到 {{count}} 个设备',
         unknownDevice: '未知设备',

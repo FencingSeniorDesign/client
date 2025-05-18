@@ -15,6 +15,7 @@ import { getDeviceId } from '../../networking/NetworkUtils';
 import { useAbility } from '../../rbac/AbilityContext'; // Import useAbility
 import { useTranslation } from 'react-i18next'; // Import translation hook
 import LanguageSwitcher from '../../components/ui/LanguageSwitcher';
+import { BLEStatusBar } from '../../networking/components/BLEStatusBar';
 
 // Import the logo image
 import logo from '../../assets/logo.png';
@@ -70,6 +71,9 @@ export function Home() {
 
     return (
         <View style={styles.container}>
+            {/* BLE connection status */}
+            <BLEStatusBar compact={true} />
+            
             <Image source={logo} style={styles.logo} resizeMode="contain" />
 
             <View style={styles.buttonContainer}>

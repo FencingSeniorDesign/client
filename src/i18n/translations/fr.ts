@@ -443,6 +443,7 @@ export default {
         syncPending: 'Synchronisation en Attente',
         tapNfcToPair: "Touchez l'étiquette NFC pour coupler",
         scanning: "Recherche d'appareils...",
+        connectedToBox: 'Connecté à {{boxName}}',
         selectDevice: "Sélectionner l'appareil",
         foundDevices: '{{count}} appareil(s) trouvé(s)',
         unknownDevice: 'Appareil inconnu',

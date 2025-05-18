@@ -20,9 +20,7 @@ import { assignPoolPositions, getBoutOrder } from '../utils/BoutOrderUtils';
 import tournamentClient from '../../networking/TournamentClient';
 import ConnectionStatusBar from '../../networking/components/ConnectionStatusBar';
 import { useTranslation } from 'react-i18next';
-import { useScoringBoxContext } from '../../networking/ble/ScoringBoxContext';
-import { ConnectionState } from '../../networking/ble/types';
-import { FontAwesome5 } from '@expo/vector-icons';
+import { BLEStatusBar } from '../../networking/components/BLEStatusBar';
 
 type BoutOrderPageRouteProps = RouteProp<RootStackParamList, 'BoutOrderPage'>;
 type BoutOrderPageNavProp = StackNavigationProp<RootStackParamList, 'BoutOrderPage'>;
@@ -33,9 +31,6 @@ const BoutOrderPage: React.FC = () => {
     const { roundId, poolId, isRemote = false } = route.params;
     const { ability } = useAbility();
     const { t } = useTranslation();
-
-    // Get BLE connection status from context
-    const { connectionState, connectedDeviceName } = useScoringBoxContext();
 
     // Check if user has permission to score bouts
     const canScoreBouts = ability.can('score', 'Bout');
@@ -720,14 +715,7 @@ const BoutOrderPage: React.FC = () => {
             {isRemote && <ConnectionStatusBar compact={true} />}
 
             {/* Show BLE connection status if referee is connected to scoring box */}
-            {canScoreBouts && connectionState === ConnectionState.CONNECTED && (
-                <View style={styles.bleStatusBar}>
-                    <FontAwesome5 name="mobile-alt" size={16} color="#4CAF50" />
-                    <Text style={styles.bleStatusText}>
-                        {t('boutOrderPage.connectedToBox', { boxName: connectedDeviceName })}
-                    </Text>
-                </View>
-            )}
+            {canScoreBouts && <BLEStatusBar compact={true} />}
 
             {/* Header - double stripping toggle only shown to referees */}
             <View style={styles.header}>
@@ -1182,21 +1170,6 @@ const styles = StyleSheet.create({
         color: '#fff',
         fontWeight: '600',
         fontSize: 16,
-    },
-    bleStatusBar: {
-        backgroundColor: '#E8F5E9',
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: 8,
-        borderBottomWidth: 1,
-        borderBottomColor: '#C8E6C9',
-    },
-    bleStatusText: {
-        color: '#2E7D32',
-        marginLeft: 8,
-        fontSize: 14,
-        fontWeight: '500',
     },
 });
 
