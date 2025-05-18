@@ -429,6 +429,10 @@ export default {
         kitten2: '小猫2',
         defaultLeft: '左',
         defaultRight: '右',
+        disconnectBoxPromptTitle: '断开计分器连接？',
+        disconnectBoxPromptMessage: '您当前已连接到计分器。退出前要断开连接吗？',
+        disconnectAndExit: '断开连接并退出',
+        exitWithoutDisconnecting: '不断开连接直接退出',
     },
     tournamentList: {
         deleteTournament: '删除比赛',

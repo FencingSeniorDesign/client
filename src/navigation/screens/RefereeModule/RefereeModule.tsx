@@ -4,7 +4,7 @@ import { View, Text, TouchableOpacity, Pressable, StyleSheet, Modal, Alert } fro
 import { AntDesign, FontAwesome5 } from '@expo/vector-icons';
 import { CustomTimeModal } from './CustomTimeModal';
 import { usePersistentState } from '../../../hooks/usePersistentStateHook';
-import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
+import { useNavigation, useRoute, RouteProp, usePreventRemove } from '@react-navigation/native';
 import { RootStackParamList } from '../../navigation/types';
 import tournamentClient from '../../../networking/TournamentClient';
 import tournamentServer from '../../../networking/TournamentServer';
@@ -108,6 +108,42 @@ export function RefereeModule() {
         currentScore: { left: fencer1Score, right: fencer2Score },
         currentTimerMs: time * 1000,
         timerRunning: isRunning,
+    });
+
+    // Check if we should prevent navigation when scoring box is connected
+    // Only prevent if not in tournament mode (when onSaveScores is not provided)
+    const shouldPreventNavigation = connectionState === ConnectionState.CONNECTED && !onSaveScores;
+
+    // Use the recommended hook for preventing navigation
+    usePreventRemove(shouldPreventNavigation, ({ data }) => {
+        Alert.alert(
+            t('refereeModule.disconnectBoxPromptTitle'),
+            t('refereeModule.disconnectBoxPromptMessage'),
+            [
+                {
+                    text: t('common.cancel'),
+                    style: 'cancel',
+                },
+                {
+                    text: t('refereeModule.exitWithoutDisconnecting'),
+                    onPress: () => navigation.dispatch(data.action),
+                },
+                {
+                    text: t('refereeModule.disconnectAndExit'),
+                    onPress: async () => {
+                        try {
+                            await disconnect();
+                            navigation.dispatch(data.action);
+                        } catch (error) {
+                            console.error('Failed to disconnect:', error);
+                            navigation.dispatch(data.action);
+                        }
+                    },
+                    style: 'destructive',
+                },
+            ],
+            { cancelable: true }
+        );
     });
 
     // Check if we're connected to a tournament and/or running a server

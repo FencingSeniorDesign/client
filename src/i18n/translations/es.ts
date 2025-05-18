@@ -325,6 +325,10 @@ export default {
         failedToUpdateScores: 'No se pudieron actualizar los puntajes del asalto. Por favor intente de nuevo.',
         failedToResetBout: 'No se pudo reiniciar el asalto. Por favor intente de nuevo.',
         failedToUpdateRandomScores: 'No se pudo actualizar el asalto {{boutId}} con puntajes aleatorios.',
+        disconnectBoxPromptTitle: '¿Desconectar Caja de Puntuación?',
+        disconnectBoxPromptMessage: 'Actualmente estás conectado a una caja de puntuación. ¿Te gustaría desconectarte antes de salir?',
+        disconnectAndExit: 'Desconectar y Salir',
+        exitWithoutDisconnecting: 'Salir Sin Desconectar',
     },
     deBracketPage: {
         loadingBracket: 'Cargando cuadro...',
@@ -443,6 +447,10 @@ export default {
         kitten2: 'Gatito 2',
         defaultLeft: 'Izquierda',
         defaultRight: 'Derecha',
+        disconnectBoxPromptTitle: '¿Desconectar Caja de Puntuación?',
+        disconnectBoxPromptMessage: 'Actualmente estás conectado a una caja de puntuación. ¿Te gustaría desconectarte antes de salir?',
+        disconnectAndExit: 'Desconectar y Salir',
+        exitWithoutDisconnecting: 'Salir Sin Desconectar',
     },
     tournamentList: {
         deleteTournament: 'Eliminar Torneo',

@@ -288,6 +288,10 @@ export default {
         failedToUpdateScores: '',
         failedToResetBout: '',
         failedToUpdateRandomScores: '',
+        disconnectBoxPromptTitle: 'Déconnecter le Boîtier de Score?',
+        disconnectBoxPromptMessage: 'Vous êtes actuellement connecté à un boîtier de score. Voulez-vous vous déconnecter avant de sortir?',
+        disconnectAndExit: 'Déconnecter et Sortir',
+        exitWithoutDisconnecting: 'Sortir Sans Déconnecter',
     },
     deBracketPage: {
         loadingBracket: '',
@@ -317,6 +321,10 @@ export default {
         tableOf128: '',
         tableOf256: '',
         tableOfX: '',
+        disconnectBoxPromptTitle: 'Déconnecter le Boîtier de Score?',
+        disconnectBoxPromptMessage: 'Vous êtes actuellement connecté à un boîtier de score. Voulez-vous vous déconnecter avant de sortir?',
+        disconnectAndExit: 'Déconnecter et Sortir',
+        exitWithoutDisconnecting: 'Sortir Sans Déconnecter',
     },
     roundResults: {
         title: '',
@@ -406,6 +414,10 @@ export default {
         kitten2: '',
         defaultLeft: '',
         defaultRight: '',
+        disconnectBoxPromptTitle: 'Déconnecter le Boîtier de Score?',
+        disconnectBoxPromptMessage: 'Vous êtes actuellement connecté à un boîtier de score. Voulez-vous vous déconnecter avant de sortir?',
+        disconnectAndExit: 'Déconnecter et Sortir',
+        exitWithoutDisconnecting: 'Sortir Sans Déconnecter',
     },
     tournamentList: {
         deleteTournament: '',

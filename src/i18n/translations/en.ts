@@ -322,6 +322,10 @@ export default {
         failedToResetBout: 'Failed to reset bout. Please try again.',
         failedToUpdateRandomScores: 'Failed to update bout {{boutId}} with random scores.',
         connectedToBox: 'Connected to {{boxName}}',
+        disconnectBoxPromptTitle: 'Disconnect Scoring Box?',
+        disconnectBoxPromptMessage: 'You are currently connected to a scoring box. Would you like to disconnect before leaving?',
+        disconnectAndExit: 'Disconnect & Exit',
+        exitWithoutDisconnecting: 'Exit Without Disconnecting',
     },
     deBracketPage: {
         loadingBracket: 'Loading bracket...',
@@ -351,6 +355,10 @@ export default {
         tableOf128: 'Table of 128',
         tableOf256: 'Table of 256',
         tableOfX: 'Table of {{number}}',
+        disconnectBoxPromptTitle: 'Disconnect Scoring Box?',
+        disconnectBoxPromptMessage: 'You are currently connected to a scoring box. Would you like to disconnect before leaving?',
+        disconnectAndExit: 'Disconnect & Exit',
+        exitWithoutDisconnecting: 'Exit Without Disconnecting',
     },
     roundResults: {
         title: 'Round Results',
@@ -440,6 +448,10 @@ export default {
         kitten2: 'Kitten 2',
         defaultLeft: 'Left',
         defaultRight: 'Right',
+        disconnectBoxPromptTitle: 'Disconnect Scoring Box?',
+        disconnectBoxPromptMessage: 'You are currently connected to a scoring box. Would you like to disconnect before leaving?',
+        disconnectAndExit: 'Disconnect & Exit',
+        exitWithoutDisconnecting: 'Exit Without Disconnecting',
     },
     tournamentList: {
         deleteTournament: 'Delete Tournament',
