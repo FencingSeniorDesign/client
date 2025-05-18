@@ -270,6 +270,38 @@ const DEBracketPage: React.FC = () => {
 
                         // Refresh to show updated scores and advancement
                         setRefreshKey(prev => prev + 1);
+
+                        // Check if connected to scoring box and show disconnect prompt
+                        if (connectionState === ConnectionState.CONNECTED) {
+                            Alert.alert(
+                                t('common.disconnectBoxPromptTitle'),
+                                t('common.disconnectBoxPromptMessage'),
+                                [
+                                    {
+                                        text: t('common.cancel'),
+                                        style: 'cancel',
+                                    },
+                                    {
+                                        text: t('common.exitWithoutDisconnecting'),
+                                        onPress: () => {
+                                            // Just close the alert - already saved scores
+                                        },
+                                    },
+                                    {
+                                        text: t('common.disconnectAndExit'),
+                                        onPress: async () => {
+                                            try {
+                                                await disconnect();
+                                            } catch (error) {
+                                                console.error('Failed to disconnect:', error);
+                                            }
+                                        },
+                                        style: 'destructive',
+                                    },
+                                ],
+                                { cancelable: true }
+                            );
+                        }
                     } catch (error) {
                         console.error('Error updating bout scores:', error);
                         Alert.alert(t('common.error'), t('deBracketPage.failedToSaveScores'));
