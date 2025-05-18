@@ -170,7 +170,7 @@ export default {
         fencers: 'esgrimistas',
     },
     manageOfficials: {
-        title: 'Administrar Oficiales - {{tournamentName}}',
+        title: 'Administrar Oficiales',
         addReferee: 'Añadir Árbitro',
         addOfficial: 'Añadir Oficial',
         referees: 'Árbitros',

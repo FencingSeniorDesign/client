@@ -167,7 +167,7 @@ export default {
         fencers: 'fencers',
     },
     manageOfficials: {
-        title: 'Manage Officials - {{tournamentName}}',
+        title: 'Manage Officials',
         addReferee: 'Add Referee',
         addOfficial: 'Add Official',
         referees: 'Referees',

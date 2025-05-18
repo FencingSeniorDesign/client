@@ -159,7 +159,7 @@ export default {
         fencers: '运动员',
     },
     manageOfficials: {
-        title: '管理官员 - {{tournamentName}}',
+        title: '管理官员',
         addReferee: '添加裁判',
         addOfficial: '添加官员',
         referees: '裁判',
