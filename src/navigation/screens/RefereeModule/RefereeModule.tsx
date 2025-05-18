@@ -93,6 +93,9 @@ export function RefereeModule() {
         onScoreUpdate: (leftScore, rightScore) => {
             setFencer1Score(leftScore);
             setFencer2Score(rightScore);
+            // When a score is received from the box, the timer typically stops
+            // Update UI immediately to reflect this state change
+            setIsRunning(false);
         },
         onTimerUpdate: (timeMs, isRunning) => {
             setTime(Math.floor(timeMs / 1000));
