@@ -1,4 +1,12 @@
 // Mock SQLite before any imports
+import React from 'react';
+import { render, fireEvent, waitFor } from '@testing-library/react-native';
+import { Alert } from 'react-native';
+import RoundResults from '../../../src/navigation/screens/RoundResults';
+import { useRoundResultsData as useRoundResults } from '../../../src/data/TournamentDataHooks';
+import { act } from 'react-test-renderer';
+import { navigateToDEPage } from '../../../src/navigation/utils/DENavigationUtil';
+
 jest.mock('expo-sqlite', () => ({
     openDatabaseSync: () => ({
         transaction: jest.fn(),
@@ -12,14 +20,6 @@ jest.mock('../../../src/db/DrizzleClient', () => ({
         transaction: jest.fn(),
     },
 }));
-
-import React from 'react';
-import { render, fireEvent, waitFor } from '@testing-library/react-native';
-import { Alert } from 'react-native';
-import RoundResults from '../../../src/navigation/screens/RoundResults';
-import { useRoundResultsData as useRoundResults } from '../../../src/data/TournamentDataHooks';
-import { act } from 'react-test-renderer';
-import { navigateToDEPage } from '../../../src/navigation/utils/DENavigationUtil';
 
 // Mock navigateToDEPage
 jest.mock('../../../src/navigation/utils/DENavigationUtil', () => ({
@@ -399,16 +399,16 @@ describe('RoundResults', () => {
         });
 
         // Verify alert was shown
-        expect(Alert.alert).toHaveBeenCalledWith(
-            'success',
-            'nextRoundInitialized'
-        );
+        expect(Alert.alert).toHaveBeenCalledWith('success', 'nextRoundInitialized');
 
         // Verify navigation
-        expect(mockNavigate).toHaveBeenCalledWith('PoolsPage', expect.objectContaining({
-            roundId: 2,
-            currentRoundIndex: 1,
-        }));
+        expect(mockNavigate).toHaveBeenCalledWith(
+            'PoolsPage',
+            expect.objectContaining({
+                roundId: 2,
+                currentRoundIndex: 1,
+            })
+        );
     });
 
     // Test next round initialization for DE round
@@ -459,10 +459,7 @@ describe('RoundResults', () => {
         });
 
         // Verify error alert was shown
-        expect(Alert.alert).toHaveBeenCalledWith(
-            'error',
-            'failedToInitializeNextRound'
-        );
+        expect(Alert.alert).toHaveBeenCalledWith('error', 'failedToInitializeNextRound');
     });
 
     // Test already started next round behavior
@@ -492,9 +489,12 @@ describe('RoundResults', () => {
         expect(mockInitializeMutate).not.toHaveBeenCalled();
 
         // Verify navigation still happened
-        expect(mockNavigate).toHaveBeenCalledWith('PoolsPage', expect.objectContaining({
-            roundId: 2,
-        }));
+        expect(mockNavigate).toHaveBeenCalledWith(
+            'PoolsPage',
+            expect.objectContaining({
+                roundId: 2,
+            })
+        );
     });
 
     // Test view tournament results button for final round

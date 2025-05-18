@@ -10,6 +10,7 @@ import { setupTournamentSync } from './data/TournamentDataHooks';
 import { initializeDatabase } from './db/DrizzleClient';
 import tournamentServer from './networking/TournamentServer';
 import { AbilityProvider } from './rbac/AbilityContext';
+import { ScoringBoxProvider } from './networking/ble/ScoringBoxContext';
 // Import i18n instance
 import './i18n';
 
@@ -44,7 +45,10 @@ export function App() {
             <GestureHandlerRootView style={{ flex: 1 }}>
                 {/* Add AbilityProvider for RBAC */}
                 <AbilityProvider>
-                    <AppNavigator />
+                    {/* Add ScoringBoxProvider for persistent BLE connections */}
+                    <ScoringBoxProvider>
+                        <AppNavigator />
+                    </ScoringBoxProvider>
                 </AbilityProvider>
             </GestureHandlerRootView>
         </QueryClientProvider>

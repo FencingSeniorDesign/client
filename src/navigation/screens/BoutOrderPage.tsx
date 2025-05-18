@@ -12,7 +12,7 @@ import {
     Alert,
     ActivityIndicator,
 } from 'react-native';
-import { useRoute, RouteProp, useNavigation } from '@react-navigation/native';
+import { useRoute, RouteProp, useNavigation, useFocusEffect, usePreventRemove } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList, Fencer, Bout } from '../navigation/types';
 import { useBoutsForPool, useUpdatePoolBoutScores, usePools } from '../../data/TournamentDataHooks';
@@ -20,6 +20,9 @@ import { assignPoolPositions, getBoutOrder } from '../utils/BoutOrderUtils';
 import tournamentClient from '../../networking/TournamentClient';
 import ConnectionStatusBar from '../../networking/components/ConnectionStatusBar';
 import { useTranslation } from 'react-i18next';
+import { BLEStatusBar } from '../../networking/components/BLEStatusBar';
+import { useScoringBoxContext } from '../../networking/ble/ScoringBoxContext';
+import { ConnectionState } from '../../networking/ble/types';
 
 type BoutOrderPageRouteProps = RouteProp<RootStackParamList, 'BoutOrderPage'>;
 type BoutOrderPageNavProp = StackNavigationProp<RootStackParamList, 'BoutOrderPage'>;
@@ -30,6 +33,7 @@ const BoutOrderPage: React.FC = () => {
     const { roundId, poolId, isRemote = false } = route.params;
     const { ability } = useAbility();
     const { t } = useTranslation();
+    const { connectionState, disconnect, connectedDeviceName } = useScoringBoxContext();
 
     // Check if user has permission to score bouts
     const canScoreBouts = ability.can('score', 'Bout');
@@ -59,6 +63,41 @@ const BoutOrderPage: React.FC = () => {
     const [doubleStripping, setDoubleStripping] = useState<boolean>(false);
     const activeCount = doubleStripping ? 2 : 1;
     const onDeckCount = doubleStripping ? 2 : 1;
+
+    // Check if we should prevent navigation
+    const shouldPreventNavigation = canScoreBouts && connectionState === ConnectionState.CONNECTED;
+
+    // Use the recommended hook for preventing navigation
+    usePreventRemove(shouldPreventNavigation, ({ data }) => {
+        Alert.alert(
+            t('boutOrderPage.disconnectBoxPromptTitle'),
+            t('boutOrderPage.disconnectBoxPromptMessage'),
+            [
+                {
+                    text: t('common.cancel'),
+                    style: 'cancel',
+                },
+                {
+                    text: t('boutOrderPage.exitWithoutDisconnecting'),
+                    onPress: () => navigation.dispatch(data.action),
+                },
+                {
+                    text: t('boutOrderPage.disconnectAndExit'),
+                    onPress: async () => {
+                        try {
+                            await disconnect();
+                            navigation.dispatch(data.action);
+                        } catch (error) {
+                            console.error('Failed to disconnect:', error);
+                            navigation.dispatch(data.action);
+                        }
+                    },
+                    style: 'destructive',
+                },
+            ],
+            { cancelable: true }
+        );
+    });
 
     // Extract fencers from pools data
     useEffect(() => {
@@ -712,6 +751,9 @@ const BoutOrderPage: React.FC = () => {
         <View style={{ flex: 1 }}>
             {/* Show connection status if in remote mode */}
             {isRemote && <ConnectionStatusBar compact={true} />}
+
+            {/* Show BLE connection status if referee is connected to scoring box */}
+            {canScoreBouts && <BLEStatusBar compact={true} />}
 
             {/* Header - double stripping toggle only shown to referees */}
             <View style={styles.header}>

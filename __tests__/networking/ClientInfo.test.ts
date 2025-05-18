@@ -201,13 +201,10 @@ describe('ClientInfo operations', () => {
             };
             const mockTcpSocket = require('react-native-tcp-socket');
 
-            mockTcpSocket.createConnection.mockImplementation(
-                (options: ConnectionOptions, callback: () => void) => {
-                    setTimeout(callback, 10);
-                    return mockSocket;
-                }
-            );
-            
+            mockTcpSocket.createConnection.mockImplementation((options: ConnectionOptions, callback: () => void) => {
+                setTimeout(callback, 10);
+                return mockSocket;
+            });
 
             // Spy on the emit method and sendMessageRaw
             const emitSpy = jest.spyOn(tournamentClient, 'emit');

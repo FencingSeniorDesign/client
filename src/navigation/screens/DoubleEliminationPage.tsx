@@ -2,12 +2,14 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
+import { BLEStatusBar } from '../../networking/components/BLEStatusBar';
 
 const DoubleEliminationPage: React.FC = () => {
     const { t } = useTranslation();
 
     return (
         <View style={styles.container}>
+            <BLEStatusBar compact={true} />
             <Text style={styles.text}>{t('doubleEliminationPage.tbd')}</Text>
         </View>
     );

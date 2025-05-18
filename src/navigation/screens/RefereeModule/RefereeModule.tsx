@@ -1,15 +1,19 @@
 // src/navigation/screens/RefereeModule/RefereeModule.tsx with networking support
 import React, { useState, useRef, useEffect } from 'react';
 import { View, Text, TouchableOpacity, Pressable, StyleSheet, Modal, Alert } from 'react-native';
-import { AntDesign } from '@expo/vector-icons';
+import { AntDesign, FontAwesome5 } from '@expo/vector-icons';
 import { CustomTimeModal } from './CustomTimeModal';
 import { usePersistentState } from '../../../hooks/usePersistentStateHook';
-import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
+import { useNavigation, useRoute, RouteProp, usePreventRemove } from '@react-navigation/native';
 import { RootStackParamList } from '../../navigation/types';
 import tournamentClient from '../../../networking/TournamentClient';
 import tournamentServer from '../../../networking/TournamentServer';
 import ConnectionStatusBar from '../../../networking/components/ConnectionStatusBar';
 import { useTranslation } from 'react-i18next';
+import { ConnectionModal } from './components/ConnectionModal';
+import { DataSourceDialog } from './components/DataSourceDialog';
+import { useScoringBox } from './hooks/useScoringBox';
+import { ScoringBoxType, ConnectionState } from '../../../networking/ble/types';
 
 type CardColor = 'yellow' | 'red' | 'black' | null;
 type FencerCard = { color: CardColor };
@@ -52,6 +56,7 @@ export function RefereeModule() {
 
     // Non‑combativity (passivity) timer state
     const [passivityTime, setPassivityTime] = useState(60);
+    const [passivityTimerRunning, setPassivityTimerRunning] = useState(false);
     const [savedPassivityTime, setSavedPassivityTime] = useState<number | null>(null);
     const passivityTimerRef = useRef<NodeJS.Timer | null>(null);
 
@@ -63,6 +68,83 @@ export function RefereeModule() {
     const [removalMode, setRemovalMode] = useState(false);
     const [fencer1Cards, setFencer1Cards] = useState<FencerCard[]>([]);
     const [fencer2Cards, setFencer2Cards] = useState<FencerCard[]>([]);
+
+    // BLE connection state
+    const [showBLEModal, setShowBLEModal] = useState(false);
+    const [showDataSourceDialog, setShowDataSourceDialog] = useState(false);
+
+    // Initialize BLE hook
+    const {
+        connectionState,
+        connectedBoxType,
+        connectedDeviceName,
+        initialSyncCompleted,
+        scan,
+        cancelScan,
+        connect,
+        disconnect,
+        selectDataSource,
+        sendScoreToBox,
+        sendTimerToBox,
+        startTimer: bleStartTimer,
+        stopTimer: bleStopTimer,
+        resetTimer: bleResetTimer,
+    } = useScoringBox({
+        onScoreUpdate: (leftScore, rightScore) => {
+            setFencer1Score(leftScore);
+            setFencer2Score(rightScore);
+            // When a score is received from the box, the timer typically stops
+            // Update UI immediately to reflect this state change
+            setIsRunning(false);
+        },
+        onTimerUpdate: (timeMs, isRunning) => {
+            setTime(Math.floor(timeMs / 1000));
+            setIsRunning(isRunning);
+        },
+        onPassivityTimerUpdate: (timeMs, isRunning) => {
+            setPassivityTime(Math.floor(timeMs / 1000));
+            setPassivityTimerRunning(isRunning);
+        },
+        currentScore: { left: fencer1Score, right: fencer2Score },
+        currentTimerMs: time * 1000,
+        timerRunning: isRunning,
+    });
+
+    // Check if we should prevent navigation when scoring box is connected
+    // Only prevent if not in tournament mode (when onSaveScores is not provided)
+    const shouldPreventNavigation = connectionState === ConnectionState.CONNECTED && !onSaveScores;
+
+    // Use the recommended hook for preventing navigation
+    usePreventRemove(shouldPreventNavigation, ({ data }) => {
+        Alert.alert(
+            t('refereeModule.disconnectBoxPromptTitle'),
+            t('refereeModule.disconnectBoxPromptMessage'),
+            [
+                {
+                    text: t('common.cancel'),
+                    style: 'cancel',
+                },
+                {
+                    text: t('refereeModule.exitWithoutDisconnecting'),
+                    onPress: () => navigation.dispatch(data.action),
+                },
+                {
+                    text: t('refereeModule.disconnectAndExit'),
+                    onPress: async () => {
+                        try {
+                            await disconnect();
+                            navigation.dispatch(data.action);
+                        } catch (error) {
+                            console.error('Failed to disconnect:', error);
+                            navigation.dispatch(data.action);
+                        }
+                    },
+                    style: 'destructive',
+                },
+            ],
+            { cancelable: true }
+        );
+    });
 
     // Check if we're connected to a tournament and/or running a server
     useEffect(() => {
@@ -149,9 +231,14 @@ export function RefereeModule() {
     // then update the score and reset the passivity timer.
     const updateScore = (fencer: 1 | 2, increment: boolean) => {
         stopTimer(); // Pause both timers immediately on score change
-        setSavedPassivityTime(passivityTime); // Save the current passivity timer value
+
+        // Only manage passivity timer locally when not connected to hardware
+        if (connectionState !== ConnectionState.CONNECTED) {
+            setSavedPassivityTime(passivityTime); // Save the current passivity timer value
+            setPassivityTime(60); // Reset passivity timer
+        }
+
         setLastScoreChange({ fencer, delta: increment ? 1 : -1 });
-        setPassivityTime(60); // Reset passivity timer
 
         let newScore;
         if (fencer === 1) {
@@ -160,6 +247,13 @@ export function RefereeModule() {
         } else {
             newScore = Math.max(0, increment ? fencer2Score + 1 : fencer2Score - 1);
             setFencer2Score(newScore);
+        }
+
+        // Send score update to BLE box if connected
+        if (connectionState === ConnectionState.CONNECTED && initialSyncCompleted) {
+            const newLeftScore = fencer === 1 ? newScore : fencer1Score;
+            const newRightScore = fencer === 2 ? newScore : fencer2Score;
+            sendScoreToBox(newLeftScore, newRightScore);
         }
 
         // If connected to a network, broadcast the score update
@@ -195,9 +289,12 @@ export function RefereeModule() {
             } else {
                 setFencer2Score(prev => Math.max(0, prev - delta));
             }
-            if (savedPassivityTime !== null) {
+
+            // Only manage passivity timer locally when not connected to hardware
+            if (connectionState !== ConnectionState.CONNECTED && savedPassivityTime !== null) {
                 setPassivityTime(savedPassivityTime);
             }
+
             setLastScoreChange(null);
             setSavedPassivityTime(null);
         }
@@ -211,6 +308,13 @@ export function RefereeModule() {
 
     const startTimer = () => {
         if (!isRunning && time > 0) {
+            // If connected to BLE box, only send command
+            if (connectionState === ConnectionState.CONNECTED) {
+                bleStartTimer();
+                return; // Don't run local timer
+            }
+
+            // Only run local timer when not connected to a box
             setIsRunning(true);
             timerRef.current = setInterval(() => {
                 setTime(prevTime => {
@@ -221,13 +325,23 @@ export function RefereeModule() {
                     return prevTime - 1;
                 });
             }, 1000);
-            passivityTimerRef.current = setInterval(() => {
-                setPassivityTime(prev => (prev <= 1 ? 0 : prev - 1));
-            }, 1000);
+            // Only run local passivity timer if not connected
+            if (connectionState !== ConnectionState.CONNECTED) {
+                passivityTimerRef.current = setInterval(() => {
+                    setPassivityTime(prev => (prev <= 1 ? 0 : prev - 1));
+                }, 1000);
+            }
         }
     };
 
     const stopTimer = () => {
+        // If connected to BLE box, only send command
+        if (connectionState === ConnectionState.CONNECTED) {
+            bleStopTimer();
+            return; // Don't manage local timer
+        }
+
+        // Only manage local timer when not connected to a box
         if (timerRef.current) {
             clearInterval(timerRef.current);
             timerRef.current = null;
@@ -249,8 +363,14 @@ export function RefereeModule() {
 
     const setTimerDuration = (minutes: number) => {
         stopTimer();
-        setTime(minutes * 60);
+        const newTimeSeconds = minutes * 60;
+        setTime(newTimeSeconds);
         setModalVisible(false);
+
+        // Sync to BLE box if connected
+        if (connectionState === ConnectionState.CONNECTED) {
+            bleResetTimer(newTimeSeconds * 1000); // Convert to milliseconds
+        }
     };
 
     const handleCustomTime = (minutes: number, seconds: number) => {
@@ -261,12 +381,17 @@ export function RefereeModule() {
             setModalVisible(false);
             setCustomMinutes('');
             setCustomSeconds('');
+
+            // Sync to BLE box if connected
+            if (connectionState === ConnectionState.CONNECTED) {
+                bleResetTimer(totalSeconds * 1000); // Convert to milliseconds
+            }
         }
     };
 
     const renderAggregatedCards = (cards: FencerCard[]) => {
         const cardTypes: CardColor[] = ['yellow', 'red', 'black'];
-        let elements: JSX.Element[] = [];
+        const elements: JSX.Element[] = [];
         cardTypes.forEach(type => {
             const count = cards.filter(card => card.color === type).length;
             if (count === 0) return;
@@ -318,6 +443,15 @@ export function RefereeModule() {
         <View style={[styles.container, kawaiiMode && kawaiiModeStyles.container]}>
             {/* Connection status bar at the top */}
             <ConnectionStatusBar compact={true} />
+
+            {/* BLE Connection Button */}
+            <TouchableOpacity style={styles.bleButton} onPress={() => setShowBLEModal(true)}>
+                <FontAwesome5
+                    name="mobile-alt"
+                    size={24}
+                    color={connectionState === ConnectionState.CONNECTED ? '#4CAF50' : '#666'}
+                />
+            </TouchableOpacity>
 
             <TouchableOpacity
                 style={[
@@ -539,6 +673,39 @@ export function RefereeModule() {
                 onRevertLastPoint={revertLastPoint}
                 kawaiiMode={kawaiiMode}
                 canRevertLastPoint={lastScoreChange !== null}
+            />
+
+            {/* BLE Connection Modal */}
+            <ConnectionModal
+                visible={showBLEModal}
+                onClose={() => setShowBLEModal(false)}
+                onScan={scan}
+                onCancelScan={cancelScan}
+                onConnect={async (boxType, deviceId) => {
+                    try {
+                        const connected = await connect(boxType, deviceId);
+                        if (connected) {
+                            setShowBLEModal(false);
+                            setShowDataSourceDialog(true);
+                        }
+                    } catch (error) {
+                        console.error('Connection failed:', error);
+                        // Modal will handle showing error state
+                    }
+                }}
+                onDisconnect={disconnect}
+                connectionState={connectionState}
+                connectedBoxType={connectedBoxType}
+                connectedDeviceName={connectedDeviceName}
+            />
+
+            {/* Data Source Selection Dialog */}
+            <DataSourceDialog
+                visible={showDataSourceDialog}
+                onSelectSource={source => {
+                    selectDataSource(source);
+                    setShowDataSourceDialog(false);
+                }}
             />
         </View>
     );
@@ -767,6 +934,13 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
         textAlign: 'center',
         fontSize: 16,
+    },
+    bleButton: {
+        position: 'absolute',
+        top: 60,
+        right: 20,
+        zIndex: 10,
+        padding: 10,
     },
 });
 

@@ -13,6 +13,7 @@ import {
 } from '../../data/TournamentDataHooks';
 import { getDeviceId } from '../../networking/NetworkUtils';
 import { useTranslation } from 'react-i18next';
+import { BLEStatusBar } from '../../networking/components/BLEStatusBar';
 
 interface ManageOfficialsProps {
     navigation: NativeStackNavigationProp<RootStackParamList, 'ManageOfficials'>;
@@ -241,6 +242,7 @@ const ManageOfficials: React.FC<ManageOfficialsProps> = ({ route, navigation }) 
 
     return (
         <View style={styles.container}>
+            <BLEStatusBar compact={true} />
             <Text style={styles.title}>{t('manageOfficials.title', { tournamentName })}</Text>
 
             {!isRemote && (

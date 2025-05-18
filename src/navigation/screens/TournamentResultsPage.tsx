@@ -9,6 +9,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import dataProvider from '../../data/DrizzleDataProvider';
 import { MaterialIcons } from '@expo/vector-icons';
 import ConnectionStatusBar from '../../networking/components/ConnectionStatusBar';
+import { BLEStatusBar } from '../../networking/components/BLEStatusBar';
 
 // Define the route params for this page
 type TournamentResultsRouteParams = {
@@ -278,7 +279,7 @@ const TournamentResultsPage: React.FC = () => {
             // Group fencers by elimination round
             const fencersByEliminationRound = new Map<
                 number | null,
-                Array<{
+                {
                     fencer: Fencer;
                     victories: number;
                     bouts: number;
@@ -286,7 +287,7 @@ const TournamentResultsPage: React.FC = () => {
                     touchesReceived: number;
                     indicator: number;
                     seed: number;
-                }>
+                }[]
             >();
 
             // Initialize the elimination round groups
@@ -527,6 +528,7 @@ const TournamentResultsPage: React.FC = () => {
     return (
         <View style={styles.container}>
             {isRemote && <ConnectionStatusBar compact={true} />}
+            <BLEStatusBar compact={true} />
             {renderRoundTabs()}
 
             <ScrollView contentContainerStyle={styles.contentContainer}>{renderContent()}</ScrollView>

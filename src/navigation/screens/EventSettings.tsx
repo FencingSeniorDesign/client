@@ -17,8 +17,8 @@ import ClubAutocomplete from '../../components/ui/ClubAutocomplete';
 import * as FileSystem from 'expo-file-system';
 // Import our custom picker component instead of the native one
 import CustomPickerComponent from '../../components/ui/CustomPicker';
-const { CustomPicker, FencerCreationControls } = CustomPickerComponent;
 import { useTranslation } from 'react-i18next';
+import { BLEStatusBar } from '../../networking/components/BLEStatusBar';
 import { useQueryClient } from '@tanstack/react-query';
 import {
     useFencers,
@@ -31,6 +31,7 @@ import {
     useUpdateRound,
     useDeleteRound,
 } from '../../data/TournamentDataHooks';
+const { CustomPicker, FencerCreationControls } = CustomPickerComponent;
 
 // ----- Pool Configuration Helper Types and Functions -----
 interface PoolConfiguration {
@@ -209,7 +210,7 @@ export const EventSettings = ({ route }: Props) => {
 
     // Fencer functions
     const handleAddFencer = React.useCallback(() => {
-        let newFencer: Fencer = {
+        const newFencer: Fencer = {
             fname: fencerFirstName.trim(),
             lname: fencerLastName.trim(),
             club: fencerClub.trim(),
@@ -496,7 +497,7 @@ export const EventSettings = ({ route }: Props) => {
     }, [fencerSuggestions, formatRatingString, handleAddFencerFromSearch, addFencerMutation.isPending]);
 
     // Add refs array for round items
-    const roundItemRefs = useRef<Array<View | null>>([]);
+    const roundItemRefs = useRef<(View | null)[]>([]);
 
     // Effect to scroll to expanded round config
     useEffect(() => {
@@ -599,6 +600,7 @@ export const EventSettings = ({ route }: Props) => {
 
     return (
         <ScrollView ref={scrollViewRef} style={styles.container} contentContainerStyle={styles.content}>
+            <BLEStatusBar compact={true} />
             <Text style={styles.title}>{t('eventSettings.title')}</Text>
 
             {/* Fencing Management Dropdown */}

@@ -37,6 +37,7 @@ import { PermissionsDisplay } from '../../rbac/PermissionsDisplay';
 import { Can } from '../../rbac/Can';
 import { useAbility } from '../../rbac/AbilityContext';
 import { useTranslation } from 'react-i18next';
+import { BLEStatusBar } from '../../networking/components/BLEStatusBar';
 
 type Props = {
     route: RouteProp<{ params: { tournamentName: string; isRemoteConnection?: boolean } }, 'params'>;
@@ -616,6 +617,9 @@ export const EventManagement = ({ route }: Props) => {
 
     return (
         <ScrollView contentContainerStyle={styles.container}>
+            {/* BLE connection status */}
+            {ability.can('score', 'Bout') && <BLEStatusBar compact={true} />}
+            
             {/* Tournament title at the top, centered */}
             <Text style={styles.title}>
                 {isRemote ? remoteConnectionInfo?.tournamentName || tournamentName || 'Tournament' : tournamentName}

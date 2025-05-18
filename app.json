@@ -45,7 +45,9 @@
                     }
                 }
             ],
-            "./plugins/withZeroconfConfig.js"
+            "./plugins/withZeroconfConfig.js",
+            "react-native-ble-plx",
+            "react-native-nfc-manager"
         ]
     }
 }

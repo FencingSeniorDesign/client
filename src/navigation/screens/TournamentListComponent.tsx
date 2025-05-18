@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { dbDeleteTournament } from '../../db/DrizzleDatabaseUtils';
 import { Tournament } from '../navigation/types';
 import { useAbility } from '../../rbac/AbilityContext'; // Import useAbility
+import tournamentClient from '../../networking/TournamentClient';
 
 interface TournamentListProps {
     tournaments: Tournament[];
@@ -17,11 +18,31 @@ export const TournamentList: React.FC<TournamentListProps> = ({ tournaments, onT
     const navigation = useNavigation();
     const { setTournamentContext } = useAbility(); // Get the context setter function
 
-    const handleTournamentPress = (tournamentName: string) => {
-        console.log(`Setting tournament context for: ${tournamentName}`);
-        setTournamentContext(tournamentName); // Set the context before navigating
+    const handleTournamentPress = async (tournament: Tournament) => {
+        console.log(`Tournament pressed: ${tournament.name}`);
+        
+        // If it's a disconnected remote tournament, try to reconnect
+        if (tournament.isRemote && !tournament.isConnected && tournament.hostIp && tournament.port) {
+            try {
+                console.log(`Attempting to reconnect to ${tournament.name} at ${tournament.hostIp}:${tournament.port}`);
+                const success = await tournamentClient.connectToServer(tournament.hostIp, tournament.port);
+                if (success) {
+                    Alert.alert(t('common.success'), `${t('home.connectedTo')} ${tournament.name}`);
+                    onTournamentDeleted(); // Refresh the list to update connection status
+                    return;
+                }
+            } catch (error) {
+                console.error('Failed to reconnect:', error);
+                Alert.alert(t('common.error'), t('home.failedToConnect'));
+                return;
+            }
+        }
+        
+        // Otherwise proceed with normal navigation
+        console.log(`Setting tournament context for: ${tournament.name}`);
+        setTournamentContext(tournament.name); // Set the context before navigating
         // @ts-ignore - Keep ignoring navigation type for now
-        navigation.navigate('EventManagement', { tournamentName });
+        navigation.navigate('EventManagement', { tournamentName: tournament.name });
     };
 
     const handleDelete = async (tournamentName: string) => {
@@ -53,14 +74,45 @@ export const TournamentList: React.FC<TournamentListProps> = ({ tournaments, onT
     const renderTournament = ({ item }: { item: Tournament }) => (
         <View style={styles.tournamentContainer}>
             <TouchableOpacity
-                style={[styles.tournamentItem, isComplete && styles.tournamentHistoryButton]}
-                onPress={() => handleTournamentPress(item.name)}
+                style={[
+                    styles.tournamentItem, 
+                    isComplete && styles.tournamentHistoryButton,
+                    item.isRemote && !item.isConnected && styles.disconnectedTournament
+                ]}
+                onPress={() => handleTournamentPress(item)}
             >
-                <Text style={styles.tournamentName}>{item.name}</Text>
+                <View>
+                    <Text style={styles.tournamentName}>{item.name}</Text>
+                    {item.isRemote && !item.isConnected && (
+                        <Text style={styles.disconnectedText}>{t('common.disconnected')}</Text>
+                    )}
+                </View>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.deleteButton} onPress={() => handleDelete(item.name)}>
-                <Text style={styles.deleteButtonText}>✖</Text>
-            </TouchableOpacity>
+            {item.isRemote ? (
+                <TouchableOpacity 
+                    style={[styles.disconnectButton, !item.isConnected && styles.reconnectButton]} 
+                    onPress={async () => {
+                        if (item.isConnected) {
+                            // Disconnect
+                            tournamentClient.isShowingDisconnectAlert = true;
+                            await tournamentClient.disconnect(true); // Pass true to preserve info
+                            tournamentClient.isShowingDisconnectAlert = false;
+                            onTournamentDeleted(); // Refresh the list
+                        } else {
+                            // Attempt to reconnect
+                            await handleTournamentPress(item);
+                        }
+                    }}
+                >
+                    <Text style={styles.disconnectButtonText}>
+                        {item.isConnected ? t('home.disconnect') : t('home.reconnect')}
+                    </Text>
+                </TouchableOpacity>
+            ) : (
+                <TouchableOpacity style={styles.deleteButton} onPress={() => handleDelete(item.name)}>
+                    <Text style={styles.deleteButtonText}>✖</Text>
+                </TouchableOpacity>
+            )}
         </View>
     );
 
@@ -135,6 +187,32 @@ const styles = StyleSheet.create({
     tournamentHistoryButtonText: {
         color: '#555555',
         fontSize: 16,
+    },
+    disconnectedTournament: {
+        backgroundColor: '#f5f5f5',
+        borderLeftWidth: 4,
+        borderLeftColor: '#ffa500', // Orange color for disconnected
+    },
+    disconnectedText: {
+        fontSize: 12,
+        color: '#888888',
+        marginTop: 4,
+        fontStyle: 'italic',
+    },
+    disconnectButton: {
+        padding: 16,
+        backgroundColor: '#ff3b30',
+        justifyContent: 'center',
+        alignItems: 'center',
+        minWidth: 100,
+    },
+    reconnectButton: {
+        backgroundColor: '#228B22', // Green for reconnect
+    },
+    disconnectButtonText: {
+        color: '#fff',
+        fontSize: 14,
+        fontWeight: '600',
     },
 });
 
