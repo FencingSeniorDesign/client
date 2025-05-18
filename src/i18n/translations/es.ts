@@ -498,5 +498,7 @@ export default {
         unknownDevice: 'Dispositivo desconocido',
         scanFailed: 'Escaneo fallido',
         unknownError: 'Ocurrió un error desconocido',
+        disconnectConfirmation: '¿Está seguro de que desea desconectarse de {{boxName}}?',
+        disconnectFailed: 'No se pudo desconectar de la caja de puntuación',
     },
 };

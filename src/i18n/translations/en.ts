@@ -499,5 +499,7 @@ export default {
         unknownDevice: 'Unknown Device',
         scanFailed: 'Scan Failed',
         unknownError: 'An unknown error occurred',
+        disconnectConfirmation: 'Are you sure you want to disconnect from {{boxName}}?',
+        disconnectFailed: 'Failed to disconnect from the scoring box',
     },
 };

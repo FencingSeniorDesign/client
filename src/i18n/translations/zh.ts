@@ -480,5 +480,7 @@ export default {
         unknownDevice: '未知设备',
         scanFailed: '扫描失败',
         unknownError: '发生未知错误',
+        disconnectConfirmation: '您确定要断开与 {{boxName}} 的连接吗？',
+        disconnectFailed: '无法断开与计分盒的连接',
     },
 };

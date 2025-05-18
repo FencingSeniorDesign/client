@@ -465,5 +465,7 @@ export default {
         unknownDevice: 'Appareil inconnu',
         scanFailed: 'Échec de la recherche',
         unknownError: "Une erreur inconnue s'est produite",
+        disconnectConfirmation: 'Êtes-vous sûr de vouloir vous déconnecter de {{boxName}} ?',
+        disconnectFailed: 'Échec de la déconnexion du boîtier de notation',
     },
 };
