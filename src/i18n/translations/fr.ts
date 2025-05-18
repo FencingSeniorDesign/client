@@ -15,6 +15,10 @@ export default {
         remove: '',
         add: '',
         yes: '',
+        disconnectBoxPromptTitle: '',
+        disconnectBoxPromptMessage: '',
+        disconnectAndExit: '',
+        exitWithoutDisconnecting: '',
     },
     home: {
         title: '',

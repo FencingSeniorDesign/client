@@ -15,6 +15,10 @@ export default {
         remove: 'Eliminar',
         add: 'Añadir',
         yes: 'Sí',
+        disconnectBoxPromptTitle: '¿Desconectar Caja de Puntuación?',
+        disconnectBoxPromptMessage: 'Actualmente estás conectado a una caja de puntuación. ¿Te gustaría desconectarte antes de salir?',
+        disconnectAndExit: 'Desconectar y Salir',
+        exitWithoutDisconnecting: 'Salir Sin Desconectar',
     },
     home: {
         title: 'Inicio',

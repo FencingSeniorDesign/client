@@ -16,6 +16,10 @@ export default {
         add: 'Add',
         yes: 'Yes',
         ok: 'OK',
+        disconnectBoxPromptTitle: 'Disconnect Scoring Box?',
+        disconnectBoxPromptMessage: 'You are currently connected to a scoring box. Would you like to disconnect before leaving?',
+        disconnectAndExit: 'Disconnect & Exit',
+        exitWithoutDisconnecting: 'Exit Without Disconnecting',
     },
     home: {
         title: 'Home',

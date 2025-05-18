@@ -15,6 +15,10 @@ export default {
         remove: '移除',
         add: '添加',
         yes: '是',
+        disconnectBoxPromptTitle: '断开计分盒连接？',
+        disconnectBoxPromptMessage: '您当前已连接到计分盒。是否要在离开前断开连接？',
+        disconnectAndExit: '断开连接并退出',
+        exitWithoutDisconnecting: '不断开连接直接退出',
     },
     home: {
         title: '首页',
