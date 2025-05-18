@@ -47,6 +47,7 @@ export interface TimerUpdate {
 export interface BoxCallbacks {
     onScoreUpdate?: (update: ScoreUpdate) => void;
     onTimerUpdate?: (update: TimerUpdate) => void;
+    onPassivityTimerUpdate?: (update: TimerUpdate) => void;
     onConnectionStateChange?: (state: ConnectionState) => void;
     onError?: (error: Error) => void;
 }

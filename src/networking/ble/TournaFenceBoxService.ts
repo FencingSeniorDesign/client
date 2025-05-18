@@ -15,7 +15,7 @@ export class TournaFenceBoxService extends ScoringBoxService {
     capabilities: BoxCapabilities = {
         supportsScore: true,
         supportsMainTimer: true,
-        supportsPassivityTimer: false,
+        supportsPassivityTimer: true,
         supportsFencerNames: false,
         supportsPenaltyCards: false,
         supportsBidirectional: true,
@@ -25,6 +25,7 @@ export class TournaFenceBoxService extends ScoringBoxService {
     private notificationSubscription: Subscription | null = null;
     private currentScore = { left: 0, right: 0 };
     private timerState = { timeMs: 180000, isRunning: false }; // Default 3 minutes
+    private passivityTimerState = { timeMs: 60000, isRunning: false }; // Default 60 seconds
     private reconnectAttempts = 0;
     private scanInProgress: boolean = false;
     private maxReconnectAttempts = 3;
@@ -478,6 +479,26 @@ export class TournaFenceBoxService extends ScoringBoxService {
                 });
                 
                 console.log('Timer status updated:', { timeMs, isRunning });
+            }
+        }
+
+        // Handle passivity timer status messages
+        else if (message.startsWith('STATUS:PASSIVITY:')) {
+            // Parse passivity timer status format: STATUS:PASSIVITY:timeMs:RUNNING/STOPPED
+            const parts = message.split(':');
+            if (parts.length >= 4) {
+                const timeMs = parseInt(parts[2]);
+                const isRunning = parts[3] === 'RUNNING';
+                
+                this.passivityTimerState.timeMs = timeMs;
+                this.passivityTimerState.isRunning = isRunning;
+                
+                this.callbacks.onPassivityTimerUpdate?.({
+                    ...this.passivityTimerState,
+                    timestamp: Date.now(),
+                });
+                
+                console.log('Passivity timer status updated:', { timeMs, isRunning });
             }
         }
 

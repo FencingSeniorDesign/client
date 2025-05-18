@@ -57,6 +57,7 @@ export function RefereeModule() {
 
     // Non‑combativity (passivity) timer state
     const [passivityTime, setPassivityTime] = useState(60);
+    const [passivityTimerRunning, setPassivityTimerRunning] = useState(false);
     const [savedPassivityTime, setSavedPassivityTime] = useState<number | null>(null);
     const passivityTimerRef = useRef<NodeJS.Timer | null>(null);
 
@@ -97,6 +98,10 @@ export function RefereeModule() {
         onTimerUpdate: (timeMs, isRunning) => {
             setTime(Math.floor(timeMs / 1000));
             setIsRunning(isRunning);
+        },
+        onPassivityTimerUpdate: (timeMs, isRunning) => {
+            setPassivityTime(Math.floor(timeMs / 1000));
+            setPassivityTimerRunning(isRunning);
         },
         currentScore: { left: fencer1Score, right: fencer2Score },
         currentTimerMs: time * 1000,
@@ -188,9 +193,14 @@ export function RefereeModule() {
     // then update the score and reset the passivity timer.
     const updateScore = (fencer: 1 | 2, increment: boolean) => {
         stopTimer(); // Pause both timers immediately on score change
-        setSavedPassivityTime(passivityTime); // Save the current passivity timer value
+        
+        // Only manage passivity timer locally when not connected to hardware
+        if (connectionState !== ConnectionState.CONNECTED) {
+            setSavedPassivityTime(passivityTime); // Save the current passivity timer value
+            setPassivityTime(60); // Reset passivity timer
+        }
+        
         setLastScoreChange({ fencer, delta: increment ? 1 : -1 });
-        setPassivityTime(60); // Reset passivity timer
 
         let newScore;
         if (fencer === 1) {
@@ -241,9 +251,12 @@ export function RefereeModule() {
             } else {
                 setFencer2Score(prev => Math.max(0, prev - delta));
             }
-            if (savedPassivityTime !== null) {
+            
+            // Only manage passivity timer locally when not connected to hardware
+            if (connectionState !== ConnectionState.CONNECTED && savedPassivityTime !== null) {
                 setPassivityTime(savedPassivityTime);
             }
+            
             setLastScoreChange(null);
             setSavedPassivityTime(null);
         }
@@ -274,9 +287,12 @@ export function RefereeModule() {
                     return prevTime - 1;
                 });
             }, 1000);
-            passivityTimerRef.current = setInterval(() => {
-                setPassivityTime(prev => (prev <= 1 ? 0 : prev - 1));
-            }, 1000);
+            // Only run local passivity timer if not connected
+            if (connectionState !== ConnectionState.CONNECTED) {
+                passivityTimerRef.current = setInterval(() => {
+                    setPassivityTime(prev => (prev <= 1 ? 0 : prev - 1));
+                }, 1000);
+            }
         }
     };
 

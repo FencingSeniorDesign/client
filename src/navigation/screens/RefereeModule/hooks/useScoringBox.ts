@@ -16,6 +16,7 @@ import { SkeweredBoxService } from '../../../../networking/ble/SkeweredBoxServic
 interface UseScoringBoxProps {
     onScoreUpdate: (leftScore: number, rightScore: number) => void;
     onTimerUpdate: (timeMs: number, isRunning: boolean) => void;
+    onPassivityTimerUpdate?: (timeMs: number, isRunning: boolean) => void;
     currentScore: { left: number; right: number };
     currentTimerMs: number;
     timerRunning: boolean;
@@ -24,6 +25,7 @@ interface UseScoringBoxProps {
 export function useScoringBox({
     onScoreUpdate,
     onTimerUpdate,
+    onPassivityTimerUpdate,
     currentScore,
     currentTimerMs,
     timerRunning,
@@ -75,6 +77,16 @@ export function useScoringBox({
         [onTimerUpdate]
     );
 
+    const handlePassivityTimerUpdate = useCallback(
+        (update: TimerUpdate) => {
+            // Always update app state from box notifications
+            if (onPassivityTimerUpdate) {
+                onPassivityTimerUpdate(update.timeMs, update.isRunning);
+            }
+        },
+        [onPassivityTimerUpdate]
+    );
+
     const handleConnectionStateChange = useCallback((state: ConnectionState) => {
         setConnectionState(state);
 
@@ -115,6 +127,7 @@ export function useScoringBox({
             const callbacks: BoxCallbacks = {
                 onScoreUpdate: handleScoreUpdate,
                 onTimerUpdate: handleTimerUpdate,
+                onPassivityTimerUpdate: handlePassivityTimerUpdate,
                 onConnectionStateChange: handleConnectionStateChange,
                 onError: handleError,
             };
@@ -153,6 +166,7 @@ export function useScoringBox({
                 const callbacks: BoxCallbacks = {
                     onScoreUpdate: handleScoreUpdate,
                     onTimerUpdate: handleTimerUpdate,
+                    onPassivityTimerUpdate: handlePassivityTimerUpdate,
                     onConnectionStateChange: handleConnectionStateChange,
                     onError: handleError,
                 };
