@@ -12,7 +12,6 @@ import ConnectionStatusBar from '../../../networking/components/ConnectionStatus
 import { useTranslation } from 'react-i18next';
 import { ConnectionModal } from './components/ConnectionModal';
 import { DataSourceDialog } from './components/DataSourceDialog';
-import { ConnectionStatusIndicator } from './components/ConnectionStatusIndicator';
 import { useScoringBox } from './hooks/useScoringBox';
 import { ScoringBoxType, ConnectionState } from '../../../networking/ble/types';
 
@@ -415,13 +414,6 @@ export function RefereeModule() {
                 />
             </TouchableOpacity>
 
-            {/* BLE Connection Status */}
-            <ConnectionStatusIndicator
-                connectionState={connectionState}
-                connectedBoxType={connectedBoxType}
-                connectedDeviceName={connectedDeviceName}
-                initialSyncCompleted={initialSyncCompleted}
-            />
 
             <TouchableOpacity
                 style={[
