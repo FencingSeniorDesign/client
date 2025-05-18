@@ -195,13 +195,13 @@ export function RefereeModule() {
     // then update the score and reset the passivity timer.
     const updateScore = (fencer: 1 | 2, increment: boolean) => {
         stopTimer(); // Pause both timers immediately on score change
-        
+
         // Only manage passivity timer locally when not connected to hardware
         if (connectionState !== ConnectionState.CONNECTED) {
             setSavedPassivityTime(passivityTime); // Save the current passivity timer value
             setPassivityTime(60); // Reset passivity timer
         }
-        
+
         setLastScoreChange({ fencer, delta: increment ? 1 : -1 });
 
         let newScore;
@@ -253,12 +253,12 @@ export function RefereeModule() {
             } else {
                 setFencer2Score(prev => Math.max(0, prev - delta));
             }
-            
+
             // Only manage passivity timer locally when not connected to hardware
             if (connectionState !== ConnectionState.CONNECTED && savedPassivityTime !== null) {
                 setPassivityTime(savedPassivityTime);
             }
-            
+
             setLastScoreChange(null);
             setSavedPassivityTime(null);
         }
@@ -277,7 +277,7 @@ export function RefereeModule() {
                 bleStartTimer();
                 return; // Don't run local timer
             }
-            
+
             // Only run local timer when not connected to a box
             setIsRunning(true);
             timerRef.current = setInterval(() => {
@@ -304,7 +304,7 @@ export function RefereeModule() {
             bleStopTimer();
             return; // Don't manage local timer
         }
-        
+
         // Only manage local timer when not connected to a box
         if (timerRef.current) {
             clearInterval(timerRef.current);
@@ -416,7 +416,6 @@ export function RefereeModule() {
                     color={connectionState === ConnectionState.CONNECTED ? '#4CAF50' : '#666'}
                 />
             </TouchableOpacity>
-
 
             <TouchableOpacity
                 style={[

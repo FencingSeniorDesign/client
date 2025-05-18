@@ -288,9 +288,9 @@ export class TournaFenceBoxService extends ScoringBoxService {
         // Mark this as an intentional disconnect first to prevent race conditions
         // Set this BEFORE any async operations to ensure callbacks see it
         this.isIntentionalDisconnect = true;
-        
+
         console.log('Starting intentional disconnect');
-        
+
         try {
             this.updateConnectionState(ConnectionState.DISCONNECTING);
 
@@ -469,15 +469,15 @@ export class TournaFenceBoxService extends ScoringBoxService {
             if (parts.length >= 4) {
                 const timeMs = parseInt(parts[2]);
                 const isRunning = parts[3] === 'RUNNING';
-                
+
                 this.timerState.timeMs = timeMs;
                 this.timerState.isRunning = isRunning;
-                
+
                 this.callbacks.onTimerUpdate?.({
                     ...this.timerState,
                     timestamp: Date.now(),
                 });
-                
+
                 console.log('Timer status updated:', { timeMs, isRunning });
             }
         }
@@ -489,15 +489,15 @@ export class TournaFenceBoxService extends ScoringBoxService {
             if (parts.length >= 4) {
                 const timeMs = parseInt(parts[2]);
                 const isRunning = parts[3] === 'RUNNING';
-                
+
                 this.passivityTimerState.timeMs = timeMs;
                 this.passivityTimerState.isRunning = isRunning;
-                
+
                 this.callbacks.onPassivityTimerUpdate?.({
                     ...this.passivityTimerState,
                     timestamp: Date.now(),
                 });
-                
+
                 console.log('Passivity timer status updated:', { timeMs, isRunning });
             }
         }
@@ -533,7 +533,7 @@ export class TournaFenceBoxService extends ScoringBoxService {
         // This method should only be called for unintentional disconnects
         // Intentional disconnects are handled in the disconnect() method
         this.updateConnectionState(ConnectionState.DISCONNECTED, 'Device disconnected unexpectedly');
-        
+
         // Attempt auto-reconnect if we have a device ID
         if (this.state.deviceId && this.reconnectAttempts < this.maxReconnectAttempts) {
             this.scheduleReconnect(this.state.deviceId);
