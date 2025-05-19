@@ -210,7 +210,7 @@ const ManageOfficials: React.FC<ManageOfficialsProps> = ({ route, navigation }) 
                     onPress={() => handleRemoveReferee(item)}
                     disabled={removeRefereeMutation.isPending}
                 >
-                    <Text style={styles.removeButtonText}>✕</Text>
+                    <Text style={styles.removeButtonText}>{t('common.removeIcon')}</Text>
                 </TouchableOpacity>
             )}
         </View>
@@ -232,7 +232,7 @@ const ManageOfficials: React.FC<ManageOfficialsProps> = ({ route, navigation }) 
                     onPress={() => handleRemoveOfficial(item)}
                     disabled={removeOfficialMutation.isPending}
                 >
-                    <Text style={styles.removeButtonText}>✕</Text>
+                    <Text style={styles.removeButtonText}>{t('common.removeIcon')}</Text>
                 </TouchableOpacity>
             )}
         </View>
