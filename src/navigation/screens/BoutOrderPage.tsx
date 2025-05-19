@@ -619,7 +619,7 @@ const BoutOrderPage: React.FC = () => {
                         </Text>
                     </View>
                     <Text style={styles.middleText}>
-                        {bout.status === 'completed' ? `${bout.scoreA}-${bout.scoreB}` : 'VS'}
+                        {bout.status === 'completed' ? `${bout.scoreA}-${bout.scoreB}` : t('common.vs')}
                     </Text>
                     <View style={styles.fencerBox}>
                         <Text style={[styles.fencerText, bout.winnerId === bout.fencerB.id && styles.winnerText]}>
@@ -825,7 +825,7 @@ const BoutOrderPage: React.FC = () => {
                         )}
                         <View style={styles.scoreRow}>
                             <Text style={styles.scoreFencerLabel}>
-                                {alterIndex !== null ? bouts[alterIndex].fencerA.lname : 'Fencer A'}:
+                                {alterIndex !== null ? bouts[alterIndex].fencerA.lname : t('common.defaultFencerA')}:
                             </Text>
                             <TextInput
                                 style={styles.scoreInput}
@@ -836,7 +836,7 @@ const BoutOrderPage: React.FC = () => {
                         </View>
                         <View style={styles.scoreRow}>
                             <Text style={styles.scoreFencerLabel}>
-                                {alterIndex !== null ? bouts[alterIndex].fencerB.lname : 'Fencer B'}:
+                                {alterIndex !== null ? bouts[alterIndex].fencerB.lname : t('common.defaultFencerB')}:
                             </Text>
                             <TextInput
                                 style={styles.scoreInput}

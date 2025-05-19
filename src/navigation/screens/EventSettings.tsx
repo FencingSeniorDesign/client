@@ -470,7 +470,7 @@ export const EventSettings = ({ route }: Props) => {
                     style={styles.removeFencerButton}
                     disabled={removeFencerMutation.isPending}
                 >
-                    <Text style={styles.removeFencerText}>x</Text>
+                    <Text style={styles.removeFencerText}>{t('common.removeIcon')}</Text>
                 </TouchableOpacity>
             </View>
         ));

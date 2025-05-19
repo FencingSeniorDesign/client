@@ -253,8 +253,8 @@ const DEBracketPage: React.FC = () => {
             }
 
             // Create safe fencer names
-            const fencer1Name = `${bout.fencerA.fname || ''} ${bout.fencerA.lname || ''}`.trim() || 'Fencer A';
-            const fencer2Name = `${bout.fencerB.fname || ''} ${bout.fencerB.lname || ''}`.trim() || 'Fencer B';
+            const fencer1Name = `${bout.fencerA.fname || ''} ${bout.fencerA.lname || ''}`.trim() || t('common.defaultFencerA');
+            const fencer2Name = `${bout.fencerB.fname || ''} ${bout.fencerB.lname || ''}`.trim() || t('common.defaultFencerB');
 
             // Navigate to Referee Module
             navigation.navigate('RefereeModule', {
