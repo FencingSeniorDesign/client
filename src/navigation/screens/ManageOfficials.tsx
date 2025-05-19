@@ -13,6 +13,7 @@ import {
 } from '../../data/TournamentDataHooks';
 import { getDeviceId } from '../../networking/NetworkUtils';
 import { useTranslation } from 'react-i18next';
+import { BLEStatusBar } from '../../networking/components/BLEStatusBar';
 
 interface ManageOfficialsProps {
     navigation: NativeStackNavigationProp<RootStackParamList, 'ManageOfficials'>;
@@ -209,7 +210,7 @@ const ManageOfficials: React.FC<ManageOfficialsProps> = ({ route, navigation }) 
                     onPress={() => handleRemoveReferee(item)}
                     disabled={removeRefereeMutation.isPending}
                 >
-                    <Text style={styles.removeButtonText}>✕</Text>
+                    <Text style={styles.removeButtonText}>{t('common.removeIcon')}</Text>
                 </TouchableOpacity>
             )}
         </View>
@@ -231,7 +232,7 @@ const ManageOfficials: React.FC<ManageOfficialsProps> = ({ route, navigation }) 
                     onPress={() => handleRemoveOfficial(item)}
                     disabled={removeOfficialMutation.isPending}
                 >
-                    <Text style={styles.removeButtonText}>✕</Text>
+                    <Text style={styles.removeButtonText}>{t('common.removeIcon')}</Text>
                 </TouchableOpacity>
             )}
         </View>
@@ -241,6 +242,7 @@ const ManageOfficials: React.FC<ManageOfficialsProps> = ({ route, navigation }) 
 
     return (
         <View style={styles.container}>
+            <BLEStatusBar compact={true} />
             <Text style={styles.title}>{t('manageOfficials.title', { tournamentName })}</Text>
 
             {!isRemote && (

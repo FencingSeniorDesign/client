@@ -9,8 +9,13 @@ jest.mock('../../../src/navigation/components/DEHelpModal', () => {
     return {
         __esModule: true,
         default: (props: any) => {
-            return <>{/* Mocked DEHelpModal */}<div {...props} data-testid="help-modal" /></>;
-        },        
+            return (
+                <>
+                    {/* Mocked DEHelpModal */}
+                    <div {...props} data-testid="help-modal" />
+                </>
+            );
+        },
     };
 });
 

@@ -37,6 +37,7 @@ import { PermissionsDisplay } from '../../rbac/PermissionsDisplay';
 import { Can } from '../../rbac/Can';
 import { useAbility } from '../../rbac/AbilityContext';
 import { useTranslation } from 'react-i18next';
+import { BLEStatusBar } from '../../networking/components/BLEStatusBar';
 
 type Props = {
     route: RouteProp<{ params: { tournamentName: string; isRemoteConnection?: boolean } }, 'params'>;
@@ -296,7 +297,7 @@ export const EventManagement = ({ route }: Props) => {
     const navigateToRoundPage = (event: Event, round: Round, roundIndex: number) => {
         if (!round || !round.type) {
             console.error('Cannot navigate: round or round.type is undefined');
-            Alert.alert('Error', 'Failed to navigate to round: invalid round data');
+            Alert.alert(t('common.error'), t('eventManagement.failedToNavigateRound'));
             return;
         }
 
@@ -312,7 +313,7 @@ export const EventManagement = ({ route }: Props) => {
             navigateToDEPage(navigation, event, round, roundIndex, isRemote);
         } else {
             console.error(`Unknown round type: ${round.type}`);
-            Alert.alert('Error', `Unknown round type: ${round.type}`);
+            Alert.alert(t('common.error'), t('eventManagement.unknownRoundType', { type: round.type }));
         }
     };
 
@@ -341,11 +342,11 @@ export const EventManagement = ({ route }: Props) => {
                 navigateToRoundPage(event, round, roundIndex);
             } else {
                 console.log(`Round initialization failed for event ${eventId}`);
-                Alert.alert('Error', 'Failed to initialize round.');
+                Alert.alert(t('common.error'), t('eventManagement.roundNotInitialized'));
             }
         } catch (error) {
             console.error('Error initializing round:', error);
-            Alert.alert('Error', 'Failed to initialize round.');
+            Alert.alert(t('common.error'), t('eventManagement.roundNotInitialized'));
         }
     };
 
@@ -372,12 +373,12 @@ export const EventManagement = ({ route }: Props) => {
             const rounds = queryClient.getQueryData<Round[]>(queryKeys.rounds(eventId));
 
             if (!fencers || fencers.length === 0) {
-                Alert.alert('Error', 'Cannot start event with no fencers. Please add fencers to this event.');
+                Alert.alert(t('common.error'), t('eventManagement.cannotStartNoFencers'));
                 return;
             }
 
             if (!rounds || rounds.length === 0) {
-                Alert.alert('Error', 'No rounds defined for this event. Please add rounds in the event settings.');
+                Alert.alert(t('common.error'), t('eventManagement.noRoundsDefinedError'));
                 return;
             }
 
@@ -387,8 +388,8 @@ export const EventManagement = ({ route }: Props) => {
 
             if (poolRoundsWithoutConfig.length > 0) {
                 Alert.alert(
-                    'Error',
-                    'Some pool rounds do not have a pool configuration selected. Please set pool configurations in the event settings.'
+                    t('common.error'),
+                    t('eventManagement.somePoolRoundsNoConfig')
                 );
                 return;
             }
@@ -402,12 +403,12 @@ export const EventManagement = ({ route }: Props) => {
                 }
 
                 Alert.alert(
-                    'Starting DE Round',
-                    `The bracket will be automatically sized to ${tableSize} based on ${fencers.length} registered fencers.`,
+                    t('eventManagement.startingDE'),
+                    t('eventManagement.bracketSizeMessage', { size: tableSize, count: fencers.length }),
                     [
-                        { text: 'Cancel', style: 'cancel' },
+                        { text: t('common.cancel'), style: 'cancel' },
                         {
-                            text: 'Continue',
+                            text: t('eventManagement.continue'),
                             onPress: () =>
                                 initializeAndNavigate(eventToStart.id, firstRound.id, eventToStart, firstRound, 0),
                         },
@@ -418,7 +419,7 @@ export const EventManagement = ({ route }: Props) => {
             }
         } catch (error) {
             console.error('Error starting event:', error);
-            Alert.alert('Error', 'Failed to start event.');
+            Alert.alert(t('common.error'), t('eventManagement.failedToStartEvent'));
         }
     };
 
@@ -441,7 +442,7 @@ export const EventManagement = ({ route }: Props) => {
             console.log('Retrieved rounds:', rounds);
 
             if (!rounds || rounds.length === 0) {
-                Alert.alert('Error', 'No rounds defined for this event. Please add rounds in the event settings.');
+                Alert.alert(t('common.error'), t('eventManagement.noRoundsDefinedError'));
                 return;
             }
 
@@ -451,8 +452,8 @@ export const EventManagement = ({ route }: Props) => {
 
             if (poolRoundsWithoutConfig.length > 0) {
                 Alert.alert(
-                    'Error',
-                    'Some pool rounds do not have a pool configuration selected. Please set pool configurations in the event settings.'
+                    t('common.error'),
+                    t('eventManagement.somePoolRoundsNoConfig')
                 );
                 return;
             }
@@ -461,11 +462,11 @@ export const EventManagement = ({ route }: Props) => {
 
             if (!firstRound.isstarted) {
                 Alert.alert(
-                    'Round Not Started',
-                    "This round hasn't been initialized yet. Would you like to start it now?",
+                    t('eventManagement.roundNotStarted'),
+                    t('eventManagement.initializeRoundMessage'),
                     [
-                        { text: 'Cancel', style: 'cancel' },
-                        { text: 'Start Round', onPress: () => handleStartEvent(eventId) },
+                        { text: t('common.cancel'), style: 'cancel' },
+                        { text: t('eventManagement.startRound'), onPress: () => handleStartEvent(eventId) },
                     ]
                 );
                 return;
@@ -474,7 +475,7 @@ export const EventManagement = ({ route }: Props) => {
             navigateToRoundPage(eventToOpen, firstRound, 0);
         } catch (error) {
             console.error('Error opening event:', error);
-            Alert.alert('Error', 'Failed to open event.');
+            Alert.alert(t('common.error'), t('eventManagement.failedToOpenEvent'));
         }
     };
 
@@ -512,11 +513,11 @@ export const EventManagement = ({ route }: Props) => {
                 const stillRunning = await checkServerStatus();
 
                 if (!stillRunning) {
-                    Alert.alert('Server Stopped', 'Tournament server has been shut down');
+                    Alert.alert(t('eventManagement.serverStopped'), t('eventManagement.serverStoppedMessage'));
                 } else {
                     Alert.alert(
-                        'Error',
-                        'Failed to stop the tournament server. The server process may still be running in the background.'
+                        t('common.error'),
+                        t('eventManagement.serverStopFailed')
                     );
                 }
             } else {
@@ -524,12 +525,12 @@ export const EventManagement = ({ route }: Props) => {
                 const isConnected = await isConnectedToInternet();
                 if (!isConnected) {
                     Alert.alert(
-                        'Network Issue',
-                        'No network connection detected. Other devices may not be able to connect to your tournament server.',
+                        t('eventManagement.networkIssue'),
+                        t('eventManagement.networkIssueMessage'),
                         [
-                            { text: 'Cancel', style: 'cancel' },
+                            { text: t('common.cancel'), style: 'cancel' },
                             {
-                                text: 'Start Anyway',
+                                text: t('eventManagement.startAnyway'),
                                 onPress: async () => {
                                     await startTournamentServer();
                                 },
@@ -544,7 +545,7 @@ export const EventManagement = ({ route }: Props) => {
             }
         } catch (error) {
             console.error('Error toggling server:', error);
-            Alert.alert('Error', 'An unexpected error occurred while managing the server');
+            Alert.alert(t('common.error'), t('eventManagement.unexpectedServerError'));
         } finally {
             setServerOperationPending(false);
         }
@@ -576,28 +577,28 @@ export const EventManagement = ({ route }: Props) => {
                     });
 
                     Alert.alert(
-                        'Server Started',
-                        `Tournament server is now running at ${currentIp}:${info.port}\n\nShare this information with participants who want to join.`
+                        t('eventManagement.serverStarted'),
+                        t('eventManagement.serverStartedMessage', { ip: currentIp, port: info.port })
                     );
                 }
             } else {
                 Alert.alert(
-                    'Error',
-                    'Failed to start the tournament server. Please check your network connection and try again.'
+                    t('common.error'),
+                    t('eventManagement.serverStartFailed')
                 );
             }
         } catch (error) {
             console.error('Error starting tournament server:', error);
-            Alert.alert('Error', 'An unexpected error occurred while starting the server');
+            Alert.alert(t('common.error'), t('eventManagement.unexpectedServerError'));
         }
     };
 
     const handleDisconnect = async () => {
         if (isRemote) {
-            Alert.alert('Disconnect from Tournament', 'Are you sure you want to disconnect from this tournament?', [
-                { text: 'Cancel', style: 'cancel' },
+            Alert.alert(t('eventManagement.disconnectConfirmTitle'), t('eventManagement.disconnectConfirmMessage'), [
+                { text: t('common.cancel'), style: 'cancel' },
                 {
-                    text: 'Disconnect',
+                    text: t('eventManagement.disconnect'),
                     style: 'destructive',
                     onPress: async () => {
                         // Set flag to true to prevent disconnect alert
@@ -616,9 +617,12 @@ export const EventManagement = ({ route }: Props) => {
 
     return (
         <ScrollView contentContainerStyle={styles.container}>
+            {/* BLE connection status */}
+            {ability.can('score', 'Bout') && <BLEStatusBar compact={true} />}
+            
             {/* Tournament title at the top, centered */}
             <Text style={styles.title}>
-                {isRemote ? remoteConnectionInfo?.tournamentName || tournamentName || 'Tournament' : tournamentName}
+                {isRemote ? remoteConnectionInfo?.tournamentName || tournamentName || t('common.tournament') : tournamentName}
             </Text>
 
             {/* Display user permissions */}
@@ -628,12 +632,12 @@ export const EventManagement = ({ route }: Props) => {
                 {/* Connection Status (for remote connection only) */}
                 {isRemote && (
                     <View style={styles.remoteConnectionBanner}>
-                        <Text style={styles.remoteConnectionText}>Connected to remote tournament</Text>
+                        <Text style={styles.remoteConnectionText}>{t('eventManagement.connectedToRemoteTournament')}</Text>
                         <Text style={styles.remoteConnectionText}>
-                            Host: {remoteConnectionInfo?.hostIp || 'Unknown'}
+                            {t('eventManagement.host')} {remoteConnectionInfo?.hostIp || 'Unknown'}
                         </Text>
                         <TouchableOpacity style={styles.disconnectButton} onPress={handleDisconnect}>
-                            <Text style={styles.disconnectButtonText}>Disconnect</Text>
+                            <Text style={styles.disconnectButtonText}>{t('eventManagement.disconnect')}</Text>
                         </TouchableOpacity>
                     </View>
                 )}
@@ -641,8 +645,8 @@ export const EventManagement = ({ route }: Props) => {
                 {/* IP Address Banner (for server mode only) */}
                 {serverEnabled && localIpAddress && !isRemote && (
                     <View style={styles.ipBanner}>
-                        <Text style={styles.ipText}>Tournament IP: {localIpAddress}</Text>
-                        <Text style={styles.ipTextSmall}>Port: {serverInfo?.port || 9001}</Text>
+                        <Text style={styles.ipText}>{t('eventManagement.tournamentIp')} {localIpAddress}</Text>
+                        <Text style={styles.ipTextSmall}>{t('eventManagement.port')}: {serverInfo?.port || 9001}</Text>
                         <View style={styles.networkStatusContainer}>
                             <View
                                 style={[
@@ -651,7 +655,7 @@ export const EventManagement = ({ route }: Props) => {
                                 ]}
                             />
                             <Text style={styles.networkStatusText}>
-                                {isNetworkConnected ? 'Network Connected' : 'Network Disconnected'}
+                                {isNetworkConnected ? t('eventManagement.networkConnected') : t('eventManagement.networkDisconnected')}
                             </Text>
                         </View>
                     </View>
@@ -672,11 +676,11 @@ export const EventManagement = ({ route }: Props) => {
                     {serverOperationPending ? (
                         <View style={styles.buttonLoadingContainer}>
                             <ActivityIndicator size="small" color="#fff" />
-                            <Text style={styles.serverButtonText}>{serverEnabled ? 'Stopping...' : 'Starting...'}</Text>
+                            <Text style={styles.serverButtonText}>{serverEnabled ? t('eventManagement.stopping') : t('eventManagement.starting')}</Text>
                         </View>
                     ) : (
                         <Text style={styles.serverButtonText}>
-                            {serverEnabled ? 'Disable Server' : 'Enable Server'}
+                            {serverEnabled ? t('eventManagement.disableServer') : t('eventManagement.enableServer')}
                         </Text>
                     )}
                 </TouchableOpacity>
@@ -684,8 +688,8 @@ export const EventManagement = ({ route }: Props) => {
 
             {serverEnabled && serverInfo && !isRemote && (
                 <View style={styles.serverInfoContainer}>
-                    <Text style={styles.serverInfoText}>Server running on port: {serverInfo.port}</Text>
-                    <Text style={styles.serverInfoText}>Share this info with players who want to join.</Text>
+                    <Text style={styles.serverInfoText}>{t('eventManagement.serverRunning', { port: serverInfo.port })}</Text>
+                    <Text style={styles.serverInfoText}>{t('eventManagement.shareInfo')}</Text>
                 </View>
             )}
 
@@ -746,7 +750,7 @@ export const EventManagement = ({ route }: Props) => {
                                                     })
                                                 }
                                             >
-                                                <Text style={styles.buttonText}>Edit</Text>
+                                                <Text style={styles.buttonText}>{t('eventManagement.edit')}</Text>
                                             </TouchableOpacity>
                                         )}
                                     </Can>
@@ -800,7 +804,7 @@ export const EventManagement = ({ route }: Props) => {
                                             style={styles.removeIconContainer}
                                             disabled={deleteEventMutation.isPending}
                                         >
-                                            <Text style={styles.removeIcon}>✖</Text>
+                                            <Text style={styles.removeIcon}>{t('eventManagement.removeIcon')}</Text>
                                         </TouchableOpacity>
                                     </Can>
                                 </View>

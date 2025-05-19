@@ -3,6 +3,10 @@ import React from 'react';
 import { render, fireEvent, waitFor, act } from '@testing-library/react-native';
 import { ClubAutocomplete } from '../../../src/components/ui/ClubAutocomplete';
 
+// Import mocked modules
+import { useSearchClubs, useCreateClub } from '../../../src/data/TournamentDataHooks';
+import { generateClubAbbreviation } from '../../../src/navigation/utils/BoutOrderUtils';
+
 // Mock the data hooks
 jest.mock('../../../src/data/TournamentDataHooks', () => ({
     useSearchClubs: jest.fn(),
@@ -13,10 +17,6 @@ jest.mock('../../../src/data/TournamentDataHooks', () => ({
 jest.mock('../../../src/navigation/utils/BoutOrderUtils', () => ({
     generateClubAbbreviation: jest.fn(text => text.substring(0, 3).toUpperCase()),
 }));
-
-// Import mocked modules
-import { useSearchClubs, useCreateClub } from '../../../src/data/TournamentDataHooks';
-import { generateClubAbbreviation } from '../../../src/navigation/utils/BoutOrderUtils';
 
 describe('ClubAutocomplete Component', () => {
     const mockOnValueChange = jest.fn();

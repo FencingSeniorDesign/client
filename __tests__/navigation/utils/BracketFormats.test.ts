@@ -86,6 +86,16 @@ describe('BracketFormats Utilities', () => {
             expect(getRoundName(64, 0, true)).toBe('Finals');
             expect(getRoundName(64, 1, true)).toBe('Bracket Reset');
         });
+
+        // Test for line 89 - the default case for unknown round index
+        it('handles unknown round index with a generic round name', () => {
+            // Test with round index that doesn't match any predefined round name
+            // When roundIndex > roundsTotal, reverseIndex will be negative, triggering default case
+            expect(getRoundName(16, 5)).toBe('Round 6');
+
+            // One more test case to ensure coverage
+            expect(getRoundName(8, 4)).toBe('Round 5');
+        });
     });
 
     describe('getCompassDescription', () => {

@@ -23,6 +23,9 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Can } from '../../rbac/Can';
 import { useAbility } from '../../rbac/AbilityContext';
 import { useTranslation } from 'react-i18next';
+import { BLEStatusBar } from '../../networking/components/BLEStatusBar';
+import { useScoringBoxContext } from '../../networking/ble/ScoringBoxContext';
+import { ConnectionState } from '../../networking/ble/types';
 
 type PoolsPageRouteParams = {
     event: Event;
@@ -39,6 +42,7 @@ const PoolsPage: React.FC = () => {
     const queryClient = useQueryClient();
     const { ability } = useAbility();
     const { t } = useTranslation();
+    const { connectionState, disconnect } = useScoringBoxContext();
 
     const { event, currentRoundIndex, roundId, isRemote = false } = route.params;
     const [pools, setPools] = useState<{ poolid: number; fencers: Fencer[] }[]>([]);
@@ -247,13 +251,64 @@ const PoolsPage: React.FC = () => {
 
                         // Instead of immediately navigating, delay navigation to allow the UI to update
                         setTimeout(() => {
-                            // Navigate to results
-                            console.log('Navigating to RoundResults');
-                            navigation.navigate('RoundResults', {
-                                roundId,
-                                eventId: event.id,
-                                currentRoundIndex,
-                            });
+                            // Check if connected to scoring box before navigating
+                            if (connectionState === ConnectionState.CONNECTED) {
+                                Alert.alert(
+                                    t('common.disconnectBoxPromptTitle'),
+                                    t('common.disconnectBoxPromptMessage'),
+                                    [
+                                        {
+                                            text: t('common.cancel'),
+                                            style: 'cancel',
+                                        },
+                                        {
+                                            text: t('common.exitWithoutDisconnecting'),
+                                            onPress: () => {
+                                                // Navigate to results
+                                                console.log('Navigating to RoundResults');
+                                                navigation.navigate('RoundResults', {
+                                                    roundId,
+                                                    eventId: event.id,
+                                                    currentRoundIndex,
+                                                });
+                                            },
+                                        },
+                                        {
+                                            text: t('common.disconnectAndExit'),
+                                            onPress: async () => {
+                                                try {
+                                                    await disconnect();
+                                                    // Navigate to results
+                                                    console.log('Navigating to RoundResults');
+                                                    navigation.navigate('RoundResults', {
+                                                        roundId,
+                                                        eventId: event.id,
+                                                        currentRoundIndex,
+                                                    });
+                                                } catch (error) {
+                                                    console.error('Failed to disconnect:', error);
+                                                    // Navigate anyway
+                                                    navigation.navigate('RoundResults', {
+                                                        roundId,
+                                                        eventId: event.id,
+                                                        currentRoundIndex,
+                                                    });
+                                                }
+                                            },
+                                            style: 'destructive',
+                                        },
+                                    ],
+                                    { cancelable: true }
+                                );
+                            } else {
+                                // Navigate to results
+                                console.log('Navigating to RoundResults');
+                                navigation.navigate('RoundResults', {
+                                    roundId,
+                                    eventId: event.id,
+                                    currentRoundIndex,
+                                });
+                            }
                         }, 500);
                     } catch (error) {
                         console.error('Error marking round as complete:', error);
@@ -267,6 +322,7 @@ const PoolsPage: React.FC = () => {
     return (
         <ScrollView contentContainerStyle={styles.container}>
             {isRemote && <ConnectionStatusBar compact={true} />}
+            {ability.can('score', 'Bout') && <BLEStatusBar compact={true} />}
             <Text style={styles.title}>{t('poolsPage.title')}</Text>
 
             <TouchableOpacity style={styles.viewSeedingButton} onPress={fetchSeeding}>
@@ -369,12 +425,60 @@ const PoolsPage: React.FC = () => {
                             disabled={buttonDisabled}
                             onPress={
                                 isRoundCompleted
-                                    ? () =>
-                                          navigation.navigate('RoundResults', {
-                                              roundId,
-                                              eventId: event.id,
-                                              currentRoundIndex,
-                                          })
+                                    ? () => {
+                                          // Check if connected to scoring box before navigating
+                                          if (connectionState === ConnectionState.CONNECTED) {
+                                              Alert.alert(
+                                                  t('common.disconnectBoxPromptTitle'),
+                                                  t('common.disconnectBoxPromptMessage'),
+                                                  [
+                                                      {
+                                                          text: t('common.cancel'),
+                                                          style: 'cancel',
+                                                      },
+                                                      {
+                                                          text: t('common.exitWithoutDisconnecting'),
+                                                          onPress: () => {
+                                                              navigation.navigate('RoundResults', {
+                                                                  roundId,
+                                                                  eventId: event.id,
+                                                                  currentRoundIndex,
+                                                              });
+                                                          },
+                                                      },
+                                                      {
+                                                          text: t('common.disconnectAndExit'),
+                                                          onPress: async () => {
+                                                              try {
+                                                                  await disconnect();
+                                                                  navigation.navigate('RoundResults', {
+                                                                      roundId,
+                                                                      eventId: event.id,
+                                                                      currentRoundIndex,
+                                                                  });
+                                                              } catch (error) {
+                                                                  console.error('Failed to disconnect:', error);
+                                                                  // Navigate anyway
+                                                                  navigation.navigate('RoundResults', {
+                                                                      roundId,
+                                                                      eventId: event.id,
+                                                                      currentRoundIndex,
+                                                                  });
+                                                              }
+                                                          },
+                                                          style: 'destructive',
+                                                      },
+                                                  ],
+                                                  { cancelable: true }
+                                              );
+                                          } else {
+                                              navigation.navigate('RoundResults', {
+                                                  roundId,
+                                                  eventId: event.id,
+                                                  currentRoundIndex,
+                                              });
+                                          }
+                                      }
                                     : confirmEndRound
                             }
                         >

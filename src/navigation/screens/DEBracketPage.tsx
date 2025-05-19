@@ -1,10 +1,13 @@
 // src/navigation/screens/DEBracketPage.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
-import { useRoute, RouteProp, useNavigation } from '@react-navigation/native';
+import { useRoute, RouteProp, useNavigation, useFocusEffect, usePreventRemove } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList, Event, Fencer, Round } from '../navigation/types';
 import { useTranslation } from 'react-i18next';
+import { BLEStatusBar } from '../../networking/components/BLEStatusBar';
+import { useScoringBoxContext } from '../../networking/ble/ScoringBoxContext';
+import { ConnectionState } from '../../networking/ble/types';
 import {
     dbGetDEBouts,
     dbGetRoundsForEvent,
@@ -52,6 +55,7 @@ const DEBracketPage: React.FC = () => {
     const navigation = useNavigation<DEBracketPageNavProp>();
     const { event, currentRoundIndex, roundId, isRemote = false } = route.params;
     const { t } = useTranslation();
+    const { connectionState, disconnect, connectedDeviceName } = useScoringBoxContext();
 
     const [round, setRound] = useState<Round | null>(null);
     const [bracketData, setBracketData] = useState<DEBracketData | null>(null);
@@ -60,6 +64,41 @@ const DEBracketPage: React.FC = () => {
     const [bracketFormat, setBracketFormat] = useState<'single' | 'double' | 'compass'>('single');
     const [isRoundComplete, setIsRoundComplete] = useState<boolean>(false); // Add this state
     const [isFinalRound, setIsFinalRound] = useState<boolean>(false); // Add this state
+
+    // Check if we should prevent navigation
+    const shouldPreventNavigation = connectionState === ConnectionState.CONNECTED;
+
+    // Use the recommended hook for preventing navigation
+    usePreventRemove(shouldPreventNavigation, ({ data }) => {
+        Alert.alert(
+            t('deBracketPage.disconnectBoxPromptTitle'),
+            t('deBracketPage.disconnectBoxPromptMessage'),
+            [
+                {
+                    text: t('common.cancel'),
+                    style: 'cancel',
+                },
+                {
+                    text: t('deBracketPage.exitWithoutDisconnecting'),
+                    onPress: () => navigation.dispatch(data.action),
+                },
+                {
+                    text: t('deBracketPage.disconnectAndExit'),
+                    onPress: async () => {
+                        try {
+                            await disconnect();
+                            navigation.dispatch(data.action);
+                        } catch (error) {
+                            console.error('Failed to disconnect:', error);
+                            navigation.dispatch(data.action);
+                        }
+                    },
+                    style: 'destructive',
+                },
+            ],
+            { cancelable: true }
+        );
+    });
 
     useEffect(() => {
         async function fetchRoundAndBracket() {
@@ -214,8 +253,8 @@ const DEBracketPage: React.FC = () => {
             }
 
             // Create safe fencer names
-            const fencer1Name = `${bout.fencerA.fname || ''} ${bout.fencerA.lname || ''}`.trim() || 'Fencer A';
-            const fencer2Name = `${bout.fencerB.fname || ''} ${bout.fencerB.lname || ''}`.trim() || 'Fencer B';
+            const fencer1Name = `${bout.fencerA.fname || ''} ${bout.fencerA.lname || ''}`.trim() || t('common.defaultFencerA');
+            const fencer2Name = `${bout.fencerB.fname || ''} ${bout.fencerB.lname || ''}`.trim() || t('common.defaultFencerB');
 
             // Navigate to Referee Module
             navigation.navigate('RefereeModule', {
@@ -231,6 +270,38 @@ const DEBracketPage: React.FC = () => {
 
                         // Refresh to show updated scores and advancement
                         setRefreshKey(prev => prev + 1);
+
+                        // Check if connected to scoring box and show disconnect prompt
+                        if (connectionState === ConnectionState.CONNECTED) {
+                            Alert.alert(
+                                t('common.disconnectBoxPromptTitle'),
+                                t('common.disconnectBoxPromptMessage'),
+                                [
+                                    {
+                                        text: t('common.cancel'),
+                                        style: 'cancel',
+                                    },
+                                    {
+                                        text: t('common.exitWithoutDisconnecting'),
+                                        onPress: () => {
+                                            // Just close the alert - already saved scores
+                                        },
+                                    },
+                                    {
+                                        text: t('common.disconnectAndExit'),
+                                        onPress: async () => {
+                                            try {
+                                                await disconnect();
+                                            } catch (error) {
+                                                console.error('Failed to disconnect:', error);
+                                            }
+                                        },
+                                        style: 'destructive',
+                                    },
+                                ],
+                                { cancelable: true }
+                            );
+                        }
                     } catch (error) {
                         console.error('Error updating bout scores:', error);
                         Alert.alert(t('common.error'), t('deBracketPage.failedToSaveScores'));
@@ -369,6 +440,7 @@ const DEBracketPage: React.FC = () => {
     // Render based on the bracket format
     return (
         <ScrollView style={styles.container}>
+            <BLEStatusBar compact={true} />
             <Text style={styles.title}>
                 {event.weapon} {event.gender} {event.age} DE
             </Text>

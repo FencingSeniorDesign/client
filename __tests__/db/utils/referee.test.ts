@@ -6,7 +6,7 @@ import {
     dbAddRefereeToEvent,
     dbGetRefereesForEvent,
     dbListReferees,
-    dbDeleteReferee
+    dbDeleteReferee,
 } from '../../../src/db/utils/referee';
 
 jest.mock('../../../src/db/DrizzleClient', () => ({
@@ -32,7 +32,7 @@ describe('Referee DB Functions', () => {
             const newId = await dbCreateReferee({
                 fname: 'Alice',
                 lname: 'Smith',
-                device_id: 'deviceA'
+                device_id: 'deviceA',
             });
 
             expect(newId).toBe(101);
@@ -41,7 +41,7 @@ describe('Referee DB Functions', () => {
                 fname: 'Alice',
                 lname: 'Smith',
                 nickname: undefined,
-                device_id: 'deviceA'
+                device_id: 'deviceA',
             });
             expect(mockReturning).toHaveBeenCalledWith({ id: schema.referees.id });
         });
@@ -56,7 +56,7 @@ describe('Referee DB Functions', () => {
                 dbCreateReferee({
                     fname: 'Bob',
                     lname: 'Jones',
-                    device_id: 'deviceB'
+                    device_id: 'deviceB',
                 })
             ).rejects.toThrow('Failed to get new referee ID');
         });
@@ -106,9 +106,7 @@ describe('Referee DB Functions', () => {
     describe('dbGetRefereesForEvent', () => {
         it('returns referees for an event', async () => {
             // simulate joined result with referee data under key 'referees'
-            const fakeJoinedResult = [
-                { referees: { id: 1, fname: 'Alice', lname: 'Smith' } }
-            ];
+            const fakeJoinedResult = [{ referees: { id: 1, fname: 'Alice', lname: 'Smith' } }];
             const mockWhere = jest.fn().mockResolvedValue(fakeJoinedResult);
             const mockInnerJoin = jest.fn(() => ({ where: mockWhere }));
             const mockFrom = jest.fn(() => ({ innerJoin: mockInnerJoin }));

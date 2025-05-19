@@ -1,4 +1,9 @@
-import { dbCreateTournament, dbDeleteTournament, dbListOngoingTournaments, dbListCompletedTournaments } from '../../../src/db/utils/tournament';
+import {
+    dbCreateTournament,
+    dbDeleteTournament,
+    dbListOngoingTournaments,
+    dbListCompletedTournaments,
+} from '../../../src/db/utils/tournament';
 import { db } from '../../../src/db/DrizzleClient';
 import * as schema from '../../../src/db/schema';
 import { eq } from 'drizzle-orm';
@@ -28,12 +33,12 @@ describe('Tournament DB Functions', () => {
     beforeEach(() => {
         jest.clearAllMocks();
     });
-    
+
     describe('dbCreateTournament', () => {
         it('creates a new tournament with default iscomplete false', async () => {
-            (db.insert as jest.Mock) = createInsertChain();            
+            (db.insert as jest.Mock) = createInsertChain();
             const consoleLogSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
-            
+
             const tournamentName = 'Test Tournament';
             await expect(dbCreateTournament(tournamentName)).resolves.toBeUndefined();
             expect(db.insert).toHaveBeenCalledWith(schema.tournaments);
@@ -66,14 +71,14 @@ describe('Tournament DB Functions', () => {
             (db.delete as jest.Mock) = createDeleteChain();
             const tournamentName = 'Test Tournament';
             const consoleLogSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
-            
+
             await expect(dbDeleteTournament(tournamentName)).resolves.toBeUndefined();
             expect(db.delete).toHaveBeenCalledWith(schema.tournaments);
             // We use eq to build the where condition so it is not directly verifiable.
             expect(consoleLogSpy).toHaveBeenCalledWith(`Tournament "${tournamentName}" deleted successfully.`);
             consoleLogSpy.mockRestore();
         });
-        
+
         it('throws an error if deletion fails', async () => {
             (db.delete as jest.Mock) = jest.fn().mockReturnValue({
                 where: jest.fn().mockRejectedValue(new Error('Delete error')),
@@ -85,7 +90,7 @@ describe('Tournament DB Functions', () => {
             consoleErrorSpy.mockRestore();
         });
     });
-    
+
     describe('dbListOngoingTournaments', () => {
         it('lists ongoing tournaments', async () => {
             const fakeTournaments = [
@@ -94,14 +99,16 @@ describe('Tournament DB Functions', () => {
             ];
             (db.select as jest.Mock) = createSelectChain(fakeTournaments);
             const consoleLogSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
-            
+
             const result = await dbListOngoingTournaments();
             expect(result).toEqual(fakeTournaments);
             expect(db.select).toHaveBeenCalled();
-            expect(consoleLogSpy).toHaveBeenCalledWith(`[${fakeTournaments.length}] ongoing tournaments listed successfully.`);
+            expect(consoleLogSpy).toHaveBeenCalledWith(
+                `[${fakeTournaments.length}] ongoing tournaments listed successfully.`
+            );
             consoleLogSpy.mockRestore();
         });
-        
+
         it('throws an error if retrieval fails', async () => {
             (db.select as jest.Mock) = jest.fn().mockReturnValue({
                 from: jest.fn().mockReturnValue({
@@ -114,18 +121,18 @@ describe('Tournament DB Functions', () => {
             consoleErrorSpy.mockRestore();
         });
     });
-    
+
     describe('dbListCompletedTournaments', () => {
         it('lists completed tournaments', async () => {
-            const fakeTournaments = [
-                { name: 'Tournament C', iscomplete: true },
-            ];
+            const fakeTournaments = [{ name: 'Tournament C', iscomplete: true }];
             (db.select as jest.Mock) = createSelectChain(fakeTournaments);
             const consoleLogSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
-            
+
             const result = await dbListCompletedTournaments();
             expect(result).toEqual(fakeTournaments);
-            expect(consoleLogSpy).toHaveBeenCalledWith(`[${fakeTournaments.length}] completed tournaments listed successfully.`);
+            expect(consoleLogSpy).toHaveBeenCalledWith(
+                `[${fakeTournaments.length}] completed tournaments listed successfully.`
+            );
             consoleLogSpy.mockRestore();
         });
 

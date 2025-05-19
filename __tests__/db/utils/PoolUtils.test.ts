@@ -68,25 +68,17 @@ describe('dbCreatePoolAssignmentsAndBoutOrders', () => {
         // In one pool with 3 fencers, the assignment loop runs 3 times.
         // The bout loop runs for pairs: (0,1), (0,2), (1,2) → total 3 bout insert calls,
         // and then each bout update is attempted twice.
-        await expect(
-            dbCreatePoolAssignmentsAndBoutOrders(event, round, fencers, 1, 3)
-        ).resolves.toBeUndefined();
+        await expect(dbCreatePoolAssignmentsAndBoutOrders(event, round, fencers, 1, 3)).resolves.toBeUndefined();
 
         // Check that initial logs are printed.
         expect(consoleLogSpy).toHaveBeenCalledWith(
             `Creating pool assignments for round ${round.id}, event ${event.id}`
         );
-        expect(consoleLogSpy).toHaveBeenCalledWith(
-            `Building 1 pools with 3 fencers per pool`
-        );
-        expect(consoleLogSpy).toHaveBeenCalledWith(
-            `Total fencers: ${fencers.length}, seeding available: no`
-        );
+        expect(consoleLogSpy).toHaveBeenCalledWith(`Building 1 pools with 3 fencers per pool`);
+        expect(consoleLogSpy).toHaveBeenCalledWith(`Total fencers: ${fencers.length}, seeding available: no`);
         expect(consoleLogSpy).toHaveBeenCalledWith(`Created 1 pools`);
         // Verify that pool verification log message has been printed.
-        expect(consoleLogSpy).toHaveBeenCalledWith(
-            `Pool 0 has 3 fencers: 1, 2, 3`
-        );
+        expect(consoleLogSpy).toHaveBeenCalledWith(`Pool 0 has 3 fencers: 1, 2, 3`);
         // Also verify that after successful bout insert, log exists.
         expect(consoleLogSpy).toHaveBeenCalledWith(`Bout created with ID: 123`);
 
@@ -109,15 +101,10 @@ describe('dbCreatePoolAssignmentsAndBoutOrders', () => {
 
         const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
 
-        await expect(
-            dbCreatePoolAssignmentsAndBoutOrders(event, round, fencers, 1, 3)
-        ).resolves.toBeUndefined();
+        await expect(dbCreatePoolAssignmentsAndBoutOrders(event, round, fencers, 1, 3)).resolves.toBeUndefined();
 
         // We expect that console.error was called for the update failure.
-        expect(consoleErrorSpy).toHaveBeenCalledWith(
-            'Error updating fencerBouts scores:',
-            expect.any(Error)
-        );
+        expect(consoleErrorSpy).toHaveBeenCalledWith('Error updating fencerBouts scores:', expect.any(Error));
 
         consoleErrorSpy.mockRestore();
     });
@@ -127,9 +114,9 @@ describe('dbCreatePoolAssignmentsAndBoutOrders', () => {
             throw new Error('buildPools error');
         });
 
-        await expect(
-            dbCreatePoolAssignmentsAndBoutOrders(event, round, fencers, 1, 3)
-        ).rejects.toThrow('buildPools error');
+        await expect(dbCreatePoolAssignmentsAndBoutOrders(event, round, fencers, 1, 3)).rejects.toThrow(
+            'buildPools error'
+        );
     });
 });
 

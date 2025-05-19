@@ -6,6 +6,9 @@ import { useTranslation } from 'react-i18next';
 import { RootStackParamList, Fencer } from '../navigation/types';
 import { useInitializeRound, useRoundResultsData, useRounds, useRoundStarted } from '../../data/TournamentDataHooks';
 import { navigateToDEPage } from '../utils/DENavigationUtil';
+import { BLEStatusBar } from '../../networking/components/BLEStatusBar';
+import { useScoringBoxContext } from '../../networking/ble/ScoringBoxContext';
+import { ConnectionState } from '../../networking/ble/types';
 
 type RoundResultsRouteProp = RouteProp<RootStackParamList, 'RoundResults'>;
 
@@ -38,6 +41,7 @@ const RoundResults: React.FC = () => {
     const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
     const route = useRoute<RoundResultsRouteProp>();
     const { roundId, eventId, currentRoundIndex, isRemote = false } = route.params;
+    const { connectionState, disconnect } = useScoringBoxContext();
 
     // State for view mode selection
     const [viewMode, setViewMode] = useState<ViewMode>('list');
@@ -89,6 +93,42 @@ const RoundResults: React.FC = () => {
             return;
         }
 
+        // Check if connected to scoring box
+        if (connectionState === ConnectionState.CONNECTED) {
+            Alert.alert(
+                t('common.disconnectBoxPromptTitle'),
+                t('common.disconnectBoxPromptMessage'),
+                [
+                    {
+                        text: t('common.cancel'),
+                        style: 'cancel',
+                    },
+                    {
+                        text: t('common.exitWithoutDisconnecting'),
+                        onPress: () => proceedToNextRound(),
+                    },
+                    {
+                        text: t('common.disconnectAndExit'),
+                        onPress: async () => {
+                            try {
+                                await disconnect();
+                                proceedToNextRound();
+                            } catch (error) {
+                                console.error('Failed to disconnect:', error);
+                                proceedToNextRound();
+                            }
+                        },
+                        style: 'destructive',
+                    },
+                ],
+                { cancelable: true }
+            );
+        } else {
+            proceedToNextRound();
+        }
+    };
+
+    const proceedToNextRound = async () => {
         try {
             if (!isNextRoundStarted) {
                 setIsInitializingNextRound(true);
@@ -160,6 +200,7 @@ const RoundResults: React.FC = () => {
 
     return (
         <ScrollView contentContainerStyle={styles.container}>
+            <BLEStatusBar compact={true} />
             <Text style={styles.title}>{t('roundResults.title')}</Text>
 
             {/* View mode selection buttons */}

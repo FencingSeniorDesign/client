@@ -6,6 +6,7 @@ import {
 import { db } from '../../../src/db/DrizzleClient';
 import * as schema from '../../../src/db/schema';
 import * as seedingModule from '../../../src/db/utils/seeding';
+import { dbGetPoolsForRound, dbGetBoutsForPool } from '../../../src/db/utils/pool';
 
 // Mock RoundAlgorithms and pool functions.
 jest.mock('../../../src/navigation/utils/RoundAlgorithms', () => ({
@@ -15,7 +16,6 @@ jest.mock('../../../src/db/utils/pool', () => ({
     dbGetPoolsForRound: jest.fn(),
     dbGetBoutsForPool: jest.fn(),
 }));
-import { dbGetPoolsForRound, dbGetBoutsForPool } from '../../../src/db/utils/pool';
 
 /**
  * Helper functions for chainable mocks.

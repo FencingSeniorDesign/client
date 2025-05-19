@@ -7,10 +7,10 @@ will be made to keep the protocols backwards compatible when possible.
 
 The communication protocol is described in two layers:
 
-* The data layer describes the types of packets that may be transmitted and
+- The data layer describes the types of packets that may be transmitted and
   their structure.
 
-* The transport layer describes encapsulation of the data packets according to
+- The transport layer describes encapsulation of the data packets according to
   the specific transport mechanism (e.g. serial port, bluetooth, wifi, usb).
 
 # Data layer
@@ -47,75 +47,84 @@ State update packets consist of 13 data bytes:
 
 ### Fields
 
-* **config flags** <br>
+- **config flags** <br>
   This byte provides overall system flags:
-  ```
-  High bit is always 0
-  Subsequent bits are zero until defined flags below as the low bits:
-  R = reviewing last touch, may also be used to indicate video replay review
-  P = live preview is on for any video replay system.
-  L = Lockout has started. This will stay on until touch resets.
-  S = sleep mode enabled
-  (^- lowest bit)
 
-  E.g. | 0000 RPLS |
-  ```
-* **match info** <br>
+    ```
+    High bit is always 0
+    Subsequent bits are zero until defined flags below as the low bits:
+    R = reviewing last touch, may also be used to indicate video replay review
+    P = live preview is on for any video replay system.
+    L = Lockout has started. This will stay on until touch resets.
+    S = sleep mode enabled
+    (^- lowest bit)
+
+    E.g. | 0000 RPLS |
+    ```
+
+- **match info** <br>
   This byte encodes informatino about the current match configuration:
-  ```
-  priority: 2 bits (00 = none, 01 = left, 10 = right, 11 = reserved)
-  weapon: 2 bits (00 = sabre, 01 = epee, 10 = foil, 11 = reserved)
-  period: 4 bits (1-9) (*NOTE: should never be 0, minimum is 1)
 
-  E.g.  | PP WW pppp |
-  ```
-* **clock info** <br>
+    ```
+    priority: 2 bits (00 = none, 01 = left, 10 = right, 11 = reserved)
+    weapon: 2 bits (00 = sabre, 01 = epee, 10 = foil, 11 = reserved)
+    period: 4 bits (1-9) (*NOTE: should never be 0, minimum is 1)
+
+    E.g.  | PP WW pppp |
+    ```
+
+- **clock info** <br>
   These 3 bytes encode the state of the bout clock:
 
-  ```
-  clock flags:
-    00 = highest 2 bits are reserved, always 0
-    expired: 1 bit
-    on_break: 1 bit
-    centiseconds: 1 bit, 0 = seconds, 1 = centiseconds
-    running: 1 bit
-  remaining_time: 10 bits (in seconds or centiseconds)
-    (when time remaining is 10s or less, it's sent as centiseconds)
-    The highest 2 bits are jammed into the lower 2 bits of the flags,
-    and the remaining 8 bits are sent as the following byte.
-  passivity clock: 8 bits (in seconds, maxes out at 99s)
+    ```
+    clock flags:
+      00 = highest 2 bits are reserved, always 0
+      expired: 1 bit
+      on_break: 1 bit
+      centiseconds: 1 bit, 0 = seconds, 1 = centiseconds
+      running: 1 bit
+    remaining_time: 10 bits (in seconds or centiseconds)
+      (when time remaining is 10s or less, it's sent as centiseconds)
+      The highest 2 bits are jammed into the lower 2 bits of the flags,
+      and the remaining 8 bits are sent as the following byte.
+    passivity clock: 8 bits (in seconds, maxes out at 99s)
 
-  E.g.:  | 00 ffff rr | rrrrrrrr | pppppppp |
-         high         |          |        low
+    E.g.:  | 00 ffff rr | rrrrrrrr | pppppppp |
+           high         |          |        low
 
-     where ffff = flags, rr...rr = remaining time, pp...pp = passivity time
-  ```
-* **raw strip state** <br>
+       where ffff = flags, rr...rr = remaining time, pp...pp = passivity time
+    ```
+
+- **raw strip state** <br>
   This byte indicates the instantaneous state of the strip. That is, even if a
   touch has occured and a colored light may be on, if the blade is not currently
   in contact with the target area then "valid" will be off. Likewise, a valid
   hit contact may be occurring but too short to trigger a touch.
-  ```
-  0 high bit always 0
-  X blade contact = 1 bit
-  S short = 2 bits (Left high, Right low)
-  F fault = 2 bits (Left high, Right low)
-  V valid = 2 bits (Left high, Right low)
 
-  E.g.  | 0 X SS FF VV |
-              LR LR LR
-  ```
-* **latched lights** <br>
+    ```
+    0 high bit always 0
+    X blade contact = 1 bit
+    S short = 2 bits (Left high, Right low)
+    F fault = 2 bits (Left high, Right low)
+    V valid = 2 bits (Left high, Right low)
+
+    E.g.  | 0 X SS FF VV |
+                LR LR LR
+    ```
+
+- **latched lights** <br>
   This byte indicates the state of the latched lights that should remain on when
   a touch is detected and the buzzer sounds.
-  ```
-  high 2 bits always 0
-  left: 3 bits: 0 = off, 1 = valid, 2 = nonvalid, 3 = short/whipover, 4 = late, 5+ = reserved
-  right: 3 bits: 0 = off, 1 = valid, 2 = nonvalid, 3 = short/whipover, 4 = late, 5+ = reserved
 
-  E.g.:  | 00 LLL RRR |
-  ```
-* **extra timing values** <br>
+    ```
+    high 2 bits always 0
+    left: 3 bits: 0 = off, 1 = valid, 2 = nonvalid, 3 = short/whipover, 4 = late, 5+ = reserved
+    right: 3 bits: 0 = off, 1 = valid, 2 = nonvalid, 3 = short/whipover, 4 = late, 5+ = reserved
+
+    E.g.:  | 00 LLL RRR |
+    ```
+
+- **extra timing values** <br>
   These 3 bytes are the timing values of late hits or short/whipover values on
   the box. The left and right sides are both allocated up a 10 bit value for
   additional timing information. The interpretation of this value depends on the
@@ -129,46 +138,49 @@ State update packets consist of 13 data bytes:
       <br>(For example, value of 183 in sabre indicates a hit that occurs 183ms
       after the opponents touch, which is 13ms late.)
 
-  In all cases, the range of encoded values is 0 - 999. If the actual value
-  exceeds that, the encoded value is capped at 999.
+    In all cases, the range of encoded values is 0 - 999. If the actual value
+    exceeds that, the encoded value is capped at 999.
 
-  The values for valid and nonvalid allow clients to synchronize hit timing.
+    The values for valid and nonvalid allow clients to synchronize hit timing.
 
-  The structure of these 3 bytes is:
-  ```
-  high bit always 0 (reserved)
-  10 bits left time indicator (0-999), only set if late or short/whipover
-  2 bits always zero (reserved)
-  10 bits right time indicator (0-999), only set if late or short/whipover
-  low bit always 0 (reserved)
+    The structure of these 3 bytes is:
 
-  E.g.: | 0LLL_LLLL | LLL_00_RRR | RRRR_RRR0 |
-        high        |            |         low
-  ```
-* **score info** <br>
+    ```
+    high bit always 0 (reserved)
+    10 bits left time indicator (0-999), only set if late or short/whipover
+    2 bits always zero (reserved)
+    10 bits right time indicator (0-999), only set if late or short/whipover
+    low bit always 0 (reserved)
+
+    E.g.: | 0LLL_LLLL | LLL_00_RRR | RRRR_RRR0 |
+          high        |            |         low
+    ```
+
+- **score info** <br>
   These two bytes provide scores for each player as well as the "last scored"
   flag:
-  ```
-  left score: 7 bits (0-99) + high bit set if last changed
-  right score: 7 bits (0-99) + high bit set if last changed
-  (note that both 'last changed' bits may be set,
-   e.g. double score in epee)
-  ```
-* **penalty card info** <br>
+    ```
+    left score: 7 bits (0-99) + high bit set if last changed
+    right score: 7 bits (0-99) + high bit set if last changed
+    (note that both 'last changed' bits may be set,
+     e.g. double score in epee)
+    ```
+- **penalty card info** <br>
   This byte indicates the status of cards and p-cards for each fencer:
-  ```
-  left: 2 bits for normal card, 2 bits for p card (Red/Yellow)
-  right: 2 bits for normal card, 2 bits for p card (Red/Yellow)
-  For example:
-          76 54   32 10 (lowest bit)
-          RY RY   RY RY   <-- color: R=red, Y=yellow)
-         |-rght-|-left-|  <-- side
-          PP|NN   PP|NN   <-- type of card (P- or Normal)
-  bit 0 is left normal yellow card on/off.
-  bit 7 is right red p-card on/off.
 
-  Note that currently it's not allowed to have both cards active for a fencer.
-  ```
+    ```
+    left: 2 bits for normal card, 2 bits for p card (Red/Yellow)
+    right: 2 bits for normal card, 2 bits for p card (Red/Yellow)
+    For example:
+            76 54   32 10 (lowest bit)
+            RY RY   RY RY   <-- color: R=red, Y=yellow)
+           |-rght-|-left-|  <-- side
+            PP|NN   PP|NN   <-- type of card (P- or Normal)
+    bit 0 is left normal yellow card on/off.
+    bit 7 is right red p-card on/off.
+
+    Note that currently it's not allowed to have both cards active for a fencer.
+    ```
 
 ## Event notifications
 
@@ -257,12 +269,12 @@ The data emitted from the box is a continuous stream of packets that correspond
 to the data packets wrapped in an envelope consisting of 1 prefix byte and 2
 suffix bytes:
 
-* Packet type (1 byte):
-    * `0xEE`: State update packet
-    * `0xED`: Event notification packet
-* ...data packet...
-* Checksum (1 byte): CRC-8 of the packet type and entire data packet.
-* Terminator (1 byte): `0xFF`
+- Packet type (1 byte):
+    - `0xEE`: State update packet
+    - `0xED`: Event notification packet
+- ...data packet...
+- Checksum (1 byte): CRC-8 of the packet type and entire data packet.
+- Terminator (1 byte): `0xFF`
 
 For example, an event packet would look like:
 
