@@ -610,6 +610,28 @@ export const EventSettings = ({ route }: Props) => {
             >
                 <Text style={styles.dropdownHeaderText}>{t('eventSettings.fencerManagement')}</Text>
             </TouchableOpacity>
+            {/* Always show fencer list */}
+            <View style={styles.fencerListContainer}>
+                <Text style={styles.fencerListHeader}>
+                    {t('eventSettings.currentFencers', { count: fencers.length })}
+                </Text>
+                {fencersLoading ? (
+                    <View style={styles.loadingContainer}>
+                        <ActivityIndicator size="small" color="#001f3f" />
+                        <Text style={styles.loadingText}>{t('eventSettings.loadingFencers')}</Text>
+                    </View>
+                ) : fencers.length === 0 ? (
+                    <Text style={styles.note}>{t('eventSettings.noFencers')}</Text>
+                ) : (
+                    renderFencers()
+                )}
+                {createFencerMutation.isPending && (
+                    <View style={styles.pendingActionContainer}>
+                        <ActivityIndicator size="small" color="#001f3f" />
+                        <Text style={styles.pendingActionText}>{t('eventSettings.addingFencer')}</Text>
+                    </View>
+                )}
+            </View>
             {fencingDropdownOpen && (
                 <View style={styles.dropdownContent}>
                     <View style={styles.section}>
@@ -724,27 +746,6 @@ export const EventSettings = ({ route }: Props) => {
                             </View>
                         )}
                     </View>
-                    <View style={styles.fencerListContainer}>
-                        <Text style={styles.fencerListHeader}>
-                            {t('eventSettings.currentFencers', { count: fencers.length })}
-                        </Text>
-                        {fencersLoading ? (
-                            <View style={styles.loadingContainer}>
-                                <ActivityIndicator size="small" color="#001f3f" />
-                                <Text style={styles.loadingText}>{t('eventSettings.loadingFencers')}</Text>
-                            </View>
-                        ) : fencers.length === 0 ? (
-                            <Text style={styles.note}>{t('eventSettings.noFencers')}</Text>
-                        ) : (
-                            renderFencers()
-                        )}
-                        {createFencerMutation.isPending && (
-                            <View style={styles.pendingActionContainer}>
-                                <ActivityIndicator size="small" color="#001f3f" />
-                                <Text style={styles.pendingActionText}>{t('eventSettings.addingFencer')}</Text>
-                            </View>
-                        )}
-                    </View>
                 </View>
             )}
 
@@ -770,21 +771,21 @@ export const EventSettings = ({ route }: Props) => {
             >
                 <Text style={styles.dropdownHeaderText}>{t('eventSettings.roundManagement')}</Text>
             </TouchableOpacity>
-            {roundDropdownOpen && (
-                <View ref={roundsDropdownRef} style={styles.dropdownContent}>
-                    {roundsLoading ? (
-                        <View style={styles.loadingContainer}>
-                            <ActivityIndicator size="small" color="#001f3f" />
-                            <Text style={styles.loadingText}>{t('eventSettings.loadingRounds')}</Text>
-                        </View>
-                    ) : rounds.length > 0 ? (
-                        <View style={styles.roundsList}>
-                            {rounds.map((round, idx) => (
-                                <View
-                                    key={round.id}
-                                    ref={el => (roundItemRefs.current[idx] = el)}
-                                    style={styles.roundItem}
-                                >
+            
+            {/* Always show existing rounds */}
+            {roundsLoading ? (
+                <View style={styles.loadingContainer}>
+                    <ActivityIndicator size="small" color="#001f3f" />
+                    <Text style={styles.loadingText}>{t('eventSettings.loadingRounds')}</Text>
+                </View>
+            ) : rounds.length > 0 && (
+                <View style={styles.roundsList}>
+                    {rounds.map((round, idx) => (
+                        <View
+                            key={round.id}
+                            ref={el => (roundItemRefs.current[idx] = el)}
+                            style={styles.roundItem}
+                        >
                                     <View style={styles.roundItemRow}>
                                         <View style={styles.dragHandle}>
                                             {/* <Text style={styles.dragIcon}>☰</Text> */}
@@ -858,7 +859,11 @@ export const EventSettings = ({ route }: Props) => {
                                                                 handleUpdateRound(updatedRound);
                                                             }}
                                                         >
-                                                            <Text style={styles.configOptionText}>
+                                                            <Text style={[
+                                                                styles.configOptionText,
+                                                                round.poolsoption === 'promotion' &&
+                                                                    styles.configOptionTextSelected
+                                                            ]}>
                                                                 {t('eventSettings.promotion')}
                                                             </Text>
                                                         </TouchableOpacity>
@@ -876,7 +881,11 @@ export const EventSettings = ({ route }: Props) => {
                                                                 handleUpdateRound(updatedRound);
                                                             }}
                                                         >
-                                                            <Text style={styles.configOptionText}>
+                                                            <Text style={[
+                                                                styles.configOptionText,
+                                                                round.poolsoption === 'target' &&
+                                                                    styles.configOptionTextSelected
+                                                            ]}>
                                                                 {t('eventSettings.targetBracket')}
                                                             </Text>
                                                         </TouchableOpacity>
@@ -1031,68 +1040,72 @@ export const EventSettings = ({ route }: Props) => {
                                 </View>
                             ))}
                         </View>
-                    ) : (
+                    )}
+
+                    {/* Only show add button when dropdown is open */}
+                    {roundDropdownOpen && rounds.length === 0 && (
                         <Text style={styles.note}>{t('eventSettings.noRounds')}</Text>
                     )}
-
-                    <TouchableOpacity
-                        style={styles.addRoundButton}
-                        onPress={() => {
-                            setShowRoundTypeOptions(!showRoundTypeOptions);
-                            // If opening the round type options, scroll to them immediately
-                            if (!showRoundTypeOptions) {
-                                requestAnimationFrame(() => {
-                                    roundTypeMenuRef.current?.measureLayout(
-                                        // @ts-ignore - Known React Native issue with measureLayout types
-                                        scrollViewRef.current?._internalFiberInstanceHandleDEV || scrollViewRef.current,
-                                        (_, y) => {
-                                            scrollViewRef.current?.scrollTo({ y: y - 20, animated: true });
-                                        },
-                                        () => console.error('Failed to measure layout')
-                                    );
-                                });
-                            }
-                        }}
-                    >
-                        <Text style={styles.addRoundButtonText}>{t('eventSettings.addRound')}</Text>
-                    </TouchableOpacity>
-                    {showRoundTypeOptions && (
-                        <View ref={roundTypeMenuRef} style={styles.roundTypeMenu}>
+                    {roundDropdownOpen && (
+                        <View ref={roundsDropdownRef} style={styles.dropdownContent}>
                             <TouchableOpacity
-                                style={styles.roundTypeChoice}
+                                style={styles.addRoundButton}
                                 onPress={() => {
-                                    handleAddRound('pool');
-                                    setShowRoundTypeOptions(false);
+                                    setShowRoundTypeOptions(!showRoundTypeOptions);
+                                    // If opening the round type options, scroll to them immediately
+                                    if (!showRoundTypeOptions) {
+                                        requestAnimationFrame(() => {
+                                            roundTypeMenuRef.current?.measureLayout(
+                                                // @ts-ignore - Known React Native issue with measureLayout types
+                                                scrollViewRef.current?._internalFiberInstanceHandleDEV || scrollViewRef.current,
+                                                (_, y) => {
+                                                    scrollViewRef.current?.scrollTo({ y: y - 20, animated: true });
+                                                },
+                                                () => console.error('Failed to measure layout')
+                                            );
+                                        });
+                                    }
                                 }}
                             >
-                                <Text style={styles.roundTypeChoiceText}>{t('eventSettings.pools')}</Text>
+                                <Text style={styles.addRoundButtonText}>{t('eventSettings.addRound')}</Text>
                             </TouchableOpacity>
-                            <TouchableOpacity
-                                style={styles.roundTypeChoice}
-                                onPress={() => {
-                                    handleAddRound('de');
-                                    setShowRoundTypeOptions(false);
-                                }}
-                            >
-                                <Text style={styles.roundTypeChoiceText}>{t('eventSettings.de')}</Text>
-                            </TouchableOpacity>
-                        </View>
-                    )}
+                            {showRoundTypeOptions && (
+                                <View ref={roundTypeMenuRef} style={styles.roundTypeMenu}>
+                                    <TouchableOpacity
+                                        style={styles.roundTypeChoice}
+                                        onPress={() => {
+                                            handleAddRound('pool');
+                                            setShowRoundTypeOptions(false);
+                                        }}
+                                    >
+                                        <Text style={styles.roundTypeChoiceText}>{t('eventSettings.pools')}</Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity
+                                        style={styles.roundTypeChoice}
+                                        onPress={() => {
+                                            handleAddRound('de');
+                                            setShowRoundTypeOptions(false);
+                                        }}
+                                    >
+                                        <Text style={styles.roundTypeChoiceText}>{t('eventSettings.de')}</Text>
+                                    </TouchableOpacity>
+                                </View>
+                            )}
 
-                    {(addRoundMutation.isPending || updateRoundMutation.isPending || deleteRoundMutation.isPending) && (
-                        <View style={styles.pendingActionContainer}>
-                            <ActivityIndicator size="small" color="#001f3f" />
-                            <Text style={styles.pendingActionText}>
-                                {addRoundMutation.isPending
-                                    ? t('eventSettings.addingRound')
-                                    : updateRoundMutation.isPending
-                                      ? t('eventSettings.updatingRound')
-                                      : t('eventSettings.deletingRound')}
-                            </Text>
+                            {(addRoundMutation.isPending || updateRoundMutation.isPending || deleteRoundMutation.isPending) && (
+                                <View style={styles.pendingActionContainer}>
+                                    <ActivityIndicator size="small" color="#001f3f" />
+                                    <Text style={styles.pendingActionText}>
+                                        {addRoundMutation.isPending
+                                            ? t('eventSettings.addingRound')
+                                            : updateRoundMutation.isPending
+                                              ? t('eventSettings.updatingRound')
+                                              : t('eventSettings.deletingRound')}
+                                    </Text>
+                                </View>
+                            )}
                         </View>
                     )}
-                </View>
-            )}
         </ScrollView>
     );
 };
@@ -1143,7 +1156,13 @@ const styles = StyleSheet.create({
         gap: 10,
     },
     roundsList: {
-        marginBottom: 10,
+        marginTop: 5,
+        marginBottom: 15,
+        padding: 12,
+        borderWidth: 1,
+        borderColor: '#ddd',
+        borderRadius: 8,
+        backgroundColor: '#f9f9f9',
     },
     title: {
         fontSize: 26,
@@ -1258,12 +1277,13 @@ const styles = StyleSheet.create({
         fontSize: 18,
     },
     fencerListContainer: {
-        marginTop: 10,
-        padding: 10,
+        marginTop: 5,
+        marginBottom: 15,
+        padding: 12,
         borderWidth: 1,
-        borderColor: '#ccc',
-        borderRadius: 6,
-        backgroundColor: '#fafafa',
+        borderColor: '#ddd',
+        borderRadius: 8,
+        backgroundColor: '#f9f9f9',
     },
     fencerListHeader: {
         fontSize: 16,
@@ -1293,12 +1313,17 @@ const styles = StyleSheet.create({
         marginRight: 4,
     },
     moveButton: {
-        paddingHorizontal: 4,
+        paddingHorizontal: 12,
+        paddingVertical: 10,
+        minWidth: 45,
+        minHeight: 45,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     moveButtonText: {
-        fontSize: 20, // Increased size for better touch target
+        fontSize: 28, // Increased size for better touch target
         color: navyBlue, // Use theme color
-        paddingHorizontal: 5, // Add some horizontal padding
+        fontWeight: 'bold',
     },
     moveButtonTextDisabled: {
         color: greyAccent, // Grey out when disabled
@@ -1307,25 +1332,36 @@ const styles = StyleSheet.create({
         flex: 1,
         fontSize: 16,
         fontWeight: '600',
+        textAlign: 'center',
     },
     roundItemActions: {
         flexDirection: 'row',
     },
     removeRoundButton: {
-        paddingHorizontal: 8,
-        paddingVertical: 4,
+        paddingHorizontal: 12,
+        paddingVertical: 10,
+        minWidth: 45,
+        minHeight: 45,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     removeRoundButtonText: {
-        fontSize: 18,
+        fontSize: 24,
         color: 'red',
+        fontWeight: 'bold',
     },
     configButton: {
-        paddingHorizontal: 8,
-        paddingVertical: 4,
+        paddingHorizontal: 12,
+        paddingVertical: 10,
+        minWidth: 45,
+        minHeight: 45,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     configButtonText: {
-        fontSize: 18,
+        fontSize: 24,
         color: navyBlue,
+        fontWeight: 'bold',
     },
     roundConfig: {
         marginTop: 8,
@@ -1376,6 +1412,11 @@ const styles = StyleSheet.create({
     configOptionText: {
         fontSize: 14,
         color: '#000',
+    },
+    configOptionTextSelected: {
+        fontSize: 14,
+        color: white,
+        fontWeight: '600',
     },
     configInput: {
         borderWidth: 1,
