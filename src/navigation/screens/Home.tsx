@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { StyleSheet, View, Text, Image, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import { CreateTournamentButton } from './CreateTournamentModal';
 import { TournamentList } from './TournamentListComponent';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack'; // Import navigation prop type
 import { Tournament, RootStackParamList } from '../navigation/types'; // Import RootStackParamList
 import { JoinTournamentModal } from './JoinTournamentModal';
@@ -29,40 +29,45 @@ export function Home() {
 
     // State for join tournament modal
     const [joinModalVisible, setJoinModalVisible] = useState(false);
-    const [connectedTournament, setConnectedTournament] = useState<string | null>(null);
     const [deviceId, setDeviceId] = useState<string>('');
 
     // Use TanStack Query hooks for tournaments
     const ongoingTournamentsQuery = useOngoingTournaments();
     const completedTournamentsQuery = useCompletedTournaments();
 
-    // Check if we're connected to a tournament on load and get device ID
+    // Get device ID on load
     useEffect(() => {
-        const checkConnection = async () => {
+        const initializeData = async () => {
+            // Load client info but don't maintain connection
             await tournamentClient.loadClientInfo();
-            const clientInfo = tournamentClient.getClientInfo();
-            if (clientInfo && clientInfo.isConnected) {
-                setConnectedTournament(clientInfo.tournamentName);
-            }
-
+            
             // Get and set device ID
             const id = await getDeviceId();
             setDeviceId(id);
         };
 
-        checkConnection();
+        initializeData();
     }, []);
+    
+    // Automatically disconnect when returning to Home screen
+    useFocusEffect(
+        React.useCallback(() => {
+            const disconnectFromTournament = async () => {
+                if (tournamentClient.isConnected()) {
+                    // Prevent the alert from showing
+                    tournamentClient.isShowingDisconnectAlert = true;
+                    await tournamentClient.disconnect();
+                    setTournamentContext(null); // Reset the ability context
+                    tournamentClient.isShowingDisconnectAlert = false;
+                }
+            };
+            
+            disconnectFromTournament();
+        }, [])
+    );
 
     const handleJoinSuccess = (tournamentName: string) => {
-        setConnectedTournament(tournamentName);
         Alert.alert(t('common.success'), `${t('home.connectedTo')} ${tournamentName}`);
-    };
-
-    const handleDisconnect = async () => {
-        await tournamentClient.disconnect();
-        setConnectedTournament(null);
-        setTournamentContext(null); // Reset the ability context
-        Alert.alert(t('home.disconnected'), t('home.disconnectedMessage'));
     };
 
     const refreshTournaments = () => {
@@ -80,22 +85,11 @@ export function Home() {
                 {/* Create Tournament Button */}
                 <CreateTournamentButton onTournamentCreated={refreshTournaments} />
 
-                {/* Join Tournament Button or Connection Status */}
-                {connectedTournament ? (
-                    <View style={styles.connectedContainer}>
-                        <Text style={styles.connectedText}>
-                            {t('home.connectedTo')} {connectedTournament}
-                        </Text>
-                        <TouchableOpacity style={styles.disconnectButton} onPress={handleDisconnect}>
-                            <Text style={styles.disconnectButtonText}>{t('home.disconnect')}</Text>
-                        </TouchableOpacity>
-                    </View>
-                ) : (
-                    <TouchableOpacity style={styles.joinButton} onPress={() => setJoinModalVisible(true)}>
-                        <MaterialIcons name="people" size={24} color="#fff" style={styles.buttonIcon} />
-                        <Text style={styles.buttonText}>{t('home.joinTournament')}</Text>
-                    </TouchableOpacity>
-                )}
+                {/* Join Tournament Button */}
+                <TouchableOpacity style={styles.joinButton} onPress={() => setJoinModalVisible(true)}>
+                    <MaterialIcons name="people" size={24} color="#fff" style={styles.buttonIcon} />
+                    <Text style={styles.buttonText}>{t('home.joinTournament')}</Text>
+                </TouchableOpacity>
             </View>
 
             <View style={styles.contentContainer}>
@@ -304,36 +298,6 @@ const styles = StyleSheet.create({
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.1,
         shadowRadius: 4,
-    },
-    connectedContainer: {
-        backgroundColor: '#e1f5fe',
-        borderRadius: 12,
-        paddingVertical: 12,
-        paddingHorizontal: 20,
-        alignItems: 'center',
-        width: '100%',
-        height: 50, // Match button height
-        borderWidth: 1,
-        borderColor: '#b3e5fc',
-    },
-    connectedText: {
-        color: '#0277bd',
-        fontSize: 16,
-        fontWeight: '500',
-        marginBottom: 8,
-    },
-    disconnectButton: {
-        backgroundColor: '#ff3b30',
-        paddingVertical: 8,
-        paddingHorizontal: 16,
-        borderRadius: 8,
-        marginTop: 5,
-        elevation: 2,
-    },
-    disconnectButtonText: {
-        color: '#fff',
-        fontSize: 14,
-        fontWeight: '600',
     },
     errorText: {
         color: '#ff3b30',

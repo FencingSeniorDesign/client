@@ -629,18 +629,6 @@ export const EventManagement = ({ route }: Props) => {
             <PermissionsDisplay tournamentName={tournamentName} />
 
             <View style={styles.headerContainer}>
-                {/* Connection Status (for remote connection only) */}
-                {isRemote && (
-                    <View style={styles.remoteConnectionBanner}>
-                        <Text style={styles.remoteConnectionText}>{t('eventManagement.connectedToRemoteTournament')}</Text>
-                        <Text style={styles.remoteConnectionText}>
-                            {t('eventManagement.host')} {remoteConnectionInfo?.hostIp || 'Unknown'}
-                        </Text>
-                        <TouchableOpacity style={styles.disconnectButton} onPress={handleDisconnect}>
-                            <Text style={styles.disconnectButtonText}>{t('eventManagement.disconnect')}</Text>
-                        </TouchableOpacity>
-                    </View>
-                )}
 
                 {/* IP Address Banner (for server mode only) */}
                 {serverEnabled && localIpAddress && !isRemote && (
@@ -974,19 +962,6 @@ const styles = StyleSheet.create({
     networkStatusText: {
         color: white,
         fontSize: 12,
-    },
-    remoteConnectionBanner: {
-        backgroundColor: '#007AFF',
-        padding: 10,
-        borderRadius: 5,
-        marginTop: 5,
-        marginBottom: 10,
-    },
-    remoteConnectionText: {
-        color: white,
-        fontSize: 14,
-        textAlign: 'center',
-        marginBottom: 5,
     },
     disconnectButton: {
         backgroundColor: '#FF3B30',
