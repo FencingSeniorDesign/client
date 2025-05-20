@@ -1,6 +1,9 @@
 export type Tournament = {
     name: string;
     isComplete: boolean;
+    isRemote?: boolean;
+    hostIp?: string;
+    port?: number;
 };
 
 export type Club = {

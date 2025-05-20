@@ -1,5 +1,6 @@
 import React from 'react';
 import { StyleSheet, View, FlatList, Text, TouchableOpacity, Alert } from 'react-native';
+import { MaterialIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
 import { dbDeleteTournament } from '../../db/DrizzleDatabaseUtils';
@@ -59,7 +60,7 @@ export const TournamentList: React.FC<TournamentListProps> = ({ tournaments, onT
                 <Text style={styles.tournamentName}>{item.name}</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.deleteButton} onPress={() => handleDelete(item.name)}>
-                <Text style={styles.deleteButtonText}>✖</Text>
+                <MaterialIcons name="close" size={20} color="#fff" />
             </TouchableOpacity>
         </View>
     );

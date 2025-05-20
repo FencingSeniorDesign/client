@@ -16,6 +16,7 @@ import { useAbility } from '../../rbac/AbilityContext'; // Import useAbility
 import { useTranslation } from 'react-i18next'; // Import translation hook
 import LanguageSwitcher from '../../components/ui/LanguageSwitcher';
 import { BLEStatusBar } from '../../networking/components/BLEStatusBar';
+import { ConnectionLostModal } from '../../networking/components/ConnectionLostModal';
 
 // Import the logo image
 import logo from '../../assets/logo.png';
@@ -35,11 +36,43 @@ export function Home() {
     const ongoingTournamentsQuery = useOngoingTournaments();
     const completedTournamentsQuery = useCompletedTournaments();
 
-    // Get device ID on load
+    // State for saved remote tournaments
+    const [savedRemoteTournaments, setSavedRemoteTournaments] = useState<any[]>([]);
+    
+    // Connection lost state
+    const [connectionLostModalVisible, setConnectionLostModalVisible] = useState(false);
+    const [lostConnectionInfo, setLostConnectionInfo] = useState<any>(null);
+
+    // Listen for connection lost events
+    useEffect(() => {
+        const handleConnectionLost = (clientInfo: any) => {
+            console.log('Connection lost event received in Home', clientInfo);
+            // Only show the modal if we have connection info
+            if (clientInfo) {
+                setLostConnectionInfo(clientInfo);
+                setConnectionLostModalVisible(true);
+                console.log('Setting connection lost modal to visible in Home');
+            }
+        };
+        
+        // Add the event listener
+        tournamentClient.on('connectionLost', handleConnectionLost);
+        
+        return () => {
+            // Remove the event listener when component unmounts
+            tournamentClient.off('connectionLost', handleConnectionLost);
+        };
+    }, []);
+    
+    // Get device ID and saved remote tournaments on load
     useEffect(() => {
         const initializeData = async () => {
             // Load client info but don't maintain connection
             await tournamentClient.loadClientInfo();
+            
+            // Get saved remote tournaments
+            const remoteTournaments = await tournamentClient.getSavedRemoteTournaments();
+            setSavedRemoteTournaments(remoteTournaments);
             
             // Get and set device ID
             const id = await getDeviceId();
@@ -54,11 +87,21 @@ export function Home() {
         React.useCallback(() => {
             const disconnectFromTournament = async () => {
                 if (tournamentClient.isConnected()) {
-                    // Prevent the alert from showing
+                    // Save the tournament before disconnecting
+                    await tournamentClient.saveRemoteTournament();
+                    
+                    // Set flags to prevent alert and connection lost modal
                     tournamentClient.isShowingDisconnectAlert = true;
+                    tournamentClient.isIntentionalDisconnect = true;
+                    
+                    // Disconnect and reset context
                     await tournamentClient.disconnect();
                     setTournamentContext(null); // Reset the ability context
                     tournamentClient.isShowingDisconnectAlert = false;
+                    
+                    // Refresh the saved remote tournaments list
+                    const remoteTournaments = await tournamentClient.getSavedRemoteTournaments();
+                    setSavedRemoteTournaments(remoteTournaments);
                 }
             };
             
@@ -67,7 +110,40 @@ export function Home() {
     );
 
     const handleJoinSuccess = (tournamentName: string) => {
-        Alert.alert(t('common.success'), `${t('home.connectedTo')} ${tournamentName}`);
+        // No alert, just proceed silently
+    };
+    
+    // Handle connecting to a saved remote tournament
+    const handleConnectToSavedTournament = async (tournament: any) => {
+        try {
+            // Connect to the tournament without showing alerts
+            const success = await tournamentClient.connectToServer(tournament.hostIp, tournament.port);
+            
+            if (success) {
+                // Navigate to the tournament's event management screen
+                navigation.navigate('EventManagement', {
+                    tournamentName: tournament.tournamentName,
+                    isRemoteConnection: true,
+                });
+            } else {
+                console.error('Failed to connect to saved tournament');
+            }
+        } catch (error) {
+            console.error('Error connecting to saved tournament:', error);
+        }
+    };
+    
+    // Handle removing a saved remote tournament
+    const handleRemoveSavedTournament = async (tournamentName: string) => {
+        try {
+            await tournamentClient.removeSavedRemoteTournament(tournamentName);
+            
+            // Refresh the saved remote tournaments list
+            const remoteTournaments = await tournamentClient.getSavedRemoteTournaments();
+            setSavedRemoteTournaments(remoteTournaments);
+        } catch (error) {
+            console.error('Error removing saved tournament:', error);
+        }
     };
 
     const refreshTournaments = () => {
@@ -75,6 +151,7 @@ export function Home() {
     };
 
     return (
+        <>
         <View style={styles.container}>
             {/* BLE connection status */}
             <BLEStatusBar compact={true} />
@@ -93,6 +170,32 @@ export function Home() {
             </View>
 
             <View style={styles.contentContainer}>
+                {/* Saved Remote Tournaments */}
+                {savedRemoteTournaments.length > 0 && (
+                    <>
+                        <Text style={styles.tournamentHistoryTitle}>{t('home.remoteTournaments')}</Text>
+                        <View style={styles.ongoingTournamentsContainer}>
+                            {savedRemoteTournaments.map((tournament, index) => (
+                                <View key={index} style={styles.tournamentContainer}>
+                                    <TouchableOpacity 
+                                        style={styles.tournamentItem}
+                                        onPress={() => handleConnectToSavedTournament(tournament)}
+                                    >
+                                        <Text style={styles.tournamentName}>{tournament.tournamentName}</Text>
+                                        <Text style={styles.tournamentInfo}>{tournament.hostIp}:{tournament.port}</Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity 
+                                        style={styles.deleteButton} 
+                                        onPress={() => handleRemoveSavedTournament(tournament.tournamentName)}
+                                    >
+                                        <MaterialIcons name="link-off" size={20} color="#fff" />
+                                    </TouchableOpacity>
+                                </View>
+                            ))}
+                        </View>
+                    </>
+                )}
+                
                 {/* Ongoing Tournaments */}
                 <Text style={styles.tournamentHistoryTitle}>{t('home.ongoingTournaments')}</Text>
                 <View style={styles.ongoingTournamentsContainer}>
@@ -160,11 +263,77 @@ export function Home() {
                 onClose={() => setJoinModalVisible(false)}
                 onJoinSuccess={handleJoinSuccess}
             />
+            
+            {/* Connection Lost Modal */}
+            <ConnectionLostModal
+                visible={connectionLostModalVisible}
+                clientInfo={lostConnectionInfo}
+                onReconnect={async () => {
+                    if (lostConnectionInfo) {
+                        try {
+                            // Try to reconnect
+                            const success = await tournamentClient.connectToServer(
+                                lostConnectionInfo.hostIp,
+                                lostConnectionInfo.port
+                            );
+                            
+                            if (success) {
+                                setConnectionLostModalVisible(false);
+                                // Navigate to EventManagement on success
+                                navigation.navigate('EventManagement', {
+                                    tournamentName: lostConnectionInfo.tournamentName,
+                                    isRemoteConnection: true,
+                                });
+                            } else {
+                                // Connection failed, keep modal open
+                                Alert.alert(t('home.failedToConnect'));
+                            }
+                        } catch (error) {
+                            console.error('Error reconnecting:', error);
+                            Alert.alert(t('home.failedToConnect'));
+                        }
+                    }
+                }}
+                onBackToHome={() => {
+                    setConnectionLostModalVisible(false);
+                    // Already on home screen, so just close modal
+                }}
+            />
         </View>
+        </>
     );
 }
 
 const styles = StyleSheet.create({
+    // Tournament Styles - for both local and remote tournaments
+    tournamentContainer: {
+        flexDirection: 'row',
+        backgroundColor: '#ffffff',
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: '#e0e0e0',
+        marginVertical: 6,
+        elevation: 2,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 2,
+        overflow: 'hidden',
+    },
+    tournamentItem: {
+        flex: 1,
+        padding: 16,
+    },
+    tournamentName: {
+        fontSize: 16,
+        fontWeight: '600',
+        color: '#333333',
+        marginBottom: 4,
+    },
+    tournamentInfo: {
+        fontSize: 12,
+        color: '#666666',
+    },
     container: {
         flex: 1,
         justifyContent: 'flex-start',
@@ -305,5 +474,17 @@ const styles = StyleSheet.create({
         textAlign: 'center',
         padding: 10,
         fontWeight: '500',
+    },
+    deleteButton: {
+        padding: 16,
+        backgroundColor: '#ff3b30',
+        justifyContent: 'center',
+        alignItems: 'center',
+        width: 50,
+    },
+    deleteButtonText: {
+        color: '#fff',
+        fontSize: 16,
+        fontWeight: 'bold',
     },
 });

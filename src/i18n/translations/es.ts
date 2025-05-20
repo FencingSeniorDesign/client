@@ -42,6 +42,12 @@ export default {
         disconnectedMessage: 'Te has desconectado del torneo',
         errorLoadingTournaments: 'Error al cargar torneos',
         errorLoadingHistory: 'Error al cargar historial de torneos',
+        failedToConnect: 'Error al conectar con el torneo',
+        failedToRemove: 'Error al eliminar el torneo',
+        connectionLost: 'Conexión Perdida',
+        connectionLostMessage: 'Se ha perdido la conexión con el torneo. Intenta reconectar o vuelve a la página de inicio.',
+        reconnect: 'Reconectar',
+        backToHome: 'Volver al Inicio',
     },
     createTournament: {
         title: 'Crear Nuevo Torneo',

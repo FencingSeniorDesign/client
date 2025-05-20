@@ -42,6 +42,12 @@ export default {
         disconnectedMessage: '',
         errorLoadingTournaments: '',
         errorLoadingHistory: '',
+        failedToConnect: '',
+        failedToRemove: '',
+        connectionLost: 'Connexion Perdue',
+        connectionLostMessage: 'La connexion au tournoi a été perdue. Essayez de vous reconnecter ou retournez à la page d\'accueil.',
+        reconnect: 'Reconnecter',
+        backToHome: 'Retour à l\'Accueil',
     },
     createTournament: {
         title: '',

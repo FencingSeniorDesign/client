@@ -38,6 +38,7 @@ import { Can } from '../../rbac/Can';
 import { useAbility } from '../../rbac/AbilityContext';
 import { useTranslation } from 'react-i18next';
 import { BLEStatusBar } from '../../networking/components/BLEStatusBar';
+import { ConnectionLostModal } from '../../networking/components/ConnectionLostModal';
 
 type Props = {
     route: RouteProp<{ params: { tournamentName: string; isRemoteConnection?: boolean } }, 'params'>;
@@ -77,6 +78,10 @@ export const EventManagement = ({ route }: Props) => {
         hostIp: string;
         port: number;
     } | null>(null);
+    
+    // Connection lost state
+    const [connectionLostModalVisible, setConnectionLostModalVisible] = useState(false);
+    const [lostConnectionInfo, setLostConnectionInfo] = useState<any>(null);
 
     // Use TanStack Query mutation for creating events
     const createEventMutation = useCreateEvent();
@@ -84,6 +89,27 @@ export const EventManagement = ({ route }: Props) => {
     const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
     const { ability } = useAbility();
 
+    // Listen for connection lost events
+    useEffect(() => {
+        const handleConnectionLost = (clientInfo: any) => {
+            console.log('Connection lost event received in EventManagement', clientInfo);
+            if (isRemote) {
+                // Store the info and show the modal
+                setLostConnectionInfo(clientInfo);
+                setConnectionLostModalVisible(true);
+                console.log('Setting connection lost modal to visible');
+            }
+        };
+        
+        // Add the event listener
+        tournamentClient.on('connectionLost', handleConnectionLost);
+        
+        return () => {
+            // Remove the event listener when component unmounts
+            tournamentClient.off('connectionLost', handleConnectionLost);
+        };
+    }, [isRemote]);
+    
     // Custom back button handling for remote connections
     useEffect(() => {
         if (isRemote) {
@@ -99,8 +125,9 @@ export const EventManagement = ({ route }: Props) => {
                         text: t('home.disconnect'),
                         style: 'destructive',
                         onPress: () => {
-                            // Set flag to true to prevent disconnect alert
+                            // Set flags to prevent alert and connection lost modal
                             tournamentClient.isShowingDisconnectAlert = true;
+                            tournamentClient.isIntentionalDisconnect = true;
                             tournamentClient.disconnect();
                             // Reset the flag after navigation
                             setTimeout(() => {
@@ -601,8 +628,9 @@ export const EventManagement = ({ route }: Props) => {
                     text: t('eventManagement.disconnect'),
                     style: 'destructive',
                     onPress: async () => {
-                        // Set flag to true to prevent disconnect alert
+                        // Set flags to prevent alert and connection lost modal
                         tournamentClient.isShowingDisconnectAlert = true;
+                        tournamentClient.isIntentionalDisconnect = true;
                         await tournamentClient.disconnect();
                         // Reset the flag after navigation
                         setTimeout(() => {
@@ -616,6 +644,7 @@ export const EventManagement = ({ route }: Props) => {
     };
 
     return (
+        <>
         <ScrollView contentContainerStyle={styles.container}>
             {/* BLE connection status */}
             {ability.can('score', 'Bout') && <BLEStatusBar compact={true} />}
@@ -892,6 +921,40 @@ export const EventManagement = ({ route }: Props) => {
                 </View>
             </Modal>
         </ScrollView>
+        
+        {/* Connection Lost Modal */}
+        <ConnectionLostModal
+            visible={connectionLostModalVisible}
+            clientInfo={lostConnectionInfo}
+            onReconnect={async () => {
+                if (lostConnectionInfo) {
+                    try {
+                        // Try to reconnect
+                        const success = await tournamentClient.connectToServer(
+                            lostConnectionInfo.hostIp,
+                            lostConnectionInfo.port
+                        );
+                        
+                        if (success) {
+                            setConnectionLostModalVisible(false);
+                            // Refresh data
+                            queryClient.invalidateQueries({ queryKey: queryKeys.events });
+                        } else {
+                            // Connection failed, keep modal open
+                            Alert.alert(t('joinTournament.errorConnectionFailed'));
+                        }
+                    } catch (error) {
+                        console.error('Error reconnecting:', error);
+                        Alert.alert(t('joinTournament.errorConnectionFailed'));
+                    }
+                }
+            }}
+            onBackToHome={() => {
+                setConnectionLostModalVisible(false);
+                navigation.navigate('HomeTabs');
+            }}
+        />
+        </>
     );
 };
 

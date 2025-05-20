@@ -161,11 +161,12 @@ export const JoinTournamentModal: React.FC<JoinTournamentModalProps> = ({ visibl
             const success = await tournamentClient.connectToServer(hostIp, portNum);
             if (!success) {
                 setConnecting(false);
-                setError(t('joinTournament.errorConnectionFailed'));
+                // Don't show error alert
             }
         } catch (error: any) {
             setConnecting(false);
-            setError(error.message || t('joinTournament.errorConnectionFailed'));
+            console.error('Connection error:', error);
+            // No error alerts
         }
     };
 
@@ -180,11 +181,12 @@ export const JoinTournamentModal: React.FC<JoinTournamentModalProps> = ({ visibl
             const success = await tournamentClient.connectToServer(server.hostIp, server.port);
             if (!success) {
                 setConnecting(false);
-                setError(t('joinTournament.errorConnectionFailed'));
+                // Don't show error alert
             }
         } catch (error: any) {
             setConnecting(false);
-            setError(error.message || t('joinTournament.errorConnectionFailed'));
+            console.error('Connection error:', error);
+            // No error alerts
         }
     };
 
@@ -198,7 +200,7 @@ export const JoinTournamentModal: React.FC<JoinTournamentModalProps> = ({ visibl
             setDiscoveredServers(servers);
         } catch (error: any) {
             console.error('Error discovering servers:', error);
-            setError(t('joinTournament.errorConnectionFailed'));
+            // Don't show error alert
         } finally {
             setIsDiscovering(false);
         }

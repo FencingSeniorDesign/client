@@ -8,6 +8,7 @@ import AsyncStorage from 'expo-sqlite/kv-store';
 
 // Constants
 const CLIENT_INFO_KEY = 'tournament_client_info';
+const SAVED_REMOTE_TOURNAMENTS_KEY = 'saved_remote_tournaments';
 const CONNECTION_TIMEOUT = 10000; // Increase timeout for simulators
 
 interface ClientInfo {
@@ -28,6 +29,8 @@ class TournamentClient extends EventEmitter {
     private maxReconnectAttempts: number = 5;
     // Make this public so manual disconnects can set it to prevent alerts
     public isShowingDisconnectAlert: boolean = false;
+    // Flag to track intentional disconnects
+    public isIntentionalDisconnect: boolean = false;
     private responsePromises: Map<
         string,
         {
@@ -200,13 +203,23 @@ class TournamentClient extends EventEmitter {
                         this.clientInfo.isConnected = false;
                     }
 
-                    // Let the disconnect method handle alerts
-                    // We don't show the alert here
-
                     this.emit('disconnected');
+                    
+                    // For socket close, we need to be more cautious - the close event
+                    // can be triggered by both intentional and unintentional disconnects
+                    // For real server connection loss, emit this event
+                    if (!this.isIntentionalDisconnect) {
+                        console.log('Emitting connectionLost event due to unexpected socket close');
+                        this.emit('connectionLost', this.clientInfo);
+                    } else {
+                        console.log('Skipping connectionLost event due to intentional disconnect');
+                    }
+                    
+                    // Reset the flag after emitting events
+                    this.isIntentionalDisconnect = false;
 
-                    // Attempt to reconnect with backoff
-                    this.scheduleReconnect();
+                    // Don't attempt automatic reconnect as we'll navigate back to home
+                    // this.scheduleReconnect();
                 });
 
                 // Handle errors
@@ -223,6 +236,18 @@ class TournamentClient extends EventEmitter {
                         this.socket = null;
                     }
 
+                    if (this.clientInfo) {
+                        this.clientInfo.isConnected = false;
+                    }
+
+                    // For socket errors, we almost always want to emit connectionLost
+                    // as errors typically indicate unexpected disconnections
+                    console.log('Emitting connectionLost event due to socket error');
+                    this.emit('connectionLost', this.clientInfo);
+                    
+                    // Reset the flag after emitting events
+                    this.isIntentionalDisconnect = false;
+                    
                     reject(error);
                 });
             });
@@ -235,18 +260,9 @@ class TournamentClient extends EventEmitter {
     // Disconnect from the server
     async disconnect(): Promise<boolean> {
         try {
-            // Show a single disconnect alert if not already showing
-            if (!this.isShowingDisconnectAlert) {
-                this.isShowingDisconnectAlert = true;
-                Alert.alert('Tournament Connection', 'The connection to the tournament server was lost.', [
-                    {
-                        text: 'OK',
-                        onPress: () => {
-                            this.isShowingDisconnectAlert = false;
-                        },
-                    },
-                ]);
-            }
+            // Skip showing the alert entirely and mark as intentional disconnect
+            this.isShowingDisconnectAlert = true;
+            this.isIntentionalDisconnect = true;
 
             this.responsePromises.forEach((handlers, type) => {
                 clearTimeout(handlers.timeoutId);
@@ -773,7 +789,14 @@ class TournamentClient extends EventEmitter {
     private handleServerClosing(data: any): void {
         console.log('Server is closing:', data.message);
 
-        // Let the disconnect method show the alert
+        // This is an expected but server-initiated disconnect
+        // We should still show the connection lost modal
+        if (this.clientInfo) {
+            console.log('Emitting connectionLost event due to server closing');
+            this.emit('connectionLost', this.clientInfo);
+        }
+
+        // Then disconnect properly
         this.disconnect();
     }
 
@@ -829,6 +852,85 @@ class TournamentClient extends EventEmitter {
         } catch (error) {
             console.error('Error loading client info:', error);
             return null;
+        }
+    }
+
+    // Save a remote tournament to AsyncStorage for later reconnection
+    async saveRemoteTournament(): Promise<boolean> {
+        try {
+            if (!this.clientInfo) {
+                console.error('No active connection to save');
+                return false;
+            }
+
+            // Get the current list of saved tournaments
+            const savedTournamentsStr = await AsyncStorage.getItem(SAVED_REMOTE_TOURNAMENTS_KEY);
+            let savedTournaments = savedTournamentsStr ? JSON.parse(savedTournamentsStr) : [];
+
+            // Check if this tournament is already saved
+            const existingIndex = savedTournaments.findIndex(
+                (t: ClientInfo) => t.tournamentName === this.clientInfo?.tournamentName
+            );
+
+            if (existingIndex >= 0) {
+                // Update existing entry
+                savedTournaments[existingIndex] = {
+                    tournamentName: this.clientInfo.tournamentName,
+                    hostIp: this.clientInfo.hostIp,
+                    port: this.clientInfo.port,
+                };
+            } else {
+                // Add new entry
+                savedTournaments.push({
+                    tournamentName: this.clientInfo.tournamentName,
+                    hostIp: this.clientInfo.hostIp,
+                    port: this.clientInfo.port,
+                });
+            }
+
+            // Save back to AsyncStorage
+            await AsyncStorage.setItem(SAVED_REMOTE_TOURNAMENTS_KEY, JSON.stringify(savedTournaments));
+            console.log(`Saved remote tournament "${this.clientInfo.tournamentName}" for later reconnection`);
+            return true;
+        } catch (error) {
+            console.error('Error saving remote tournament:', error);
+            return false;
+        }
+    }
+
+    // Get all saved remote tournaments
+    async getSavedRemoteTournaments(): Promise<ClientInfo[]> {
+        try {
+            const savedTournamentsStr = await AsyncStorage.getItem(SAVED_REMOTE_TOURNAMENTS_KEY);
+            return savedTournamentsStr ? JSON.parse(savedTournamentsStr) : [];
+        } catch (error) {
+            console.error('Error getting saved remote tournaments:', error);
+            return [];
+        }
+    }
+
+    // Remove a saved remote tournament
+    async removeSavedRemoteTournament(tournamentName: string): Promise<boolean> {
+        try {
+            const savedTournamentsStr = await AsyncStorage.getItem(SAVED_REMOTE_TOURNAMENTS_KEY);
+            if (!savedTournamentsStr) return false;
+
+            let savedTournaments = JSON.parse(savedTournamentsStr);
+            const newSavedTournaments = savedTournaments.filter(
+                (t: ClientInfo) => t.tournamentName !== tournamentName
+            );
+
+            if (newSavedTournaments.length === savedTournaments.length) {
+                // No tournament was removed
+                return false;
+            }
+
+            await AsyncStorage.setItem(SAVED_REMOTE_TOURNAMENTS_KEY, JSON.stringify(newSavedTournaments));
+            console.log(`Removed saved remote tournament "${tournamentName}"`);
+            return true;
+        } catch (error) {
+            console.error('Error removing saved remote tournament:', error);
+            return false;
         }
     }
 }
