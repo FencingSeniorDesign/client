@@ -284,15 +284,25 @@ export function RefereeModule() {
     const revertLastPoint = () => {
         if (lastScoreChange) {
             const { fencer, delta } = lastScoreChange;
+            let newScore1 = fencer1Score;
+            let newScore2 = fencer2Score;
+            
             if (fencer === 1) {
-                setFencer1Score(prev => Math.max(0, prev - delta));
+                newScore1 = Math.max(0, fencer1Score - delta);
+                setFencer1Score(newScore1);
             } else {
-                setFencer2Score(prev => Math.max(0, prev - delta));
+                newScore2 = Math.max(0, fencer2Score - delta);
+                setFencer2Score(newScore2);
             }
 
             // Only manage passivity timer locally when not connected to hardware
             if (connectionState !== ConnectionState.CONNECTED && savedPassivityTime !== null) {
                 setPassivityTime(savedPassivityTime);
+            }
+            
+            // Send reverted score to BLE box if connected
+            if (connectionState === ConnectionState.CONNECTED && initialSyncCompleted) {
+                sendScoreToBox(newScore1, newScore2);
             }
 
             setLastScoreChange(null);
