@@ -63,6 +63,8 @@ jest.mock('../../../src/networking/TournamentClient', () => ({
     loadClientInfo: jest.fn(),
     getClientInfo: jest.fn(),
     disconnect: jest.fn(),
+    isConnected: jest.fn().mockReturnValue(false),
+    isShowingDisconnectAlert: false,
 }));
 
 // Mock TanStack Query hooks
@@ -92,6 +94,11 @@ jest.mock('@react-navigation/native', () => ({
     useNavigation: () => ({
         navigate: jest.fn(),
     }),
+    useFocusEffect: callback => {
+        // Execute the callback immediately to simulate screen focus
+        callback();
+        return null;
+    },
 }));
 
 // Mock vector icons
@@ -154,24 +161,22 @@ describe('Home Screen', () => {
         });
     });
 
-    it('displays connected tournament info and disconnects', async () => {
+    it('always shows join tournament button regardless of connection status', async () => {
         (tournamentClient.getClientInfo as jest.Mock).mockReturnValue({
             isConnected: true,
             tournamentName: 'Tournament 1',
         });
         (tournamentClient.loadClientInfo as jest.Mock).mockResolvedValue(undefined);
+        (tournamentClient.isConnected as jest.Mock).mockReturnValue(true);
 
         const { getByText } = render(<Home />);
+
+        // Should always show the Join Tournament button
         await waitFor(() => {
-            expect(getByText(/connectedTo/)).toBeTruthy();
+            expect(getByText('joinTournament')).toBeTruthy();
         });
 
-        const disconnectButton = getByText('disconnect');
-        expect(disconnectButton).toBeTruthy();
-
-        await act(async () => {
-            fireEvent.press(disconnectButton);
-        });
+        // Should automatically disconnect when screen focuses
         expect(tournamentClient.disconnect).toHaveBeenCalled();
     });
 

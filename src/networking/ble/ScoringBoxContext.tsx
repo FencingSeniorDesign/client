@@ -87,19 +87,22 @@ export function ScoringBoxProvider({ children }: ScoringBoxProviderProps) {
         }
     };
 
-    const setCallbacks = useCallback((newCallbacks: BoxCallbacks) => {
-        callbacks.current = newCallbacks;
-        
-        // If we already have a service, update its callbacks
-        if (boxService.current) {
-            const mergedCallbacks: BoxCallbacks = {
-                ...newCallbacks,
-                onConnectionStateChange: handleConnectionStateChange,
-                onError: handleError,
-            };
-            boxService.current.setCallbacks(mergedCallbacks);
-        }
-    }, [handleConnectionStateChange, handleError]);
+    const setCallbacks = useCallback(
+        (newCallbacks: BoxCallbacks) => {
+            callbacks.current = newCallbacks;
+
+            // If we already have a service, update its callbacks
+            if (boxService.current) {
+                const mergedCallbacks: BoxCallbacks = {
+                    ...newCallbacks,
+                    onConnectionStateChange: handleConnectionStateChange,
+                    onError: handleError,
+                };
+                boxService.current.setCallbacks(mergedCallbacks);
+            }
+        },
+        [handleConnectionStateChange, handleError]
+    );
 
     const scan = async (boxType: ScoringBoxType) => {
         try {
