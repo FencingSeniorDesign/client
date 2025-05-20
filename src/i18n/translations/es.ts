@@ -24,7 +24,8 @@ export default {
         tbd: 'PD',
         tournament: 'Torneo',
         disconnectBoxPromptTitle: '¿Desconectar Caja de Puntuación?',
-        disconnectBoxPromptMessage: 'Actualmente estás conectado a una caja de puntuación. ¿Te gustaría desconectarte antes de salir?',
+        disconnectBoxPromptMessage:
+            'Actualmente estás conectado a una caja de puntuación. ¿Te gustaría desconectarte antes de salir?',
         disconnectAndExit: 'Desconectar y Salir',
         exitWithoutDisconnecting: 'Salir Sin Desconectar',
     },
@@ -42,8 +43,13 @@ export default {
         disconnectedMessage: 'Te has desconectado del torneo',
         errorLoadingTournaments: 'Error al cargar torneos',
         errorLoadingHistory: 'Error al cargar historial de torneos',
+        failedToConnect: 'Error al conectar con el torneo',
+        failedToRemove: 'Error al eliminar el torneo',
+        connectionLost: 'Conexión Perdida',
+        connectionLostMessage:
+            'Se ha perdido la conexión con el torneo. Intenta reconectar o vuelve a la página de inicio.',
         reconnect: 'Reconectar',
-        failedToConnect: 'Error al conectar con el servidor del torneo',
+        backToHome: 'Volver al Inicio',
     },
     createTournament: {
         title: 'Crear Nuevo Torneo',
@@ -131,11 +137,16 @@ export default {
         failedToStartEvent: 'Error al iniciar el evento.',
         failedToOpenEvent: 'Error al abrir el evento: datos de ronda inválidos',
         roundNotInitialized: 'Error al inicializar la ronda.',
-        cannotStartNoFencers: 'No se puede iniciar el evento sin esgrimistas. Por favor, añada esgrimistas a este evento.',
-        noRoundsDefinedError: 'No hay rondas definidas para este evento. Por favor, agregue rondas en la configuración del evento.',
-        somePoolRoundsNoConfig: 'Algunas rondas de poules no tienen configuración. Por favor, configure las poules en la configuración del evento.',
-        failedToStopServer: 'Error al detener el servidor del torneo. Es posible que el proceso del servidor siga ejecutándose en segundo plano.',
-        failedToStartServer: 'Error al iniciar el servidor del torneo. Verifique su conexión de red e intente nuevamente.',
+        cannotStartNoFencers:
+            'No se puede iniciar el evento sin esgrimistas. Por favor, añada esgrimistas a este evento.',
+        noRoundsDefinedError:
+            'No hay rondas definidas para este evento. Por favor, agregue rondas en la configuración del evento.',
+        somePoolRoundsNoConfig:
+            'Algunas rondas de poules no tienen configuración. Por favor, configure las poules en la configuración del evento.',
+        failedToStopServer:
+            'Error al detener el servidor del torneo. Es posible que el proceso del servidor siga ejecutándose en segundo plano.',
+        failedToStartServer:
+            'Error al iniciar el servidor del torneo. Verifique su conexión de red e intente nuevamente.',
         unexpectedServerError: 'Ocurrió un error inesperado al administrar el servidor',
         disconnectConfirmTitle: 'Desconectar del Torneo',
         disconnectConfirmMessage: '¿Está seguro de que desea desconectarse de este torneo?',
@@ -361,7 +372,8 @@ export default {
         failedToResetBout: 'No se pudo reiniciar el asalto. Por favor intente de nuevo.',
         failedToUpdateRandomScores: 'No se pudo actualizar el asalto {{boutId}} con puntajes aleatorios.',
         disconnectBoxPromptTitle: '¿Desconectar Caja de Puntuación?',
-        disconnectBoxPromptMessage: 'Actualmente estás conectado a una caja de puntuación. ¿Te gustaría desconectarte antes de salir?',
+        disconnectBoxPromptMessage:
+            'Actualmente estás conectado a una caja de puntuación. ¿Te gustaría desconectarte antes de salir?',
         disconnectAndExit: 'Desconectar y Salir',
         exitWithoutDisconnecting: 'Salir Sin Desconectar',
     },
@@ -483,7 +495,8 @@ export default {
         defaultLeft: 'Izquierda',
         defaultRight: 'Derecha',
         disconnectBoxPromptTitle: '¿Desconectar Caja de Puntuación?',
-        disconnectBoxPromptMessage: 'Actualmente estás conectado a una caja de puntuación. ¿Te gustaría desconectarte antes de salir?',
+        disconnectBoxPromptMessage:
+            'Actualmente estás conectado a una caja de puntuación. ¿Te gustaría desconectarte antes de salir?',
         disconnectAndExit: 'Desconectar y Salir',
         exitWithoutDisconnecting: 'Salir Sin Desconectar',
     },

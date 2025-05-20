@@ -18,38 +18,30 @@ export function BLEStatusBar({ compact = false }: BLEStatusBarProps) {
     }
 
     const handleDisconnect = () => {
-        Alert.alert(
-            t('ble.disconnect'),
-            t('ble.disconnectConfirmation', { boxName: connectedDeviceName }),
-            [
-                {
-                    text: t('common.cancel'),
-                    style: 'cancel',
+        Alert.alert(t('ble.disconnect'), t('ble.disconnectConfirmation', { boxName: connectedDeviceName }), [
+            {
+                text: t('common.cancel'),
+                style: 'cancel',
+            },
+            {
+                text: t('ble.disconnect'),
+                style: 'destructive',
+                onPress: async () => {
+                    try {
+                        await disconnect();
+                    } catch (error) {
+                        console.error('Failed to disconnect:', error);
+                        Alert.alert(t('ble.error'), t('ble.disconnectFailed'));
+                    }
                 },
-                {
-                    text: t('ble.disconnect'),
-                    style: 'destructive',
-                    onPress: async () => {
-                        try {
-                            await disconnect();
-                        } catch (error) {
-                            console.error('Failed to disconnect:', error);
-                            Alert.alert(t('ble.error'), t('ble.disconnectFailed'));
-                        }
-                    },
-                },
-            ]
-        );
+            },
+        ]);
     };
 
     return (
         <TouchableOpacity onPress={handleDisconnect} activeOpacity={0.7}>
             <View style={[styles.container, compact && styles.compactContainer]}>
-                <FontAwesome5 
-                    name="mobile-alt" 
-                    size={compact ? 14 : 16} 
-                    color="#4CAF50" 
-                />
+                <FontAwesome5 name="mobile-alt" size={compact ? 14 : 16} color="#4CAF50" />
                 <Text style={[styles.text, compact && styles.compactText]}>
                     {t('ble.connectedToBox', { boxName: connectedDeviceName })}
                 </Text>
