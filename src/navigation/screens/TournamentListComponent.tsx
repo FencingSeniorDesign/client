@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, View, FlatList, Text, TouchableOpacity, Alert } from 'react-native';
+import { StyleSheet, View, Text, TouchableOpacity, Alert } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
@@ -70,12 +70,13 @@ export const TournamentList: React.FC<TournamentListProps> = ({ tournaments, onT
             {tournaments.length === 0 ? (
                 <Text style={styles.emptyText}>{t('tournamentList.noTournaments')}</Text>
             ) : (
-                <FlatList
-                    data={tournaments}
-                    renderItem={renderTournament}
-                    keyExtractor={item => item.name.toString()}
-                    contentContainerStyle={{ flexGrow: 1 }}
-                />
+                <View style={{ width: '100%' }}>
+                    {tournaments.map(item => (
+                        <React.Fragment key={item.name.toString()}>
+                            {renderTournament({ item })}
+                        </React.Fragment>
+                    ))}
+                </View>
             )}
         </View>
     );

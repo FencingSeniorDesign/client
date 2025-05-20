@@ -1,6 +1,6 @@
 // src/navigation/screens/Home.tsx with Join Tournament functionality
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, View, Text, Image, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
+import { StyleSheet, View, Text, Image, TouchableOpacity, Alert, ActivityIndicator, ScrollView } from 'react-native';
 import { CreateTournamentButton } from './CreateTournamentModal';
 import { TournamentList } from './TournamentListComponent';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
@@ -169,12 +169,12 @@ export function Home() {
                 </TouchableOpacity>
             </View>
 
-            <View style={styles.contentContainer}>
+            <ScrollView style={styles.contentContainer} contentContainerStyle={styles.scrollContent}>
                 {/* Saved Remote Tournaments */}
                 {savedRemoteTournaments.length > 0 && (
                     <>
                         <Text style={styles.tournamentHistoryTitle}>{t('home.remoteTournaments')}</Text>
-                        <View style={styles.ongoingTournamentsContainer}>
+                        <View style={[styles.ongoingTournamentsContainer, { maxHeight: 'auto' }]}>
                             {savedRemoteTournaments.map((tournament, index) => (
                                 <View key={index} style={styles.tournamentContainer}>
                                     <TouchableOpacity 
@@ -227,7 +227,7 @@ export function Home() {
                         />
                     )}
                 </View>
-            </View>
+            </ScrollView>
 
             {/* Device ID display */}
             <Text style={styles.deviceIdText}>
@@ -367,6 +367,10 @@ const styles = StyleSheet.create({
         width: '100%',
         flex: 1,
     },
+    scrollContent: {
+        paddingBottom: 20,
+        flexGrow: 1,
+    },
     customButton: {
         backgroundColor: '#001f3f',
         borderRadius: 12,
@@ -425,6 +429,8 @@ const styles = StyleSheet.create({
         shadowOffset: { width: 0, height: 1 },
         shadowOpacity: 0.1,
         shadowRadius: 2,
+        maxHeight: 'auto',
+        overflow: 'visible',
     },
     historyContainer: {
         width: '100%',
@@ -442,6 +448,8 @@ const styles = StyleSheet.create({
         shadowOffset: { width: 0, height: 1 },
         shadowOpacity: 0.1,
         shadowRadius: 2,
+        maxHeight: 'auto',
+        overflow: 'visible',
     },
     tournamentHistoryTitle: {
         fontSize: 20,
