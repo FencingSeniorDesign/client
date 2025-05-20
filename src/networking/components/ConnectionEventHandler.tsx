@@ -20,29 +20,25 @@ export const ConnectionEventHandler: React.FC = () => {
         // Handle unexpected connection lost
         const handleConnectionLost = (clientInfo: any) => {
             console.log('Connection lost:', clientInfo);
-            
+
             // Show a toast or notification to the user
-            Alert.alert(
-                t('connectionStatus.connectionLost'),
-                t('connectionStatus.connectionLostMessage'),
-                [
-                    {
-                        text: t('common.ok'),
-                        onPress: () => {
-                            // This happens automatically when alert is dismissed
-                        }
-                    }
-                ]
-            );
+            Alert.alert(t('connectionStatus.connectionLost'), t('connectionStatus.connectionLostMessage'), [
+                {
+                    text: t('common.ok'),
+                    onPress: () => {
+                        // This happens automatically when alert is dismissed
+                    },
+                },
+            ]);
 
             // Reset ability context
             setTournamentContext(null);
-            
+
             // Navigate back to home screen
             navigation.dispatch(
                 CommonActions.reset({
                     index: 0,
-                    routes: [{ name: 'HomeTabs' }]
+                    routes: [{ name: 'HomeTabs' }],
                 })
             );
         };

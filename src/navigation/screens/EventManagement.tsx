@@ -78,7 +78,7 @@ export const EventManagement = ({ route }: Props) => {
         hostIp: string;
         port: number;
     } | null>(null);
-    
+
     // Connection lost state
     const [connectionLostModalVisible, setConnectionLostModalVisible] = useState(false);
     const [lostConnectionInfo, setLostConnectionInfo] = useState<any>(null);
@@ -100,16 +100,16 @@ export const EventManagement = ({ route }: Props) => {
                 console.log('Setting connection lost modal to visible');
             }
         };
-        
+
         // Add the event listener
         tournamentClient.on('connectionLost', handleConnectionLost);
-        
+
         return () => {
             // Remove the event listener when component unmounts
             tournamentClient.off('connectionLost', handleConnectionLost);
         };
     }, [isRemote]);
-    
+
     // Custom back button handling for remote connections
     useEffect(() => {
         if (isRemote) {
@@ -414,10 +414,7 @@ export const EventManagement = ({ route }: Props) => {
             );
 
             if (poolRoundsWithoutConfig.length > 0) {
-                Alert.alert(
-                    t('common.error'),
-                    t('eventManagement.somePoolRoundsNoConfig')
-                );
+                Alert.alert(t('common.error'), t('eventManagement.somePoolRoundsNoConfig'));
                 return;
             }
 
@@ -478,24 +475,17 @@ export const EventManagement = ({ route }: Props) => {
             );
 
             if (poolRoundsWithoutConfig.length > 0) {
-                Alert.alert(
-                    t('common.error'),
-                    t('eventManagement.somePoolRoundsNoConfig')
-                );
+                Alert.alert(t('common.error'), t('eventManagement.somePoolRoundsNoConfig'));
                 return;
             }
 
             const firstRound = rounds[0];
 
             if (!firstRound.isstarted) {
-                Alert.alert(
-                    t('eventManagement.roundNotStarted'),
-                    t('eventManagement.initializeRoundMessage'),
-                    [
-                        { text: t('common.cancel'), style: 'cancel' },
-                        { text: t('eventManagement.startRound'), onPress: () => handleStartEvent(eventId) },
-                    ]
-                );
+                Alert.alert(t('eventManagement.roundNotStarted'), t('eventManagement.initializeRoundMessage'), [
+                    { text: t('common.cancel'), style: 'cancel' },
+                    { text: t('eventManagement.startRound'), onPress: () => handleStartEvent(eventId) },
+                ]);
                 return;
             }
 
@@ -542,28 +532,21 @@ export const EventManagement = ({ route }: Props) => {
                 if (!stillRunning) {
                     Alert.alert(t('eventManagement.serverStopped'), t('eventManagement.serverStoppedMessage'));
                 } else {
-                    Alert.alert(
-                        t('common.error'),
-                        t('eventManagement.serverStopFailed')
-                    );
+                    Alert.alert(t('common.error'), t('eventManagement.serverStopFailed'));
                 }
             } else {
                 // Check internet connectivity first
                 const isConnected = await isConnectedToInternet();
                 if (!isConnected) {
-                    Alert.alert(
-                        t('eventManagement.networkIssue'),
-                        t('eventManagement.networkIssueMessage'),
-                        [
-                            { text: t('common.cancel'), style: 'cancel' },
-                            {
-                                text: t('eventManagement.startAnyway'),
-                                onPress: async () => {
-                                    await startTournamentServer();
-                                },
+                    Alert.alert(t('eventManagement.networkIssue'), t('eventManagement.networkIssueMessage'), [
+                        { text: t('common.cancel'), style: 'cancel' },
+                        {
+                            text: t('eventManagement.startAnyway'),
+                            onPress: async () => {
+                                await startTournamentServer();
                             },
-                        ]
-                    );
+                        },
+                    ]);
                     setServerOperationPending(false);
                     return;
                 }
@@ -609,10 +592,7 @@ export const EventManagement = ({ route }: Props) => {
                     );
                 }
             } else {
-                Alert.alert(
-                    t('common.error'),
-                    t('eventManagement.serverStartFailed')
-                );
+                Alert.alert(t('common.error'), t('eventManagement.serverStartFailed'));
             }
         } catch (error) {
             console.error('Error starting tournament server:', error);
@@ -645,315 +625,341 @@ export const EventManagement = ({ route }: Props) => {
 
     return (
         <>
-        <ScrollView contentContainerStyle={styles.container}>
-            {/* BLE connection status */}
-            {ability.can('score', 'Bout') && <BLEStatusBar compact={true} />}
-            
-            {/* Tournament title at the top, centered */}
-            <Text style={styles.title}>
-                {isRemote ? remoteConnectionInfo?.tournamentName || tournamentName || t('common.tournament') : tournamentName}
-            </Text>
+            <ScrollView contentContainerStyle={styles.container}>
+                {/* BLE connection status */}
+                {ability.can('score', 'Bout') && <BLEStatusBar compact={true} />}
 
-            {/* Display user permissions */}
-            <PermissionsDisplay tournamentName={tournamentName} />
+                {/* Tournament title at the top, centered */}
+                <Text style={styles.title}>
+                    {isRemote
+                        ? remoteConnectionInfo?.tournamentName || tournamentName || t('common.tournament')
+                        : tournamentName}
+                </Text>
 
-            <View style={styles.headerContainer}>
+                {/* Display user permissions */}
+                <PermissionsDisplay tournamentName={tournamentName} />
 
-                {/* IP Address Banner (for server mode only) */}
-                {serverEnabled && localIpAddress && !isRemote && (
-                    <View style={styles.ipBanner}>
-                        <Text style={styles.ipText}>{t('eventManagement.tournamentIp')} {localIpAddress}</Text>
-                        <Text style={styles.ipTextSmall}>{t('eventManagement.port')}: {serverInfo?.port || 9001}</Text>
-                        <View style={styles.networkStatusContainer}>
-                            <View
-                                style={[
-                                    styles.networkStatusIndicator,
-                                    isNetworkConnected ? styles.networkConnected : styles.networkDisconnected,
-                                ]}
-                            />
-                            <Text style={styles.networkStatusText}>
-                                {isNetworkConnected ? t('eventManagement.networkConnected') : t('eventManagement.networkDisconnected')}
+                <View style={styles.headerContainer}>
+                    {/* IP Address Banner (for server mode only) */}
+                    {serverEnabled && localIpAddress && !isRemote && (
+                        <View style={styles.ipBanner}>
+                            <Text style={styles.ipText}>
+                                {t('eventManagement.tournamentIp')} {localIpAddress}
                             </Text>
+                            <Text style={styles.ipTextSmall}>
+                                {t('eventManagement.port')}: {serverInfo?.port || 9001}
+                            </Text>
+                            <View style={styles.networkStatusContainer}>
+                                <View
+                                    style={[
+                                        styles.networkStatusIndicator,
+                                        isNetworkConnected ? styles.networkConnected : styles.networkDisconnected,
+                                    ]}
+                                />
+                                <Text style={styles.networkStatusText}>
+                                    {isNetworkConnected
+                                        ? t('eventManagement.networkConnected')
+                                        : t('eventManagement.networkDisconnected')}
+                                </Text>
+                            </View>
                         </View>
+                    )}
+                </View>
+
+                {/* Server Control Button (only for local tournaments) */}
+                {!isRemote && (
+                    <TouchableOpacity
+                        style={[
+                            styles.serverButton,
+                            serverEnabled ? styles.serverEnabledButton : styles.serverDisabledButton,
+                            serverOperationPending && styles.serverPendingButton,
+                        ]}
+                        onPress={handleToggleServer}
+                        disabled={serverOperationPending}
+                    >
+                        {serverOperationPending ? (
+                            <View style={styles.buttonLoadingContainer}>
+                                <ActivityIndicator size="small" color="#fff" />
+                                <Text style={styles.serverButtonText}>
+                                    {serverEnabled ? t('eventManagement.stopping') : t('eventManagement.starting')}
+                                </Text>
+                            </View>
+                        ) : (
+                            <Text style={styles.serverButtonText}>
+                                {serverEnabled ? t('eventManagement.disableServer') : t('eventManagement.enableServer')}
+                            </Text>
+                        )}
+                    </TouchableOpacity>
+                )}
+
+                {serverEnabled && serverInfo && !isRemote && (
+                    <View style={styles.serverInfoContainer}>
+                        <Text style={styles.serverInfoText}>
+                            {t('eventManagement.serverRunning', { port: serverInfo.port })}
+                        </Text>
+                        <Text style={styles.serverInfoText}>{t('eventManagement.shareInfo')}</Text>
                     </View>
                 )}
-            </View>
 
-            {/* Server Control Button (only for local tournaments) */}
-            {!isRemote && (
-                <TouchableOpacity
-                    style={[
-                        styles.serverButton,
-                        serverEnabled ? styles.serverEnabledButton : styles.serverDisabledButton,
-                        serverOperationPending && styles.serverPendingButton,
-                    ]}
-                    onPress={handleToggleServer}
-                    disabled={serverOperationPending}
-                >
-                    {serverOperationPending ? (
-                        <View style={styles.buttonLoadingContainer}>
-                            <ActivityIndicator size="small" color="#fff" />
-                            <Text style={styles.serverButtonText}>{serverEnabled ? t('eventManagement.stopping') : t('eventManagement.starting')}</Text>
-                        </View>
-                    ) : (
-                        <Text style={styles.serverButtonText}>
-                            {serverEnabled ? t('eventManagement.disableServer') : t('eventManagement.enableServer')}
-                        </Text>
-                    )}
-                </TouchableOpacity>
-            )}
+                {/* Conditionally render Manage Officials button with Can tag */}
+                <Can I="manage" a="Official">
+                    <TouchableOpacity
+                        style={styles.manageOfficialsButton}
+                        onPress={() =>
+                            navigation.navigate('ManageOfficials', {
+                                tournamentName: tournamentName,
+                                isRemote: isRemote,
+                            })
+                        }
+                    >
+                        <Text style={styles.manageOfficialsText}>{t('eventManagement.manageOfficials')}</Text>
+                    </TouchableOpacity>
+                </Can>
 
-            {serverEnabled && serverInfo && !isRemote && (
-                <View style={styles.serverInfoContainer}>
-                    <Text style={styles.serverInfoText}>{t('eventManagement.serverRunning', { port: serverInfo.port })}</Text>
-                    <Text style={styles.serverInfoText}>{t('eventManagement.shareInfo')}</Text>
-                </View>
-            )}
+                {/* Use CASL's Can component to enable creating events only if user has permission */}
+                <Can I="create" a="Event">
+                    <Button
+                        title={t('eventManagement.createEvent')}
+                        onPress={openCreateModal}
+                        disabled={createEventMutation.isPending}
+                    />
+                </Can>
 
-            {/* Conditionally render Manage Officials button with Can tag */}
-            <Can I="manage" a="Official">
-                <TouchableOpacity
-                    style={styles.manageOfficialsButton}
-                    onPress={() =>
-                        navigation.navigate('ManageOfficials', {
-                            tournamentName: tournamentName,
-                            isRemote: isRemote,
-                        })
-                    }
-                >
-                    <Text style={styles.manageOfficialsText}>{t('eventManagement.manageOfficials')}</Text>
-                </TouchableOpacity>
-            </Can>
-
-            {/* Use CASL's Can component to enable creating events only if user has permission */}
-            <Can I="create" a="Event">
-                <Button
-                    title={t('eventManagement.createEvent')}
-                    onPress={openCreateModal}
-                    disabled={createEventMutation.isPending}
-                />
-            </Can>
-
-            {eventsLoading ? (
-                <View style={styles.loadingContainer}>
-                    <ActivityIndicator size="large" color="#001f3f" />
-                    <Text style={styles.loadingText}>{t('common.loading')}</Text>
-                </View>
-            ) : eventsError ? (
-                <View style={styles.errorContainer}>
-                    <Text style={styles.errorText}>{t('eventManagement.errorLoading')}</Text>
-                </View>
-            ) : (
-                <View style={styles.eventList}>
-                    {events.length === 0 ? (
-                        <Text style={styles.noEventsText}>{t('eventManagement.noEvents')}</Text>
-                    ) : (
-                        events.map(event => (
-                            <View key={event.id} style={styles.eventItem}>
-                                <Text style={styles.eventText}>
-                                    {event.age} {event.gender} {event.weapon}
-                                </Text>
-                                <View style={styles.eventActions}>
-                                    <Can I="update" a="Event" this={event}>
-                                        {/* Hide Edit button when tournament is started */}
-                                        {!(eventStatuses && eventStatuses[event.id] === true) && (
-                                            <TouchableOpacity
-                                                style={[styles.actionButton, styles.flexAction]}
-                                                onPress={() =>
-                                                    navigation.navigate('EventSettings', {
-                                                        event: event,
-                                                        onSave: handleSaveEventSettings,
-                                                        isRemote: isRemote,
-                                                    })
-                                                }
-                                            >
-                                                <Text style={styles.buttonText}>{t('eventManagement.edit')}</Text>
-                                            </TouchableOpacity>
-                                        )}
-                                    </Can>
-                                    <TouchableOpacity
-                                        style={[styles.actionButton, styles.flexAction]}
-                                        onPress={() => {
-                                            console.log('Event status for', event.id, ':', eventStatuses?.[event.id]);
-                                            console.log('All current event statuses:', eventStatuses);
-                                            const isStarted = eventStatuses && eventStatuses[event.id] === true;
-                                            console.log(`Event ${event.id} isStarted: ${isStarted}`);
-
-                                            if (isStarted) {
-                                                // Anyone can open a started event (read access)
-                                                handleOpenEvent(event.id);
-                                            } else if (ability.can('update', 'Event')) {
-                                                // Only those with update permission can start an event
-                                                confirmStartEvent(event.id);
-                                            }
-                                        }}
-                                        disabled={
-                                            !(eventStatuses && eventStatuses[event.id] === true) &&
-                                            !ability.can('update', 'Event')
-                                        }
-                                    >
-                                        <Text
-                                            style={[
-                                                styles.buttonText,
-                                                !(eventStatuses && eventStatuses[event.id] === true) &&
-                                                    !ability.can('update', 'Event') &&
-                                                    styles.disabledText,
-                                            ]}
-                                        >
-                                            {eventStatuses && eventStatuses[event.id] === true
-                                                ? t('eventManagement.open')
-                                                : t('eventManagement.start')}
-                                        </Text>
-                                    </TouchableOpacity>
-                                    <TouchableOpacity
-                                        style={[styles.actionButton, styles.viewResultsButton]}
-                                        onPress={() =>
-                                            navigation.navigate('TournamentResultsPage', {
-                                                eventId: event.id,
-                                                isRemote: isRemote,
-                                            })
-                                        }
-                                    ></TouchableOpacity>
-
-                                    <Can I="delete" a="Event">
+                {eventsLoading ? (
+                    <View style={styles.loadingContainer}>
+                        <ActivityIndicator size="large" color="#001f3f" />
+                        <Text style={styles.loadingText}>{t('common.loading')}</Text>
+                    </View>
+                ) : eventsError ? (
+                    <View style={styles.errorContainer}>
+                        <Text style={styles.errorText}>{t('eventManagement.errorLoading')}</Text>
+                    </View>
+                ) : (
+                    <View style={styles.eventList}>
+                        {events.length === 0 ? (
+                            <Text style={styles.noEventsText}>{t('eventManagement.noEvents')}</Text>
+                        ) : (
+                            events.map(event => (
+                                <View key={event.id} style={styles.eventItem}>
+                                    <Text style={styles.eventText}>
+                                        {event.age} {event.gender} {event.weapon}
+                                    </Text>
+                                    <View style={styles.eventActions}>
+                                        <Can I="update" a="Event" this={event}>
+                                            {/* Hide Edit button when tournament is started */}
+                                            {!(eventStatuses && eventStatuses[event.id] === true) && (
+                                                <TouchableOpacity
+                                                    style={[styles.actionButton, styles.flexAction]}
+                                                    onPress={() =>
+                                                        navigation.navigate('EventSettings', {
+                                                            event: event,
+                                                            onSave: handleSaveEventSettings,
+                                                            isRemote: isRemote,
+                                                        })
+                                                    }
+                                                >
+                                                    <Text style={styles.buttonText}>{t('eventManagement.edit')}</Text>
+                                                </TouchableOpacity>
+                                            )}
+                                        </Can>
                                         <TouchableOpacity
-                                            onPress={() => confirmRemoveEvent(event.id)}
-                                            style={styles.removeIconContainer}
-                                            disabled={deleteEventMutation.isPending}
+                                            style={[styles.actionButton, styles.flexAction]}
+                                            onPress={() => {
+                                                console.log(
+                                                    'Event status for',
+                                                    event.id,
+                                                    ':',
+                                                    eventStatuses?.[event.id]
+                                                );
+                                                console.log('All current event statuses:', eventStatuses);
+                                                const isStarted = eventStatuses && eventStatuses[event.id] === true;
+                                                console.log(`Event ${event.id} isStarted: ${isStarted}`);
+
+                                                if (isStarted) {
+                                                    // Anyone can open a started event (read access)
+                                                    handleOpenEvent(event.id);
+                                                } else if (ability.can('update', 'Event')) {
+                                                    // Only those with update permission can start an event
+                                                    confirmStartEvent(event.id);
+                                                }
+                                            }}
+                                            disabled={
+                                                !(eventStatuses && eventStatuses[event.id] === true) &&
+                                                !ability.can('update', 'Event')
+                                            }
                                         >
-                                            <Text style={styles.removeIcon}>{t('eventManagement.removeIcon')}</Text>
+                                            <Text
+                                                style={[
+                                                    styles.buttonText,
+                                                    !(eventStatuses && eventStatuses[event.id] === true) &&
+                                                        !ability.can('update', 'Event') &&
+                                                        styles.disabledText,
+                                                ]}
+                                            >
+                                                {eventStatuses && eventStatuses[event.id] === true
+                                                    ? t('eventManagement.open')
+                                                    : t('eventManagement.start')}
+                                            </Text>
                                         </TouchableOpacity>
-                                    </Can>
+                                        <TouchableOpacity
+                                            style={[styles.actionButton, styles.viewResultsButton]}
+                                            onPress={() =>
+                                                navigation.navigate('TournamentResultsPage', {
+                                                    eventId: event.id,
+                                                    isRemote: isRemote,
+                                                })
+                                            }
+                                        ></TouchableOpacity>
+
+                                        <Can I="delete" a="Event">
+                                            <TouchableOpacity
+                                                onPress={() => confirmRemoveEvent(event.id)}
+                                                style={styles.removeIconContainer}
+                                                disabled={deleteEventMutation.isPending}
+                                            >
+                                                <Text style={styles.removeIcon}>{t('eventManagement.removeIcon')}</Text>
+                                            </TouchableOpacity>
+                                        </Can>
+                                    </View>
                                 </View>
-                            </View>
-                        ))
-                    )}
-                </View>
-            )}
+                            ))
+                        )}
+                    </View>
+                )}
 
-            <Modal
-                visible={modalVisible}
-                animationType="slide"
-                transparent={true}
-                onRequestClose={() => setModalVisible(false)}
-            >
-                <View style={styles.modalOverlay}>
-                    <View style={styles.modalContent}>
-                        <Text style={styles.modalTitle}>{t('eventManagement.createEvent')}</Text>
+                <Modal
+                    visible={modalVisible}
+                    animationType="slide"
+                    transparent={true}
+                    onRequestClose={() => setModalVisible(false)}
+                >
+                    <View style={styles.modalOverlay}>
+                        <View style={styles.modalContent}>
+                            <Text style={styles.modalTitle}>{t('eventManagement.createEvent')}</Text>
 
-                        {/* AGE SELECTOR */}
-                        <View style={styles.rowGroup}>
-                            {[t('eventFilters.cadet'), t('eventFilters.senior'), t('eventFilters.veteran')].map(
-                                ageOption => (
-                                    <TouchableOpacity
-                                        key={ageOption}
-                                        style={[
-                                            styles.optionButton,
-                                            selectedAge === ageOption && styles.selectedButton,
-                                        ]}
-                                        onPress={() => setSelectedAge(ageOption)}
-                                    >
-                                        <Text
+                            {/* AGE SELECTOR */}
+                            <View style={styles.rowGroup}>
+                                {[t('eventFilters.cadet'), t('eventFilters.senior'), t('eventFilters.veteran')].map(
+                                    ageOption => (
+                                        <TouchableOpacity
+                                            key={ageOption}
                                             style={[
-                                                styles.optionText,
-                                                { color: selectedAge === ageOption ? '#fff' : '#000' },
+                                                styles.optionButton,
+                                                selectedAge === ageOption && styles.selectedButton,
                                             ]}
+                                            onPress={() => setSelectedAge(ageOption)}
                                         >
-                                            {ageOption}
-                                        </Text>
-                                    </TouchableOpacity>
-                                )
-                            )}
-                        </View>
+                                            <Text
+                                                style={[
+                                                    styles.optionText,
+                                                    { color: selectedAge === ageOption ? '#fff' : '#000' },
+                                                ]}
+                                            >
+                                                {ageOption}
+                                            </Text>
+                                        </TouchableOpacity>
+                                    )
+                                )}
+                            </View>
 
-                        {/* GENDER BUTTONS */}
-                        <View style={styles.rowGroup}>
-                            {[t('eventFilters.mens'), t('eventFilters.mixed'), t('eventFilters.womens')].map(gender => (
-                                <TouchableOpacity
-                                    key={gender}
-                                    style={[styles.optionButton, selectedGender === gender && styles.selectedButton]}
-                                    onPress={() => setSelectedGender(gender)}
-                                >
-                                    <Text
-                                        style={[
-                                            styles.optionText,
-                                            { color: selectedGender === gender ? '#fff' : '#000' },
-                                        ]}
-                                    >
-                                        {gender}
-                                    </Text>
+                            {/* GENDER BUTTONS */}
+                            <View style={styles.rowGroup}>
+                                {[t('eventFilters.mens'), t('eventFilters.mixed'), t('eventFilters.womens')].map(
+                                    gender => (
+                                        <TouchableOpacity
+                                            key={gender}
+                                            style={[
+                                                styles.optionButton,
+                                                selectedGender === gender && styles.selectedButton,
+                                            ]}
+                                            onPress={() => setSelectedGender(gender)}
+                                        >
+                                            <Text
+                                                style={[
+                                                    styles.optionText,
+                                                    { color: selectedGender === gender ? '#fff' : '#000' },
+                                                ]}
+                                            >
+                                                {gender}
+                                            </Text>
+                                        </TouchableOpacity>
+                                    )
+                                )}
+                            </View>
+
+                            {/* WEAPON BUTTONS */}
+                            <View style={styles.rowGroup}>
+                                {[t('eventFilters.epee'), t('eventFilters.foil'), t('eventFilters.saber')].map(
+                                    weapon => (
+                                        <TouchableOpacity
+                                            key={weapon}
+                                            style={[
+                                                styles.optionButton,
+                                                selectedWeapon === weapon && styles.selectedButton,
+                                            ]}
+                                            onPress={() => setSelectedWeapon(weapon)}
+                                        >
+                                            <Text
+                                                style={[
+                                                    styles.optionText,
+                                                    { color: selectedWeapon === weapon ? '#fff' : '#000' },
+                                                ]}
+                                            >
+                                                {weapon}
+                                            </Text>
+                                        </TouchableOpacity>
+                                    )
+                                )}
+                            </View>
+
+                            <View style={styles.modalActions}>
+                                <TouchableOpacity style={styles.modalActionButton} onPress={handleSubmitEvent}>
+                                    <Text style={styles.modalActionText}>{t('common.submit')}</Text>
                                 </TouchableOpacity>
-                            ))}
-                        </View>
-
-                        {/* WEAPON BUTTONS */}
-                        <View style={styles.rowGroup}>
-                            {[t('eventFilters.epee'), t('eventFilters.foil'), t('eventFilters.saber')].map(weapon => (
                                 <TouchableOpacity
-                                    key={weapon}
-                                    style={[styles.optionButton, selectedWeapon === weapon && styles.selectedButton]}
-                                    onPress={() => setSelectedWeapon(weapon)}
+                                    style={[styles.modalActionButton, styles.cancelButton]}
+                                    onPress={() => setModalVisible(false)}
                                 >
-                                    <Text
-                                        style={[
-                                            styles.optionText,
-                                            { color: selectedWeapon === weapon ? '#fff' : '#000' },
-                                        ]}
-                                    >
-                                        {weapon}
-                                    </Text>
+                                    <Text style={styles.modalActionText}>{t('common.cancel')}</Text>
                                 </TouchableOpacity>
-                            ))}
-                        </View>
-
-                        <View style={styles.modalActions}>
-                            <TouchableOpacity style={styles.modalActionButton} onPress={handleSubmitEvent}>
-                                <Text style={styles.modalActionText}>{t('common.submit')}</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                                style={[styles.modalActionButton, styles.cancelButton]}
-                                onPress={() => setModalVisible(false)}
-                            >
-                                <Text style={styles.modalActionText}>{t('common.cancel')}</Text>
-                            </TouchableOpacity>
+                            </View>
                         </View>
                     </View>
-                </View>
-            </Modal>
-        </ScrollView>
-        
-        {/* Connection Lost Modal */}
-        <ConnectionLostModal
-            visible={connectionLostModalVisible}
-            clientInfo={lostConnectionInfo}
-            onReconnect={async () => {
-                if (lostConnectionInfo) {
-                    try {
-                        // Try to reconnect
-                        const success = await tournamentClient.connectToServer(
-                            lostConnectionInfo.hostIp,
-                            lostConnectionInfo.port
-                        );
-                        
-                        if (success) {
-                            setConnectionLostModalVisible(false);
-                            // Refresh data
-                            queryClient.invalidateQueries({ queryKey: queryKeys.events });
-                        } else {
-                            // Connection failed, keep modal open
+                </Modal>
+            </ScrollView>
+
+            {/* Connection Lost Modal */}
+            <ConnectionLostModal
+                visible={connectionLostModalVisible}
+                clientInfo={lostConnectionInfo}
+                onReconnect={async () => {
+                    if (lostConnectionInfo) {
+                        try {
+                            // Try to reconnect
+                            const success = await tournamentClient.connectToServer(
+                                lostConnectionInfo.hostIp,
+                                lostConnectionInfo.port
+                            );
+
+                            if (success) {
+                                setConnectionLostModalVisible(false);
+                                // Refresh data
+                                queryClient.invalidateQueries({ queryKey: queryKeys.events });
+                            } else {
+                                // Connection failed, keep modal open
+                                Alert.alert(t('joinTournament.errorConnectionFailed'));
+                            }
+                        } catch (error) {
+                            console.error('Error reconnecting:', error);
                             Alert.alert(t('joinTournament.errorConnectionFailed'));
                         }
-                    } catch (error) {
-                        console.error('Error reconnecting:', error);
-                        Alert.alert(t('joinTournament.errorConnectionFailed'));
                     }
-                }
-            }}
-            onBackToHome={() => {
-                setConnectionLostModalVisible(false);
-                navigation.navigate('HomeTabs');
-            }}
-        />
+                }}
+                onBackToHome={() => {
+                    setConnectionLostModalVisible(false);
+                    navigation.navigate('HomeTabs');
+                }}
+            />
         </>
     );
 };

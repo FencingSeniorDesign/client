@@ -771,341 +771,338 @@ export const EventSettings = ({ route }: Props) => {
             >
                 <Text style={styles.dropdownHeaderText}>{t('eventSettings.roundManagement')}</Text>
             </TouchableOpacity>
-            
+
             {/* Always show existing rounds */}
             {roundsLoading ? (
                 <View style={styles.loadingContainer}>
                     <ActivityIndicator size="small" color="#001f3f" />
                     <Text style={styles.loadingText}>{t('eventSettings.loadingRounds')}</Text>
                 </View>
-            ) : rounds.length > 0 && (
-                <View style={styles.roundsList}>
-                    {rounds.map((round, idx) => (
-                        <View
-                            key={round.id}
-                            ref={el => (roundItemRefs.current[idx] = el)}
-                            style={styles.roundItem}
-                        >
-                                    <View style={styles.roundItemRow}>
-                                        <View style={styles.dragHandle}>
-                                            {/* <Text style={styles.dragIcon}>☰</Text> */}
-                                            <TouchableOpacity
-                                                style={styles.moveButton}
-                                                onPress={() => handleMoveRound(round.id, 'up')}
-                                                disabled={idx === 0 || updateRoundMutation.isPending} // Disable up for first item or while updating
+            ) : (
+                rounds.length > 0 && (
+                    <View style={styles.roundsList}>
+                        {rounds.map((round, idx) => (
+                            <View key={round.id} ref={el => (roundItemRefs.current[idx] = el)} style={styles.roundItem}>
+                                <View style={styles.roundItemRow}>
+                                    <View style={styles.dragHandle}>
+                                        {/* <Text style={styles.dragIcon}>☰</Text> */}
+                                        <TouchableOpacity
+                                            style={styles.moveButton}
+                                            onPress={() => handleMoveRound(round.id, 'up')}
+                                            disabled={idx === 0 || updateRoundMutation.isPending} // Disable up for first item or while updating
+                                        >
+                                            <Text
+                                                style={[
+                                                    styles.moveButtonText,
+                                                    (idx === 0 || updateRoundMutation.isPending) &&
+                                                        styles.moveButtonTextDisabled,
+                                                ]}
                                             >
-                                                <Text
-                                                    style={[
-                                                        styles.moveButtonText,
-                                                        (idx === 0 || updateRoundMutation.isPending) &&
-                                                            styles.moveButtonTextDisabled,
-                                                    ]}
-                                                >
-                                                    ↑
-                                                </Text>
-                                            </TouchableOpacity>
-                                            <TouchableOpacity
-                                                style={styles.moveButton}
-                                                onPress={() => handleMoveRound(round.id, 'down')}
-                                                disabled={idx === rounds.length - 1 || updateRoundMutation.isPending} // Disable down for last item or while updating
+                                                ↑
+                                            </Text>
+                                        </TouchableOpacity>
+                                        <TouchableOpacity
+                                            style={styles.moveButton}
+                                            onPress={() => handleMoveRound(round.id, 'down')}
+                                            disabled={idx === rounds.length - 1 || updateRoundMutation.isPending} // Disable down for last item or while updating
+                                        >
+                                            <Text
+                                                style={[
+                                                    styles.moveButtonText,
+                                                    (idx === rounds.length - 1 || updateRoundMutation.isPending) &&
+                                                        styles.moveButtonTextDisabled,
+                                                ]}
                                             >
-                                                <Text
-                                                    style={[
-                                                        styles.moveButtonText,
-                                                        (idx === rounds.length - 1 || updateRoundMutation.isPending) &&
-                                                            styles.moveButtonTextDisabled,
-                                                    ]}
-                                                >
-                                                    ↓
-                                                </Text>
-                                            </TouchableOpacity>
-                                        </View>
-                                        <Text style={styles.roundLabelText}>
-                                            {round.type === 'pool'
-                                                ? t('eventSettings.poolsRound')
-                                                : t('eventSettings.deRound')}
-                                        </Text>
-                                        <View style={styles.roundItemActions}>
-                                            <TouchableOpacity
-                                                style={styles.removeRoundButton}
-                                                onPress={() => handleDeleteRound(round.id)}
-                                            >
-                                                <Text style={styles.removeRoundButtonText}>✖</Text>
-                                            </TouchableOpacity>
-                                            <TouchableOpacity
-                                                onPress={() => toggleRoundConfig(idx)}
-                                                style={styles.configButton}
-                                            >
-                                                <Text style={styles.configButtonText}>⚙</Text>
-                                            </TouchableOpacity>
-                                        </View>
+                                                ↓
+                                            </Text>
+                                        </TouchableOpacity>
                                     </View>
-                                    {expandedConfigIndex === idx && (
-                                        <View style={styles.roundConfig}>
-                                            {round.type === 'pool' ? (
-                                                <View>
-                                                    <View style={styles.configToggle}>
-                                                        <TouchableOpacity
+                                    <Text style={styles.roundLabelText}>
+                                        {round.type === 'pool'
+                                            ? t('eventSettings.poolsRound')
+                                            : t('eventSettings.deRound')}
+                                    </Text>
+                                    <View style={styles.roundItemActions}>
+                                        <TouchableOpacity
+                                            style={styles.removeRoundButton}
+                                            onPress={() => handleDeleteRound(round.id)}
+                                        >
+                                            <Text style={styles.removeRoundButtonText}>✖</Text>
+                                        </TouchableOpacity>
+                                        <TouchableOpacity
+                                            onPress={() => toggleRoundConfig(idx)}
+                                            style={styles.configButton}
+                                        >
+                                            <Text style={styles.configButtonText}>⚙</Text>
+                                        </TouchableOpacity>
+                                    </View>
+                                </View>
+                                {expandedConfigIndex === idx && (
+                                    <View style={styles.roundConfig}>
+                                        {round.type === 'pool' ? (
+                                            <View>
+                                                <View style={styles.configToggle}>
+                                                    <TouchableOpacity
+                                                        style={[
+                                                            styles.configOptionButton,
+                                                            round.poolsoption === 'promotion' &&
+                                                                styles.configOptionSelected,
+                                                        ]}
+                                                        onPress={() => {
+                                                            const updatedRound: Round = {
+                                                                ...round,
+                                                                poolsoption: 'promotion',
+                                                            }; // Explicit type
+                                                            handleUpdateRound(updatedRound);
+                                                        }}
+                                                    >
+                                                        <Text
                                                             style={[
-                                                                styles.configOptionButton,
-                                                                round.poolsoption === 'promotion' &&
-                                                                    styles.configOptionSelected,
-                                                            ]}
-                                                            onPress={() => {
-                                                                const updatedRound: Round = {
-                                                                    ...round,
-                                                                    poolsoption: 'promotion',
-                                                                }; // Explicit type
-                                                                handleUpdateRound(updatedRound);
-                                                            }}
-                                                        >
-                                                            <Text style={[
                                                                 styles.configOptionText,
                                                                 round.poolsoption === 'promotion' &&
-                                                                    styles.configOptionTextSelected
-                                                            ]}>
-                                                                {t('eventSettings.promotion')}
-                                                            </Text>
-                                                        </TouchableOpacity>
-                                                        <TouchableOpacity
-                                                            style={[
-                                                                styles.configOptionButton,
-                                                                round.poolsoption === 'target' &&
-                                                                    styles.configOptionSelected,
+                                                                    styles.configOptionTextSelected,
                                                             ]}
-                                                            onPress={() => {
-                                                                const updatedRound: Round = {
-                                                                    ...round,
-                                                                    poolsoption: 'target',
-                                                                }; // Explicit type
-                                                                handleUpdateRound(updatedRound);
-                                                            }}
                                                         >
-                                                            <Text style={[
-                                                                styles.configOptionText,
-                                                                round.poolsoption === 'target' &&
-                                                                    styles.configOptionTextSelected
-                                                            ]}>
-                                                                {t('eventSettings.targetBracket')}
-                                                            </Text>
-                                                        </TouchableOpacity>
-                                                    </View>
-                                                    {round.poolsoption === 'promotion' ? (
-                                                        <TextInput
-                                                            style={styles.configInput}
-                                                            keyboardType="numeric"
-                                                            value={promotionInputText} // Use state variable
-                                                            placeholder={t('eventSettings.enterPromotion')}
-                                                            onChangeText={setPromotionInputText} // Update state variable
-                                                            onEndEditing={() => {
-                                                                // Parse the final value from state and update
-                                                                const percent = parseInt(promotionInputText) || 0;
-                                                                const updatedRound = {
-                                                                    ...round,
-                                                                    promotionpercent: percent,
-                                                                };
-                                                                handleUpdateRound(updatedRound);
-                                                            }}
-                                                        />
-                                                    ) : (
-                                                        <View style={styles.targetSelector}>
-                                                            {[8, 16, 32, 64, 128, 256].map(size => (
-                                                                <TouchableOpacity
-                                                                    key={size}
-                                                                    style={[
-                                                                        styles.targetButton,
-                                                                        round.targetbracket === size &&
-                                                                            styles.targetButtonSelected,
-                                                                    ]}
-                                                                    onPress={() => {
-                                                                        const updatedRound = {
-                                                                            ...round,
-                                                                            poolsoption: round.poolsoption, // Explicitly include poolsoption
-                                                                            targetbracket: size,
-                                                                        };
-                                                                        handleUpdateRound(updatedRound);
-                                                                    }}
-                                                                >
-                                                                    <Text style={styles.targetButtonText}>{size}</Text>
-                                                                </TouchableOpacity>
-                                                            ))}
-                                                        </View>
-                                                    )}
-                                                    <View style={styles.poolConfigContainer}>
-                                                        <Text style={styles.configTitle}>
-                                                            {t('eventSettings.poolConfigurations')}
+                                                            {t('eventSettings.promotion')}
                                                         </Text>
-                                                        {poolConfigurations.map((config, index) => {
-                                                            // Determine the expected poolsize based on this config.
-                                                            const expectedPoolSize =
-                                                                config.extraPools > 0
-                                                                    ? config.baseSize + 1
-                                                                    : config.baseSize;
-                                                            // Check if the current round's pool configuration matches this one.
-                                                            const isSelected =
-                                                                round.poolcount === config.pools &&
-                                                                round.poolsize === expectedPoolSize;
-                                                            return (
-                                                                <TouchableOpacity
-                                                                    key={index}
-                                                                    style={[
-                                                                        styles.poolConfigButton,
-                                                                        isSelected && styles.poolConfigButtonSelected,
-                                                                    ]}
-                                                                    onPress={() => {
-                                                                        const updatedRound = {
-                                                                            ...round,
-                                                                            poolcount: config.pools,
-                                                                            poolsize: expectedPoolSize,
-                                                                        };
-                                                                        handleUpdateRound(updatedRound);
-                                                                    }}
-                                                                >
-                                                                    <Text style={styles.poolConfigButtonText}>
-                                                                        {formatPoolLabel(config, t)}
-                                                                    </Text>
-                                                                </TouchableOpacity>
-                                                            );
-                                                        })}
-                                                    </View>
+                                                    </TouchableOpacity>
+                                                    <TouchableOpacity
+                                                        style={[
+                                                            styles.configOptionButton,
+                                                            round.poolsoption === 'target' &&
+                                                                styles.configOptionSelected,
+                                                        ]}
+                                                        onPress={() => {
+                                                            const updatedRound: Round = {
+                                                                ...round,
+                                                                poolsoption: 'target',
+                                                            }; // Explicit type
+                                                            handleUpdateRound(updatedRound);
+                                                        }}
+                                                    >
+                                                        <Text
+                                                            style={[
+                                                                styles.configOptionText,
+                                                                round.poolsoption === 'target' &&
+                                                                    styles.configOptionTextSelected,
+                                                            ]}
+                                                        >
+                                                            {t('eventSettings.targetBracket')}
+                                                        </Text>
+                                                    </TouchableOpacity>
                                                 </View>
-                                            ) : (
-                                                <View style={styles.deConfig}>
-                                                    <Text style={styles.configLabel}>
-                                                        {t('eventSettings.eliminationFormat')}
-                                                    </Text>
-                                                    <View style={styles.deFormatContainer}>
-                                                        {['single', 'double', 'compass'].map(format => (
+                                                {round.poolsoption === 'promotion' ? (
+                                                    <TextInput
+                                                        style={styles.configInput}
+                                                        keyboardType="numeric"
+                                                        value={promotionInputText} // Use state variable
+                                                        placeholder={t('eventSettings.enterPromotion')}
+                                                        onChangeText={setPromotionInputText} // Update state variable
+                                                        onEndEditing={() => {
+                                                            // Parse the final value from state and update
+                                                            const percent = parseInt(promotionInputText) || 0;
+                                                            const updatedRound = {
+                                                                ...round,
+                                                                promotionpercent: percent,
+                                                            };
+                                                            handleUpdateRound(updatedRound);
+                                                        }}
+                                                    />
+                                                ) : (
+                                                    <View style={styles.targetSelector}>
+                                                        {[8, 16, 32, 64, 128, 256].map(size => (
                                                             <TouchableOpacity
-                                                                key={format}
+                                                                key={size}
                                                                 style={[
-                                                                    styles.deFormatButton,
-                                                                    round.deformat === format &&
-                                                                        styles.deFormatButtonSelected,
+                                                                    styles.targetButton,
+                                                                    round.targetbracket === size &&
+                                                                        styles.targetButtonSelected,
                                                                 ]}
                                                                 onPress={() => {
-                                                                    // Assert format type for deformat
-                                                                    const updatedRound: Round = {
+                                                                    const updatedRound = {
                                                                         ...round,
-                                                                        deformat: format as
-                                                                            | 'single'
-                                                                            | 'double'
-                                                                            | 'compass',
+                                                                        poolsoption: round.poolsoption, // Explicitly include poolsoption
+                                                                        targetbracket: size,
                                                                     };
                                                                     handleUpdateRound(updatedRound);
                                                                 }}
                                                             >
-                                                                <Text
-                                                                    style={[
-                                                                        styles.deFormatButtonText,
-                                                                        round.deformat === format &&
-                                                                            styles.deFormatButtonTextSelected,
-                                                                    ]}
-                                                                >
-                                                                    {t(`eventSettings.${format}`)}
-                                                                </Text>
+                                                                <Text style={styles.targetButtonText}>{size}</Text>
                                                             </TouchableOpacity>
                                                         ))}
                                                     </View>
-
-                                                    <Text style={styles.deFormatInfoHeader}>
-                                                        {t('eventSettings.formatInformation')}
+                                                )}
+                                                <View style={styles.poolConfigContainer}>
+                                                    <Text style={styles.configTitle}>
+                                                        {t('eventSettings.poolConfigurations')}
                                                     </Text>
-
-                                                    <View style={styles.deFormatInfo}>
-                                                        {round.deformat === 'single' && (
-                                                            <Text style={styles.deFormatDescription}>
-                                                                {t('eventSettings.singleDescription')}
-                                                            </Text>
-                                                        )}
-                                                        {round.deformat === 'double' && (
-                                                            <Text style={styles.deFormatDescription}>
-                                                                {t('eventSettings.doubleDescription')}
-                                                            </Text>
-                                                        )}
-                                                        {round.deformat === 'compass' && (
-                                                            <Text style={styles.deFormatDescription}>
-                                                                {t('eventSettings.compassDescription')}
-                                                            </Text>
-                                                        )}
-                                                    </View>
-
-                                                    <Text style={styles.fencerCountNote}>
-                                                        {t('eventSettings.bracketSizeNote')}
-                                                    </Text>
+                                                    {poolConfigurations.map((config, index) => {
+                                                        // Determine the expected poolsize based on this config.
+                                                        const expectedPoolSize =
+                                                            config.extraPools > 0
+                                                                ? config.baseSize + 1
+                                                                : config.baseSize;
+                                                        // Check if the current round's pool configuration matches this one.
+                                                        const isSelected =
+                                                            round.poolcount === config.pools &&
+                                                            round.poolsize === expectedPoolSize;
+                                                        return (
+                                                            <TouchableOpacity
+                                                                key={index}
+                                                                style={[
+                                                                    styles.poolConfigButton,
+                                                                    isSelected && styles.poolConfigButtonSelected,
+                                                                ]}
+                                                                onPress={() => {
+                                                                    const updatedRound = {
+                                                                        ...round,
+                                                                        poolcount: config.pools,
+                                                                        poolsize: expectedPoolSize,
+                                                                    };
+                                                                    handleUpdateRound(updatedRound);
+                                                                }}
+                                                            >
+                                                                <Text style={styles.poolConfigButtonText}>
+                                                                    {formatPoolLabel(config, t)}
+                                                                </Text>
+                                                            </TouchableOpacity>
+                                                        );
+                                                    })}
                                                 </View>
-                                            )}
-                                        </View>
-                                    )}
-                                </View>
-                            ))}
-                        </View>
-                    )}
+                                            </View>
+                                        ) : (
+                                            <View style={styles.deConfig}>
+                                                <Text style={styles.configLabel}>
+                                                    {t('eventSettings.eliminationFormat')}
+                                                </Text>
+                                                <View style={styles.deFormatContainer}>
+                                                    {['single', 'double', 'compass'].map(format => (
+                                                        <TouchableOpacity
+                                                            key={format}
+                                                            style={[
+                                                                styles.deFormatButton,
+                                                                round.deformat === format &&
+                                                                    styles.deFormatButtonSelected,
+                                                            ]}
+                                                            onPress={() => {
+                                                                // Assert format type for deformat
+                                                                const updatedRound: Round = {
+                                                                    ...round,
+                                                                    deformat: format as 'single' | 'double' | 'compass',
+                                                                };
+                                                                handleUpdateRound(updatedRound);
+                                                            }}
+                                                        >
+                                                            <Text
+                                                                style={[
+                                                                    styles.deFormatButtonText,
+                                                                    round.deformat === format &&
+                                                                        styles.deFormatButtonTextSelected,
+                                                                ]}
+                                                            >
+                                                                {t(`eventSettings.${format}`)}
+                                                            </Text>
+                                                        </TouchableOpacity>
+                                                    ))}
+                                                </View>
 
-                    {/* Only show add button when dropdown is open */}
-                    {roundDropdownOpen && rounds.length === 0 && (
-                        <Text style={styles.note}>{t('eventSettings.noRounds')}</Text>
-                    )}
-                    {roundDropdownOpen && (
-                        <View ref={roundsDropdownRef} style={styles.dropdownContent}>
+                                                <Text style={styles.deFormatInfoHeader}>
+                                                    {t('eventSettings.formatInformation')}
+                                                </Text>
+
+                                                <View style={styles.deFormatInfo}>
+                                                    {round.deformat === 'single' && (
+                                                        <Text style={styles.deFormatDescription}>
+                                                            {t('eventSettings.singleDescription')}
+                                                        </Text>
+                                                    )}
+                                                    {round.deformat === 'double' && (
+                                                        <Text style={styles.deFormatDescription}>
+                                                            {t('eventSettings.doubleDescription')}
+                                                        </Text>
+                                                    )}
+                                                    {round.deformat === 'compass' && (
+                                                        <Text style={styles.deFormatDescription}>
+                                                            {t('eventSettings.compassDescription')}
+                                                        </Text>
+                                                    )}
+                                                </View>
+
+                                                <Text style={styles.fencerCountNote}>
+                                                    {t('eventSettings.bracketSizeNote')}
+                                                </Text>
+                                            </View>
+                                        )}
+                                    </View>
+                                )}
+                            </View>
+                        ))}
+                    </View>
+                )
+            )}
+
+            {/* Only show add button when dropdown is open */}
+            {roundDropdownOpen && rounds.length === 0 && <Text style={styles.note}>{t('eventSettings.noRounds')}</Text>}
+            {roundDropdownOpen && (
+                <View ref={roundsDropdownRef} style={styles.dropdownContent}>
+                    <TouchableOpacity
+                        style={styles.addRoundButton}
+                        onPress={() => {
+                            setShowRoundTypeOptions(!showRoundTypeOptions);
+                            // If opening the round type options, scroll to them immediately
+                            if (!showRoundTypeOptions) {
+                                requestAnimationFrame(() => {
+                                    roundTypeMenuRef.current?.measureLayout(
+                                        // @ts-ignore - Known React Native issue with measureLayout types
+                                        scrollViewRef.current?._internalFiberInstanceHandleDEV || scrollViewRef.current,
+                                        (_, y) => {
+                                            scrollViewRef.current?.scrollTo({ y: y - 20, animated: true });
+                                        },
+                                        () => console.error('Failed to measure layout')
+                                    );
+                                });
+                            }
+                        }}
+                    >
+                        <Text style={styles.addRoundButtonText}>{t('eventSettings.addRound')}</Text>
+                    </TouchableOpacity>
+                    {showRoundTypeOptions && (
+                        <View ref={roundTypeMenuRef} style={styles.roundTypeMenu}>
                             <TouchableOpacity
-                                style={styles.addRoundButton}
+                                style={styles.roundTypeChoice}
                                 onPress={() => {
-                                    setShowRoundTypeOptions(!showRoundTypeOptions);
-                                    // If opening the round type options, scroll to them immediately
-                                    if (!showRoundTypeOptions) {
-                                        requestAnimationFrame(() => {
-                                            roundTypeMenuRef.current?.measureLayout(
-                                                // @ts-ignore - Known React Native issue with measureLayout types
-                                                scrollViewRef.current?._internalFiberInstanceHandleDEV || scrollViewRef.current,
-                                                (_, y) => {
-                                                    scrollViewRef.current?.scrollTo({ y: y - 20, animated: true });
-                                                },
-                                                () => console.error('Failed to measure layout')
-                                            );
-                                        });
-                                    }
+                                    handleAddRound('pool');
+                                    setShowRoundTypeOptions(false);
                                 }}
                             >
-                                <Text style={styles.addRoundButtonText}>{t('eventSettings.addRound')}</Text>
+                                <Text style={styles.roundTypeChoiceText}>{t('eventSettings.pools')}</Text>
                             </TouchableOpacity>
-                            {showRoundTypeOptions && (
-                                <View ref={roundTypeMenuRef} style={styles.roundTypeMenu}>
-                                    <TouchableOpacity
-                                        style={styles.roundTypeChoice}
-                                        onPress={() => {
-                                            handleAddRound('pool');
-                                            setShowRoundTypeOptions(false);
-                                        }}
-                                    >
-                                        <Text style={styles.roundTypeChoiceText}>{t('eventSettings.pools')}</Text>
-                                    </TouchableOpacity>
-                                    <TouchableOpacity
-                                        style={styles.roundTypeChoice}
-                                        onPress={() => {
-                                            handleAddRound('de');
-                                            setShowRoundTypeOptions(false);
-                                        }}
-                                    >
-                                        <Text style={styles.roundTypeChoiceText}>{t('eventSettings.de')}</Text>
-                                    </TouchableOpacity>
-                                </View>
-                            )}
-
-                            {(addRoundMutation.isPending || updateRoundMutation.isPending || deleteRoundMutation.isPending) && (
-                                <View style={styles.pendingActionContainer}>
-                                    <ActivityIndicator size="small" color="#001f3f" />
-                                    <Text style={styles.pendingActionText}>
-                                        {addRoundMutation.isPending
-                                            ? t('eventSettings.addingRound')
-                                            : updateRoundMutation.isPending
-                                              ? t('eventSettings.updatingRound')
-                                              : t('eventSettings.deletingRound')}
-                                    </Text>
-                                </View>
-                            )}
+                            <TouchableOpacity
+                                style={styles.roundTypeChoice}
+                                onPress={() => {
+                                    handleAddRound('de');
+                                    setShowRoundTypeOptions(false);
+                                }}
+                            >
+                                <Text style={styles.roundTypeChoiceText}>{t('eventSettings.de')}</Text>
+                            </TouchableOpacity>
                         </View>
                     )}
+
+                    {(addRoundMutation.isPending || updateRoundMutation.isPending || deleteRoundMutation.isPending) && (
+                        <View style={styles.pendingActionContainer}>
+                            <ActivityIndicator size="small" color="#001f3f" />
+                            <Text style={styles.pendingActionText}>
+                                {addRoundMutation.isPending
+                                    ? t('eventSettings.addingRound')
+                                    : updateRoundMutation.isPending
+                                      ? t('eventSettings.updatingRound')
+                                      : t('eventSettings.deletingRound')}
+                            </Text>
+                        </View>
+                    )}
+                </View>
+            )}
         </ScrollView>
     );
 };

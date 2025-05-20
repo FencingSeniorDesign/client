@@ -94,7 +94,7 @@ jest.mock('@react-navigation/native', () => ({
     useNavigation: () => ({
         navigate: jest.fn(),
     }),
-    useFocusEffect: (callback) => {
+    useFocusEffect: callback => {
         // Execute the callback immediately to simulate screen focus
         callback();
         return null;
@@ -170,12 +170,12 @@ describe('Home Screen', () => {
         (tournamentClient.isConnected as jest.Mock).mockReturnValue(true);
 
         const { getByText } = render(<Home />);
-        
+
         // Should always show the Join Tournament button
         await waitFor(() => {
             expect(getByText('joinTournament')).toBeTruthy();
         });
-        
+
         // Should automatically disconnect when screen focuses
         expect(tournamentClient.disconnect).toHaveBeenCalled();
     });

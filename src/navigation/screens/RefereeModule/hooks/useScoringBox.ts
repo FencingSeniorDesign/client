@@ -77,16 +77,16 @@ export function useScoringBox({
         if (source === 'app') {
             // Sync current app state to the box
             await context.sendScoreToBox(scoreRef.current.left, scoreRef.current.right);
-            
+
             // Use resetTimer to actually update the time on the box
             await context.resetTimer(timerRef.current.timeMs);
-            
+
             // If the timer was running in the app, start it on the box
             if (timerRef.current.isRunning) {
                 await context.startTimer();
             }
         }
-        
+
         // Call the base selectDataSource from context
         await context.selectDataSource(source);
     };

@@ -72,9 +72,7 @@ export const TournamentList: React.FC<TournamentListProps> = ({ tournaments, onT
             ) : (
                 <View style={{ width: '100%' }}>
                     {tournaments.map(item => (
-                        <React.Fragment key={item.name.toString()}>
-                            {renderTournament({ item })}
-                        </React.Fragment>
+                        <React.Fragment key={item.name.toString()}>{renderTournament({ item })}</React.Fragment>
                     ))}
                 </View>
             )}

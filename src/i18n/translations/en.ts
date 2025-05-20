@@ -25,7 +25,8 @@ export default {
         tbd: 'TBD',
         tournament: 'Tournament',
         disconnectBoxPromptTitle: 'Disconnect Scoring Box?',
-        disconnectBoxPromptMessage: 'You are currently connected to a scoring box. Would you like to disconnect before leaving?',
+        disconnectBoxPromptMessage:
+            'You are currently connected to a scoring box. Would you like to disconnect before leaving?',
         disconnectAndExit: 'Disconnect & Exit',
         exitWithoutDisconnecting: 'Exit Without Disconnecting',
     },
@@ -48,7 +49,8 @@ export default {
         failedToConnect: 'Failed to connect to the tournament',
         failedToRemove: 'Failed to remove the tournament',
         connectionLost: 'Connection Lost',
-        connectionLostMessage: 'Connection to the tournament has been lost. Try reconnecting or return to the home page.',
+        connectionLostMessage:
+            'Connection to the tournament has been lost. Try reconnecting or return to the home page.',
         reconnect: 'Reconnect',
         backToHome: 'Back to Home',
     },
@@ -137,9 +139,12 @@ export default {
         roundNotInitialized: 'Failed to initialize round.',
         cannotStartNoFencers: 'Cannot start event with no fencers. Please add fencers to this event.',
         noRoundsDefinedError: 'No rounds defined for this event. Please add rounds in the event settings.',
-        somePoolRoundsNoConfig: 'Some pool rounds do not have a pool configuration selected. Please set pool configurations in the event settings.',
-        failedToStopServer: 'Failed to stop the tournament server. The server process may still be running in the background.',
-        failedToStartServer: 'Failed to start the tournament server. Please check your network connection and try again.',
+        somePoolRoundsNoConfig:
+            'Some pool rounds do not have a pool configuration selected. Please set pool configurations in the event settings.',
+        failedToStopServer:
+            'Failed to stop the tournament server. The server process may still be running in the background.',
+        failedToStartServer:
+            'Failed to start the tournament server. Please check your network connection and try again.',
         unexpectedServerError: 'An unexpected error occurred while managing the server',
         disconnectConfirmTitle: 'Disconnect from Tournament',
         disconnectConfirmMessage: 'Are you sure you want to disconnect from this tournament?',
@@ -365,7 +370,8 @@ export default {
         failedToUpdateRandomScores: 'Failed to update bout {{boutId}} with random scores.',
         connectedToBox: 'Connected to {{boxName}}',
         disconnectBoxPromptTitle: 'Disconnect Scoring Box?',
-        disconnectBoxPromptMessage: 'You are currently connected to a scoring box. Would you like to disconnect before leaving?',
+        disconnectBoxPromptMessage:
+            'You are currently connected to a scoring box. Would you like to disconnect before leaving?',
         disconnectAndExit: 'Disconnect & Exit',
         exitWithoutDisconnecting: 'Exit Without Disconnecting',
     },
@@ -398,7 +404,8 @@ export default {
         tableOf256: 'Table of 256',
         tableOfX: 'Table of {{number}}',
         disconnectBoxPromptTitle: 'Disconnect Scoring Box?',
-        disconnectBoxPromptMessage: 'You are currently connected to a scoring box. Would you like to disconnect before leaving?',
+        disconnectBoxPromptMessage:
+            'You are currently connected to a scoring box. Would you like to disconnect before leaving?',
         disconnectAndExit: 'Disconnect & Exit',
         exitWithoutDisconnecting: 'Exit Without Disconnecting',
     },
@@ -491,7 +498,8 @@ export default {
         defaultLeft: 'Left',
         defaultRight: 'Right',
         disconnectBoxPromptTitle: 'Disconnect Scoring Box?',
-        disconnectBoxPromptMessage: 'You are currently connected to a scoring box. Would you like to disconnect before leaving?',
+        disconnectBoxPromptMessage:
+            'You are currently connected to a scoring box. Would you like to disconnect before leaving?',
         disconnectAndExit: 'Disconnect & Exit',
         exitWithoutDisconnecting: 'Exit Without Disconnecting',
     },

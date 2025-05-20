@@ -204,7 +204,7 @@ class TournamentClient extends EventEmitter {
                     }
 
                     this.emit('disconnected');
-                    
+
                     // For socket close, we need to be more cautious - the close event
                     // can be triggered by both intentional and unintentional disconnects
                     // For real server connection loss, emit this event
@@ -214,7 +214,7 @@ class TournamentClient extends EventEmitter {
                     } else {
                         console.log('Skipping connectionLost event due to intentional disconnect');
                     }
-                    
+
                     // Reset the flag after emitting events
                     this.isIntentionalDisconnect = false;
 
@@ -244,10 +244,10 @@ class TournamentClient extends EventEmitter {
                     // as errors typically indicate unexpected disconnections
                     console.log('Emitting connectionLost event due to socket error');
                     this.emit('connectionLost', this.clientInfo);
-                    
+
                     // Reset the flag after emitting events
                     this.isIntentionalDisconnect = false;
-                    
+
                     reject(error);
                 });
             });
@@ -916,9 +916,7 @@ class TournamentClient extends EventEmitter {
             if (!savedTournamentsStr) return false;
 
             let savedTournaments = JSON.parse(savedTournamentsStr);
-            const newSavedTournaments = savedTournaments.filter(
-                (t: ClientInfo) => t.tournamentName !== tournamentName
-            );
+            const newSavedTournaments = savedTournaments.filter((t: ClientInfo) => t.tournamentName !== tournamentName);
 
             if (newSavedTournaments.length === savedTournaments.length) {
                 // No tournament was removed
