@@ -27,7 +27,6 @@ export default {
         disconnectBoxPromptMessage: 'You are currently connected to a scoring box. Would you like to disconnect before leaving?',
         disconnectAndExit: 'Disconnect & Exit',
         exitWithoutDisconnecting: 'Exit Without Disconnecting',
-        disconnected: 'Disconnected',
     },
     home: {
         title: 'Home',
@@ -43,8 +42,6 @@ export default {
         disconnectedMessage: 'You have disconnected from the tournament',
         errorLoadingTournaments: 'Error loading tournaments',
         errorLoadingHistory: 'Error loading tournament history',
-        reconnect: 'Reconnect',
-        failedToConnect: 'Failed to connect to tournament server',
     },
     createTournament: {
         title: 'Create New Tournament',

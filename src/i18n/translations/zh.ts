@@ -42,8 +42,6 @@ export default {
         disconnectedMessage: '您已断开与比赛的连接',
         errorLoadingTournaments: '加载比赛时出错',
         errorLoadingHistory: '加载比赛历史时出错',
-        reconnect: '重新连接',
-        failedToConnect: '连接到比赛服务器失败',
     },
     createTournament: {
         title: '创建新比赛',

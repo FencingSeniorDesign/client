@@ -27,7 +27,6 @@ export default {
         disconnectBoxPromptMessage: '',
         disconnectAndExit: '',
         exitWithoutDisconnecting: '',
-        disconnected: 'Déconnecté',
     },
     home: {
         title: '',
@@ -43,8 +42,6 @@ export default {
         disconnectedMessage: '',
         errorLoadingTournaments: '',
         errorLoadingHistory: '',
-        reconnect: 'Reconnecter',
-        failedToConnect: 'Échec de la connexion au serveur du tournoi',
     },
     createTournament: {
         title: '',

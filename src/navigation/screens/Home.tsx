@@ -31,7 +31,6 @@ export function Home() {
     const [joinModalVisible, setJoinModalVisible] = useState(false);
     const [connectedTournament, setConnectedTournament] = useState<string | null>(null);
     const [deviceId, setDeviceId] = useState<string>('');
-    const [remoteTournaments, setRemoteTournaments] = useState<Tournament[]>([]);
 
     // Use TanStack Query hooks for tournaments
     const ongoingTournamentsQuery = useOngoingTournaments();
@@ -42,31 +41,8 @@ export function Home() {
         const checkConnection = async () => {
             await tournamentClient.loadClientInfo();
             const clientInfo = tournamentClient.getClientInfo();
-            if (clientInfo) {
-                if (clientInfo.isConnected) {
-                    setConnectedTournament(clientInfo.tournamentName);
-                    // Add the remote tournament to our list
-                    const remoteTournament: Tournament = {
-                        name: clientInfo.tournamentName,
-                        isComplete: false,
-                        isRemote: true,
-                        isConnected: true,
-                        hostIp: clientInfo.hostIp,
-                        port: clientInfo.port,
-                    };
-                    setRemoteTournaments([remoteTournament]);
-                } else {
-                    // There's client info but not connected - add as disconnected
-                    const remoteTournament: Tournament = {
-                        name: clientInfo.tournamentName,
-                        isComplete: false,
-                        isRemote: true,
-                        isConnected: false,
-                        hostIp: clientInfo.hostIp,
-                        port: clientInfo.port,
-                    };
-                    setRemoteTournaments([remoteTournament]);
-                }
+            if (clientInfo && clientInfo.isConnected) {
+                setConnectedTournament(clientInfo.tournamentName);
             }
 
             // Get and set device ID
@@ -75,96 +51,18 @@ export function Home() {
         };
 
         checkConnection();
-
-        // Listen for disconnection events
-        const handleDisconnected = () => {
-            console.log('TournamentClient disconnected event received');
-            setConnectedTournament(null);
-            
-            // Update the remote tournament to show as disconnected
-            const clientInfo = tournamentClient.getClientInfo();
-            if (clientInfo) {
-                const disconnectedTournament: Tournament = {
-                    name: clientInfo.tournamentName,
-                    isComplete: false,
-                    isRemote: true,
-                    isConnected: false,
-                    hostIp: clientInfo.hostIp,
-                    port: clientInfo.port,
-                };
-                setRemoteTournaments([disconnectedTournament]);
-            }
-        };
-
-        const handleConnected = (tournamentName: string) => {
-            console.log('TournamentClient connected event received');
-            setConnectedTournament(tournamentName);
-            
-            // Update the remote tournament to show as connected
-            const clientInfo = tournamentClient.getClientInfo();
-            if (clientInfo) {
-                const connectedTournament: Tournament = {
-                    name: tournamentName,
-                    isComplete: false,
-                    isRemote: true,
-                    isConnected: true,
-                    hostIp: clientInfo.hostIp,
-                    port: clientInfo.port,
-                };
-                setRemoteTournaments([connectedTournament]);
-            }
-        };
-
-        tournamentClient.on('disconnected', handleDisconnected);
-        tournamentClient.on('connected', handleConnected);
-
-        return () => {
-            tournamentClient.off('disconnected', handleDisconnected);
-            tournamentClient.off('connected', handleConnected);
-        };
     }, []);
 
     const handleJoinSuccess = (tournamentName: string) => {
         setConnectedTournament(tournamentName);
-        const clientInfo = tournamentClient.getClientInfo();
-        if (clientInfo) {
-            const remoteTournament: Tournament = {
-                name: tournamentName,
-                isComplete: false,
-                isRemote: true,
-                isConnected: true,
-                hostIp: clientInfo.hostIp,
-                port: clientInfo.port,
-            };
-            setRemoteTournaments([remoteTournament]);
-        }
         Alert.alert(t('common.success'), `${t('home.connectedTo')} ${tournamentName}`);
     };
 
     const handleDisconnect = async () => {
-        // Store the client info before disconnecting
-        const clientInfo = tournamentClient.getClientInfo();
-        
-        // Set flag to suppress disconnect alert since it's manual
-        tournamentClient.isShowingDisconnectAlert = true;
-        await tournamentClient.disconnect(true); // Pass true to preserve info
-        tournamentClient.isShowingDisconnectAlert = false;
-        
+        await tournamentClient.disconnect();
         setConnectedTournament(null);
         setTournamentContext(null); // Reset the ability context
-        
-        // Keep the tournament in the list but mark as disconnected
-        if (clientInfo) {
-            const disconnectedTournament: Tournament = {
-                name: clientInfo.tournamentName,
-                isComplete: false,
-                isRemote: true,
-                isConnected: false,
-                hostIp: clientInfo.hostIp,
-                port: clientInfo.port,
-            };
-            setRemoteTournaments([disconnectedTournament]);
-        }
+        Alert.alert(t('home.disconnected'), t('home.disconnectedMessage'));
     };
 
     const refreshTournaments = () => {
@@ -210,7 +108,7 @@ export function Home() {
                         <Text style={styles.errorText}>{t('home.errorLoadingTournaments')}</Text>
                     ) : (
                         <TournamentList
-                            tournaments={[...(ongoingTournamentsQuery.data || []), ...remoteTournaments.filter(t => !t.isComplete)]}
+                            tournaments={ongoingTournamentsQuery.data || []}
                             onTournamentDeleted={refreshTournaments}
                             isComplete={false}
                         />

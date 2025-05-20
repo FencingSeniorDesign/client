@@ -233,7 +233,7 @@ class TournamentClient extends EventEmitter {
     }
 
     // Disconnect from the server
-    async disconnect(preserveInfo: boolean = false): Promise<boolean> {
+    async disconnect(): Promise<boolean> {
         try {
             // Show a single disconnect alert if not already showing
             if (!this.isShowingDisconnectAlert) {
@@ -263,11 +263,7 @@ class TournamentClient extends EventEmitter {
                 this.socket = null;
             }
 
-            const previousClientInfo = { ...this.clientInfo };
-            
-            if (this.clientInfo) {
-                this.clientInfo.isConnected = false;
-            }
+            this.clientInfo = null;
 
             // Clear reconnect timer
             if (this.reconnectTimer) {
@@ -279,16 +275,8 @@ class TournamentClient extends EventEmitter {
             this.messageQueue = [];
             this.connectionAttempts = 0;
 
-            // Either remove or preserve client info based on parameter
-            if (preserveInfo && previousClientInfo) {
-                // Keep the info but mark as disconnected
-                previousClientInfo.isConnected = false;
-                await AsyncStorage.setItem(CLIENT_INFO_KEY, JSON.stringify(previousClientInfo));
-            } else {
-                // Remove client info from AsyncStorage
-                await AsyncStorage.removeItem(CLIENT_INFO_KEY);
-                this.clientInfo = null;
-            }
+            // Remove client info from AsyncStorage
+            await AsyncStorage.removeItem(CLIENT_INFO_KEY);
 
             // Emit the disconnect event for components that need to react
             this.emit('disconnected');
