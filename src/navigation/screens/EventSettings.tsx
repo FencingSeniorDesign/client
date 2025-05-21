@@ -331,6 +331,13 @@ export const EventSettings = ({ route }: Props) => {
             'Nelson',
             'Olsen',
         ];
+        const clubs = [
+            { name: 'Salle d\'Armes', abbreviation: 'SDA' },
+            { name: 'Fencing Academy', abbreviation: 'FA' },
+            { name: 'City Fencers Club', abbreviation: 'CFC' },
+            { name: 'University Fencing', abbreviation: 'UF' },
+            { name: 'Elite Blades', abbreviation: 'EB' },
+        ];
         const ratings = ['A', 'B', 'C', 'D', 'E', 'U'];
         const currentYear = new Date().getFullYear();
 
@@ -357,9 +364,22 @@ export const EventSettings = ({ route }: Props) => {
             const randomFoilRating = ratings[Math.floor(Math.random() * ratings.length)];
             const randomSaberRating = ratings[Math.floor(Math.random() * ratings.length)];
 
+            // Randomly decide if the fencer has a club (30% chance of no club)
+            let club = undefined;
+            let clubName = undefined;
+            let clubAbbreviation = undefined;
+            if (Math.random() > 0.3) {
+                club = clubs[Math.floor(Math.random() * clubs.length)];
+                clubName = club.name;
+                clubAbbreviation = club.abbreviation;
+            }
+
             const newFencer: Fencer = {
                 fname: randomFirstName,
                 lname: randomLastName,
+                club: clubName,
+                clubName: clubName,
+                clubAbbreviation: clubAbbreviation,
                 erating: randomEpeeRating,
                 eyear: randomEpeeRating === 'U' ? 0 : currentYear,
                 frating: randomFoilRating,
