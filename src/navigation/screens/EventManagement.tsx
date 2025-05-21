@@ -692,14 +692,6 @@ export const EventManagement = ({ route }: Props) => {
                     </TouchableOpacity>
                 )}
 
-                {serverEnabled && serverInfo && !isRemote && (
-                    <View style={styles.serverInfoContainer}>
-                        <Text style={styles.serverInfoText}>
-                            {t('eventManagement.serverRunning', { port: serverInfo.port })}
-                        </Text>
-                        <Text style={styles.serverInfoText}>{t('eventManagement.shareInfo')}</Text>
-                    </View>
-                )}
 
                 {/* Conditionally render Manage Officials button with Can tag */}
                 <Can I="manage" a="Official">
