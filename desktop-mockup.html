@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TournaFence Desktop Mockup</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background: #f0f0f0;
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+        }
+        
+        .desktop-container {
+            width: 100%;
+            height: 100vh;
+            aspect-ratio: 16/9;
+            max-width: 1920px;
+            max-height: 1080px;
+            margin: 0 auto;
+            background: #f8f9fa;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+        
+        /* Desktop Window Chrome */
+        .window-chrome {
+            background: linear-gradient(to bottom, #e8e8e8, #d0d0d0);
+            height: 30px;
+            display: flex;
+            align-items: center;
+            padding: 0 15px;
+            border-bottom: 1px solid #b0b0b0;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.5);
+        }
+        
+        .window-controls {
+            display: flex;
+            gap: 8px;
+            margin-right: 15px;
+        }
+        
+        .window-control {
+            width: 13px;
+            height: 13px;
+            border-radius: 50%;
+            border: 0.5px solid rgba(0,0,0,0.2);
+        }
+        
+        .close { 
+            background: linear-gradient(135deg, #ff6058 0%, #ff3b30 100%);
+        }
+        .minimize { 
+            background: linear-gradient(135deg, #ffbd2e 0%, #ffab00 100%);
+        }
+        .maximize { 
+            background: linear-gradient(135deg, #29d441 0%, #28ca42 100%);
+        }
+        
+        .window-title {
+            flex: 1;
+            text-align: center;
+            font-size: 14px;
+            color: #4a4a4a;
+            font-weight: 500;
+            letter-spacing: 0.3px;
+        }
+        
+        /* Main Content Area */
+        .main-content {
+            flex: 1;
+            display: flex;
+            background: #f8f9fa;
+            overflow: hidden;
+        }
+        
+        /* Sidebar */
+        .sidebar {
+            width: 280px;
+            background: #ffffff;
+            border-right: 1px solid #e5e5e5;
+            padding: 25px 0;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 2px 0 10px rgba(0,0,0,0.05);
+        }
+        
+        .nav-item {
+            padding: 14px 25px;
+            color: #666;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 15px;
+            font-weight: 500;
+            border-left: 3px solid transparent;
+        }
+        
+        .nav-item:hover {
+            background: #f5f5f5;
+            color: #333;
+        }
+        
+        .nav-item.active {
+            background: rgba(0, 31, 63, 0.08);
+            color: #001f3f;
+            border-left-color: #001f3f;
+        }
+        
+        .nav-icon {
+            font-size: 18px;
+            width: 20px;
+            text-align: center;
+        }
+        
+        /* Center Panel */
+        .center-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 50px 40px;
+            overflow-y: auto;
+            background: #f8f9fa;
+        }
+        
+        /* Logo and Title */
+        .header-section {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-bottom: 45px;
+        }
+        
+        .logo {
+            width: 200px;
+            height: 100px;
+            margin-bottom: 15px;
+            background-image: url('./src/assets/logo.png');
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center;
+            filter: drop-shadow(0 4px 8px rgba(0,0,0,0.2));
+        }
+        
+        
+        .title {
+            font-size: 52px;
+            font-weight: 900;
+            color: #001f3f;
+            font-family: 'Impact', 'Arial Black', sans-serif;
+            margin-bottom: 8px;
+            text-align: center;
+            letter-spacing: 1px;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .subtitle {
+            font-size: 16px;
+            color: #666;
+            font-weight: 400;
+            margin-bottom: 35px;
+            text-align: center;
+        }
+        
+        /* Action Buttons */
+        .action-buttons {
+            display: flex;
+            gap: 25px;
+            margin-bottom: 50px;
+        }
+        
+        .btn {
+            padding: 16px 32px;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            min-width: 200px;
+            justify-content: center;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            text-decoration: none;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #001f3f 0%, #003366 100%);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 31, 63, 0.3);
+        }
+        
+        .btn-secondary {
+            background: linear-gradient(135deg, #228B22 0%, #1f7a1f 100%);
+            color: white;
+        }
+        
+        .btn-secondary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(34, 139, 34, 0.3);
+        }
+        
+        /* Tournament Sections */
+        .tournaments-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 35px;
+            width: 100%;
+            max-width: 900px;
+            margin-bottom: 40px;
+        }
+        
+        .tournament-section {
+            background: white;
+            border-radius: 16px;
+            padding: 25px;
+            border: 1px solid #e5e5e5;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        
+        .tournament-section:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px rgba(0,0,0,0.12);
+        }
+        
+        .section-title {
+            font-size: 22px;
+            font-weight: 700;
+            color: #333;
+            margin-bottom: 20px;
+            padding-bottom: 12px;
+            border-bottom: 2px solid #f0f0f0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .section-title::before {
+            content: '🏆';
+            font-size: 20px;
+        }
+        
+        .tournament-section:last-child .section-title::before {
+            content: '📚';
+        }
+        
+        .tournament-item {
+            padding: 16px 20px;
+            background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+            border-radius: 10px;
+            margin-bottom: 12px;
+            border-left: 4px solid #001f3f;
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+        
+        .tournament-item:hover {
+            background: linear-gradient(135deg, #f0f0f0 0%, #f8f8f8 100%);
+            transform: translateX(4px);
+        }
+        
+        .tournament-item:last-child {
+            margin-bottom: 0;
+        }
+        
+        .tournament-name {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 6px;
+            font-size: 16px;
+        }
+        
+        .tournament-info {
+            font-size: 13px;
+            color: #666;
+            font-weight: 400;
+        }
+        
+        .empty-state {
+            text-align: center;
+            color: #999;
+            font-style: italic;
+            padding: 30px 20px;
+            background: #f9f9f9;
+            border-radius: 8px;
+        }
+        
+        /* Right Panel */
+        .right-panel {
+            width: 320px;
+            background: white;
+            border-left: 1px solid #e5e5e5;
+            padding: 25px;
+            overflow-y: auto;
+            box-shadow: -2px 0 10px rgba(0,0,0,0.05);
+        }
+        
+        .status-section {
+            margin-bottom: 30px;
+        }
+        
+        .status-title {
+            font-size: 14px;
+            font-weight: 700;
+            color: #666;
+            margin-bottom: 15px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 16px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            transition: background 0.2s ease;
+        }
+        
+        .status-item:hover {
+            background: #f0f0f0;
+        }
+        
+        .status-indicator {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+        
+        .status-connected { 
+            background: #28ca42;
+            box-shadow: 0 0 8px rgba(40, 202, 66, 0.4);
+        }
+        .status-disconnected { 
+            background: #ff5f57;
+            box-shadow: 0 0 8px rgba(255, 95, 87, 0.4);
+        }
+        
+        .remote-tournament {
+            background: white;
+            border: 1px solid #e5e5e5;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 10px;
+        }
+        
+        .remote-tournament-name {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 4px;
+        }
+        
+        .remote-tournament-info {
+            font-size: 12px;
+            color: #666;
+            font-family: 'Monaco', 'Menlo', monospace;
+        }
+        
+        .language-selector {
+            width: 100%;
+            padding: 12px 16px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 14px;
+            background: white;
+            color: #333;
+            cursor: pointer;
+        }
+        
+        .device-id {
+            font-size: 11px;
+            color: #999;
+            text-align: center;
+            margin-top: 25px;
+            padding-top: 20px;
+            border-top: 1px solid #f0f0f0;
+            font-family: 'Monaco', 'Menlo', monospace;
+            background: #f9f9f9;
+            padding: 15px;
+            border-radius: 6px;
+        }
+        
+        /* Referee Module Button */
+        .referee-section {
+            margin-top: 30px;
+            width: 100%;
+            max-width: 450px;
+        }
+        
+        .btn-referee {
+            background: linear-gradient(135deg, #001f3f 0%, #003366 100%);
+            color: white;
+            width: 100%;
+            padding: 18px;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0, 31, 63, 0.2);
+        }
+        
+        .btn-referee:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 31, 63, 0.3);
+        }
+        
+        /* Responsive adjustments */
+        @media (max-width: 1400px) {
+            .desktop-container {
+                transform: scale(0.85);
+                transform-origin: top center;
+            }
+        }
+        
+        @media (max-width: 1200px) {
+            .desktop-container {
+                transform: scale(0.7);
+                transform-origin: top center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="desktop-container">
+        <!-- Window Chrome -->
+        <div class="window-chrome">
+            <div class="window-controls">
+                <div class="window-control close"></div>
+                <div class="window-control minimize"></div>
+                <div class="window-control maximize"></div>
+            </div>
+            <div class="window-title">TournaFence - Tournament Management</div>
+        </div>
+        
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Sidebar Navigation -->
+            <div class="sidebar">
+                <div class="nav-item active">
+                    <span class="nav-icon">🏠</span> 
+                    <span>Home</span>
+                </div>
+                <div class="nav-item">
+                    <span class="nav-icon">🏆</span>
+                    <span>Tournaments</span>
+                </div>
+                <div class="nav-item">
+                    <span class="nav-icon">👥</span>
+                    <span>Participants</span>
+                </div>
+                <div class="nav-item">
+                    <span class="nav-icon">⚔️</span>
+                    <span>Brackets</span>
+                </div>
+                <div class="nav-item">
+                    <span class="nav-icon">📊</span>
+                    <span>Results</span>
+                </div>
+                <div class="nav-item">
+                    <span class="nav-icon">👨‍⚖️</span>
+                    <span>Officials</span>
+                </div>
+                <div class="nav-item">
+                    <span class="nav-icon">⚙️</span>
+                    <span>Settings</span>
+                </div>
+            </div>
+            
+            <!-- Center Panel -->
+            <div class="center-panel">
+                <!-- Header Section -->
+                <div class="header-section">
+                    <div class="logo"></div>
+                    <h1 class="title">TournaFence</h1>
+                    <p class="subtitle">Professional Tournament Management</p>
+                </div>
+                
+                <!-- Action Buttons -->
+                <div class="action-buttons">
+                    <button class="btn btn-primary">
+                        <span>➕</span> Create Tournament
+                    </button>
+                    <button class="btn btn-secondary">
+                        <span>👥</span> Join Tournament
+                    </button>
+                </div>
+                
+                <!-- Tournament Sections -->
+                <div class="tournaments-grid">
+                    <div class="tournament-section">
+                        <h3 class="section-title">Ongoing Tournaments</h3>
+                        <div class="tournament-item">
+                            <div class="tournament-name">Regional Championships</div>
+                            <div class="tournament-info">Started 2 hours ago • 24 participants</div>
+                        </div>
+                        <div class="tournament-item">
+                            <div class="tournament-name">Youth League Finals</div>
+                            <div class="tournament-info">Started today • 16 participants</div>
+                        </div>
+                    </div>
+                    
+                    <div class="tournament-section">
+                        <h3 class="section-title">Recent History</h3>
+                        <div class="tournament-item">
+                            <div class="tournament-name">Winter Cup 2024</div>
+                            <div class="tournament-info">Completed yesterday • 32 participants</div>
+                        </div>
+                        <div class="tournament-item">
+                            <div class="tournament-name">Club Championship</div>
+                            <div class="tournament-info">Completed 3 days ago • 18 participants</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Referee Module -->
+                <div class="referee-section">
+                    <button class="btn-referee">
+                        <span>⏱️</span> Launch Referee Module
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Right Panel -->
+            <div class="right-panel">
+                <div class="status-section">
+                    <div class="status-title">Connection Status</div>
+                    <div class="status-item">
+                        <div class="status-indicator status-connected"></div>
+                        <span>BLE Connected</span>
+                    </div>
+                    <div class="status-item">
+                        <div class="status-indicator status-disconnected"></div>
+                        <span>Network Disconnected</span>
+                    </div>
+                </div>
+                
+                <div class="status-section">
+                    <div class="status-title">Remote Tournaments</div>
+                    <div class="remote-tournament">
+                        <div class="remote-tournament-name">State Championships</div>
+                        <div class="remote-tournament-info">192.168.1.100:8080</div>
+                    </div>
+                </div>
+                
+                <div class="status-section">
+                    <div class="status-title">Language</div>
+                    <select class="language-selector">
+                        <option>English</option>
+                        <option>Español</option>
+                        <option>Français</option>
+                        <option>中文</option>
+                    </select>
+                </div>
+                
+                <div class="device-id">
+                    Device ID: TF-DESK-A1B2C3D4E5F6
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
