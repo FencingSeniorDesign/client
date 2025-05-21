@@ -20,6 +20,7 @@ const queryClient = new QueryClient({
         queries: {
             staleTime: 1000 * 60, // 1 minute
             retry: 4, // Increased default retries for better resilience
+            refetchInterval: 3000, // Maximum refetch time of 3 seconds
         },
     },
 });
