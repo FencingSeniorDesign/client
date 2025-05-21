@@ -84,6 +84,7 @@ export type Event = {
 export type PoolData = {
     poolid: number;
     fencers: Fencer[];
+    isComplete?: boolean; // Server-provided completion status
     // Add other properties returned by getPools if known
 };
 
