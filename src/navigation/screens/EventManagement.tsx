@@ -693,20 +693,22 @@ export const EventManagement = ({ route }: Props) => {
                 )}
 
 
-                {/* Conditionally render Manage Officials button with Can tag */}
-                <Can I="manage" a="Official">
-                    <TouchableOpacity
-                        style={styles.manageOfficialsButton}
-                        onPress={() =>
-                            navigation.navigate('ManageOfficials', {
-                                tournamentName: tournamentName,
-                                isRemote: isRemote,
-                            })
-                        }
-                    >
-                        <Text style={styles.manageOfficialsText}>{t('eventManagement.manageOfficials')}</Text>
-                    </TouchableOpacity>
-                </Can>
+                {/* Conditionally render Manage Officials button with Can tag and only when server is started */}
+                {(serverEnabled || isRemote) && (
+                    <Can I="manage" a="Official">
+                        <TouchableOpacity
+                            style={styles.manageOfficialsButton}
+                            onPress={() =>
+                                navigation.navigate('ManageOfficials', {
+                                    tournamentName: tournamentName,
+                                    isRemote: isRemote,
+                                })
+                            }
+                        >
+                            <Text style={styles.manageOfficialsText}>{t('eventManagement.manageOfficials')}</Text>
+                        </TouchableOpacity>
+                    </Can>
+                )}
 
                 {/* Use CASL's Can component to enable creating events only if user has permission */}
                 <Can I="create" a="Event">
@@ -978,7 +980,7 @@ const styles = StyleSheet.create({
     },
     headerContainer: {
         width: '100%',
-        marginBottom: 20,
+        marginBottom: 10,
     },
     tournamentName: {
         fontSize: 18,
@@ -990,7 +992,7 @@ const styles = StyleSheet.create({
         padding: 10,
         borderRadius: 5,
         marginTop: 5,
-        marginBottom: 10,
+        marginBottom: 2,
     },
     ipText: {
         color: white,
@@ -1175,7 +1177,8 @@ const styles = StyleSheet.create({
         paddingVertical: 10,
         paddingHorizontal: 15,
         borderRadius: 8,
-        marginVertical: 10,
+        marginTop: 2,
+        marginBottom: 8,
         alignItems: 'center',
     },
     serverEnabledButton: {
