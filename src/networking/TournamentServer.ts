@@ -680,6 +680,43 @@ class TournamentServer {
             console.log(`🔍 Fetching pools for round ${roundId}...`);
             const pools = await dbGetPoolsForRound(roundId);
             console.log(`✅ Fetched ${pools.length} pools for round ${roundId}`);
+            
+            // For each pool, fetch its bouts to determine if the pool is complete
+            const poolsWithCompletionStatus = await Promise.all(
+                pools.map(async (pool) => {
+                    try {
+                        // Get all bouts for this pool
+                        const bouts = await dbGetBoutsForPool(roundId, pool.poolid);
+                        
+                        // Calculate if the pool is complete (all bouts have scores)
+                        // Only mark as complete if ALL bouts have at least one non-zero score
+                        const isComplete = bouts.every(bout => {
+                            const leftScore = bout.left_score ?? 0;
+                            const rightScore = bout.right_score ?? 0;
+                            return leftScore > 0 || rightScore > 0;
+                        });
+                        
+                        // Return pool with completion status
+                        return {
+                            ...pool,
+                            isComplete,  // Add isComplete property to each pool
+                        };
+                    } catch (error) {
+                        console.error(`Error determining completion status for pool ${pool.poolid}:`, error);
+                        // Default to not complete if there's an error
+                        return {
+                            ...pool,
+                            isComplete: false,
+                        };
+                    }
+                })
+            );
+            
+            console.log(`✅ Added completion status to ${poolsWithCompletionStatus.length} pools`);
+            // Log the completion status of each pool
+            poolsWithCompletionStatus.forEach(pool => {
+                console.log(`Pool ${pool.poolid}: isComplete = ${pool.isComplete}`);
+            });
 
             // Send pools to the requesting client
             const client = this.clients.get(clientId);
@@ -689,14 +726,14 @@ class TournamentServer {
                     const responseData = {
                         type: 'pools_list',
                         roundId: roundId,
-                        pools: Array.isArray(pools) ? pools : [],
+                        pools: Array.isArray(poolsWithCompletionStatus) ? poolsWithCompletionStatus : [],
                     };
 
                     // Verify pools is serializable
                     try {
                         const responseText = JSON.stringify(responseData);
                         console.log(
-                            `🔄 Sending pools_list response to client ${clientId}: ${pools.length} pools (${responseText.length} bytes)`
+                            `🔄 Sending pools_list response to client ${clientId}: ${poolsWithCompletionStatus.length} pools (${responseText.length} bytes)`
                         );
 
                         // Use setTimeout to ensure asynchronous sending, which can help with TCP buffer issues

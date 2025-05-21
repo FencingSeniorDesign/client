@@ -64,6 +64,7 @@ const DEBracketPage: React.FC = () => {
     const [bracketFormat, setBracketFormat] = useState<'single' | 'double' | 'compass'>('single');
     const [isRoundComplete, setIsRoundComplete] = useState<boolean>(false); // Add this state
     const [isFinalRound, setIsFinalRound] = useState<boolean>(false); // Add this state
+    const [isRandomizing, setIsRandomizing] = useState<boolean>(false); // For Random Score button
 
     // Check if we should prevent navigation
     const shouldPreventNavigation = connectionState === ConnectionState.CONNECTED;
@@ -322,6 +323,116 @@ const DEBracketPage: React.FC = () => {
             isRemote,
         });
     };
+    
+    // Function to randomly assign scores to all bouts in the bracket
+    const handleRandomizeScores = async () => {
+        if (!bracketData || isRandomizing) return;
+        
+        try {
+            setIsRandomizing(true);
+            
+            const scoreAllAvailableBouts = async () => {
+                // Get fresh bracket data
+                const rounds = await dbGetRoundsForEvent(event.id);
+                const currentRound = rounds.find(r => r.id === roundId);
+                if (!currentRound) {
+                    throw new Error('Round not found');
+                }
+                
+                const tableSize = currentRound.detablesize || 0;
+                const bouts = await dbGetDEBouts(roundId);
+                
+                // Find all unscored bouts with both fencers assigned
+                const unscoredBouts: any[] = bouts.filter(bout => 
+                    bout.lfencer && bout.rfencer && 
+                    (bout.left_score === null || bout.left_score === undefined) && 
+                    (bout.right_score === null || bout.right_score === undefined)
+                );
+                
+                if (unscoredBouts.length === 0) {
+                    return false; // No more bouts to score
+                }
+                
+                console.log(`Found ${unscoredBouts.length} unscored bouts to randomize`);
+                
+                // Sort by tableOf in descending order to process earlier rounds first
+                unscoredBouts.sort((a, b) => b.tableof - a.tableof);
+                
+                // Process each bout
+                for (const bout of unscoredBouts) {
+                    // Generate random scores
+                    const winnerScore = Math.floor(Math.random() * 6) + 10; // 10-15
+                    const loserScore = Math.floor(Math.random() * winnerScore); // 0 to (winnerScore-1)
+                    
+                    // Randomly decide which fencer gets the higher score
+                    let scoreA, scoreB;
+                    if (Math.random() < 0.5) {
+                        scoreA = winnerScore;
+                        scoreB = loserScore;
+                    } else {
+                        scoreA = loserScore;
+                        scoreB = winnerScore;
+                    }
+                    
+                    // Update bout scores and advance winner
+                    await dbUpdateDEBoutAndAdvanceWinner(
+                        bout.id,
+                        scoreA,
+                        scoreB,
+                        bout.lfencer,
+                        bout.rfencer
+                    );
+                }
+                
+                return true; // Successfully scored some bouts
+            };
+            
+            // Recursive function to score all bouts until no more are available
+            const recursivelyScoreAllBouts = async () => {
+                const moreAvailable = await scoreAllAvailableBouts();
+                if (moreAvailable) {
+                    // Wait a moment for database operations to complete
+                    await new Promise(resolve => setTimeout(resolve, 300));
+                    // Check if there are newly created bouts to score
+                    return recursivelyScoreAllBouts();
+                }
+                return;
+            };
+            
+            // Ask for confirmation before randomizing scores
+            Alert.alert(
+                t('deBracketPage.randomizeScoresTitle'),
+                t('deBracketPage.randomizeScoresMessage', { count: 'all' }),
+                [
+                    {
+                        text: t('common.cancel'),
+                        style: 'cancel',
+                        onPress: () => setIsRandomizing(false),
+                    },
+                    {
+                        text: t('common.confirm'),
+                        onPress: async () => {
+                            try {
+                                await recursivelyScoreAllBouts();
+                                // Refresh to show updated bracket
+                                setRefreshKey(prev => prev + 1);
+                            } catch (error) {
+                                console.error('Error in recursive scoring:', error);
+                                Alert.alert(t('common.error'), t('deBracketPage.failedToRandomizeScores'));
+                            } finally {
+                                setIsRandomizing(false);
+                            }
+                        },
+                    },
+                ],
+                { cancelable: false }
+            );
+        } catch (error) {
+            console.error('Error randomizing scores:', error);
+            Alert.alert(t('common.error'), t('deBracketPage.failedToRandomizeScores'));
+            setIsRandomizing(false);
+        }
+    };
 
     const renderBout = (bout: DEBout) => {
         // Check if bout is valid
@@ -457,6 +568,19 @@ const DEBracketPage: React.FC = () => {
                     <Text style={styles.viewResultsButtonText}>{t('deBracketPage.viewTournamentResults')}</Text>
                 </TouchableOpacity>
             )}
+            
+            {/* Random Score button */}
+            <TouchableOpacity 
+                style={[styles.randomScoreButton, isRandomizing && styles.disabledButton]} 
+                onPress={handleRandomizeScores}
+                disabled={isRandomizing}
+            >
+                {isRandomizing ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                    <Text style={styles.randomScoreButtonText}>{t('deBracketPage.randomizeScores')}</Text>
+                )}
+            </TouchableOpacity>
 
             {bracketData.rounds.map((round, index) => (
                 <View key={index} style={styles.roundContainer}>
@@ -512,12 +636,30 @@ const styles = StyleSheet.create({
         borderRadius: 10,
         justifyContent: 'center',
         alignItems: 'center',
-        marginVertical: 20,
+        marginTop: 20,
+        marginBottom: 10,
     },
     viewResultsButtonText: {
         color: '#fff',
         fontSize: 18,
         fontWeight: 'bold',
+    },
+    randomScoreButton: {
+        backgroundColor: '#FF9500',
+        paddingVertical: 15,
+        marginHorizontal: 20,
+        borderRadius: 10,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginBottom: 20,
+    },
+    randomScoreButtonText: {
+        color: '#fff',
+        fontSize: 18,
+        fontWeight: 'bold',
+    },
+    disabledButton: {
+        opacity: 0.6,
     },
     loadingContainer: {
         flex: 1,

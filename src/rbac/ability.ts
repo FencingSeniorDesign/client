@@ -27,11 +27,10 @@ export function defineAbilityFor(role: Role): AppAbility {
         // Tournament creator can do everything
         can('manage', 'all');
     } else if (role === Role.OFFICIAL) {
-        // Officials can do everything except manage officials and score bouts
+        // Officials can do everything except manage officials
         can('manage', 'all');
         cannot('manage', 'Official');
         cannot('manage', 'Referee');
-        cannot('score', 'Bout');
     } else if (role === Role.REFEREE) {
         // Referees can only score bouts
         can('read', 'all');

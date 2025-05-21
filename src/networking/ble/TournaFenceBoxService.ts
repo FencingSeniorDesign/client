@@ -342,14 +342,41 @@ export class TournaFenceBoxService extends ScoringBoxService {
     }
 
     async sendScore(leftScore: number, rightScore: number): Promise<void> {
-        // TournaFence box doesn't support sending score from app
-        // Score is only received from the box
+        // Update local state
         this.currentScore = { left: leftScore, right: rightScore };
+        
+        // Send score update to TournaFence box
+        try {
+            // Format: SET_SCORE:leftScore:rightScore
+            const command = `SET_SCORE:${leftScore}:${rightScore}`;
+            await this.sendCommand(command);
+            console.log(`Score update sent to box: ${leftScore}:${rightScore}`);
+        } catch (error) {
+            console.error('Failed to send score to box:', error);
+            throw error;
+        }
     }
 
     async sendTimer(timeMs: number, isRunning: boolean): Promise<void> {
-        // Timer commands are sent via start/stop/reset methods
+        // Update local state for tracking
         this.timerState = { timeMs, isRunning };
+        
+        try {
+            // First reset the timer to the specified time
+            await this.resetTimer(timeMs);
+            
+            // Then set the running state appropriately
+            if (isRunning) {
+                await this.startTimer();
+            } else {
+                await this.stopTimer();
+            }
+            
+            console.log(`Timer updated on box: ${timeMs}ms, running: ${isRunning}`);
+        } catch (error) {
+            console.error('Failed to sync timer to box:', error);
+            throw error;
+        }
     }
 
     async startTimer(): Promise<void> {

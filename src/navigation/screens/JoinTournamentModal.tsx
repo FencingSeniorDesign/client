@@ -267,13 +267,18 @@ export const JoinTournamentModal: React.FC<JoinTournamentModalProps> = ({ visibl
                                 </TouchableOpacity>
                             </View>
 
-                            <View style={styles.buttonContainer}>
-                                <TouchableOpacity style={styles.cancelButton} onPress={onClose} disabled={connecting}>
+                            {/* Buttons in a single row with centered layout */}
+                            <View style={[styles.buttonContainer, { justifyContent: 'center' }]}>
+                                <TouchableOpacity 
+                                    style={[styles.cancelButton, { alignItems: 'center', justifyContent: 'center' }]} 
+                                    onPress={onClose} 
+                                    disabled={connecting}
+                                >
                                     <Text style={styles.buttonText}>{t('common.cancel')}</Text>
                                 </TouchableOpacity>
 
                                 <TouchableOpacity
-                                    style={styles.manualConnectButton}
+                                    style={[styles.manualConnectButton, { alignItems: 'center', justifyContent: 'center' }]}
                                     onPress={() => setShowManualEntry(true)}
                                     disabled={connecting}
                                 >

@@ -1,53 +1,57 @@
 {
-    "expo": {
-        "name": "TournaFence",
-        "slug": "TournaFence",
-        "version": "1.0.0",
-        "orientation": "portrait",
-        "icon": "./assets/Vazira9.png",
-        "userInterfaceStyle": "automatic",
-        "newArchEnabled": true,
-        "scheme": "tournafence",
-        "ios": {
-            "supportsTablet": true,
-            "bundleIdentifier": "com.anonymous.TournaFence",
-            "infoPlist": {
-                "NSLocalNetworkUsageDescription": "TournaFence needs to discover and connect to tournament servers on your local network",
-                "NSBonjourServices": ["_tournafence._tcp", "_tournafence._udp"]
-            }
-        },
-        "android": {
-            "adaptiveIcon": {
-                "foregroundImage": "./assets/adaptive-icon.png",
-                "backgroundColor": "#ffffff"
-            },
-            "package": "com.anonymous.TournaFence"
-        },
-        "web": {
-            "favicon": "./assets/favicon.png"
-        },
-        "plugins": [
-            "expo-asset",
-            [
-                "expo-splash-screen",
-                {
-                    "backgroundColor": "#ffffff",
-                    "image": "./assets/splash-icon.png"
-                }
-            ],
-            "react-native-edge-to-edge",
-            "expo-sqlite",
-            [
-                "expo-build-properties",
-                {
-                    "ios": {
-                        "useFrameworks": "static"
-                    }
-                }
-            ],
-            "./plugins/withZeroconfConfig.js",
-            "react-native-ble-plx",
-            "react-native-nfc-manager"
+  "expo": {
+    "name": "TournaFence",
+    "slug": "TournaFence",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./src/assets/logo.png",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "scheme": "tournafence",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.anonymous.TournaFence",
+      "infoPlist": {
+        "NSLocalNetworkUsageDescription": "TournaFence needs to discover and connect to tournament servers on your local network",
+        "NSBonjourServices": [
+          "_tournafence._tcp",
+          "_tournafence._udp"
         ]
-    }
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./src/assets/logo.png",
+        "backgroundColor": "#ffffff"
+      },
+      "package": "com.anonymous.TournaFence"
+    },
+    "web": {
+      "favicon": "./src/assets/logo.png"
+    },
+    "plugins": [
+      "expo-asset",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#ffffff",
+          "image": "./src/assets/logo.png"
+        }
+      ],
+      "react-native-edge-to-edge",
+      "expo-sqlite",
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "useFrameworks": "static"
+          }
+        }
+      ],
+      "./plugins/withZeroconfConfig.js",
+      "react-native-ble-plx",
+      "react-native-nfc-manager",
+      "expo-font"
+    ]
+  }
 }

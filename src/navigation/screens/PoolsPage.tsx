@@ -88,17 +88,33 @@ const PoolsPage: React.FC = () => {
     // Set pools data when it's fetched from the server or database
     useEffect(() => {
         if (poolsData) {
-            console.log(
-                'Pools data fetched:',
-                JSON.stringify(
-                    poolsData.map(pool => ({
-                        poolid: pool.poolid,
-                        fencersCount: pool.fencers ? pool.fencers.length : 0,
-                    })),
-                    null,
-                    2
-                )
-            );
+            // Debug log for remote connections to check if isComplete is provided by server
+            if (isRemote) {
+                console.log(
+                    'Remote pools data fetched:',
+                    JSON.stringify(
+                        poolsData.map(pool => ({
+                            poolid: pool.poolid,
+                            fencersCount: pool.fencers ? pool.fencers.length : 0,
+                            isComplete: pool.isComplete, // Log the server's completion status
+                        })),
+                        null,
+                        2
+                    )
+                );
+            } else {
+                console.log(
+                    'Local pools data fetched:',
+                    JSON.stringify(
+                        poolsData.map(pool => ({
+                            poolid: pool.poolid,
+                            fencersCount: pool.fencers ? pool.fencers.length : 0,
+                        })),
+                        null,
+                        2
+                    )
+                );
+            }
 
             // Apply club-based pool positions to each pool's fencers
             const poolsWithPositions = poolsData.map(pool => {
@@ -118,51 +134,84 @@ const PoolsPage: React.FC = () => {
                 // This allows our database-assigned positions to take precedence
                 if (pool.fencers.some(f => f.poolNumber === undefined)) {
                     return {
-                        ...pool,
+                        ...pool, // Preserve all original properties including isComplete
                         fencers: assignPoolPositions(pool.fencers),
                     };
                 } else {
                     // If pool numbers are already assigned, keep them
-                    return pool;
+                    return pool; // Preserve all original properties including isComplete
                 }
             });
 
             setPools(poolsWithPositions);
             setExpandedPools(new Array(poolsData.length).fill(false));
+            
+            // If remote connection, also trigger checkBoutsCompletion to process server-provided completion status
+            if (isRemote && poolsWithPositions.length > 0) {
+                console.log('Triggering checkBoutsCompletion to process server-provided completion status');
+                // The checkBoutsCompletion will be called by the useEffect below
+            }
         }
-    }, [poolsData]);
+    }, [poolsData, isRemote]);
 
-    // Modified to use the data provider instead of direct database calls
+    // Modified to use the data provider instead of direct database calls,
+    // with special handling for remote connections to respect server's completion status
     const checkBoutsCompletion = useCallback(async () => {
-        try {
-            const statusObj: { [poolId: number]: boolean } = {};
+        // Initialize with all pools marked as incomplete
+        const statusObj: { [poolId: number]: boolean } = {};
+        
+        // Initialize all pools as not complete by default
+        pools.forEach(pool => {
+            statusObj[pool.poolid] = false;
+        });
 
-            await Promise.all(
-                pools.map(async pool => {
-                    // Use data provider instead of direct DB access to respect remote connection
+        if (isRemote) {
+            // For remote clients, use the server's completion status
+            // Each pool object from the server should have an isComplete field
+            console.log('Remote client: Using server-provided pool completion status');
+            
+            pools.forEach(pool => {
+                // Use the server's completion status directly
+                const serverCompletionStatus = pool.isComplete === true;
+                console.log(`Pool ${pool.poolid} server completion status: ${serverCompletionStatus}`);
+                statusObj[pool.poolid] = serverCompletionStatus;
+            });
+        } else {
+            // For local tournaments, calculate completion based on bout scores
+            // Process each pool individually to handle per-pool errors
+            console.log('Local client: Calculating pool completion status');
+            
+            for (const pool of pools) {
+                try {
+                    // Use data provider instead of direct DB access
                     const bouts = await dataProvider.getBoutsForPool(roundId, pool.poolid);
 
                     // Check if all bouts have scores
                     const complete = bouts.every(bout => {
                         const scoreA = bout.left_score ?? 0;
                         const scoreB = bout.right_score ?? 0;
+                        
+                        // Original check for local tournaments
                         return scoreA !== 0 || scoreB !== 0;
                     });
 
                     statusObj[pool.poolid] = complete;
-                })
-            );
-
-            setPoolCompletionStatus(statusObj);
-
-            // Log the completion status of all pools
-            console.log('Pool completion status:', statusObj);
-            const allPoolsComplete = Object.values(statusObj).every(status => status);
-            console.log('All pools complete:', allPoolsComplete);
-        } catch (error) {
-            console.error('Error checking bout completion:', error);
+                } catch (error) {
+                    // If there's an error fetching bout data for this pool,
+                    // ensure it stays marked as incomplete (default false)
+                    console.error(`Error checking completion for pool ${pool.poolid}:`, error);
+                    // The pool already has a default "false" status from initialization
+                }
+            }
         }
-    }, [pools, roundId]);
+
+        setPoolCompletionStatus(statusObj);
+
+        // Log the completion status of all pools
+        console.log('Pool completion status:', statusObj);
+        const allPoolsComplete = Object.values(statusObj).every(status => status);
+        console.log('All pools complete:', allPoolsComplete);
+    }, [pools, roundId, isRemote]);
 
     useEffect(() => {
         if (pools.length > 0) {
