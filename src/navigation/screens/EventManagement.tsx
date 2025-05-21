@@ -964,10 +964,12 @@ export const EventManagement = ({ route }: Props) => {
     );
 };
 
-const navyBlue = '#000080';
+const navyBlue = '#263e5e';
 const white = '#ffffff';
 const greyAccent = '#cccccc';
-const lightRed = '#ff9999';
+const steelBlue = '#4682B4';
+const green = '#4CAF50';
+const dustyRed = '#CD5C5C';
 
 const styles = StyleSheet.create({
     container: {
@@ -1023,14 +1025,27 @@ const styles = StyleSheet.create({
         marginRight: 6,
     },
     networkConnected: {
-        backgroundColor: '#4ade80', // Green
+        backgroundColor: '#4ade80',
     },
     networkDisconnected: {
-        backgroundColor: '#f87171', // Red
+        backgroundColor: '#f87171',
     },
     networkStatusText: {
         color: white,
         fontSize: 12,
+    },
+    remoteConnectionBanner: {
+        backgroundColor: '#007AFF',
+        padding: 10,
+        borderRadius: 5,
+        marginTop: 5,
+        marginBottom: 10,
+    },
+    remoteConnectionText: {
+        color: white,
+        fontSize: 14,
+        textAlign: 'center',
+        marginBottom: 5,
     },
     disconnectButton: {
         backgroundColor: '#FF3B30',
@@ -1106,6 +1121,15 @@ const styles = StyleSheet.create({
         marginBottom: 15,
         textAlign: 'center',
     },
+    eventNameInput: {
+        borderWidth: 1,
+        borderColor: steelBlue,
+        padding: 10,
+        borderRadius: 6,
+        marginBottom: 15,
+        backgroundColor: white,
+        color: navyBlue,
+    },
     rowGroup: {
         flexDirection: 'row',
         marginBottom: 15,
@@ -1113,7 +1137,9 @@ const styles = StyleSheet.create({
     },
     optionButton: {
         flex: 1,
-        backgroundColor: greyAccent,
+        backgroundColor: white,
+        borderWidth: 1,
+        borderColor: steelBlue,
         paddingVertical: 14,
         borderRadius: 5,
         alignItems: 'center',
@@ -1139,7 +1165,7 @@ const styles = StyleSheet.create({
         marginTop: 10,
     },
     modalActionButton: {
-        backgroundColor: navyBlue,
+        backgroundColor: green,
         paddingVertical: 12,
         paddingHorizontal: 20,
         borderRadius: 5,
@@ -1147,7 +1173,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     cancelButton: {
-        backgroundColor: greyAccent,
+        backgroundColor: dustyRed,
     },
     modalActionText: {
         color: white,
@@ -1161,13 +1187,13 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     serverEnabledButton: {
-        backgroundColor: '#ff3b30', // Red (to stop server)
+        backgroundColor: '#ff3b30',
     },
     serverDisabledButton: {
-        backgroundColor: '#34c759', // Green (to start server)
+        backgroundColor: '#34c759',
     },
     serverPendingButton: {
-        backgroundColor: '#6c757d', // Gray for pending operations
+        backgroundColor: '#6c757d',
         opacity: 0.8,
     },
     serverButtonText: {
