@@ -17,6 +17,7 @@ import { useTranslation } from 'react-i18next'; // Import translation hook
 import LanguageSwitcher from '../../components/ui/LanguageSwitcher';
 import { BLEStatusBar } from '../../networking/components/BLEStatusBar';
 import { ConnectionLostModal } from '../../networking/components/ConnectionLostModal';
+import * as Font from 'expo-font';
 
 // Import the logo image
 import logo from '../../assets/logo.png';
@@ -27,6 +28,20 @@ export function Home() {
     const queryClient = useQueryClient();
     const { setTournamentContext } = useAbility(); // Get the context setter
     const { t } = useTranslation(); // Initialize the translation hook
+
+    // Load custom font
+    const [fontsLoaded, setFontsLoaded] = useState(false);
+    
+    useEffect(() => {
+        async function loadFonts() {
+            await Font.loadAsync({
+                'WinnerSans-Bold': require('../../assets/WinnerSans-Bold.otf'),
+            });
+            setFontsLoaded(true);
+        }
+        
+        loadFonts();
+    }, []);
 
     // State for join tournament modal
     const [joinModalVisible, setJoinModalVisible] = useState(false);
@@ -150,6 +165,15 @@ export function Home() {
         queryClient.invalidateQueries({ queryKey: ['tournaments'] });
     };
 
+    // Show loading screen while fonts are loading
+    if (!fontsLoaded) {
+        return (
+            <View style={styles.container}>
+                <ActivityIndicator size="large" color="#001f3f" />
+            </View>
+        );
+    }
+
     return (
         <>
             <View style={styles.container}>
@@ -157,6 +181,7 @@ export function Home() {
                 <BLEStatusBar compact={true} />
 
                 <Image source={logo} style={styles.logo} resizeMode="contain" />
+                <Text style={[styles.titleText, { fontFamily: 'WinnerSans-Bold' }]}>TournaFence</Text>
 
                 <View style={styles.buttonContainer}>
                     {/* Create Tournament Button */}
@@ -345,8 +370,15 @@ const styles = StyleSheet.create({
         backgroundColor: '#f8f9fa',
     },
     logo: {
-        width: 280,
-        height: 140,
+        width: 330,
+        height: 155,
+        marginBottom: 5,
+    },
+    titleText: {
+        // marginTop: ,
+        fontSize: 25, // 28 * 3 = 84
+        fontWeight: 'bold',
+        color: '#001f3f',
         marginBottom: 20,
     },
     deviceIdText: {

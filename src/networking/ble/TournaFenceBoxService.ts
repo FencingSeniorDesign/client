@@ -358,8 +358,25 @@ export class TournaFenceBoxService extends ScoringBoxService {
     }
 
     async sendTimer(timeMs: number, isRunning: boolean): Promise<void> {
-        // Timer commands are sent via start/stop/reset methods
+        // Update local state for tracking
         this.timerState = { timeMs, isRunning };
+        
+        try {
+            // First reset the timer to the specified time
+            await this.resetTimer(timeMs);
+            
+            // Then set the running state appropriately
+            if (isRunning) {
+                await this.startTimer();
+            } else {
+                await this.stopTimer();
+            }
+            
+            console.log(`Timer updated on box: ${timeMs}ms, running: ${isRunning}`);
+        } catch (error) {
+            console.error('Failed to sync timer to box:', error);
+            throw error;
+        }
     }
 
     async startTimer(): Promise<void> {
