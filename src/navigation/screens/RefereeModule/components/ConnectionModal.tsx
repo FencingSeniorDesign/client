@@ -78,7 +78,7 @@ export function ConnectionModal({
 
     const handleBoxSelection = async (box: BoxOption) => {
         if (!box.available) {
-            Alert.alert(t('ble.comingSoon'), t('ble.notAvailable', { name: box.name }), [{ text: t('common.ok') }]);
+            console.log('Box not available:', box.name);
             return;
         }
 
@@ -108,9 +108,9 @@ export function ConnectionModal({
             console.error('Scan failed:', error);
             setIsScanning(false);
             setSelectedBox(null);
-            // Don't show alert if scan was cancelled
+            // Log error instead of showing alert
             if (error.message !== 'Scan cancelled') {
-                Alert.alert(t('ble.scanFailed'), error.message || t('ble.unknownError'), [{ text: t('common.ok') }]);
+                console.error('Scan failed:', error.message || 'Unknown error');
             }
         }
     };
@@ -127,7 +127,6 @@ export function ConnectionModal({
             onClose(); // Close modal after successful connection
         } catch (error) {
             console.error('Connection failed:', error);
-            Alert.alert(t('ble.connectionFailed'), error.message || t('ble.unknownError'), [{ text: t('common.ok') }]);
         }
     };
 
