@@ -35,6 +35,11 @@ jest.mock('expo-sqlite/kv-store', () => ({
     setItem: jest.fn(() => Promise.resolve(null)),
 }));
 
+// Mock vector icons
+jest.mock('@expo/vector-icons', () => ({
+    MaterialIcons: 'MaterialIcons',
+}));
+
 // Mock SQLite and database-related modules before any imports
 jest.mock('expo-sqlite', () => ({
     openDatabaseSync: jest.fn(() => ({
@@ -379,8 +384,8 @@ describe('EventSettings', () => {
         fireEvent.press(getByText('fencerManagement'));
 
         // Find and press the remove button for the fencer
-        // In the component, the remove button has the text 'x', not 'remove'
-        const removeButton = getAllByText('x')[0];
+        // In the component, the remove button has the text 'removeIcon', not 'x'
+        const removeButton = getAllByText('removeIcon')[0];
         fireEvent.press(removeButton);
 
         expect(removeFencerMutation.mutate).toHaveBeenCalledWith({

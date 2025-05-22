@@ -69,7 +69,6 @@ export function ScoringBoxProvider({ children }: ScoringBoxProviderProps) {
     const handleError = useCallback(
         (error: Error) => {
             console.error('BLE Error:', error);
-            Alert.alert(t('ble.error'), error.message);
         },
         [t]
     );
@@ -124,7 +123,6 @@ export function ScoringBoxProvider({ children }: ScoringBoxProviderProps) {
             return devices;
         } catch (error) {
             console.error('Scan error:', error);
-            Alert.alert(t('ble.scanFailed'), error.message);
             throw error;
         }
     };
@@ -167,7 +165,6 @@ export function ScoringBoxProvider({ children }: ScoringBoxProviderProps) {
             return true;
         } catch (error) {
             console.error('Connection error:', error);
-            Alert.alert(t('ble.connectionFailed'), error.message);
             throw error;
         }
     };

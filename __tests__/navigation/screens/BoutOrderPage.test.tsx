@@ -68,6 +68,7 @@ jest.mock('@react-navigation/native', () => {
             navigate: jest.fn(),
             goBack: jest.fn(),
         }),
+        usePreventRemove: jest.fn(),
     };
 });
 
@@ -96,6 +97,33 @@ jest.mock('../../../src/networking/TournamentClient', () => ({
         off: jest.fn(),
         sendMessage: jest.fn(),
     },
+}));
+
+// Mock ScoringBoxContext specifically for this test
+jest.mock('../../../src/networking/ble/ScoringBoxContext', () => ({
+    useScoringBoxContext: jest.fn(() => ({
+        connectionState: 'disconnected',
+        connectedBoxType: null,
+        connectedDeviceName: null,
+        initialSyncCompleted: false,
+        scan: jest.fn().mockResolvedValue([]),
+        cancelScan: jest.fn(),
+        connect: jest.fn().mockResolvedValue(true),
+        disconnect: jest.fn().mockResolvedValue(undefined),
+        selectDataSource: jest.fn().mockResolvedValue(undefined),
+        sendScoreToBox: jest.fn().mockResolvedValue(undefined),
+        sendTimerToBox: jest.fn().mockResolvedValue(undefined),
+        startTimer: jest.fn().mockResolvedValue(undefined),
+        stopTimer: jest.fn().mockResolvedValue(undefined),
+        resetTimer: jest.fn().mockResolvedValue(undefined),
+        setCallbacks: jest.fn(),
+    })),
+    ScoringBoxProvider: ({ children }) => children,
+}));
+
+// Mock BLEStatusBar to avoid ScoringBoxContext issues
+jest.mock('../../../src/networking/components/BLEStatusBar', () => ({
+    BLEStatusBar: () => null,
 }));
 
 // Mock ConnectionStatusBar
@@ -278,7 +306,7 @@ describe('BoutOrderPage', () => {
             expect(getByText('(4) David (CD)')).toBeTruthy();
 
             // Check for the VS text and scores
-            expect(getByText('VS')).toBeTruthy();
+            expect(getByText('common.vs')).toBeTruthy();
             expect(getByText('5-3')).toBeTruthy();
         });
     });
@@ -332,7 +360,7 @@ describe('BoutOrderPage', () => {
 
         await waitFor(() => {
             // Check for VS text in pending bout
-            expect(getByText('VS')).toBeTruthy();
+            expect(getByText('common.vs')).toBeTruthy();
         });
     });
 

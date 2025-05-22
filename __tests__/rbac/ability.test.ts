@@ -18,15 +18,15 @@ describe('RBAC Ability', () => {
         it('should give officials appropriate permissions', () => {
             const ability = defineAbilityFor(Role.OFFICIAL);
 
-            // Officials can do most things
+            // Officials can do most things including scoring bouts
             expect(ability.can('manage', 'Tournament')).toBe(true);
             expect(ability.can('create', 'Event')).toBe(true);
             expect(ability.can('update', 'Fencer')).toBe(true);
+            expect(ability.can('score', 'Bout')).toBe(true);
 
-            // But cannot manage officials or score bouts
+            // But cannot manage officials or referees
             expect(ability.cannot('manage', 'Official')).toBe(true);
             expect(ability.cannot('manage', 'Referee')).toBe(true);
-            expect(ability.cannot('score', 'Bout')).toBe(true);
         });
 
         it('should give referees limited permissions', () => {

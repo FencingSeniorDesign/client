@@ -19,6 +19,7 @@ jest.mock('@react-navigation/native', () => ({
             onSaveScores: jest.fn(),
         },
     }),
+    usePreventRemove: jest.fn(),
 }));
 
 // Mock the networking modules

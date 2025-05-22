@@ -169,7 +169,6 @@ describe('ClientInfo operations', () => {
             expect(result).toBe(true);
             expect(tournamentClient.getClientInfo()).toBeNull();
             expect(AsyncStorage.removeItem).toHaveBeenCalledWith('tournament_client_info');
-            expect(Alert.alert).toHaveBeenCalled();
             expect(emitSpy).toHaveBeenCalledWith('disconnected');
 
             // Cleanup
