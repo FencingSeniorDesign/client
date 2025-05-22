@@ -306,7 +306,7 @@ describe('BoutOrderPage', () => {
             expect(getByText('(4) David (CD)')).toBeTruthy();
 
             // Check for the VS text and scores
-            expect(getByText('VS')).toBeTruthy();
+            expect(getByText('common.vs')).toBeTruthy();
             expect(getByText('5-3')).toBeTruthy();
         });
     });
@@ -360,7 +360,7 @@ describe('BoutOrderPage', () => {
 
         await waitFor(() => {
             // Check for VS text in pending bout
-            expect(getByText('VS')).toBeTruthy();
+            expect(getByText('common.vs')).toBeTruthy();
         });
     });
 

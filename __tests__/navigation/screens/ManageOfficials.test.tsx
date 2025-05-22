@@ -48,6 +48,11 @@ jest.mock('../../../src/networking/NetworkUtils', () => ({
     getDeviceId: jest.fn(() => Promise.resolve('12345')),
 }));
 
+// Mock vector icons
+jest.mock('@expo/vector-icons', () => ({
+    MaterialIcons: 'MaterialIcons',
+}));
+
 // Mock Alert.alert
 jest.spyOn(Alert, 'alert').mockImplementation(jest.fn());
 
@@ -377,7 +382,7 @@ describe('ManageOfficials', () => {
         const { getAllByText } = render(<ManageOfficials navigation={mockNavigation} route={mockRoute} />);
 
         // Find and click a remove button (✕)
-        const removeButtons = getAllByText('✕');
+        const removeButtons = getAllByText('removeIcon');
         await act(async () => {
             fireEvent.press(removeButtons[0]);
             // Wait for async operations
@@ -414,7 +419,7 @@ describe('ManageOfficials', () => {
         const { getAllByText } = render(<ManageOfficials navigation={mockNavigation} route={mockRoute} />);
 
         // Find and click a remove button (✕)
-        const removeButtons = getAllByText('✕');
+        const removeButtons = getAllByText('removeIcon');
         await act(async () => {
             fireEvent.press(removeButtons[0]);
             // Wait for async operations
@@ -449,7 +454,7 @@ describe('ManageOfficials', () => {
         const { getAllByText } = render(<ManageOfficials navigation={mockNavigation} route={mockRoute} />);
 
         // Find and click a remove button (✕)
-        const removeButtons = getAllByText('✕');
+        const removeButtons = getAllByText('removeIcon');
         await act(async () => {
             fireEvent.press(removeButtons[0]);
             // Wait for async operations
@@ -484,7 +489,7 @@ describe('ManageOfficials', () => {
         const { getAllByText } = render(<ManageOfficials navigation={mockNavigation} route={mockRoute} />);
 
         // Find and click a remove button (✕)
-        const removeButtons = getAllByText('✕');
+        const removeButtons = getAllByText('removeIcon');
         await act(async () => {
             fireEvent.press(removeButtons[0]);
             // Wait for async operations
@@ -509,7 +514,7 @@ describe('ManageOfficials', () => {
         const { getAllByText } = render(<ManageOfficials navigation={mockNavigation} route={mockRoute} />);
 
         // Find and click a remove button (✕)
-        const removeButtons = getAllByText('✕');
+        const removeButtons = getAllByText('removeIcon');
         await act(async () => {
             fireEvent.press(removeButtons[0]);
             // Wait for async operations
@@ -529,7 +534,7 @@ describe('ManageOfficials', () => {
         const { getAllByText } = render(<ManageOfficials navigation={mockNavigation} route={mockRoute} />);
 
         // Find and click a remove button (✕)
-        const removeButtons = getAllByText('✕');
+        const removeButtons = getAllByText('removeIcon');
         await act(async () => {
             fireEvent.press(removeButtons[0]);
         });
