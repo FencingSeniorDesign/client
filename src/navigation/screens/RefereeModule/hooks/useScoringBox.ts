@@ -40,10 +40,13 @@ export function useScoringBox({
                 let newLeftScore = scoreRef.current.left;
                 let newRightScore = scoreRef.current.right;
 
+                // Hardware left/right is swapped from UI left/right
                 if (update.fencer === 'left') {
-                    newLeftScore++;
-                } else if (update.fencer === 'right') {
+                    // Hardware left touch should increment UI right fencer
                     newRightScore++;
+                } else if (update.fencer === 'right') {
+                    // Hardware right touch should increment UI left fencer  
+                    newLeftScore++;
                 } else if (update.fencer === 'both') {
                     newLeftScore++;
                     newRightScore++;
@@ -76,7 +79,8 @@ export function useScoringBox({
     const selectDataSource = async (source: 'app' | 'box') => {
         if (source === 'app') {
             // Sync current app state to the box
-            await context.sendScoreToBox(scoreRef.current.left, scoreRef.current.right);
+            // Hardware left/right is swapped from UI left/right, so swap when sending
+            await context.sendScoreToBox(scoreRef.current.right, scoreRef.current.left);
 
             // Use resetTimer to actually update the time on the box
             await context.resetTimer(timerRef.current.timeMs);

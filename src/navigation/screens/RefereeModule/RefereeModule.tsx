@@ -110,6 +110,21 @@ export function RefereeModule() {
         timerRunning: isRunning,
     });
 
+    // Clear local timers when BLE box is connected
+    useEffect(() => {
+        if (connectionState === ConnectionState.CONNECTED) {
+            // Stop local timers when connected to hardware
+            if (timerRef.current) {
+                clearInterval(timerRef.current);
+                timerRef.current = null;
+            }
+            if (passivityTimerRef.current) {
+                clearInterval(passivityTimerRef.current);
+                passivityTimerRef.current = null;
+            }
+        }
+    }, [connectionState]);
+
     // Check if we should prevent navigation when scoring box is connected
     // Only prevent if not in tournament mode (when onSaveScores is not provided)
     const shouldPreventNavigation = connectionState === ConnectionState.CONNECTED && !onSaveScores;
@@ -253,7 +268,8 @@ export function RefereeModule() {
         if (connectionState === ConnectionState.CONNECTED && initialSyncCompleted) {
             const newLeftScore = fencer === 1 ? newScore : fencer1Score;
             const newRightScore = fencer === 2 ? newScore : fencer2Score;
-            sendScoreToBox(newLeftScore, newRightScore);
+            // Hardware left/right is swapped from UI left/right, so swap when sending
+            sendScoreToBox(newRightScore, newLeftScore);
         }
 
         // If connected to a network, broadcast the score update
@@ -302,7 +318,8 @@ export function RefereeModule() {
             
             // Send reverted score to BLE box if connected
             if (connectionState === ConnectionState.CONNECTED && initialSyncCompleted) {
-                sendScoreToBox(newScore1, newScore2);
+                // Hardware left/right is swapped from UI left/right, so swap when sending
+                sendScoreToBox(newScore2, newScore1);
             }
 
             setLastScoreChange(null);
