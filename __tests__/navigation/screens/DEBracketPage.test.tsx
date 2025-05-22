@@ -27,6 +27,7 @@ jest.mock('@react-navigation/native', () => ({
         navigate: mockNavigate,
         goBack: mockGoBack,
     }),
+    usePreventRemove: jest.fn(),
 }));
 
 // Mock Alert
