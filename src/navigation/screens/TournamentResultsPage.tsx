@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
 import { useRoute, RouteProp, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useTranslation } from 'react-i18next';
@@ -10,6 +10,7 @@ import dataProvider from '../../data/DrizzleDataProvider';
 import { MaterialIcons } from '@expo/vector-icons';
 import ConnectionStatusBar from '../../networking/components/ConnectionStatusBar';
 import { BLEStatusBar } from '../../networking/components/BLEStatusBar';
+import { Can } from '../../rbac/Can';
 
 // Define the route params for this page
 type TournamentResultsRouteParams = {
@@ -60,6 +61,7 @@ const TournamentResultsPage: React.FC = () => {
     const [deResults, setDEResults] = useState<DEResult[]>([]);
     const [loading, setLoading] = useState<boolean>(true);
     const [error, setError] = useState<string | null>(null);
+    const [isMarkingComplete, setIsMarkingComplete] = useState<boolean>(false);
 
     // Fetch rounds data using the custom hook
     const { data: rounds = [], isLoading: roundsLoading, isError: roundsError } = useRounds(eventId);
@@ -78,6 +80,51 @@ const TournamentResultsPage: React.FC = () => {
 
         fetchEventData();
     }, [eventId]);
+
+    // Handler for marking tournament as complete
+    const handleMarkTournamentComplete = async () => {
+        if (!event) return;
+
+        Alert.alert(
+            t('tournamentResults.confirmCompleteTitle'),
+            t('tournamentResults.confirmCompleteMessage'),
+            [
+                {
+                    text: t('common.cancel'),
+                    style: 'cancel',
+                },
+                {
+                    text: t('common.confirm'),
+                    onPress: async () => {
+                        setIsMarkingComplete(true);
+                        try {
+                            await dataProvider.markTournamentComplete(event.tname);
+                            Alert.alert(
+                                t('tournamentResults.successTitle'),
+                                t('tournamentResults.successMessage'),
+                                [
+                                    {
+                                        text: t('common.ok'),
+                                        onPress: () => {
+                                            navigation.navigate('HomeTabs');
+                                        },
+                                    },
+                                ]
+                            );
+                        } catch (error) {
+                            console.error('Error marking tournament as complete:', error);
+                            Alert.alert(
+                                t('common.error'),
+                                t('tournamentResults.errorMarkingComplete')
+                            );
+                        } finally {
+                            setIsMarkingComplete(false);
+                        }
+                    },
+                },
+            ]
+        );
+    };
 
     // Fetch results for the selected round
     useEffect(() => {
@@ -533,9 +580,30 @@ const TournamentResultsPage: React.FC = () => {
 
             <ScrollView contentContainerStyle={styles.contentContainer}>{renderContent()}</ScrollView>
 
-            <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-                <Text style={styles.backButtonText}>{t('tournamentResults.backToEvent')}</Text>
-            </TouchableOpacity>
+            <View style={styles.buttonContainer}>
+                <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+                    <Text style={styles.backButtonText}>{t('tournamentResults.backToEvent')}</Text>
+                </TouchableOpacity>
+                
+                {!isRemote && (
+                    <Can I="manage" a="Tournament">
+                        <TouchableOpacity 
+                            style={[styles.completeButton, isMarkingComplete && styles.disabledButton]} 
+                            onPress={handleMarkTournamentComplete}
+                            disabled={isMarkingComplete}
+                        >
+                            {isMarkingComplete ? (
+                                <ActivityIndicator size="small" color="#fff" />
+                            ) : (
+                                <>
+                                    <MaterialIcons name="check-circle" size={20} color="#fff" style={{ marginRight: 5 }} />
+                                    <Text style={styles.completeButtonText}>{t('tournamentResults.markComplete')}</Text>
+                                </>
+                            )}
+                        </TouchableOpacity>
+                    </Can>
+                )}
+            </View>
         </View>
     );
 };
@@ -678,11 +746,17 @@ const styles = StyleSheet.create({
     medalIcon: {
         marginLeft: 4,
     },
-    backButton: {
+    buttonContainer: {
         position: 'absolute',
         bottom: 20,
         left: 20,
         right: 20,
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        gap: 10,
+    },
+    backButton: {
+        flex: 1,
         backgroundColor: '#001f3f',
         paddingVertical: 12,
         borderRadius: 8,
@@ -692,6 +766,23 @@ const styles = StyleSheet.create({
         color: '#fff',
         fontSize: 16,
         fontWeight: '600',
+    },
+    completeButton: {
+        flex: 1,
+        backgroundColor: '#4CAF50',
+        paddingVertical: 12,
+        borderRadius: 8,
+        alignItems: 'center',
+        flexDirection: 'row',
+        justifyContent: 'center',
+    },
+    completeButtonText: {
+        color: '#fff',
+        fontSize: 16,
+        fontWeight: '600',
+    },
+    disabledButton: {
+        opacity: 0.6,
     },
 });
 
