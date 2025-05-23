@@ -32,6 +32,7 @@ export function RefereeModule() {
         currentScore1 = 0,
         currentScore2 = 0,
         onSaveScores,
+        weapon,
     } = route.params ?? {};
 
     const [kawaiiMode, setKawaiiMode] = useState(false);
@@ -553,15 +554,18 @@ export function RefereeModule() {
                 </View>
             </View>
 
-            <TouchableOpacity
-                style={[styles.doubleTouchButton, kawaiiMode && kawaiiModeStyles.doubleTouchButton]}
-                onPress={() => {
-                    updateScore(1, true);
-                    updateScore(2, true);
-                }}
-            >
-                <Text style={styles.doubleTouchButtonText}>{t('refereeModule.doubleTouch')}</Text>
-            </TouchableOpacity>
+            {/* Only show double touch button for epee */}
+            {weapon?.toLowerCase() === 'epee' && (
+                <TouchableOpacity
+                    style={[styles.doubleTouchButton, kawaiiMode && kawaiiModeStyles.doubleTouchButton]}
+                    onPress={() => {
+                        updateScore(1, true);
+                        updateScore(2, true);
+                    }}
+                >
+                    <Text style={styles.doubleTouchButtonText}>{t('refereeModule.doubleTouch')}</Text>
+                </TouchableOpacity>
+            )}
 
             {onSaveScores && (
                 <TouchableOpacity

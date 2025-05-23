@@ -30,7 +30,7 @@ type BoutOrderPageNavProp = StackNavigationProp<RootStackParamList, 'BoutOrderPa
 const BoutOrderPage: React.FC = () => {
     const route = useRoute<BoutOrderPageRouteProps>();
     const navigation = useNavigation<BoutOrderPageNavProp>();
-    const { roundId, poolId, isRemote = false } = route.params;
+    const { roundId, poolId, isRemote = false, weapon } = route.params;
     const { ability } = useAbility();
     const { t } = useTranslation();
     const { connectionState, disconnect, connectedDeviceName } = useScoringBoxContext();
@@ -359,6 +359,7 @@ const BoutOrderPage: React.FC = () => {
             fencer2Name: bout.fencerB.lname || bout.fencerB.fname,
             currentScore1: bout.scoreA,
             currentScore2: bout.scoreB,
+            weapon: weapon,
             onSaveScores: async (score1: number, score2: number) => {
                 try {
                     // Handle tie case when returned from referee module
