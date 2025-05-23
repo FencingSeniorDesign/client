@@ -513,6 +513,8 @@ export default {
             'You are currently connected to a scoring box. Would you like to disconnect before leaving?',
         disconnectAndExit: 'Disconnect & Exit',
         exitWithoutDisconnecting: 'Exit Without Disconnecting',
+        randomPriority: 'Random Priority',
+        removePriority: 'Remove Priority',
     },
     tournamentList: {
         deleteTournament: 'Delete Tournament',
