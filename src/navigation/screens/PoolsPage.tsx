@@ -438,6 +438,7 @@ const PoolsPage: React.FC = () => {
                                             roundId: roundId,
                                             poolId: poolObj.poolid,
                                             isRemote: isRemote,
+                                            weapon: event.weapon,
                                         })
                                     }
                                 >

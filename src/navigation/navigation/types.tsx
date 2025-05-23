@@ -119,6 +119,7 @@ export type RootStackParamList = {
         currentScore2: number;
         onSaveScores?: (score1: number, score2: number) => void;
         isRemote?: boolean; // Add optional isRemote flag
+        weapon?: string; // Add optional weapon type
     };
     PoolsPage: {
         event: Event;
@@ -130,6 +131,7 @@ export type RootStackParamList = {
         roundId: number;
         poolId: number;
         isRemote?: boolean;
+        weapon?: string; // Add optional weapon type
     };
     RoundResults: {
         roundId: number;

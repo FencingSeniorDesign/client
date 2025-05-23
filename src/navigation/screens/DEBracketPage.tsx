@@ -266,6 +266,7 @@ const DEBracketPage: React.FC = () => {
                 fencer2Name: fencer2Name,
                 currentScore1: bout.scoreA || 0,
                 currentScore2: bout.scoreB || 0,
+                weapon: event.weapon,
                 onSaveScores: async (score1: number, score2: number) => {
                     try {
                         // Update bout scores and advance winner

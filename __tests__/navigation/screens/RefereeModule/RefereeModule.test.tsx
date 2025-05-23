@@ -17,6 +17,7 @@ jest.mock('@react-navigation/native', () => ({
             currentScore2: 0,
             boutIndex: 1,
             onSaveScores: jest.fn(),
+            weapon: 'epee', // Default to epee for most tests
         },
     }),
     usePreventRemove: jest.fn(),
@@ -134,13 +135,31 @@ describe('RefereeModule', () => {
         expect(zeroElements.length).toBeGreaterThan(0);
 
         // Check if buttons are displayed
-        expect(getByText('refereeModule.doubleTouch')).toBeTruthy();
+        expect(getByText('refereeModule.doubleTouch')).toBeTruthy(); // Should be visible for epee
         expect(getByText('refereeModule.saveScores')).toBeTruthy();
 
         // Check if card buttons are displayed
         expect(getByText('refereeModule.yellow')).toBeTruthy();
         expect(getByText('refereeModule.red')).toBeTruthy();
         expect(getByText('refereeModule.black')).toBeTruthy();
+    });
+
+    it('hides double touch button for foil and saber', () => {
+        // Mock foil weapon
+        jest.spyOn(require('@react-navigation/native'), 'useRoute').mockReturnValueOnce({
+            params: {
+                fencer1Name: 'John Doe',
+                fencer2Name: 'Jane Smith',
+                currentScore1: 0,
+                currentScore2: 0,
+                boutIndex: 1,
+                onSaveScores: jest.fn(),
+                weapon: 'foil',
+            },
+        });
+
+        const { queryByText } = render(<RefereeModule />);
+        expect(queryByText('refereeModule.doubleTouch')).toBeNull();
     });
 
     it('increments score when plus button is pressed', () => {
@@ -191,6 +210,7 @@ describe('RefereeModule', () => {
     });
 
     it('increments both scores when double touch button is pressed', () => {
+        // Ensure weapon is epee for this test
         const { getByText, getAllByText } = render(<RefereeModule />);
 
         // Find the double touch button
@@ -480,9 +500,10 @@ describe('RefereeModule', () => {
     */
 
     it('tests updating scores after double touch', () => {
+        // Ensure weapon is epee for this test
         const { getByText, getAllByText } = render(<RefereeModule />);
 
-        // Find double touch button
+        // Find double touch button (should exist for epee)
         const doubleTouch = getByText('refereeModule.doubleTouch');
 
         // Press it
