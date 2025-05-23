@@ -108,6 +108,34 @@ export async function dbListOfficials(): Promise<any[]> {
 }
 
 /**
+ * Updates an official in the database
+ */
+export async function dbUpdateOfficial(official: {
+    id: number;
+    fname: string;
+    lname: string;
+    nickname?: string;
+    device_id?: string | null;
+}): Promise<void> {
+    try {
+        await db
+            .update(schema.officials)
+            .set({
+                fname: official.fname,
+                lname: official.lname,
+                nickname: official.nickname,
+                device_id: official.device_id,
+            })
+            .where(eq(schema.officials.id, official.id));
+
+        console.log(`Updated official with ID: ${official.id}`);
+    } catch (error) {
+        console.error(`Error updating official: ${error}`);
+        throw error;
+    }
+}
+
+/**
  * Deletes an official from the database
  */
 export async function dbDeleteOfficial(officialId: number): Promise<void> {

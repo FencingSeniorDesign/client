@@ -108,6 +108,34 @@ export async function dbListReferees(): Promise<any[]> {
 }
 
 /**
+ * Updates a referee in the database
+ */
+export async function dbUpdateReferee(referee: {
+    id: number;
+    fname: string;
+    lname: string;
+    nickname?: string;
+    device_id?: string;
+}): Promise<void> {
+    try {
+        await db
+            .update(schema.referees)
+            .set({
+                fname: referee.fname,
+                lname: referee.lname,
+                nickname: referee.nickname,
+                device_id: referee.device_id,
+            })
+            .where(eq(schema.referees.id, referee.id));
+
+        console.log(`Updated referee with ID: ${referee.id}`);
+    } catch (error) {
+        console.error(`Error updating referee: ${error}`);
+        throw error;
+    }
+}
+
+/**
  * Deletes a referee from the database
  */
 export async function dbDeleteReferee(refereeId: number): Promise<void> {
