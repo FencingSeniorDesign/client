@@ -34,6 +34,8 @@ import {
     dbInitializeRound,
     dbDeleteOfficial,
     dbDeleteReferee,
+    dbUpdateOfficial,
+    dbUpdateReferee,
     dbListOngoingTournaments,
     dbListCompletedTournaments,
     dbGetBoutsForRound, // Added missing import
@@ -1311,6 +1313,88 @@ export class TournamentDataProvider {
             return true;
         } catch (error) {
             console.error('[DataProvider] Error removing official locally:', error);
+            return false;
+        }
+    }
+
+    /**
+     * Update an official in the tournament
+     */
+    async updateOfficial(official: Official): Promise<boolean> {
+        console.log(
+            `[DataProvider] Updating official ${official.id} in tournament, remote: ${this.isRemoteConnection()}`
+        );
+
+        if (!official.id) {
+            console.error('[DataProvider] Cannot update official without ID');
+            return false;
+        }
+
+        if (this.isRemoteConnection()) {
+            try {
+                // Send update official request to server
+                tournamentClient.sendMessage({
+                    type: 'update_official',
+                    official,
+                });
+
+                // Wait for confirmation
+                const response = await tournamentClient.waitForResponse('official_updated', 5000);
+
+                return response && response.success === true;
+            } catch (error) {
+                console.error('[DataProvider] Error updating official remotely:', error);
+                return false;
+            }
+        }
+
+        // For local tournaments, update in database
+        try {
+            await dbUpdateOfficial(official);
+            return true;
+        } catch (error) {
+            console.error('[DataProvider] Error updating official locally:', error);
+            return false;
+        }
+    }
+
+    /**
+     * Update a referee in the tournament
+     */
+    async updateReferee(referee: Official): Promise<boolean> {
+        console.log(
+            `[DataProvider] Updating referee ${referee.id} in tournament, remote: ${this.isRemoteConnection()}`
+        );
+
+        if (!referee.id) {
+            console.error('[DataProvider] Cannot update referee without ID');
+            return false;
+        }
+
+        if (this.isRemoteConnection()) {
+            try {
+                // Send update referee request to server
+                tournamentClient.sendMessage({
+                    type: 'update_referee',
+                    referee,
+                });
+
+                // Wait for confirmation
+                const response = await tournamentClient.waitForResponse('referee_updated', 5000);
+
+                return response && response.success === true;
+            } catch (error) {
+                console.error('[DataProvider] Error updating referee remotely:', error);
+                return false;
+            }
+        }
+
+        // For local tournaments, update in database
+        try {
+            await dbUpdateReferee(referee);
+            return true;
+        } catch (error) {
+            console.error('[DataProvider] Error updating referee locally:', error);
             return false;
         }
     }
