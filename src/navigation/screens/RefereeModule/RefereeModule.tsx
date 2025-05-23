@@ -70,6 +70,9 @@ export function RefereeModule() {
     const [fencer1Cards, setFencer1Cards] = useState<FencerCard[]>([]);
     const [fencer2Cards, setFencer2Cards] = useState<FencerCard[]>([]);
 
+    // Priority state - which fencer has priority (null means no priority)
+    const [priority, setPriority] = useState<1 | 2 | null>(null);
+
     // BLE connection state
     const [showBLEModal, setShowBLEModal] = useState(false);
     const [showDataSourceDialog, setShowDataSourceDialog] = useState(false);
@@ -328,6 +331,18 @@ export function RefereeModule() {
         }
     };
 
+    // Function to handle priority toggle
+    const togglePriority = () => {
+        if (priority !== null) {
+            // If priority is already assigned, remove it
+            setPriority(null);
+        } else {
+            // Randomly assign priority to fencer 1 or 2
+            const randomFencer = Math.random() < 0.5 ? 1 : 2;
+            setPriority(randomFencer);
+        }
+    };
+
     const formatTime = (seconds: number): string => {
         const mins = Math.floor(seconds / 60);
         const secs = seconds % 60;
@@ -513,6 +528,7 @@ export function RefereeModule() {
                     <View style={styles.cardsContainer}>{renderAggregatedCards(fencer1Cards)}</View>
                     <Text style={styles.fencerLabel}>
                         {kawaiiMode ? t('refereeModule.kitten1') : getLastName(fencer1Name)}
+                        {priority === 1 && ' (P)'}
                     </Text>
                     <Text style={styles.scoreText}>{fencer1Score}</Text>
                     <View style={styles.buttonContainer}>
@@ -535,6 +551,7 @@ export function RefereeModule() {
                     <View style={styles.cardsContainer}>{renderAggregatedCards(fencer2Cards)}</View>
                     <Text style={styles.fencerLabel}>
                         {kawaiiMode ? t('refereeModule.kitten2') : getLastName(fencer2Name)}
+                        {priority === 2 && ' (P)'}
                     </Text>
                     <Text style={styles.scoreText}>{fencer2Score}</Text>
                     <View style={styles.buttonContainer}>
@@ -704,6 +721,11 @@ export function RefereeModule() {
                 onRevertLastPoint={revertLastPoint}
                 kawaiiMode={kawaiiMode}
                 canRevertLastPoint={lastScoreChange !== null}
+                onTogglePriority={() => {
+                    togglePriority();
+                    setModalVisible(false);
+                }}
+                hasPriority={priority !== null}
             />
 
             {/* BLE Connection Modal */}

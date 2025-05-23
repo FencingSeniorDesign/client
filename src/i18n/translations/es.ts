@@ -504,6 +504,8 @@ export default {
             'Actualmente estás conectado a una caja de puntuación. ¿Te gustaría desconectarte antes de salir?',
         disconnectAndExit: 'Desconectar y Salir',
         exitWithoutDisconnecting: 'Salir Sin Desconectar',
+        randomPriority: 'Prioridad Aleatoria',
+        removePriority: 'Quitar Prioridad',
     },
     tournamentList: {
         deleteTournament: 'Eliminar Torneo',
