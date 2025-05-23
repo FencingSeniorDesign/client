@@ -38,6 +38,7 @@ import {
     dbUpdateReferee,
     dbListOngoingTournaments,
     dbListCompletedTournaments,
+    dbMarkTournamentComplete,
     dbGetBoutsForRound, // Added missing import
     dbGetBracketForRound, // Added missing import
     dbSearchClubs, // Added for club search
@@ -80,6 +81,22 @@ export class TournamentDataProvider {
         } catch (error) {
             console.error('[DataProvider] Error listing completed tournaments:', error);
             return [];
+        }
+    }
+
+    async markTournamentComplete(tournamentName: string): Promise<void> {
+        try {
+            if (this.isRemoteConnection()) {
+                console.log('[DataProvider] Cannot mark remote tournament as complete');
+                throw new Error('Cannot mark remote tournament as complete');
+            }
+
+            // For local tournaments, update in database
+            await dbMarkTournamentComplete(tournamentName);
+            console.log(`[DataProvider] Tournament "${tournamentName}" marked as complete`);
+        } catch (error) {
+            console.error('[DataProvider] Error marking tournament as complete:', error);
+            throw error;
         }
     }
 

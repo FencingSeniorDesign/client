@@ -469,6 +469,12 @@ export default {
         doubleEliminationFormat: 'Double Elimination',
         compassEliminationFormat: 'Compass Elimination',
         backToEvent: 'Back to Event',
+        markComplete: 'Mark Complete',
+        confirmCompleteTitle: 'Mark Tournament as Complete?',
+        confirmCompleteMessage: 'This will mark the tournament as complete. This action cannot be undone.',
+        successTitle: 'Tournament Completed',
+        successMessage: 'The tournament has been marked as complete.',
+        errorMarkingComplete: 'Failed to mark tournament as complete.',
     },
     compassDrawPage: {
         title: 'Compass Draw',
