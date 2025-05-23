@@ -47,6 +47,7 @@
 | 1.2     | 2025-03-09 | Swap to markdown for MermaidJS support | Luka Specter                |
 | 1.3     | 2025-03-10 | Add diagrams                           | Luka Specter, Ruchika Mehta |
 | 1.4     | 2025-03-16 | Final revisions                        | Luka Specter, Ruchika Mehta |
+| 1.5     | 2025-05-23 | Update to reflect current codebase     | Luka Specter                |
 
 ## 2. Introduction
 
@@ -67,32 +68,40 @@ This project involves the development of a comprehensive software solution for f
 
 TournaFence is designed to handle all aspects of fencing tournament management, including:
 
-- Tournament creation and configuration
-- Event management within tournaments
-- Fencer and referee registration
-- Pool formation and round-robin bout scheduling
+- Tournament creation and configuration with local and remote capabilities
+- Event management within tournaments with real-time synchronization
+- Fencer and referee/official registration with club management
+- Pool formation and round-robin bout scheduling with automatic bout ordering
 - Direct elimination bracket generation (single elimination, double elimination, compass draw)
-- Bout scoring and timing
-- Results calculation and tournament progression
+- Bout scoring and timing with Bluetooth scoring box integration
+- Results calculation and tournament progression with live updates
+- Network-based tournament hosting and joining
+- Role-based access control for tournament management
+- Multilingual support (English, Spanish, French, Chinese)
 
 ### 2.4 Definitions
 
-| Term    | Definition                                                                        |
-| ------- | --------------------------------------------------------------------------------- |
-| DE      | Direct Elimination                                                                |
-| UI      | User Interface                                                                    |
-| API     | Application Programming Interface                                                 |
-| SRS     | Software Requirements Specification                                               |
-| DB      | Database                                                                          |
-| SQLite  | Self-contained, serverless, zero-configuration, transactional SQL database engine |
-| JSX     | JavaScript XML (syntax extension for JavaScript)                                  |
-| Props   | Properties passed to React components                                             |
-| State   | Object representing component data that can change over time                      |
-| Hook    | Functions that let you use React state and features                               |
-| Pool    | Group of fencers who fence round-robin bouts against each other                   |
-| Bout    | Individual fencing match between two fencers                                      |
-| Seeding | The ranking of fencers for placement in tournament brackets                       |
-| Tableau | Bracket structure for direct elimination rounds                                   |
+| Term        | Definition                                                                        |
+| ----------- | --------------------------------------------------------------------------------- |
+| DE          | Direct Elimination                                                                |
+| UI          | User Interface                                                                    |
+| API         | Application Programming Interface                                                 |
+| SRS         | Software Requirements Specification                                               |
+| DB          | Database                                                                          |
+| SQLite      | Self-contained, serverless, zero-configuration, transactional SQL database engine |
+| Drizzle ORM | TypeScript-first ORM for type-safe database operations                           |
+| JSX         | JavaScript XML (syntax extension for JavaScript)                                  |
+| Props       | Properties passed to React components                                             |
+| State       | Object representing component data that can change over time                      |
+| Hook        | Functions that let you use React state and features                               |
+| Pool        | Group of fencers who fence round-robin bouts against each other                   |
+| Bout        | Individual fencing match between two fencers                                      |
+| Seeding     | The ranking of fencers for placement in tournament brackets                       |
+| Tableau     | Bracket structure for direct elimination rounds                                   |
+| BLE         | Bluetooth Low Energy for wireless scoring box communication                       |
+| RBAC        | Role-Based Access Control for permission management                               |
+| NDJSON      | Newline Delimited JSON format for network communication                           |
+| Official    | Tournament organizer or administrator with elevated permissions                   |
 
 ### 2.5 References
 
@@ -108,15 +117,22 @@ TournaFence is designed to handle all aspects of fencing tournament management, 
 
 The TournaFence application is built using modern cross-platform mobile development technologies:
 
-| Technology       | Version | Purpose                                                 |
-| ---------------- | ------- | ------------------------------------------------------- |
-| React            | 18.3.1  | JavaScript library for building user interfaces         |
-| React Native     | 0.76.7  | Framework for building native mobile apps using React   |
-| TypeScript       | 5.7.2   | Typed JavaScript that compiles to plain JavaScript      |
-| Expo             | 52.0.33 | Framework and platform for universal React applications |
-| Expo SQLite      | 15.1.2  | SQLite database for local data storage                  |
-| React Navigation | 7.0.12  | Routing and navigation for React Native apps            |
-| Async Storage    | 1.23.1  | AsyncStorage implementation for React Native            |
+| Technology         | Version | Purpose                                                          |
+| ------------------ | ------- | ---------------------------------------------------------------- |
+| React              | 18.3.1  | JavaScript library for building user interfaces                  |
+| React Native       | 0.76.9  | Framework for building native mobile apps using React            |
+| TypeScript         | 5.7.2   | Typed JavaScript that compiles to plain JavaScript               |
+| Expo               | 52.0.44 | Framework and platform for universal React applications          |
+| Expo SQLite        | 15.1.4  | SQLite database for local data storage                           |
+| Drizzle ORM        | 0.41.0  | TypeScript ORM for SQLite database operations                    |
+| React Navigation   | 7.0.12  | Routing and navigation for React Native apps                     |
+| TanStack Query     | 5.67.2  | Data synchronization and caching library                         |
+| CASL               | 6.7.3   | Authorization library for role-based access control              |
+| React i18next      | 15.5.1  | Internationalization framework for multilingual support          |
+| React Native BLE   | 3.5.0   | Bluetooth Low Energy communication for scoring boxes             |
+| TCP Socket         | 6.2.0   | TCP networking for tournament client/server communication        |
+| React Native NFC   | 3.16.1  | NFC support for fencer check-in and identification              |
+| Zeroconf           | 0.13.8  | Service discovery for automatic tournament server detection      |
 
 ### 3.2 Architecture Diagram
 
@@ -189,8 +205,12 @@ The application employs several design principles and patterns:
 1. **Component-Based Architecture**: UI is composed of reusable React components
 2. **Container/Presenter Pattern**: Separation of data management from presentation
 3. **Single Responsibility Principle**: Each component has a focused responsibility
-4. **Repository Pattern**: Database access is abstracted through utilities
+4. **Repository Pattern**: Database access is abstracted through Drizzle ORM utilities
 5. **Hooks Pattern**: Functional components with state and effects
+6. **Query/Mutation Pattern**: TanStack Query for server state management
+7. **Context Pattern**: React Context for global state (RBAC, BLE connections, i18n)
+8. **Event-Driven Architecture**: EventEmitter for network communication
+9. **Service Pattern**: Abstracted services for BLE scoring boxes and network clients
 
 ### 3.3 Sequence Diagrams
 
@@ -217,7 +237,8 @@ sequenceDiagram
     App->>SplashScreen: preventAutoHideAsync()
     App->>Assets: Load application assets
     Assets-->>App: Assets loaded
-    App->>DB: Initialize database
+    App->>DB: Initialize Drizzle database
+    DB->>DB: Run migrations if needed
     DB-->>App: Database ready
     App->>Navigation: Render Navigation component
     Navigation-->>App: Navigation ready
@@ -233,29 +254,32 @@ The application initialization process begins when the user starts the applicati
 sequenceDiagram
     participant User
     participant Home as Home Screen
-    participant Modal as CreateTournamentModal
-    participant DB as TournamentDatabaseUtils
-    participant SQLite as SQLite Database
+    participant Modal as CreateTournamentButton
+    participant Query as TanStack Query
+    participant DB as DrizzleDatabaseUtils
+    participant Drizzle as Drizzle ORM
 
     User->>Home: Press "Create Tournament"
     Home->>Modal: Open modal
     Modal-->>User: Display tournament form
     User->>Modal: Enter tournament name
     User->>Modal: Press "Create"
-    Modal->>DB: dbCreateTournament(name)
-    DB->>SQLite: Execute INSERT query
+    Modal->>Query: createTournamentMutation.mutate(name)
+    Query->>DB: dbCreateTournament(name)
+    DB->>Drizzle: Insert tournament record
     alt Success
-        SQLite-->>DB: Tournament created
-        DB-->>Modal: Return success
-        Modal-->>Home: Close and refresh list
-        Home->>DB: dbListTournaments()
-        DB->>SQLite: Execute SELECT query
-        SQLite-->>DB: Return tournaments
-        DB-->>Home: Tournament list
+        Drizzle-->>DB: Tournament created
+        DB-->>Query: Return success
+        Query->>Query: Invalidate tournaments query
+        Query-->>Modal: Success
+        Modal-->>Home: Close and trigger refresh
+        Home->>Query: Refetch tournaments
+        Query-->>Home: Updated tournament list
         Home-->>User: Show updated tournament list
     else Error (Duplicate name)
-        SQLite-->>DB: Error - constraint violation
-        DB-->>Modal: Return error
+        Drizzle-->>DB: Error - unique constraint violation
+        DB-->>Query: Return error
+        Query-->>Modal: Error state
         Modal-->>User: Display error message
     end
 ```
@@ -269,14 +293,17 @@ sequenceDiagram
     participant User
     participant EventMgmt as EventManagement Screen
     participant EventForm as Event Creation Form
-    participant DB as TournamentDatabaseUtils
-    participant SQLite as SQLite Database
+    participant Query as TanStack Query
+    participant DB as DrizzleDatabaseUtils
+    participant Drizzle as Drizzle ORM
 
     User->>EventMgmt: Select tournament
-    EventMgmt->>DB: dbListEvents(tournamentName)
-    DB->>SQLite: Execute SELECT query
-    SQLite-->>DB: Return events
-    DB-->>EventMgmt: Event list
+    EventMgmt->>Query: useEvents(tournamentName)
+    Query->>DB: dbListEvents(tournamentName)
+    DB->>Drizzle: Select events with relations
+    Drizzle-->>DB: Return events
+    DB-->>Query: Event data
+    Query-->>EventMgmt: Cached event list
     EventMgmt-->>User: Display events
 
     User->>EventMgmt: Press "Create Event"
@@ -284,13 +311,16 @@ sequenceDiagram
     EventForm-->>User: Display form
     User->>EventForm: Enter event details (weapon, gender, age class)
     User->>EventForm: Press "Create"
-    EventForm->>DB: dbCreateEvent(tournamentName, eventDetails)
-    DB->>SQLite: Execute INSERT query
-    SQLite-->>DB: Event created
-    DB-->>EventForm: Return success
+    EventForm->>Query: createEventMutation.mutate(eventDetails)
+    Query->>DB: dbCreateEvent(tournamentName, eventDetails)
+    DB->>Drizzle: Insert event record
+    Drizzle-->>DB: Event created
+    DB-->>Query: Return success
+    Query->>Query: Invalidate events query
+    Query-->>EventForm: Success
     EventForm-->>EventMgmt: Close form
-    EventMgmt->>DB: dbListEvents(tournamentName)
-    DB-->>EventMgmt: Updated event list
+    EventMgmt->>Query: Refetch events
+    Query-->>EventMgmt: Updated event list
     EventMgmt-->>User: Show updated events
 ```
 
@@ -303,31 +333,39 @@ sequenceDiagram
     participant User
     participant Events as EventManagement
     participant Settings as EventSettings
-    participant DB as TournamentDatabaseUtils
-    participant SQLite as SQLite Database
+    participant Query as TanStack Query
+    participant DB as DrizzleDatabaseUtils
+    participant Drizzle as Drizzle ORM
 
     User->>Events: Select "Configure" on event
     Events->>Settings: Navigate with eventId
-    Settings->>DB: dbGetEvent(eventId)
-    DB->>SQLite: Execute SELECT query
-    SQLite-->>DB: Return event details
-    DB-->>Settings: Event configuration
+    Settings->>Query: useEvent(eventId)
+    Query->>DB: dbGetEvent(eventId)
+    DB->>Drizzle: Select event with relations
+    Drizzle-->>DB: Return event details
+    DB-->>Query: Event data
+    Query-->>Settings: Cached event configuration
     Settings-->>User: Display settings form
 
     User->>Settings: Modify settings (format, participants)
     User->>Settings: Press "Save"
-    Settings->>DB: dbUpdateEventSettings(eventId, settings)
-    DB->>SQLite: Execute UPDATE query
-    SQLite-->>DB: Settings updated
-    DB-->>Settings: Return success
+    Settings->>Query: updateEventMutation.mutate()
+    Query->>DB: dbUpdateEventSettings(eventId, settings)
+    DB->>Drizzle: Update event record
+    Drizzle-->>DB: Settings updated
+    DB-->>Query: Return success
+    Query->>Query: Invalidate event cache
+    Query-->>Settings: Update UI optimistically
     Settings-->>User: Confirm successful update
 
     User->>Settings: Press "Start Event"
-    Settings->>DB: dbInitializeRound(eventId, format)
-    DB->>SQLite: Execute multiple SQL operations
-    Note over DB,SQLite: Create round, assign fencers, generate bouts
-    SQLite-->>DB: Round initialized
-    DB-->>Settings: Return roundId
+    Settings->>Query: initializeRoundMutation.mutate()
+    Query->>DB: dbInitializeRound(eventId, format)
+    DB->>Drizzle: Execute transaction
+    Note over DB,Drizzle: Create round, assign fencers, generate bouts
+    Drizzle-->>DB: Round initialized
+    DB-->>Query: Return roundId
+    Query->>Query: Invalidate rounds cache
 
     alt Pool Format
         Settings->>User: Navigate to Pools Page
@@ -655,18 +693,33 @@ The referee module process is divided into three key phases: session initializat
 sequenceDiagram
     participant User
     participant Referee as RefereeModule
-    participant DB as TournamentDatabaseUtils
-    participant SQLite as SQLite Database
+    participant BLE as ScoringBoxContext
+    participant Query as TanStack Query
+    participant DB as DrizzleDatabaseUtils
+    participant Drizzle as Drizzle ORM
 
     User->>Referee: Open bout for scoring
     alt Standalone mode
         Referee-->>User: Display empty scoring interface
+        Referee->>BLE: Check for connected scoring box
+        alt BLE Connected
+            BLE-->>Referee: Box status and capabilities
+            Referee-->>User: Show BLE connection indicator
+        end
     else Tournament mode
-        Referee->>DB: dbGetBoutDetails(boutId)
-        DB->>SQLite: Execute SELECT query
-        SQLite-->>DB: Return bout details
-        DB-->>Referee: Fencer names and information
+        Referee->>Query: useBout(boutId)
+        Query->>DB: dbGetBoutDetails(boutId)
+        DB->>Drizzle: Select bout with fencer relations
+        Drizzle-->>DB: Return bout details
+        DB-->>Query: Bout data
+        Query-->>Referee: Cached bout information
         Referee-->>User: Display bout information
+        Referee->>BLE: Check for connected scoring box
+        alt BLE Connected
+            BLE-->>Referee: Box status and capabilities
+            Referee->>BLE: Send fencer names to box
+            Referee-->>User: Show BLE sync status
+        end
     end
 ```
 
@@ -717,18 +770,38 @@ The Referee Module provides comprehensive controls for managing a bout, includin
 sequenceDiagram
     participant User
     participant Referee as RefereeModule
-    participant DB as TournamentDatabaseUtils
-    participant SQLite as SQLite Database
+    participant BLE as ScoringBoxContext
+    participant Query as TanStack Query
+    participant Client as TournamentClient
+    participant DB as DrizzleDatabaseUtils
+    participant Drizzle as Drizzle ORM
 
     User->>Referee: Complete bout
 
     alt Tournament mode
-        Referee->>DB: dbUpdateBoutScore(boutId, leftScore, rightScore, victorId)
-        DB->>SQLite: Execute UPDATE query
-        SQLite-->>DB: Bout updated
-        DB-->>Referee: Return success
+        Referee->>Query: updateBoutMutation.mutate()
+        Query->>DB: dbUpdateBoutScore(boutId, leftScore, rightScore, victorId)
+        DB->>Drizzle: Update bout and fencer_bouts
+        Drizzle-->>DB: Bout updated
+        DB-->>Query: Return success
+        Query->>Query: Invalidate bout and round caches
+        
+        alt Remote Tournament
+            Query->>Client: Broadcast bout result
+            Client-->>Query: Confirmation
+        end
+        
+        alt BLE Connected
+            Referee->>BLE: Send bout complete signal
+            BLE-->>Referee: Disconnect from box
+        end
+        
+        Query-->>Referee: Update complete
         Referee-->>User: Navigate back to previous screen
     else Standalone mode
+        alt BLE Connected
+            Referee->>BLE: Reset scoring box
+        end
         Referee-->>User: Reset scoring interface
     end
 ```
@@ -822,128 +895,144 @@ The Home screen is the entry point of the application, providing access to tourn
 
 The screen manages tournament connectivity through the TournamentClient service, allowing users to join remote tournaments. The UI is divided into sections for ongoing tournaments and completed tournaments, with each rendered through the TournamentList component. The LanguageSwitcher component enables users to change the application language.
 
-| Name                 | Access  | Type         | Description                                                |
-| -------------------- | ------- | ------------ | ---------------------------------------------------------- |
-| tournamentList       | private | Tournament[] | Complete list of all tournaments in the system             |
-| ongoingTournaments   | private | Tournament[] | List of tournaments that are currently in progress         |
-| completedTournaments | private | Tournament[] | List of tournaments that have been completed               |
-| modalVisible         | private | boolean      | Flag controlling visibility of the create tournament modal |
+###### 4.2.1.1.1 Attributes
+
+| Name                | Access  | Type                   | Description                                                |
+| ------------------- | ------- | ---------------------- | ---------------------------------------------------------- |
+| joinModalVisible    | private | boolean                | Controls visibility of the join tournament modal           |
+| connectedTournament | private | string \| null         | Name of currently connected remote tournament              |
+| deviceId            | private | string                 | Unique device identifier for permissions                   |
 
 ###### 4.2.1.1.2 Methods
 
-| Name:            | loadTournaments                                                                 |
-| ---------------- | ------------------------------------------------------------------------------- |
-| **Input:**       | None                                                                            |
-| **Output:**      | void                                                                            |
-| **Description:** | Retrieves tournament data from the database and populates the tournament lists. |
+| Name:            | useOngoingTournaments                                                                                 |
+| ---------------- | ----------------------------------------------------------------------------------------------------- |
+| **Input:**       | None                                                                                                  |
+| **Output:**      | QueryResult<Tournament[]>                                                                             |
+| **Description:** | TanStack Query hook that fetches and caches ongoing tournaments with real-time updates                |
 
-| Name:            | createTournament                                         |
-| ---------------- | -------------------------------------------------------- |
-| **Input:**       | None                                                     |
-| **Output:**      | void                                                     |
-| **Description:** | Shows the create tournament modal dialog for user input. |
+| Name:            | useCompletedTournaments                                                                               |
+| ---------------- | ----------------------------------------------------------------------------------------------------- |
+| **Input:**       | None                                                                                                  |
+| **Output:**      | QueryResult<Tournament[]>                                                                             |
+| **Description:** | TanStack Query hook that fetches and caches completed tournaments                                     |
 
-| Name:            | selectTournament                                                      |
-| ---------------- | --------------------------------------------------------------------- |
-| **Input:**       | Tournament tournament : The tournament to be selected                 |
-| **Output:**      | void                                                                  |
-| **Description:** | Navigates to the Event Management screen for the selected tournament. |
+| Name:            | handleJoinSuccess                                                                                     |
+| ---------------- | ----------------------------------------------------------------------------------------------------- |
+| **Input:**       | string tournamentName : Name of the tournament joined                                                |
+| **Output:**      | void                                                                                                  |
+| **Description:** | Handles successful connection to a remote tournament, updates UI and sets permission context          |
 
-| Name:            | openRefereeModule                                                             |
-| ---------------- | ----------------------------------------------------------------------------- |
-| **Input:**       | None                                                                          |
-| **Output:**      | void                                                                          |
-| **Description:** | Opens the referee module in standalone mode for practice or unofficial bouts. |
+| Name:            | handleDisconnect                                                                                      |
+| ---------------- | ----------------------------------------------------------------------------------------------------- |
+| **Input:**       | None                                                                                                  |
+| **Output:**      | void                                                                                                  |
+| **Description:** | Disconnects from remote tournament and resets permission context                                      |
 
-| Name:            | render                                                               |
-| ---------------- | -------------------------------------------------------------------- |
-| **Input:**       | None                                                                 |
-| **Output:**      | JSX.Element                                                          |
-| **Description:** | Renders the home screen UI with tournament lists and action buttons. |
+| Name:            | refreshTournaments                                                                                    |
+| ---------------- | ----------------------------------------------------------------------------------------------------- |
+| **Input:**       | None                                                                                                  |
+| **Output:**      | void                                                                                                  |
+| **Description:** | Invalidates tournament queries to force refresh from database                                         |
 
-##### 4.2.1.2 CreateTournamentModal
+| Name:            | render                                                                                                |
+| ---------------- | ----------------------------------------------------------------------------------------------------- |
+| **Input:**       | None                                                                                                  |
+| **Output:**      | JSX.Element                                                                                           |
+| **Description:** | Renders the home screen UI with tournament lists, action buttons, and connection status               |
+
+##### 4.2.1.2 CreateTournamentButton (replaces CreateTournamentModal)
 
 ```mermaid
 classDiagram
-    class CreateTournamentModal {
+    class CreateTournamentButton {
+        -modalVisible: boolean
         -tournamentName: string
-        -isVisible: boolean
-        -error: string|null
-        +setTournamentName(name: string): void
-        +validateName(): boolean
-        +createTournament(): void
-        +dismiss(): void
+        -creating: boolean
+        -onTournamentCreated: Function
+        +useCreateTournament(): MutationResult
+        +handleSubmit(): void
         +render(): JSX.Element
     }
 ```
 
 ###### 4.2.1.2.1 Attributes
 
-| Name           | Access  | Type         | Description                                    |
-| -------------- | ------- | ------------ | ---------------------------------------------- |
-| tournamentName | private | string       | Name input for the new tournament              |
-| isVisible      | private | boolean      | Controls modal visibility                      |
-| error          | private | string\|null | Holds validation or persistence error messages |
+| Name                | Access  | Type      | Description                                    |
+| ------------------- | ------- | --------- | ---------------------------------------------- |
+| modalVisible        | private | boolean   | Controls modal visibility                      |
+| tournamentName      | private | string    | Name input for the new tournament              |
+| creating            | private | boolean   | Indicates if creation is in progress           |
+| onTournamentCreated | private | Function  | Callback when tournament is successfully created |
 
 ###### 4.2.1.2.2 Methods
 
-| Name:            | setTournamentName                                  |
-| ---------------- | -------------------------------------------------- |
-| **Input:**       | string name : The name to set for the tournament   |
-| **Output:**      | void                                               |
-| **Description:** | Updates the tournament name state with user input. |
+| Name:            | useCreateTournament                                                              |
+| ---------------- | -------------------------------------------------------------------------------- |
+| **Input:**       | None                                                                             |
+| **Output:**      | MutationResult<Tournament, Error>                                                |
+| **Description:** | TanStack Query mutation hook for creating tournaments with optimistic updates    |
 
-| Name:            | validateName                                                              |
-| ---------------- | ------------------------------------------------------------------------- |
-| **Input:**       | None                                                                      |
-| **Output:**      | boolean                                                                   |
-| **Description:** | Validates the tournament name for uniqueness and formatting requirements. |
+| Name:            | handleSubmit                                                                     |
+| ---------------- | -------------------------------------------------------------------------------- |
+| **Input:**       | None                                                                             |
+| **Output:**      | void                                                                             |
+| **Description:** | Validates input and triggers tournament creation mutation                        |
 
-| Name:            | createTournament                                                  |
-| ---------------- | ----------------------------------------------------------------- |
-| **Input:**       | None                                                              |
-| **Output:**      | void                                                              |
-| **Description:** | Creates a new tournament with the specified name in the database. |
+| Name:            | render                                                                           |
+| ---------------- | -------------------------------------------------------------------------------- |
+| **Input:**       | None                                                                             |
+| **Output:**      | JSX.Element                                                                      |
+| **Description:** | Renders the create button and modal dialog with name input field                 |
 
-| Name:            | dismiss                                  |
-| ---------------- | ---------------------------------------- |
-| **Input:**       | None                                     |
-| **Output:**      | void                                     |
-| **Description:** | Closes the modal without saving changes. |
-
-| Name:            | render                                                             |
-| ---------------- | ------------------------------------------------------------------ |
-| **Input:**       | None                                                               |
-| **Output:**      | JSX.Element                                                        |
-| **Description:** | Renders the modal dialog with name input field and action buttons. |
-
-##### 4.2.1.3 TournamentListComponent
+##### 4.2.1.3 TournamentList (updated from TournamentListComponent)
 
 ```mermaid
 classDiagram
-    class TournamentListComponent {
+    class TournamentList {
         -tournaments: Tournament[]
-        -title: string
-        -onSelect(tournament: Tournament): void
+        -onTournamentDeleted: Function
+        -isComplete: boolean
+        +useDeleteTournament(): MutationResult
+        +navigateToEvent(tournament: Tournament): void
+        +handleDelete(tournamentName: string): void
         +render(): JSX.Element
     }
 ```
 
 ###### 4.2.1.3.1 Attributes
 
-| Name        | Access  | Type         | Description                                     |
-| ----------- | ------- | ------------ | ----------------------------------------------- |
-| tournaments | private | Tournament[] | List of tournaments to display                  |
-| title       | private | string       | Section title for the tournament list           |
-| onSelect    | private | function     | Callback function when a tournament is selected |
+| Name                | Access  | Type         | Description                                       |
+| ------------------- | ------- | ------------ | ------------------------------------------------- |
+| tournaments         | private | Tournament[] | List of tournaments to display                    |
+| onTournamentDeleted | private | Function     | Callback when a tournament is deleted             |
+| isComplete          | private | boolean      | Whether showing completed or ongoing tournaments  |
 
 ###### 4.2.1.3.2 Methods
 
-| Name:            | render                                                             |
-| ---------------- | ------------------------------------------------------------------ |
-| **Input:**       | None                                                               |
-| **Output:**      | JSX.Element                                                        |
-| **Description:** | Renders the tournament list with headers and selection capability. |
+| Name:            | useDeleteTournament                                                           |
+| ---------------- | ----------------------------------------------------------------------------- |
+| **Input:**       | None                                                                          |
+| **Output:**      | MutationResult<void, Error>                                                   |
+| **Description:** | TanStack Query mutation hook for deleting tournaments with cache invalidation |
+
+| Name:            | navigateToEvent                                                               |
+| ---------------- | ----------------------------------------------------------------------------- |
+| **Input:**       | Tournament tournament : The tournament to navigate to                         |
+| **Output:**      | void                                                                          |
+| **Description:** | Navigates to event management screen for the selected tournament              |
+
+| Name:            | handleDelete                                                                  |
+| ---------------- | ----------------------------------------------------------------------------- |
+| **Input:**       | string tournamentName : Name of tournament to delete                          |
+| **Output:**      | void                                                                          |
+| **Description:** | Shows confirmation dialog and deletes tournament if confirmed                 |
+
+| Name:            | render                                                                        |
+| ---------------- | ----------------------------------------------------------------------------- |
+| **Input:**       | None                                                                          |
+| **Output:**      | JSX.Element                                                                   |
+| **Description:** | Renders the tournament list with delete buttons and navigation capability     |
 
 #### 4.2.2 Event Management
 
@@ -1031,7 +1120,7 @@ classDiagram
         -isRemote: boolean
         -serverEnabled: boolean
         -isNetworkConnected: boolean
-        -serverInfo: {ip: string, port: number}
+        -serverInfo: ServerInfo
         -localIpAddress: string
         -serverOperationPending: boolean
         -selectedGender: string
@@ -1047,18 +1136,18 @@ classDiagram
 
 ###### 4.2.2.1.1 Attributes
 
-| Name                   | Access  | Type                       | Description                                    |
-| ---------------------- | ------- | -------------------------- | ---------------------------------------------- |
-| tournamentName         | private | string                     | Name of the selected tournament                |
-| isRemote               | private | boolean                    | Indicates if this is a remote connection       |
-| serverEnabled          | private | boolean                    | Indicates if server hosting is active          |
-| isNetworkConnected     | private | boolean                    | Indicates if device has network connectivity   |
-| serverInfo             | private | {ip: string, port: number} | Information about the hosted server            |
-| localIpAddress         | private | string                     | Device's local IP address for server hosting   |
-| serverOperationPending | private | boolean                    | Indicates if server operations are in progress |
-| selectedGender         | private | string                     | Gender selection for new events                |
-| selectedWeapon         | private | string                     | Weapon selection for new events                |
-| selectedAge            | private | string                     | Age class selection for new events             |
+| Name                   | Access  | Type       | Description                                    |
+| ---------------------- | ------- | ---------- | ---------------------------------------------- |
+| tournamentName         | private | string     | Name of the selected tournament                |
+| isRemote               | private | boolean    | Indicates if this is a remote connection       |
+| serverEnabled          | private | boolean    | Indicates if server hosting is active          |
+| isNetworkConnected     | private | boolean    | Indicates if device has network connectivity   |
+| serverInfo             | private | ServerInfo | Information about the hosted server            |
+| localIpAddress         | private | string     | Device's local IP address for server hosting   |
+| serverOperationPending | private | boolean    | Indicates if server operations are in progress |
+| selectedGender         | private | string     | Gender selection for new events                |
+| selectedWeapon         | private | string     | Weapon selection for new events                |
+| selectedAge            | private | string     | Age class selection for new events             |
 
 ###### 4.2.2.1.2 Methods
 
@@ -1194,6 +1283,8 @@ classDiagram
         +handleImportCSV(): void
         +render(): JSX.Element
     }
+```
+
 ###### 4.2.3.1.1 Attributes
 
 | Name                 | Access  | Type               | Description                                     |
@@ -1256,48 +1347,45 @@ classDiagram
 | **Output:**      | JSX.Element                                                                     |
 | **Description:** | Renders the event settings UI with fencer management and format configuration   |
 
-#### 4.2.4 Pool Management
+#### 4.2.4 Pools Page
 
-The Pool Management components have been updated to integrate with TanStack Query for state management and real-time synchronization. Details about these components are described in section 4.1.5.
+```mermaid
+classDiagram
+    class PoolsPage {
+        -eventId: number
+        -roundId: number
+        +usePools(roundId): QueryResult
+        +usePoolStatuses(roundId): QueryResult
+        +completePoolMutation: MutationResult
+        +calculateResultsMutation: MutationResult
+        +viewBoutOrder(poolId: number): void
+        +completePool(poolId: number): void
+        +calculateResults(): void
+        +render(): JSX.Element
+    }
 
-#### 4.2.5 Direct Elimination Management
+    class PoolDisplay {
+        -pool: Pool
+        -fencers: PoolFencer[]
+        -isComplete: boolean
+        -onViewBoutOrder(): void
+        -onComplete(): void
+        +render(): JSX.Element
+    }
 
-The Direct Elimination components have been updated to use TanStack Query for data management and real-time updates. Details about these components are described in section 4.1.6.
-
-#### 4.2.6 Referee Module
-
-The Referee Module components have been updated to support network connectivity, timer persistence, and card management. Details about these components are described in section 4.1.9.
-
-#### 4.2.7 Network Connectivity
-
-The application now includes comprehensive networking capabilities for distributed tournament management:
-
-1. The TournamentClient component handles connection to remote servers
-2. The TournamentServer component enables hosting tournaments for other devices
-3. The ConnectionStatusBar component displays current network status
-4. All data operations support both local and remote modes
-
-#### 4.2.8 Role-Based Access Control
-
-The application implements RBAC using the CASL library:
-
-1. The AbilityProvider component provides permission context
-2. The Can component handles conditional rendering based on permissions
-3. The ability.ts file defines permission rules for different user roles
-4. All components check permissions before performing restricted actions
-
-## 5. Data Model
+    class PoolTable {
+        -fencers: PoolFencer[]
         -boutResults: BoutResult[]
         +render(): JSX.Element
     }
 
     PoolsPage --> PoolDisplay: contains
     PoolDisplay --> PoolTable: contains
-    PoolsPage --> TournamentDatabaseUtils: uses
+    PoolsPage --> TanStackQuery: uses
     PoolsPage --> RoundAlgorithms: uses
 ```
 
-The Pools Page manages pool assignments, bout scheduling, and pool completion in a tournament round.
+The Pools Page manages pool assignments, bout scheduling, and pool completion with real-time updates through TanStack Query.
 
 ##### 4.2.4.1 PoolsPage
 
@@ -1422,9 +1510,7 @@ classDiagram
     class BoutOrderPage {
         -roundId: number
         -poolId: number
-        -bouts: Bout[]
-        -loading: boolean
-        +loadBouts(): void
+        +useBouts(roundId, poolId): QueryResult
         +selectBout(boutId: number): void
         +render(): JSX.Element
     }
@@ -1439,86 +1525,10 @@ classDiagram
     }
 
     BoutOrderPage --> BoutItem: displays
-    BoutOrderPage --> TournamentDatabaseUtils: uses
+    BoutOrderPage --> TanStackQuery: uses
 ```
 
-The Bout Order Page displays the sequence of bouts in a pool and allows referees to select bouts for scoring.
-
-##### 4.2.5.1 BoutOrderPage
-
-```mermaid
-classDiagram
-    class BoutOrderPage {
-        -roundId: number
-        -poolId: number
-        -bouts: Bout[]
-        -loading: boolean
-        +loadBouts(): void
-        +selectBout(boutId: number): void
-        +render(): JSX.Element
-    }
-```
-
-###### 4.2.5.1.1 Attributes
-
-| Name    | Access  | Type    | Description                        |
-| ------- | ------- | ------- | ---------------------------------- |
-| roundId | private | number  | Identifier of the current round    |
-| poolId  | private | number  | Identifier of the selected pool    |
-| bouts   | private | Bout[]  | List of bouts in the selected pool |
-| loading | private | boolean | Indicates if data is being loaded  |
-
-###### 4.2.5.1.2 Methods
-
-| Name:            | loadBouts                                                  |
-| ---------------- | ---------------------------------------------------------- |
-| **Input:**       | None                                                       |
-| **Output:**      | void                                                       |
-| **Description:** | Fetches bout data for the selected pool from the database. |
-
-| Name:            | selectBout                                              |
-| ---------------- | ------------------------------------------------------- |
-| **Input:**       | number boutId : The identifier of the bout to referee   |
-| **Output:**      | void                                                    |
-| **Description:** | Navigates to the Referee Module with the selected bout. |
-
-| Name:            | render                                                              |
-| ---------------- | ------------------------------------------------------------------- |
-| **Input:**       | None                                                                |
-| **Output:**      | JSX.Element                                                         |
-| **Description:** | Renders the bout order page with all bouts in recommended sequence. |
-
-##### 4.2.5.2 BoutItem
-
-```mermaid
-classDiagram
-    class BoutItem {
-        -bout: Bout
-        -leftFencer: Fencer
-        -rightFencer: Fencer
-        -status: string
-        -onSelect(): void
-        +render(): JSX.Element
-    }
-```
-
-###### 4.2.5.2.1 Attributes
-
-| Name        | Access  | Type     | Description                                       |
-| ----------- | ------- | -------- | ------------------------------------------------- |
-| bout        | private | Bout     | The bout data to display                          |
-| leftFencer  | private | Fencer   | Left side fencer information                      |
-| rightFencer | private | Fencer   | Right side fencer information                     |
-| status      | private | string   | Current status of the bout (pending, complete)    |
-| onSelect    | private | function | Callback when the bout is selected for refereeing |
-
-###### 4.2.5.2.2 Methods
-
-| Name:            | render                                                              |
-| ---------------- | ------------------------------------------------------------------- |
-| **Input:**       | None                                                                |
-| **Output:**      | JSX.Element                                                         |
-| **Description:** | Renders a single bout item with fencer names and status indicators. |
+The Bout Order Page displays the sequence of bouts in a pool with real-time status updates.
 
 #### 4.2.6 Referee Module
 
@@ -1536,15 +1546,15 @@ classDiagram
         -isPassivityActive: boolean
         -cards: Card[]
         -loading: boolean
-        +loadBoutDetails(): void
+        -weapon: string
+        -doubleTouch: boolean
+        +useBout(boutId): QueryResult
+        +updateBoutMutation: MutationResult
+        +useScoringBox(): ScoringBoxHook
         +startTimer(): void
         +stopTimer(): void
-        +resetTimer(): void
         +updateScore(fencer: 'left'|'right', change: number): void
         +addCard(fencer: 'left'|'right', type: CardType): void
-        +startPassivityTimer(): void
-        +stopPassivityTimer(): void
-        +resetPassivityTimer(): void
         +saveBoutResult(): void
         +render(): JSX.Element
     }
@@ -1554,577 +1564,285 @@ classDiagram
         -minutes: number
         -seconds: number
         -presets: TimePreset[]
-        -onSelectPreset(preset: TimePreset): void
-        -onSetCustomTime(minutes: number, seconds: number): void
-        -onConfirm(): void
-        -onCancel(): void
         +render(): JSX.Element
     }
 
-    class ScoreDisplay {
-        -leftScore: number
-        -rightScore: number
-        -leftFencer: Fencer|null
-        -rightFencer: Fencer|null
-        -leftCards: Card[]
-        -rightCards: Card[]
-        -onScoreChange(fencer: 'left'|'right', change: number): void
+    class ConnectionStatusIndicator {
+        -isConnected: boolean
+        -boxType: string
         +render(): JSX.Element
     }
 
-    class TimerDisplay {
-        -time: number
-        -isActive: boolean
-        -isPaused: boolean
-        -warningThreshold: number
-        -criticalThreshold: number
+    class DataSourceDialog {
+        -selectedSource: 'local'|'scoring_box'
+        -onSourceSelected: Function
         +render(): JSX.Element
     }
 
     RefereeModule --> CustomTimeModal: opens
-    RefereeModule --> ScoreDisplay: contains
-    RefereeModule --> TimerDisplay: contains
-    RefereeModule --> TournamentDatabaseUtils: uses
+    RefereeModule --> ConnectionStatusIndicator: displays
+    RefereeModule --> DataSourceDialog: shows
+    RefereeModule --> ScoringBoxContext: uses
+    RefereeModule --> TanStackQuery: uses
 ```
 
-The Referee Module provides comprehensive bout management tools for scoring, timing, and recording fencing bouts.
+The Referee Module provides comprehensive bout management with Bluetooth scoring box integration and real-time synchronization.
 
-##### 4.2.6.1 RefereeModule
+#### 4.2.7 Network Connectivity
 
 ```mermaid
 classDiagram
-    class RefereeModule {
-        -boutId: number|null
-        -boutTime: number
-        -leftScore: number
-        -rightScore: number
-        -leftFencer: Fencer|null
-        -rightFencer: Fencer|null
-        -passivityTime: number
-        -isTimerActive: boolean
-        -isPassivityActive: boolean
-        -cards: Card[]
-        -loading: boolean
-        +loadBoutDetails(): void
-        +startTimer(): void
-        +stopTimer(): void
-        +resetTimer(): void
-        +updateScore(fencer: 'left'|'right', change: number): void
-        +addCard(fencer: 'left'|'right', type: CardType): void
-        +startPassivityTimer(): void
-        +stopPassivityTimer(): void
-        +resetPassivityTimer(): void
-        +saveBoutResult(): void
+    class TournamentClient {
+        -socket: Socket
+        -clientInfo: ClientInfo
+        -eventEmitter: EventEmitter
+        -reconnectTimer: Timer
+        -messageQueue: Message[]
+        +connect(host: string, port: number): Promise
+        +disconnect(): Promise
+        +sendMessage(type: string, data: any): Promise
+        +on(event: string, handler: Function): void
+        +getClientInfo(): ClientInfo
+    }
+
+    class TournamentServer {
+        -server: Server
+        -serverInfo: ServerInfo
+        -clients: Map<string, ClientSocket>
+        -queryClient: QueryClient
+        +startServer(port: number): Promise
+        +stopServer(): Promise
+        +broadcast(message: Message): void
+        +isServerRunning(): boolean
+        +getServerInfo(): ServerInfo
+    }
+
+    class ConnectionStatusBar {
+        -isConnected: boolean
+        -serverInfo: ServerInfo
+        -isNetworkConnected: boolean
         +render(): JSX.Element
     }
+
+    class ConnectionLostModal {
+        -visible: boolean
+        -onReconnect: Function
+        -onDismiss: Function
+        +render(): JSX.Element
+    }
+
+    TournamentClient --> EventEmitter: uses
+    TournamentServer --> TanStackQuery: updates
+    ConnectionStatusBar --> NetInfo: monitors
 ```
 
-###### 4.2.6.1.1 Attributes
+The networking components enable distributed tournament management with automatic reconnection and real-time data synchronization.
 
-| Name              | Access  | Type         | Description                                                     |
-| ----------------- | ------- | ------------ | --------------------------------------------------------------- |
-| boutId            | private | number\|null | Identifier of the bout being refereed (null in standalone mode) |
-| boutTime          | private | number       | Current bout time in seconds                                    |
-| leftScore         | private | number       | Score of the left fencer                                        |
-| rightScore        | private | number       | Score of the right fencer                                       |
-| leftFencer        | private | Fencer\|null | Left fencer information                                         |
-| rightFencer       | private | Fencer\|null | Right fencer information                                        |
-| passivityTime     | private | number       | Current passivity timer value in seconds                        |
-| isTimerActive     | private | boolean      | Indicates if the main timer is running                          |
-| isPassivityActive | private | boolean      | Indicates if the passivity timer is running                     |
-| cards             | private | Card[]       | List of cards assigned to fencers                               |
-| loading           | private | boolean      | Indicates if data is being loaded                               |
-
-###### 4.2.6.1.2 Methods
-
-| Name:            | loadBoutDetails                                                       |
-| ---------------- | --------------------------------------------------------------------- |
-| **Input:**       | None                                                                  |
-| **Output:**      | void                                                                  |
-| **Description:** | Fetches bout and fencer details from the database in tournament mode. |
-
-| Name:            | startTimer                  |
-| ---------------- | --------------------------- |
-| **Input:**       | None                        |
-| **Output:**      | void                        |
-| **Description:** | Starts the main bout timer. |
-
-| Name:            | stopTimer                  |
-| ---------------- | -------------------------- |
-| **Input:**       | None                       |
-| **Output:**      | void                       |
-| **Description:** | Stops the main bout timer. |
-
-| Name:            | resetTimer                                         |
-| ---------------- | -------------------------------------------------- |
-| **Input:**       | None                                               |
-| **Output:**      | void                                               |
-| **Description:** | Resets the main bout timer to the configured time. |
-
-| Name:            | updateScore                                                                                                               |
-| ---------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| **Input:**       | string fencer : Which fencer to update ('left' or 'right')<br>number change : Value to add to the score (can be negative) |
-| **Output:**      | void                                                                                                                      |
-| **Description:** | Updates the score for the specified fencer.                                                                               |
-
-| Name:            | addCard                                                                                                                 |
-| ---------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| **Input:**       | string fencer : Which fencer receives the card ('left' or 'right')<br>CardType type : Type of card (yellow, red, black) |
-| **Output:**      | void                                                                                                                    |
-| **Description:** | Assigns a card to the specified fencer and applies any score penalties.                                                 |
-
-| Name:            | startPassivityTimer         |
-| ---------------- | --------------------------- |
-| **Input:**       | None                        |
-| **Output:**      | void                        |
-| **Description:** | Starts the passivity timer. |
-
-| Name:            | stopPassivityTimer         |
-| ---------------- | -------------------------- |
-| **Input:**       | None                       |
-| **Output:**      | void                       |
-| **Description:** | Stops the passivity timer. |
-
-| Name:            | resetPassivityTimer                                |
-| ---------------- | -------------------------------------------------- |
-| **Input:**       | None                                               |
-| **Output:**      | void                                               |
-| **Description:** | Resets the passivity timer to the configured time. |
-
-| Name:            | saveBoutResult                                                                          |
-| ---------------- | --------------------------------------------------------------------------------------- |
-| **Input:**       | None                                                                                    |
-| **Output:**      | void                                                                                    |
-| **Description:** | Persists bout results to the database and handles advancement logic in tournament mode. |
-
-| Name:            | render                                                                     |
-| ---------------- | -------------------------------------------------------------------------- |
-| **Input:**       | None                                                                       |
-| **Output:**      | JSX.Element                                                                |
-| **Description:** | Renders the referee module with all scoring, timing, and control elements. |
-
-##### 4.2.6.2 CustomTimeModal
+#### 4.2.8 Bluetooth LE Integration
 
 ```mermaid
 classDiagram
-    class CustomTimeModal {
-        -isVisible: boolean
-        -minutes: number
-        -seconds: number
-        -presets: TimePreset[]
-        -onSelectPreset(preset: TimePreset): void
-        -onSetCustomTime(minutes: number, seconds: number): void
-        -onConfirm(): void
-        -onCancel(): void
-        +render(): JSX.Element
+    class ScoringBoxContext {
+        -bleManager: BLEManager
+        -currentService: ScoringBoxService|null
+        -connectionState: ConnectionState
+        +connect(deviceId: string): Promise
+        +disconnect(): void
+        +getState(): ScoringBoxState
+        +provide(): JSX.Element
     }
+
+    class BLEManager {
+        -manager: BleManager
+        -subscription: Subscription|null
+        +scanForDevices(callback: Function): void
+        +connectToDevice(deviceId: string): Promise
+        +disconnectFromDevice(): Promise
+    }
+
+    class ScoringBoxService {
+        <<interface>>
+        +connect(device: Device): Promise
+        +disconnect(): void
+        +subscribeToScores(callback: Function): void
+        +sendFencerNames(left: string, right: string): void
+        +resetScores(): void
+    }
+
+    class TournaFenceBoxService {
+        +connect(device: Device): Promise
+        +disconnect(): void
+        +subscribeToScores(callback: Function): void
+        +sendFencerNames(left: string, right: string): void
+        +resetScores(): void
+    }
+
+    class EnPointeBoxService {
+        +connect(device: Device): Promise
+        +disconnect(): void
+        +subscribeToScores(callback: Function): void
+        +sendFencerNames(left: string, right: string): void
+        +resetScores(): void
+    }
+
+    class SkeweredBoxService {
+        +connect(device: Device): Promise
+        +disconnect(): void
+        +subscribeToScores(callback: Function): void
+        +sendFencerNames(left: string, right: string): void
+        +resetScores(): void
+    }
+
+    ScoringBoxContext --> BLEManager: manages
+    ScoringBoxContext --> ScoringBoxService: uses
+    TournaFenceBoxService ..|> ScoringBoxService: implements
+    EnPointeBoxService ..|> ScoringBoxService: implements
+    SkeweredBoxService ..|> ScoringBoxService: implements
 ```
 
-###### 4.2.6.2.1 Attributes
+The BLE integration provides seamless connectivity with multiple scoring box types for automatic score synchronization.
 
-| Name            | Access  | Type         | Description                               |
-| --------------- | ------- | ------------ | ----------------------------------------- |
-| isVisible       | private | boolean      | Controls modal visibility                 |
-| minutes         | private | number       | Minutes value for custom time             |
-| seconds         | private | number       | Seconds value for custom time             |
-| presets         | private | TimePreset[] | List of predefined time presets           |
-| onSelectPreset  | private | function     | Callback when a preset is selected        |
-| onSetCustomTime | private | function     | Callback when custom time is set          |
-| onConfirm       | private | function     | Callback when time selection is confirmed |
-| onCancel        | private | function     | Callback when time selection is canceled  |
-
-###### 4.2.6.2.2 Methods
-
-| Name:            | render                                                                  |
-| ---------------- | ----------------------------------------------------------------------- |
-| **Input:**       | None                                                                    |
-| **Output:**      | JSX.Element                                                             |
-| **Description:** | Renders the time selection modal with presets and custom input options. |
-
-##### 4.2.6.3 ScoreDisplay
+#### 4.2.9 Role-Based Access Control
 
 ```mermaid
 classDiagram
-    class ScoreDisplay {
-        -leftScore: number
-        -rightScore: number
-        -leftFencer: Fencer|null
-        -rightFencer: Fencer|null
-        -leftCards: Card[]
-        -rightCards: Card[]
-        -onScoreChange(fencer: 'left'|'right', change: number): void
+    class AbilityContext {
+        -ability: Ability
+        -tournamentContext: TournamentContext
+        +setTournamentContext(ctx: any): void
+        +can(action: string, subject: any): boolean
+        +provide(): JSX.Element
+    }
+
+    class ability {
+        +defineAbilityFor(ctx: TournamentContext): Ability
+        +ACTIONS: ActionEnum
+        +SUBJECTS: SubjectEnum
+    }
+
+    class Can {
+        -I: string
+        -a: string
+        -this: any
+        -do: string
+        -on: any
+        -children: ReactNode
+        +render(): JSX.Element|null
+    }
+
+    class PermissionsDisplay {
+        -permissions: Permission[]
         +render(): JSX.Element
     }
+
+    AbilityContext --> ability: uses
+    Can --> AbilityContext: consumes
+    PermissionsDisplay --> AbilityContext: displays
 ```
 
-###### 4.2.6.3.1 Attributes
+The RBAC system provides fine-grained permission control for tournament management operations.
 
-| Name          | Access  | Type         | Description                      |
-| ------------- | ------- | ------------ | -------------------------------- |
-| leftScore     | private | number       | Score of the left fencer         |
-| rightScore    | private | number       | Score of the right fencer        |
-| leftFencer    | private | Fencer\|null | Left fencer information          |
-| rightFencer   | private | Fencer\|null | Right fencer information         |
-| leftCards     | private | Card[]       | Cards assigned to left fencer    |
-| rightCards    | private | Card[]       | Cards assigned to right fencer   |
-| onScoreChange | private | function     | Callback when a score is changed |
-
-###### 4.2.6.3.2 Methods
-
-| Name:            | render                                                                    |
-| ---------------- | ------------------------------------------------------------------------- |
-| **Input:**       | None                                                                      |
-| **Output:**      | JSX.Element                                                               |
-| **Description:** | Renders the score display with fencer names, scores, and card indicators. |
-
-##### 4.2.6.4 TimerDisplay
+#### 4.2.10 Internationalization
 
 ```mermaid
 classDiagram
-    class TimerDisplay {
-        -time: number
-        -isActive: boolean
-        -isPaused: boolean
-        -warningThreshold: number
-        -criticalThreshold: number
+    class i18n {
+        -instance: i18n
+        -resources: Resources
+        +init(): void
+        +changeLanguage(lng: string): Promise
+        +t(key: string): string
+    }
+
+    class LanguageSwitcher {
+        -languages: Language[]
+        +changeLanguage(lng: string): void
         +render(): JSX.Element
     }
+
+    class translations {
+        +en: TranslationResource
+        +es: TranslationResource
+        +fr: TranslationResource
+        +zh: TranslationResource
+    }
+
+    i18n --> translations: loads
+    LanguageSwitcher --> i18n: uses
 ```
 
-###### 4.2.6.4.1 Attributes
-
-| Name              | Access  | Type    | Description                               |
-| ----------------- | ------- | ------- | ----------------------------------------- |
-| time              | private | number  | Current time value in seconds             |
-| isActive          | private | boolean | Indicates if the timer is running         |
-| isPaused          | private | boolean | Indicates if the timer is paused          |
-| warningThreshold  | private | number  | Threshold in seconds for warning display  |
-| criticalThreshold | private | number  | Threshold in seconds for critical display |
-
-###### 4.2.6.4.2 Methods
-
-| Name:            | render                                                                              |
-| ---------------- | ----------------------------------------------------------------------------------- |
-| **Input:**       | None                                                                                |
-| **Output:**      | JSX.Element                                                                         |
-| **Description:** | Renders the timer display with minutes and seconds in appropriate format and color. |
-
-#### 4.2.7 Bracket Pages
-
-```mermaid
-classDiagram
-    class DEBracketPage {
-        -eventId: number
-        -roundId: number
-        -bouts: Bout[]
-        -bracketSize: number
-        -loading: boolean
-        +loadBracket(): void
-        +selectBout(boutId: number): void
-        +render(): JSX.Element
-    }
-
-    class DoubleEliminationPage {
-        -eventId: number
-        -roundId: number
-        -winnersBracket: Bout[]
-        -losersBracket: Bout[]
-        -finalsBracket: Bout[]
-        -loading: boolean
-        +loadBrackets(): void
-        +selectBout(boutId: number): void
-        +render(): JSX.Element
-    }
-
-    class CompassDrawPage {
-        -eventId: number
-        -roundId: number
-        -eastBracket: Bout[]
-        -northBracket: Bout[]
-        -westBracket: Bout[]
-        -southBracket: Bout[]
-        -loading: boolean
-        +loadBrackets(): void
-        +selectBout(boutId: number): void
-        +render(): JSX.Element
-    }
-
-    class BracketDisplay {
-        -bouts: Bout[]
-        -bracketType: string
-        -round: number
-        -onSelectBout(boutId: number): void
-        +render(): JSX.Element
-    }
-
-    class BoutNode {
-        -bout: Bout
-        -leftFencer: Fencer|null
-        -rightFencer: Fencer|null
-        -winner: Fencer|null
-        -state: string
-        -onSelect(): void
-        +render(): JSX.Element
-    }
-
-    DEBracketPage --> BracketDisplay: contains
-    DoubleEliminationPage --> BracketDisplay: contains multiple
-    CompassDrawPage --> BracketDisplay: contains multiple
-    BracketDisplay --> BoutNode: contains
-    DEBracketPage --> TournamentDatabaseUtils: uses
-    DoubleEliminationPage --> DoubleEliminationUtils: uses
-    CompassDrawPage --> CompassDrawUtils: uses
-```
-
-The Bracket Pages provide visualization and management for different types of elimination formats, including single elimination, double elimination, and compass draw.
-
-##### 4.2.7.1 DEBracketPage
-
-```mermaid
-classDiagram
-    class DEBracketPage {
-        -eventId: number
-        -roundId: number
-        -bouts: Bout[]
-        -bracketSize: number
-        -loading: boolean
-        +loadBracket(): void
-        +selectBout(boutId: number): void
-        +render(): JSX.Element
-    }
-```
-
-###### 4.2.7.1.1 Attributes
-
-| Name        | Access  | Type    | Description                               |
-| ----------- | ------- | ------- | ----------------------------------------- |
-| eventId     | private | number  | Identifier of the event                   |
-| roundId     | private | number  | Identifier of the current round           |
-| bouts       | private | Bout[]  | List of bouts in the bracket              |
-| bracketSize | private | number  | Size of the bracket (8, 16, 32, 64, etc.) |
-| loading     | private | boolean | Indicates if data is being loaded         |
-
-###### 4.2.7.1.2 Methods
-
-| Name:            | loadBracket                                                |
-| ---------------- | ---------------------------------------------------------- |
-| **Input:**       | None                                                       |
-| **Output:**      | void                                                       |
-| **Description:** | Fetches single elimination bracket data from the database. |
-
-| Name:            | selectBout                                              |
-| ---------------- | ------------------------------------------------------- |
-| **Input:**       | number boutId : The identifier of the bout to referee   |
-| **Output:**      | void                                                    |
-| **Description:** | Navigates to the Referee Module with the selected bout. |
-
-| Name:            | render                                                                    |
-| ---------------- | ------------------------------------------------------------------------- |
-| **Input:**       | None                                                                      |
-| **Output:**      | JSX.Element                                                               |
-| **Description:** | Renders the bracket visualization with all bouts in tournament structure. |
-
-##### 4.2.7.2 DoubleEliminationPage
-
-```mermaid
-classDiagram
-    class DoubleEliminationPage {
-        -eventId: number
-        -roundId: number
-        -winnersBracket: Bout[]
-        -losersBracket: Bout[]
-        -finalsBracket: Bout[]
-        -loading: boolean
-        +loadBrackets(): void
-        +selectBout(boutId: number): void
-        +render(): JSX.Element
-    }
-```
-
-###### 4.2.7.2.1 Attributes
-
-| Name           | Access  | Type    | Description                          |
-| -------------- | ------- | ------- | ------------------------------------ |
-| eventId        | private | number  | Identifier of the event              |
-| roundId        | private | number  | Identifier of the current round      |
-| winnersBracket | private | Bout[]  | List of bouts in the winners bracket |
-| losersBracket  | private | Bout[]  | List of bouts in the losers bracket  |
-| finalsBracket  | private | Bout[]  | List of bouts in the finals bracket  |
-| loading        | private | boolean | Indicates if data is being loaded    |
-
-###### 4.2.7.2.2 Methods
-
-| Name:            | loadBrackets                                                                |
-| ---------------- | --------------------------------------------------------------------------- |
-| **Input:**       | None                                                                        |
-| **Output:**      | void                                                                        |
-| **Description:** | Fetches double elimination bracket data for all brackets from the database. |
-
-| Name:            | selectBout                                              |
-| ---------------- | ------------------------------------------------------- |
-| **Input:**       | number boutId : The identifier of the bout to referee   |
-| **Output:**      | void                                                    |
-| **Description:** | Navigates to the Referee Module with the selected bout. |
-
-| Name:            | render                                                                          |
-| ---------------- | ------------------------------------------------------------------------------- |
-| **Input:**       | None                                                                            |
-| **Output:**      | JSX.Element                                                                     |
-| **Description:** | Renders the winners and losers brackets with all bouts in tournament structure. |
-
-##### 4.2.7.3 CompassDrawPage
-
-```mermaid
-classDiagram
-    class CompassDrawPage {
-        -eventId: number
-        -roundId: number
-        -eastBracket: Bout[]
-        -northBracket: Bout[]
-        -westBracket: Bout[]
-        -southBracket: Bout[]
-        -loading: boolean
-        +loadBrackets(): void
-        +selectBout(boutId: number): void
-        +render(): JSX.Element
-    }
-```
-
-###### 4.2.7.3.1 Attributes
-
-| Name         | Access  | Type    | Description                        |
-| ------------ | ------- | ------- | ---------------------------------- |
-| eventId      | private | number  | Identifier of the event            |
-| roundId      | private | number  | Identifier of the current round    |
-| eastBracket  | private | Bout[]  | List of bouts in the east bracket  |
-| northBracket | private | Bout[]  | List of bouts in the north bracket |
-| westBracket  | private | Bout[]  | List of bouts in the west bracket  |
-| southBracket | private | Bout[]  | List of bouts in the south bracket |
-| loading      | private | boolean | Indicates if data is being loaded  |
-
-###### 4.2.7.3.2 Methods
-
-| Name:            | loadBrackets                                                                      |
-| ---------------- | --------------------------------------------------------------------------------- |
-| **Input:**       | None                                                                              |
-| **Output:**      | void                                                                              |
-| **Description:** | Fetches compass draw bracket data for all directional brackets from the database. |
-
-| Name:            | selectBout                                              |
-| ---------------- | ------------------------------------------------------- |
-| **Input:**       | number boutId : The identifier of the bout to referee   |
-| **Output:**      | void                                                    |
-| **Description:** | Navigates to the Referee Module with the selected bout. |
-
-| Name:            | render                                                                     |
-| ---------------- | -------------------------------------------------------------------------- |
-| **Input:**       | None                                                                       |
-| **Output:**      | JSX.Element                                                                |
-| **Description:** | Renders all directional brackets with their bouts in tournament structure. |
-
-##### 4.2.7.4 BracketDisplay
-
-```mermaid
-classDiagram
-    class BracketDisplay {
-        -bouts: Bout[]
-        -bracketType: string
-        -round: number
-        -onSelectBout(boutId: number): void
-        +render(): JSX.Element
-    }
-```
-
-###### 4.2.7.4.1 Attributes
-
-| Name         | Access  | Type     | Description                                     |
-| ------------ | ------- | -------- | ----------------------------------------------- |
-| bouts        | private | Bout[]   | List of bouts to display in the bracket         |
-| bracketType  | private | string   | Type of bracket (winners, losers, direction)    |
-| round        | private | number   | Current round number                            |
-| onSelectBout | private | function | Callback when a bout is selected for refereeing |
-
-###### 4.2.7.4.2 Methods
-
-| Name:            | render                                                                        |
-| ---------------- | ----------------------------------------------------------------------------- |
-| **Input:**       | None                                                                          |
-| **Output:**      | JSX.Element                                                                   |
-| **Description:** | Renders a bracket structure with all bouts organized in rounds and positions. |
-
-##### 4.2.7.5 BoutNode
-
-```mermaid
-classDiagram
-    class BoutNode {
-        -bout: Bout
-        -leftFencer: Fencer|null
-        -rightFencer: Fencer|null
-        -winner: Fencer|null
-        -state: string
-        -onSelect(): void
-        +render(): JSX.Element
-    }
-```
-
-###### 4.2.7.5.1 Attributes
-
-| Name        | Access  | Type         | Description                                       |
-| ----------- | ------- | ------------ | ------------------------------------------------- |
-| bout        | private | Bout         | The bout data to display                          |
-| leftFencer  | private | Fencer\|null | Left side fencer information                      |
-| rightFencer | private | Fencer\|null | Right side fencer information                     |
-| winner      | private | Fencer\|null | Fencer who won the bout (if completed)            |
-| state       | private | string       | Current state of the bout (pending, complete)     |
-| onSelect    | private | function     | Callback when the bout is selected for refereeing |
-
-###### 4.2.7.5.2 Methods
-
-| Name:            | render                                                                           |
-| ---------------- | -------------------------------------------------------------------------------- |
-| **Input:**       | None                                                                             |
-| **Output:**      | JSX.Element                                                                      |
-| **Description:** | Renders a single bout node with fencer names, seeding, and results if available. |
+The internationalization system provides multilingual support for the entire application.
 
 ## 5. Data Model
 
 ### 5.1 Database Schema
 
+The application uses Drizzle ORM with SQLite for data persistence. The schema is defined using TypeScript-first approach with full type safety.
+
 ```mermaid
 erDiagram
+    Clubs ||--o{ Fencers : has
     Tournaments ||--o{ Events : contains
     Events ||--o{ Rounds : contains
     Events ||--o{ FencerEvents : has
+    Events ||--o{ OfficialEvents : has
+    Events ||--o{ RefereeEvents : has
     Fencers ||--o{ FencerEvents : participates
+    Officials ||--o{ OfficialEvents : manages
+    Referees ||--o{ RefereeEvents : officiates
     Rounds ||--o{ FencerPoolAssignment : assigns
     Rounds ||--o{ Bouts : contains
+    Rounds ||--o{ DEBracketBouts : contains
+    Rounds ||--o{ DETable : has
     Fencers ||--o{ FencerPoolAssignment : assigned
     Fencers ||--o{ FencerBouts : participates
     Bouts ||--o{ FencerBouts : has
-    Rounds ||--o{ DEBracketBouts : contains
     Bouts ||--|| DEBracketBouts : details
     Rounds ||--o{ SeedingFromRoundResults : produces
     Fencers ||--o{ SeedingFromRoundResults : receives
     Referees ||--o{ Bouts : officiates
 
+    Clubs {
+        integer id PK
+        string name UK
+        string abbreviation
+    }
+
     Tournaments {
         string name PK
-        boolean isComplete
+        boolean iscomplete
     }
 
     Fencers {
         integer id PK
-        string firstName
-        string lastName
-        string epeeRating
-        string foilRating
-        string saberRating
+        string fname
+        string lname
+        string nickname
+        string gender
+        string club
+        integer clubid FK
+        string erating
+        integer eyear
+        string frating
+        integer fyear
+        string srating
+        integer syear
+    }
+
+    Officials {
+        integer id PK
+        string fname
+        string lname
+        string nickname
+        string device_id
     }
 
     Referees {
         integer id PK
-        string firstName
-        string lastName
+        string fname
+        string lname
+        string nickname
+        string device_id
     }
 
     Events {
@@ -2132,166 +1850,201 @@ erDiagram
         string tname FK
         string weapon
         string gender
-        string ageClass
+        string age
+        string class
+        string seeding
     }
 
     FencerEvents {
-        integer id PK
-        integer fencerId FK
-        integer eventId FK
+        integer fencerid PK
+        integer eventid PK
+    }
+
+    OfficialEvents {
+        integer officialid PK
+        integer eventid PK
+    }
+
+    RefereeEvents {
+        integer refereeid PK
+        integer eventid PK
     }
 
     Rounds {
         integer id PK
-        integer eventId FK
+        integer eventid FK
         string type
-        integer poolSize
-        integer poolCount
-        integer promoteCount
+        integer rorder
+        integer poolcount
+        integer poolsize
+        string poolsoption
+        integer promotionpercent
+        integer targetbracket
+        boolean usetargetbracket
+        string deformat
+        integer detablesize
+        boolean isstarted
+        boolean iscomplete
     }
 
     FencerPoolAssignment {
-        integer roundId FK
-        integer poolId
-        integer fencerId FK
-        integer position
+        integer roundid PK
+        integer poolid PK
+        integer fencerid PK
+        integer fenceridinpool
     }
 
     Bouts {
         integer id PK
-        integer eventId FK
-        integer roundId FK
-        integer leftFencerId FK
-        integer rightFencerId FK
-        integer refereeId FK
-        integer victorId FK
-        integer bracketSize
+        integer lfencer FK
+        integer rfencer FK
+        integer victor FK
+        integer referee FK
+        integer eventid FK
+        integer roundid FK
+        integer tableof
     }
 
     DEBracketBouts {
         integer id PK
-        integer roundId FK
-        integer boutId FK
-        string bracketType
-        integer bracketPosition
+        integer roundid FK
+        integer bout_id FK
+        string bracket_type
+        integer bracket_round
+        integer bout_order
+        integer next_bout_id FK
+        integer loser_next_bout_id FK
+    }
+
+    DETable {
+        integer id PK
+        integer roundid FK
+        integer tableof
     }
 
     FencerBouts {
-        integer boutId FK
-        integer fencerId FK
+        integer boutid PK
+        integer fencerid PK
         integer score
     }
 
     SeedingFromRoundResults {
         integer id PK
-        integer roundId FK
-        integer fencerId FK
+        integer fencerid FK
+        integer eventid FK
+        integer roundid FK
         integer seed
     }
 ```
 
 #### Database Table Descriptions
 
-| Table                       | Description                                                      |
-| --------------------------- | ---------------------------------------------------------------- |
-| **Tournaments**             | Stores tournament information with name as primary key           |
-| **Fencers**                 | Contains fencer personal and rating information                  |
-| **Referees**                | Stores referee information                                       |
-| **Events**                  | Records events within tournaments with foreign key to tournament |
-| **FencerEvents**            | Junction table linking fencers to events they participate in     |
-| **Rounds**                  | Stores information about tournament rounds (pools, DE, etc.)     |
-| **FencerPoolAssignment**    | Maps fencers to specific pools within a round                    |
-| **Bouts**                   | Records all bout information including fencers and referee       |
-| **DEBracketBouts**          | Maps bouts to positions within bracket structures                |
-| **FencerBouts**             | Records fencer-specific bout outcomes including scores           |
-| **SeedingFromRoundResults** | Stores seeding information from completed rounds                 |
+| Table                       | Description                                                                          |
+| --------------------------- | ------------------------------------------------------------------------------------ |
+| **Clubs**                   | Stores fencing club information with unique name constraint                          |
+| **Tournaments**             | Stores tournament information with name as primary key and completion status         |
+| **Fencers**                 | Contains fencer personal data, club affiliation, and weapon-specific ratings         |
+| **Officials**               | Stores tournament official information with device ID for permissions                |
+| **Referees**                | Stores referee information with device ID for authentication                         |
+| **Events**                  | Records events within tournaments with weapon, gender, age, and class specifications |
+| **FencerEvents**            | Junction table linking fencers to events they participate in                         |
+| **OfficialEvents**          | Junction table linking officials to events they manage                               |
+| **RefereeEvents**           | Junction table linking referees to events they officiate                             |
+| **Rounds**                  | Stores round configuration including type, pool settings, and DE format              |
+| **FencerPoolAssignment**    | Maps fencers to specific pools within a round with position tracking                 |
+| **Bouts**                   | Records all bout information including fencers, referee, and victor                  |
+| **DEBracketBouts**          | Maps bouts to bracket positions with advancement paths for various formats           |
+| **DETable**                 | Stores direct elimination table structure information                                |
+| **FencerBouts**             | Records fencer-specific bout outcomes including scores                               |
+| **SeedingFromRoundResults** | Stores seeding information from completed rounds for subsequent rounds               |
 
 ## 6. Traceability Matrix
 
-| Req ID                                      | Implementing Component                                            |
-| ------------------------------------------- | ----------------------------------------------------------------- | --- |
-| **Tournament Management**                   |                                                                   |
-| 3.1 - Tournament Creation                   | CreateTournamentModal.tsx, TournamentDatabaseUtils.ts             |
-| 3.1.1 - Tournament Name Input               | CreateTournamentModal.tsx                                         |
-| 3.1.2 - Require At Least One Event          | EventManagement.tsx, TournamentDatabaseUtils.ts                   |
-| 3.1.3 - Create Events Within Tournaments    | EventManagement.tsx                                               |
-| 3.2 - Tournament Management                 | Home.tsx, TournamentListComponent.tsx                             |
-| 3.2.1 - Complete All Events Before Ending   | TournamentDatabaseUtils.ts                                        |
-| 3.2.2 - Delete Tournament                   | TournamentListComponent.tsx, TournamentDatabaseUtils.ts           | \_  |
-| 3.2.3 - View Tournaments in Progress        | Home.tsx, TournamentListComponent.tsx                             |
-| 3.2.4 - Invite Referees                     | Home.tsx                                                          |
-| 3.2.5 - Tournament History                  | Home.tsx, TournamentListComponent.tsx                             |
-| 3.2.6 - Enable Embedded Server              | App.tsx                                                           |
-| 3.2.7 - Export Tournament Data              | TournamentDatabaseUtils.ts                                        |
-| **Event Management**                        |                                                                   |
-| 3.3 - Event Management                      | EventManagement.tsx, EventSettings.tsx                            |
-| 3.3.1 - View Created Events                 | EventManagement.tsx                                               |
-| 3.3.2 - Generate Event Name                 | EventManagement.tsx                                               |
-| 3.3.3 - Add at Least One Round              | EventSettings.tsx                                                 |
-| 3.3.4 - Add Arbitrary Number of Fencers     | EventSettings.tsx                                                 |
-| 3.3.5 - Create DE Table                     | DEBracketPage.tsx, RoundAlgorithms.tsx                            |
-| 3.3.6 - Enter/Select Fencers                | EventSettings.tsx                                                 |
-| 3.3.7 - Support Additional Formats          | BracketFormats.ts, CompassDrawUtils.ts, DoubleEliminationUtils.ts |
-| 3.3.8 - Delete Events                       | EventManagement.tsx                                               |
-| **Pools/DE Management**                     |                                                                   |
-| 3.4 - Pools Management                      | PoolsPage.tsx                                                     |
-| 3.4.1 - Create Bout Order                   | BoutOrderPage.tsx, RoundAlgorithms.tsx                            |
-| 3.4.2 - Allow Referees to Select Bouts      | BoutOrderPage.tsx, RefereeModule.tsx                              |
-| 3.4.3 - End Pools Button                    | PoolsPage.tsx                                                     |
-| 3.4.4 - Create DE After Pools               | RoundResults.tsx, DEBracketPage.tsx                               |
-| 3.4.5 - Generate Results Page After Pools   | PoolsPage.tsx, RoundResults.tsx                                   |
-| 3.5 - DE Table Creation                     | DEBracketPage.tsx, RoundAlgorithms.tsx                            |
-| 3.5.1 - Use Prior Round Results for Seeding | RoundResults.tsx, TournamentDatabaseUtils.ts                      |
-| 3.5.2 - Use Specified Seeding Method        | EventSettings.tsx, RoundAlgorithms.tsx                            |
-| 3.5.3 - Grant Byes to Fencers               | DEBracketPage.tsx, RoundAlgorithms.tsx                            |
-| 3.6 - Fencer Following                      | TournamentListComponent.tsx                                       |
-| 3.7 - Results Generation                    | RoundResults.tsx, TournamentDatabaseUtils.ts                      |
-| **Scoring and Refereeing**                  |                                                                   |
-| 3.8 - Scoring Module                        | RefereeModule.tsx                                                 |
-| 3.8.1 - Increment/Decrement Score           | RefereeModule.tsx                                                 |
-| 3.8.2 - Start/Stop Clock                    | RefereeModule.tsx                                                 |
-| 3.8.3 - Passivity Timer                     | RefereeModule.tsx                                                 |
-| 3.8.4 - Clock Presets                       | RefereeModule.tsx, CustomTimeModal.tsx                            |
-| 3.8.5 - Assign Cards                        | RefereeModule.tsx                                                 |
-| 3.8.6 - Assign Priority                     |                                                                   |
-| 3.8.7 - Select Winner                       |                                                                   |
-| 3.8.8 - Connect to Scoring Box              | RefereeModule.tsx                                                 |
-| 3.8.9 - Weapon Selection                    | RefereeModule.tsx                                                 |
-| 3.8.10 - Hide Unused UI Elements            | RefereeModule.tsx                                                 |
-| 3.9 - Referee Management                    | Home.tsx, EventManagement.tsx                                     |
-| 3.9.1 - Link for Referees                   | App.tsx, index.tsx                                                |
-| 3.9.2 - Create Referee Whitelist            | EventSettings.tsx                                                 |
-| **Hardware**                                |                                                                   |
-| 3.10 - Scoring Box                          | External Hardware Component                                       |
-| 3.10.1 - Conform to USA Fencing Rules       |                                                                   |
-| 3.10.2 - Audible Touch Indication           |                                                                   |
-| 3.10.3 - Customizable Light Colors          |                                                                   |
-| 3.10.4 - Bluetooth Pairing                  |                                                                   |
-| 3.10.5 - Modular Design                     |                                                                   |
-| **Data Management**                         |                                                                   |
-| 3.11 - Database Requirements                | TournamentDatabaseUtils.ts                                        |
-| 3.11.1 - Use Primary and Foreign Keys       | TournamentDatabaseUtils.ts                                        |
-| 3.11.2 - Write-Ahead-Log                    | TournamentDatabaseUtils.ts                                        |
-| 3.11.3 - Detect Database Changes            | TournamentDatabaseUtils.ts, usePersistentStateHook.ts             |
-| 3.11.4 - Store Scoring Box Configurations   | TournamentDatabaseUtils.ts                                        |
-| 3.11.5 - Rolling Backups                    | TournamentDatabaseUtils.ts                                        |
-| 3.11.6 - Audit Log                          | TournamentDatabaseUtils.ts                                        |
-| 3.11.7 - View Audit Log                     | App.tsx                                                           |
-| 3.11.8 - Detect Data Mismatches             | RefereeModule.tsx, TournamentDatabaseUtils.ts                     |
-| 3.11.9 - Export Tournament Data             | TournamentDatabaseUtils.ts                                        |
-| **Non-Functional Requirements**             |                                                                   |
-| 4.1 - Human Factors                         |                                                                   |
-| 4.1.1 - Types of Users                      |                                                                   |
-| 4.1.2 - Technical Proficiency               |                                                                   |
-| 4.2 - Hardware Support                      | React Native                                                      |
-| 4.2.1 - Client Hardware Requirements        |                                                                   |
-| 4.2.2 - Scoring Box Hardware                | External Hardware Component                                       |
-| 4.2.3 - Modular Hardware                    |                                                                   |
-| 4.3 - Software Compatibility                | React Native                                                      |
-| 4.3.1 - SQLite Support                      | TournamentDatabaseUtils.ts                                        |
-| 4.3.2 - Operating System Support            | React Native                                                      |
-| 4.4 - Performance                           | All Components                                                    |
-| 4.4.1 - Page Load Time                      | App.tsx                                                           |
-| 4.4.2 - Database Query Performance          | TournamentDatabaseUtils.ts                                        |
-| 4.5 - Error Handling                        |                                                                   |
-| 4.5.1 - Client Error Handling               |                                                                   |
+| Req ID                                      | Implementing Component                                               |
+| ------------------------------------------- | -------------------------------------------------------------------- |
+| **Tournament Management**                   |                                                                      |
+| 3.1 - Tournament Creation                   | CreateTournamentButton.tsx, DrizzleDatabaseUtils.ts                  |
+| 3.1.1 - Tournament Name Input               | CreateTournamentButton.tsx                                           |
+| 3.1.2 - Require At Least One Event          | EventManagement.tsx, DrizzleDatabaseUtils.ts                         |
+| 3.1.3 - Create Events Within Tournaments    | EventManagement.tsx                                                  |
+| 3.2 - Tournament Management                 | Home.tsx, TournamentList.tsx                                         |
+| 3.2.1 - Complete All Events Before Ending   | DrizzleDatabaseUtils.ts                                              |
+| 3.2.2 - Delete Tournament                   | TournamentList.tsx, DrizzleDatabaseUtils.ts                          |
+| 3.2.3 - View Tournaments in Progress        | Home.tsx, TournamentList.tsx                                         |
+| 3.2.4 - Invite Referees                     | JoinTournamentModal.tsx, TournamentClient.ts                         |
+| 3.2.5 - Tournament History                  | Home.tsx, TournamentList.tsx                                         |
+| 3.2.6 - Enable Embedded Server              | EventManagement.tsx, TournamentServer.ts                             |
+| 3.2.7 - Export Tournament Data              | DrizzleDatabaseUtils.ts                                              |
+| **Event Management**                        |                                                                      |
+| 3.3 - Event Management                      | EventManagement.tsx, EventSettings.tsx                               |
+| 3.3.1 - View Created Events                 | EventManagement.tsx                                                  |
+| 3.3.2 - Generate Event Name                 | EventManagement.tsx                                                  |
+| 3.3.3 - Add at Least One Round              | EventSettings.tsx                                                    |
+| 3.3.4 - Add Arbitrary Number of Fencers     | EventSettings.tsx, ClubAutocomplete.tsx                              |
+| 3.3.5 - Create DE Table                     | DEBracketPage.tsx, RoundAlgorithms.tsx                               |
+| 3.3.6 - Enter/Select Fencers                | EventSettings.tsx, ClubAutocomplete.tsx                              |
+| 3.3.7 - Support Additional Formats          | BracketFormats.ts, CompassDrawUtils.ts, DoubleEliminationUtils.ts    |
+| 3.3.8 - Delete Events                       | EventManagement.tsx                                                  |
+| 3.3.9 - Import Fencers from CSV             | EventSettings.tsx                                                    |
+| **Pools/DE Management**                     |                                                                      |
+| 3.4 - Pools Management                      | PoolsPage.tsx                                                        |
+| 3.4.1 - Create Bout Order                   | BoutOrderPage.tsx, BoutOrderUtils.ts                                 |
+| 3.4.2 - Allow Referees to Select Bouts      | BoutOrderPage.tsx, RefereeModule.tsx                                 |
+| 3.4.3 - End Pools Button                    | PoolsPage.tsx                                                        |
+| 3.4.4 - Create DE After Pools               | RoundResults.tsx, DEBracketPage.tsx                                  |
+| 3.4.5 - Generate Results Page After Pools   | PoolsPage.tsx, RoundResults.tsx                                      |
+| 3.5 - DE Table Creation                     | DEBracketPage.tsx, RoundAlgorithms.tsx                               |
+| 3.5.1 - Use Prior Round Results for Seeding | RoundResults.tsx, DrizzleDatabaseUtils.ts                            |
+| 3.5.2 - Use Specified Seeding Method        | EventSettings.tsx, RoundAlgorithms.tsx                               |
+| 3.5.3 - Grant Byes to Fencers               | DEBracketPage.tsx, RoundAlgorithms.tsx                               |
+| 3.6 - Fencer Following                      | TournamentResultsPage.tsx                                            |
+| 3.7 - Results Generation                    | RoundResults.tsx, TournamentResultsPage.tsx                          |
+| **Scoring and Refereeing**                  |                                                                      |
+| 3.8 - Scoring Module                        | RefereeModule.tsx                                                    |
+| 3.8.1 - Increment/Decrement Score           | RefereeModule.tsx                                                    |
+| 3.8.2 - Start/Stop Clock                    | RefereeModule.tsx                                                    |
+| 3.8.3 - Passivity Timer                     | RefereeModule.tsx                                                    |
+| 3.8.4 - Clock Presets                       | RefereeModule.tsx, CustomTimeModal.tsx                               |
+| 3.8.5 - Assign Cards                        | RefereeModule.tsx                                                    |
+| 3.8.6 - Assign Priority                     | RefereeModule.tsx (priority display)                                 |
+| 3.8.7 - Select Winner                       | RefereeModule.tsx                                                    |
+| 3.8.8 - Connect to Scoring Box              | RefereeModule.tsx, ScoringBoxContext.tsx, BLEManager.ts              |
+| 3.8.9 - Weapon Selection                    | RefereeModule.tsx                                                    |
+| 3.8.10 - Hide Unused UI Elements            | RefereeModule.tsx                                                    |
+| 3.9 - Referee Management                    | ManageOfficials.tsx, EventManagement.tsx                             |
+| 3.9.1 - Link for Referees                   | TournamentClient.ts, JoinTournamentModal.tsx                         |
+| 3.9.2 - Create Referee Whitelist            | ManageOfficials.tsx, ability.ts                                      |
+| **Hardware**                                |                                                                      |
+| 3.10 - Scoring Box                          | BLEManager.ts, ScoringBoxService interfaces                          |
+| 3.10.1 - Conform to USA Fencing Rules       | ScoringBoxService implementations                                    |
+| 3.10.2 - Audible Touch Indication           | External Hardware Component                                          |
+| 3.10.3 - Customizable Light Colors          | External Hardware Component                                          |
+| 3.10.4 - Bluetooth Pairing                  | BLEManager.ts, ScoringBoxContext.tsx                                 |
+| 3.10.5 - Modular Design                     | ScoringBoxService interfaces (TournaFence, EnPointe, Skewered)       |
+| **Data Management**                         |                                                                      |
+| 3.11 - Database Requirements                | DrizzleDatabaseUtils.ts, DrizzleClient.ts                            |
+| 3.11.1 - Use Primary and Foreign Keys       | Drizzle Schema (schema/index.ts)                                     |
+| 3.11.2 - Write-Ahead-Log                    | SQLite configuration in DrizzleClient.ts                             |
+| 3.11.3 - Detect Database Changes            | TanStack Query, TournamentDataHooks.ts                               |
+| 3.11.4 - Store Scoring Box Configurations   | ScoringBoxContext.tsx, usePersistentStateHook.ts                     |
+| 3.11.5 - Rolling Backups                    | Not implemented                                                      |
+| 3.11.6 - Audit Log                          | Not implemented                                                      |
+| 3.11.7 - View Audit Log                     | Not implemented                                                      |
+| 3.11.8 - Detect Data Mismatches             | TournamentClient.ts, TournamentServer.ts                             |
+| 3.11.9 - Export Tournament Data             | Not implemented                                                      |
+| **Non-Functional Requirements**             |                                                                      |
+| 4.1 - Human Factors                         | i18n system, accessible UI components                                |
+| 4.1.1 - Types of Users                      | RBAC system (ability.ts)                                             |
+| 4.1.2 - Technical Proficiency               | Simplified UI, tooltips                                              |
+| 4.2 - Hardware Support                      | React Native, Expo                                                   |
+| 4.2.1 - Client Hardware Requirements        | iOS 13+, Android 6+                                                  |
+| 4.2.2 - Scoring Box Hardware                | BLE support via react-native-ble-plx                                 |
+| 4.2.3 - Modular Hardware                    | Multiple scoring box services                                        |
+| 4.3 - Software Compatibility                | React Native cross-platform                                          |
+| 4.3.1 - SQLite Support                      | expo-sqlite with Drizzle ORM                                         |
+| 4.3.2 - Operating System Support            | iOS, Android, Web (limited)                                          |
+| 4.4 - Performance                           | TanStack Query caching, optimized re-renders                         |
+| 4.4.1 - Page Load Time                      | Splash screen, lazy loading                                          |
+| 4.4.2 - Database Query Performance          | Drizzle ORM optimizations, indexes                                   |
+| 4.5 - Error Handling                        | NetworkErrors.ts, error boundaries                                   |
+| 4.5.1 - Client Error Handling               | Try-catch blocks, user-friendly error messages                       |
