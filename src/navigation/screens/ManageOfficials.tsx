@@ -412,6 +412,7 @@ const ManageOfficials: React.FC<ManageOfficialsProps> = ({ route, navigation }) 
                         <TextInput
                             style={styles.input}
                             placeholder={t('manageOfficials.firstNameRequired')}
+                            placeholderTextColor="#999"
                             value={firstName}
                             onChangeText={setFirstName}
                         />
@@ -419,6 +420,7 @@ const ManageOfficials: React.FC<ManageOfficialsProps> = ({ route, navigation }) 
                         <TextInput
                             style={styles.input}
                             placeholder={t('manageOfficials.lastName')}
+                            placeholderTextColor="#999"
                             value={lastName}
                             onChangeText={setLastName}
                         />
@@ -427,6 +429,7 @@ const ManageOfficials: React.FC<ManageOfficialsProps> = ({ route, navigation }) 
                             <TextInput
                                 style={[styles.input, styles.deviceIdInput]}
                                 placeholder={t('manageOfficials.deviceIdInfo')}
+                                placeholderTextColor="#999"
                                 value={deviceId}
                                 onChangeText={text => setDeviceId(text.slice(0, 5).toUpperCase())}
                                 maxLength={5}

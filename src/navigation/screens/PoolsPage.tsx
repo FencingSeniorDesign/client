@@ -554,6 +554,7 @@ const PoolsPage: React.FC = () => {
                             style={styles.stripInput}
                             keyboardType="number-pad"
                             placeholder={t('poolsPage.stripPlaceholder')}
+                            placeholderTextColor="#999"
                             value={stripInput}
                             onChangeText={setStripInput}
                         />

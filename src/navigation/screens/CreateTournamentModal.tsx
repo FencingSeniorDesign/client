@@ -52,6 +52,7 @@ export const CreateTournamentButton: React.FC<CreateTournamentButtonProps> = ({ 
                             value={tournamentName}
                             onChangeText={setTournamentName}
                             placeholder={t('createTournament.enterName')}
+                            placeholderTextColor="#999"
                             autoFocus
                         />
 

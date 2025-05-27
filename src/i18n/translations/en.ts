@@ -50,7 +50,7 @@ export default {
         errorLoadingHistory: 'Error loading tournament history',
         failedToConnect: 'Failed to connect to the tournament',
         failedToRemove: 'Failed to remove the tournament',
-        connectionLost: 'Connection Lost',
+        connectionLost: 'Connection Lost (hi cate!)',
         connectionLostMessage:
             'Connection to the tournament has been lost. Try reconnecting or return to the home page.',
         reconnect: 'Reconnect',

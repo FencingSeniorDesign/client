@@ -91,6 +91,7 @@ export function CustomTimeModal({
                             <TextInput
                                 style={styles.customTimeInput}
                                 placeholder={t('refereeModule.min')}
+                                placeholderTextColor="#999"
                                 keyboardType="number-pad"
                                 value={customMinutes}
                                 onChangeText={setCustomMinutes}
@@ -100,6 +101,7 @@ export function CustomTimeModal({
                             <TextInput
                                 style={styles.customTimeInput}
                                 placeholder={t('refereeModule.sec')}
+                                placeholderTextColor="#999"
                                 keyboardType="number-pad"
                                 value={customSeconds}
                                 onChangeText={setCustomSeconds}

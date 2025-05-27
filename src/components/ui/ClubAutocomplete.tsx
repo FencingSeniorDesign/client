@@ -87,6 +87,7 @@ export const ClubAutocomplete = ({ value, abbreviation, onValueChange, container
                 onChangeText={handleInputChange}
                 onFocus={() => setShowDropdown(query.length > 0)}
                 placeholder={t('clubAutocomplete.enterName')}
+                placeholderTextColor="#999"
             />
 
             {query.length > 0 && (
@@ -107,6 +108,7 @@ export const ClubAutocomplete = ({ value, abbreviation, onValueChange, container
                         value={abbr}
                         onChangeText={handleAbbrChange}
                         placeholder={t('clubAutocomplete.abbreviation')}
+                        placeholderTextColor="#999"
                         maxLength={5}
                         autoCapitalize="characters"
                     />
