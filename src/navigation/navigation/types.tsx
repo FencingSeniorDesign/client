@@ -30,6 +30,26 @@ export type Fencer = {
     poolNumber?: number; // new property for pool assignment order
 };
 
+export type Team = {
+    id?: number;
+    name: string;
+    eventid: number;
+    clubid?: number;
+    clubName?: string; // For UI display purposes
+    clubAbbreviation?: string; // For UI display purposes
+    seed?: number;
+    members?: TeamMember[];
+};
+
+export type TeamMember = {
+    id?: number;
+    teamid: number;
+    fencerid: number;
+    role: 'starter' | 'substitute';
+    position?: number; // 1, 2, 3 for starters
+    fencer?: Fencer; // For UI display purposes
+};
+
 export type Referee = {
     id: number;
     firstName: string;
@@ -70,6 +90,8 @@ export type Event = {
     class: string;
     seeding: string;
     startedCount?: number; // Used to make sure we don't re-init pool/de brackets
+    event_type?: 'individual' | 'team'; // Type of event (defaults to individual)
+    team_format?: 'NCAA' | '45-touch'; // Format for team events
 
     // Optional properties potentially added by server/data provider logic
     rounds?: Round[];
@@ -163,6 +185,32 @@ export type RootStackParamList = {
     };
     TournamentResultsPage: {
         eventId: number;
+        isRemote?: boolean;
+    };
+    TeamManagement: {
+        event: Event;
+        isRemote?: boolean;
+    };
+    TeamPoolsPage: {
+        event: Event;
+        currentRoundIndex: number;
+        roundId: number;
+        isRemote?: boolean;
+    };
+    TeamBoutOrderPage: {
+        roundId: number;
+        poolId: number;
+        event: Event;
+        isRemote?: boolean;
+    };
+    NCAATeamBoutPage: {
+        teamBoutId: number;
+        event: Event;
+        isRemote?: boolean;
+    };
+    RelayTeamBoutPage: {
+        teamBoutId: number;
+        event: Event;
         isRemote?: boolean;
     };
 };

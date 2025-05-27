@@ -33,3 +33,8 @@ export * from './official';
 
 // Bracket functions
 export * from './bracket';
+
+// Team functions
+export * from './team';
+export * from './teamBoutNCAA';
+export * from './teamBoutRelay';

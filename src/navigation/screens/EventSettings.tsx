@@ -631,6 +631,16 @@ export const EventSettings = ({ route }: Props) => {
             <BLEStatusBar compact={true} />
             <Text style={styles.title}>{t('eventSettings.title')}</Text>
 
+            {/* Show Manage Teams button for team events */}
+            {event.event_type === 'team' && (
+                <TouchableOpacity
+                    style={styles.manageTeamsButton}
+                    onPress={() => navigation.navigate('TeamManagement' as any, { event, isRemote })}
+                >
+                    <Text style={styles.manageTeamsButtonText}>{t('teamManagement.teams')}</Text>
+                </TouchableOpacity>
+            )}
+
             {/* Fencing Management Dropdown */}
             <TouchableOpacity
                 style={styles.dropdownHeader}
@@ -640,10 +650,10 @@ export const EventSettings = ({ route }: Props) => {
             </TouchableOpacity>
             {/* Always show fencer list */}
             <View style={styles.fencerListContainer}>
-                <Text style={styles.fencerListHeader}>
-                    {t('eventSettings.currentFencers', { count: fencers.length })}
-                </Text>
-                {fencersLoading ? (
+                    <Text style={styles.fencerListHeader}>
+                        {t('eventSettings.currentFencers', { count: fencers.length })}
+                    </Text>
+                    {fencersLoading ? (
                     <View style={styles.loadingContainer}>
                         <ActivityIndicator size="small" color="#001f3f" />
                         <Text style={styles.loadingText}>{t('eventSettings.loadingFencers')}</Text>
@@ -659,7 +669,7 @@ export const EventSettings = ({ route }: Props) => {
                         <Text style={styles.pendingActionText}>{t('eventSettings.addingFencer')}</Text>
                     </View>
                 )}
-            </View>
+                </View>
             {fencingDropdownOpen && (
                 <View style={styles.dropdownContent}>
                     <View style={styles.section}>
@@ -1620,6 +1630,19 @@ const styles = StyleSheet.create({
     randomFillGoButtonText: {
         color: '#fff',
         fontSize: 16,
+        fontWeight: '600',
+    },
+    manageTeamsButton: {
+        backgroundColor: '#28a745',
+        paddingVertical: 12,
+        paddingHorizontal: 20,
+        borderRadius: 8,
+        alignItems: 'center',
+        marginBottom: 15,
+    },
+    manageTeamsButtonText: {
+        color: '#fff',
+        fontSize: 18,
         fontWeight: '600',
     },
 });

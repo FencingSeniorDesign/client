@@ -39,6 +39,8 @@ import { useAbility } from '../../rbac/AbilityContext';
 import { useTranslation } from 'react-i18next';
 import { BLEStatusBar } from '../../networking/components/BLEStatusBar';
 import { ConnectionLostModal } from '../../networking/components/ConnectionLostModal';
+import { db } from '../../db/DrizzleClient';
+import * as teamUtils from '../../db/utils/team';
 
 type Props = {
     route: RouteProp<{ params: { tournamentName: string; isRemoteConnection?: boolean } }, 'params'>;
@@ -60,6 +62,8 @@ export const EventManagement = ({ route }: Props) => {
     const [selectedGender, setSelectedGender] = useState<string>('Mixed');
     const [selectedWeapon, setSelectedWeapon] = useState<string>('Foil');
     const [selectedAge, setSelectedAge] = useState<string>('Senior');
+    const [selectedEventType, setSelectedEventType] = useState<'individual' | 'team'>('individual');
+    const [selectedTeamFormat, setSelectedTeamFormat] = useState<'NCAA' | '45-touch'>('NCAA');
 
     // Server hosting state
     const [serverEnabled, setServerEnabled] = useState(false);
@@ -260,6 +264,8 @@ export const EventManagement = ({ route }: Props) => {
         setSelectedGender('Mixed');
         setSelectedWeapon('Foil');
         setSelectedAge('Senior');
+        setSelectedEventType('individual');
+        setSelectedTeamFormat('NCAA');
         setModalVisible(true);
     };
 
@@ -270,16 +276,21 @@ export const EventManagement = ({ route }: Props) => {
     const handleSubmitEvent = async () => {
         try {
             const event = {
+                id: Date.now(), // Generate a unique ID
                 weapon: selectedWeapon,
                 gender: selectedGender,
                 age: selectedAge,
+                class: 'Open', // Default class
+                seeding: 'Rating', // Default seeding
+                event_type: selectedEventType,
+                team_format: selectedEventType === 'team' ? selectedTeamFormat : undefined,
             };
 
             if (editingEventId === null) {
                 // Use the mutation from useTournamentQueries
                 await createEventMutation.mutate({
                     tournamentName,
-                    event: event as any, // ts-ignore via casting
+                    event: event as Event,
                 });
             }
             setModalVisible(false);
@@ -329,12 +340,22 @@ export const EventManagement = ({ route }: Props) => {
         }
 
         if (round.type === 'pool') {
-            navigation.navigate('PoolsPage', {
-                event: event,
-                currentRoundIndex: roundIndex,
-                roundId: round.id,
-                isRemote: isRemote, // Pass the isRemote flag to the PoolsPage
-            });
+            // Navigate to team pools page for team events
+            if (event.event_type === 'team') {
+                navigation.navigate('TeamPoolsPage' as any, {
+                    event: event,
+                    currentRoundIndex: roundIndex,
+                    roundId: round.id,
+                    isRemote: isRemote,
+                });
+            } else {
+                navigation.navigate('PoolsPage', {
+                    event: event,
+                    currentRoundIndex: roundIndex,
+                    roundId: round.id,
+                    isRemote: isRemote, // Pass the isRemote flag to the PoolsPage
+                });
+            }
         } else if (round.type === 'de') {
             // Pass isRemote flag to the DE navigation utility
             navigateToDEPage(navigation, event, round, roundIndex, isRemote);
@@ -399,9 +420,24 @@ export const EventManagement = ({ route }: Props) => {
             const fencers = queryClient.getQueryData<Fencer[]>(queryKeys.fencers(eventId));
             const rounds = queryClient.getQueryData<Round[]>(queryKeys.rounds(eventId));
 
-            if (!fencers || fencers.length === 0) {
-                Alert.alert(t('common.error'), t('eventManagement.cannotStartNoFencers'));
-                return;
+            // For team events, check for teams instead of individual fencers
+            if (eventToStart.event_type === 'team') {
+                const teams = await teamUtils.getEventTeams(db, eventId);
+                if (!teams || teams.length === 0) {
+                    Alert.alert(t('common.error'), t('eventManagement.cannotStartNoTeams'));
+                    return;
+                }
+                // Optionally check if teams have enough members
+                const invalidTeams = teams.filter(team => !team.members || team.members.filter(m => m.role === 'starter').length < 3);
+                if (invalidTeams.length > 0) {
+                    Alert.alert(t('common.error'), t('eventManagement.teamsNeedMoreStarters'));
+                    return;
+                }
+            } else {
+                if (!fencers || fencers.length === 0) {
+                    Alert.alert(t('common.error'), t('eventManagement.cannotStartNoFencers'));
+                    return;
+                }
             }
 
             if (!rounds || rounds.length === 0) {
@@ -736,6 +772,7 @@ export const EventManagement = ({ route }: Props) => {
                                 <View key={event.id} style={styles.eventItem}>
                                     <Text style={styles.eventText}>
                                         {event.age} {event.gender} {event.weapon}
+                                        {event.event_type === 'team' && ` (Team - ${event.team_format})`}
                                     </Text>
                                     <View style={styles.eventActions}>
                                         <Can I="update" a="Event" this={event}>
@@ -755,6 +792,22 @@ export const EventManagement = ({ route }: Props) => {
                                                 </TouchableOpacity>
                                             )}
                                         </Can>
+                                        {/* Team Management button for team events */}
+                                        {event.event_type === 'team' && !(eventStatuses && eventStatuses[event.id] === true) && (
+                                            <Can I="update" a="Team">
+                                                <TouchableOpacity
+                                                    style={[styles.actionButton, styles.flexAction]}
+                                                    onPress={() =>
+                                                        navigation.navigate('TeamManagement' as any, {
+                                                            event: event,
+                                                            isRemote: isRemote,
+                                                        })
+                                                    }
+                                                >
+                                                    <Text style={styles.buttonText}>{t('eventManagement.teams')}</Text>
+                                                </TouchableOpacity>
+                                            </Can>
+                                        )}
                                         <TouchableOpacity
                                             style={[styles.actionButton, styles.flexAction]}
                                             onPress={() => {
@@ -829,6 +882,80 @@ export const EventManagement = ({ route }: Props) => {
                     <View style={styles.modalOverlay}>
                         <View style={styles.modalContent}>
                             <Text style={styles.modalTitle}>{t('eventManagement.createEvent')}</Text>
+
+                            {/* EVENT TYPE SELECTOR */}
+                            <View style={styles.rowGroup}>
+                                <TouchableOpacity
+                                    style={[
+                                        styles.optionButton,
+                                        selectedEventType === 'individual' && styles.selectedButton,
+                                    ]}
+                                    onPress={() => setSelectedEventType('individual')}
+                                >
+                                    <Text
+                                        style={[
+                                            styles.optionText,
+                                            { color: selectedEventType === 'individual' ? '#fff' : '#000' },
+                                        ]}
+                                    >
+                                        {t('eventSettings.individual')}
+                                    </Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    style={[
+                                        styles.optionButton,
+                                        selectedEventType === 'team' && styles.selectedButton,
+                                    ]}
+                                    onPress={() => setSelectedEventType('team')}
+                                >
+                                    <Text
+                                        style={[
+                                            styles.optionText,
+                                            { color: selectedEventType === 'team' ? '#fff' : '#000' },
+                                        ]}
+                                    >
+                                        {t('eventSettings.team')}
+                                    </Text>
+                                </TouchableOpacity>
+                            </View>
+
+                            {/* TEAM FORMAT SELECTOR (only shown for team events) */}
+                            {selectedEventType === 'team' && (
+                                <View style={styles.rowGroup}>
+                                    <TouchableOpacity
+                                        style={[
+                                            styles.optionButton,
+                                            selectedTeamFormat === 'NCAA' && styles.selectedButton,
+                                        ]}
+                                        onPress={() => setSelectedTeamFormat('NCAA')}
+                                    >
+                                        <Text
+                                            style={[
+                                                styles.optionText,
+                                                { color: selectedTeamFormat === 'NCAA' ? '#fff' : '#000' },
+                                            ]}
+                                        >
+                                            NCAA
+                                        </Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity
+                                        style={[
+                                            styles.optionButton,
+                                            selectedTeamFormat === '45-touch' && styles.selectedButton,
+                                        ]}
+                                        onPress={() => setSelectedTeamFormat('45-touch')}
+                                    >
+                                        <Text
+                                            style={[
+                                                styles.optionText,
+                                                { color: selectedTeamFormat === '45-touch' ? '#fff' : '#000' },
+                                            ]}
+                                        >
+                                            45-Touch Relay
+                                        </Text>
+                                    </TouchableOpacity>
+                                </View>
+                            )}
 
                             {/* AGE SELECTOR */}
                             <View style={styles.rowGroup}>

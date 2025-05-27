@@ -1,0 +1,1846 @@
+{
+  "version": "6",
+  "dialect": "sqlite",
+  "id": "7e37e776-e50c-4836-9a81-1d55c8d3a6e4",
+  "prevId": "b636cc6e-7fe0-4b16-8a0e-03346d7d729a",
+  "tables": {
+    "Bouts": {
+      "name": "Bouts",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "lfencer": {
+          "name": "lfencer",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "rfencer": {
+          "name": "rfencer",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "victor": {
+          "name": "victor",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "referee": {
+          "name": "referee",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "eventid": {
+          "name": "eventid",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "roundid": {
+          "name": "roundid",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "tableof": {
+          "name": "tableof",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "Bouts_lfencer_Fencers_id_fk": {
+          "name": "Bouts_lfencer_Fencers_id_fk",
+          "tableFrom": "Bouts",
+          "tableTo": "Fencers",
+          "columnsFrom": [
+            "lfencer"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "Bouts_rfencer_Fencers_id_fk": {
+          "name": "Bouts_rfencer_Fencers_id_fk",
+          "tableFrom": "Bouts",
+          "tableTo": "Fencers",
+          "columnsFrom": [
+            "rfencer"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "Bouts_victor_Fencers_id_fk": {
+          "name": "Bouts_victor_Fencers_id_fk",
+          "tableFrom": "Bouts",
+          "tableTo": "Fencers",
+          "columnsFrom": [
+            "victor"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "Bouts_referee_Referees_id_fk": {
+          "name": "Bouts_referee_Referees_id_fk",
+          "tableFrom": "Bouts",
+          "tableTo": "Referees",
+          "columnsFrom": [
+            "referee"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "Bouts_eventid_Events_id_fk": {
+          "name": "Bouts_eventid_Events_id_fk",
+          "tableFrom": "Bouts",
+          "tableTo": "Events",
+          "columnsFrom": [
+            "eventid"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "Bouts_roundid_Rounds_id_fk": {
+          "name": "Bouts_roundid_Rounds_id_fk",
+          "tableFrom": "Bouts",
+          "tableTo": "Rounds",
+          "columnsFrom": [
+            "roundid"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "Bouts_roundid_lfencer_rfencer_pk": {
+          "columns": [
+            "roundid",
+            "lfencer",
+            "rfencer"
+          ],
+          "name": "Bouts_roundid_lfencer_rfencer_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "Clubs": {
+      "name": "Clubs",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "abbreviation": {
+          "name": "abbreviation",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "Clubs_name_unique": {
+          "name": "Clubs_name_unique",
+          "columns": [
+            "name"
+          ],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "DEBracketBouts": {
+      "name": "DEBracketBouts",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "roundid": {
+          "name": "roundid",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "bout_id": {
+          "name": "bout_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "bracket_type": {
+          "name": "bracket_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "bracket_round": {
+          "name": "bracket_round",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "bout_order": {
+          "name": "bout_order",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "next_bout_id": {
+          "name": "next_bout_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "loser_next_bout_id": {
+          "name": "loser_next_bout_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "DEBracketBouts_roundid_Rounds_id_fk": {
+          "name": "DEBracketBouts_roundid_Rounds_id_fk",
+          "tableFrom": "DEBracketBouts",
+          "tableTo": "Rounds",
+          "columnsFrom": [
+            "roundid"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "DEBracketBouts_bout_id_Bouts_id_fk": {
+          "name": "DEBracketBouts_bout_id_Bouts_id_fk",
+          "tableFrom": "DEBracketBouts",
+          "tableTo": "Bouts",
+          "columnsFrom": [
+            "bout_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "DEBracketBouts_next_bout_id_Bouts_id_fk": {
+          "name": "DEBracketBouts_next_bout_id_Bouts_id_fk",
+          "tableFrom": "DEBracketBouts",
+          "tableTo": "Bouts",
+          "columnsFrom": [
+            "next_bout_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "DEBracketBouts_loser_next_bout_id_Bouts_id_fk": {
+          "name": "DEBracketBouts_loser_next_bout_id_Bouts_id_fk",
+          "tableFrom": "DEBracketBouts",
+          "tableTo": "Bouts",
+          "columnsFrom": [
+            "loser_next_bout_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "DETable": {
+      "name": "DETable",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "roundid": {
+          "name": "roundid",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "tableof": {
+          "name": "tableof",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "DETable_roundid_Rounds_id_fk": {
+          "name": "DETable_roundid_Rounds_id_fk",
+          "tableFrom": "DETable",
+          "tableTo": "Rounds",
+          "columnsFrom": [
+            "roundid"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "Events": {
+      "name": "Events",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "tname": {
+          "name": "tname",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "weapon": {
+          "name": "weapon",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "gender": {
+          "name": "gender",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "age": {
+          "name": "age",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "class": {
+          "name": "class",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "seeding": {
+          "name": "seeding",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "event_type": {
+          "name": "event_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": "'individual'"
+        },
+        "team_format": {
+          "name": "team_format",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "Events_tname_Tournaments_name_fk": {
+          "name": "Events_tname_Tournaments_name_fk",
+          "tableFrom": "Events",
+          "tableTo": "Tournaments",
+          "columnsFrom": [
+            "tname"
+          ],
+          "columnsTo": [
+            "name"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "FencerBouts": {
+      "name": "FencerBouts",
+      "columns": {
+        "boutid": {
+          "name": "boutid",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "fencerid": {
+          "name": "fencerid",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "score": {
+          "name": "score",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "FencerBouts_boutid_Bouts_id_fk": {
+          "name": "FencerBouts_boutid_Bouts_id_fk",
+          "tableFrom": "FencerBouts",
+          "tableTo": "Bouts",
+          "columnsFrom": [
+            "boutid"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "FencerBouts_fencerid_Fencers_id_fk": {
+          "name": "FencerBouts_fencerid_Fencers_id_fk",
+          "tableFrom": "FencerBouts",
+          "tableTo": "Fencers",
+          "columnsFrom": [
+            "fencerid"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "FencerBouts_boutid_fencerid_pk": {
+          "columns": [
+            "boutid",
+            "fencerid"
+          ],
+          "name": "FencerBouts_boutid_fencerid_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "FencerEvents": {
+      "name": "FencerEvents",
+      "columns": {
+        "fencerid": {
+          "name": "fencerid",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "eventid": {
+          "name": "eventid",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "FencerEvents_fencerid_Fencers_id_fk": {
+          "name": "FencerEvents_fencerid_Fencers_id_fk",
+          "tableFrom": "FencerEvents",
+          "tableTo": "Fencers",
+          "columnsFrom": [
+            "fencerid"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "FencerEvents_eventid_Events_id_fk": {
+          "name": "FencerEvents_eventid_Events_id_fk",
+          "tableFrom": "FencerEvents",
+          "tableTo": "Events",
+          "columnsFrom": [
+            "eventid"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "FencerEvents_fencerid_eventid_pk": {
+          "columns": [
+            "fencerid",
+            "eventid"
+          ],
+          "name": "FencerEvents_fencerid_eventid_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "FencerPoolAssignment": {
+      "name": "FencerPoolAssignment",
+      "columns": {
+        "roundid": {
+          "name": "roundid",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "poolid": {
+          "name": "poolid",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "fencerid": {
+          "name": "fencerid",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "fenceridinpool": {
+          "name": "fenceridinpool",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "FencerPoolAssignment_roundid_Rounds_id_fk": {
+          "name": "FencerPoolAssignment_roundid_Rounds_id_fk",
+          "tableFrom": "FencerPoolAssignment",
+          "tableTo": "Rounds",
+          "columnsFrom": [
+            "roundid"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "FencerPoolAssignment_fencerid_Fencers_id_fk": {
+          "name": "FencerPoolAssignment_fencerid_Fencers_id_fk",
+          "tableFrom": "FencerPoolAssignment",
+          "tableTo": "Fencers",
+          "columnsFrom": [
+            "fencerid"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "FencerPoolAssignment_roundid_poolid_fencerid_pk": {
+          "columns": [
+            "roundid",
+            "poolid",
+            "fencerid"
+          ],
+          "name": "FencerPoolAssignment_roundid_poolid_fencerid_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "Fencers": {
+      "name": "Fencers",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "fname": {
+          "name": "fname",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "lname": {
+          "name": "lname",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "nickname": {
+          "name": "nickname",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "gender": {
+          "name": "gender",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "club": {
+          "name": "club",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "clubid": {
+          "name": "clubid",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "erating": {
+          "name": "erating",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": "'U'"
+        },
+        "eyear": {
+          "name": "eyear",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": 0
+        },
+        "frating": {
+          "name": "frating",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": "'U'"
+        },
+        "fyear": {
+          "name": "fyear",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": 0
+        },
+        "srating": {
+          "name": "srating",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": "'U'"
+        },
+        "syear": {
+          "name": "syear",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": 0
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "Fencers_clubid_Clubs_id_fk": {
+          "name": "Fencers_clubid_Clubs_id_fk",
+          "tableFrom": "Fencers",
+          "tableTo": "Clubs",
+          "columnsFrom": [
+            "clubid"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "Fencers_fname_lname_pk": {
+          "columns": [
+            "fname",
+            "lname"
+          ],
+          "name": "Fencers_fname_lname_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "OfficialEvents": {
+      "name": "OfficialEvents",
+      "columns": {
+        "officialid": {
+          "name": "officialid",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "eventid": {
+          "name": "eventid",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "OfficialEvents_officialid_Officials_id_fk": {
+          "name": "OfficialEvents_officialid_Officials_id_fk",
+          "tableFrom": "OfficialEvents",
+          "tableTo": "Officials",
+          "columnsFrom": [
+            "officialid"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "OfficialEvents_eventid_Events_id_fk": {
+          "name": "OfficialEvents_eventid_Events_id_fk",
+          "tableFrom": "OfficialEvents",
+          "tableTo": "Events",
+          "columnsFrom": [
+            "eventid"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "OfficialEvents_officialid_eventid_pk": {
+          "columns": [
+            "officialid",
+            "eventid"
+          ],
+          "name": "OfficialEvents_officialid_eventid_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "Officials": {
+      "name": "Officials",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "fname": {
+          "name": "fname",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "lname": {
+          "name": "lname",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "nickname": {
+          "name": "nickname",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "device_id": {
+          "name": "device_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "RefereeEvents": {
+      "name": "RefereeEvents",
+      "columns": {
+        "refereeid": {
+          "name": "refereeid",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "eventid": {
+          "name": "eventid",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "RefereeEvents_refereeid_Referees_id_fk": {
+          "name": "RefereeEvents_refereeid_Referees_id_fk",
+          "tableFrom": "RefereeEvents",
+          "tableTo": "Referees",
+          "columnsFrom": [
+            "refereeid"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "RefereeEvents_eventid_Events_id_fk": {
+          "name": "RefereeEvents_eventid_Events_id_fk",
+          "tableFrom": "RefereeEvents",
+          "tableTo": "Events",
+          "columnsFrom": [
+            "eventid"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "RefereeEvents_refereeid_eventid_pk": {
+          "columns": [
+            "refereeid",
+            "eventid"
+          ],
+          "name": "RefereeEvents_refereeid_eventid_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "Referees": {
+      "name": "Referees",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "fname": {
+          "name": "fname",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "lname": {
+          "name": "lname",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "nickname": {
+          "name": "nickname",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "device_id": {
+          "name": "device_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "RelayBoutState": {
+      "name": "RelayBoutState",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "team_bout_id": {
+          "name": "team_bout_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "current_fencer_a_id": {
+          "name": "current_fencer_a_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "current_fencer_b_id": {
+          "name": "current_fencer_b_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "rotation_count_a": {
+          "name": "rotation_count_a",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": 0
+        },
+        "rotation_count_b": {
+          "name": "rotation_count_b",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": 0
+        },
+        "last_rotation_score_a": {
+          "name": "last_rotation_score_a",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": 0
+        },
+        "last_rotation_score_b": {
+          "name": "last_rotation_score_b",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": 0
+        }
+      },
+      "indexes": {
+        "RelayBoutState_team_bout_id_unique": {
+          "name": "RelayBoutState_team_bout_id_unique",
+          "columns": [
+            "team_bout_id"
+          ],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {
+        "RelayBoutState_team_bout_id_TeamBouts_id_fk": {
+          "name": "RelayBoutState_team_bout_id_TeamBouts_id_fk",
+          "tableFrom": "RelayBoutState",
+          "tableTo": "TeamBouts",
+          "columnsFrom": [
+            "team_bout_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "RelayBoutState_current_fencer_a_id_Fencers_id_fk": {
+          "name": "RelayBoutState_current_fencer_a_id_Fencers_id_fk",
+          "tableFrom": "RelayBoutState",
+          "tableTo": "Fencers",
+          "columnsFrom": [
+            "current_fencer_a_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "RelayBoutState_current_fencer_b_id_Fencers_id_fk": {
+          "name": "RelayBoutState_current_fencer_b_id_Fencers_id_fk",
+          "tableFrom": "RelayBoutState",
+          "tableTo": "Fencers",
+          "columnsFrom": [
+            "current_fencer_b_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "Rounds": {
+      "name": "Rounds",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "eventid": {
+          "name": "eventid",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "type": {
+          "name": "type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "rorder": {
+          "name": "rorder",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "poolcount": {
+          "name": "poolcount",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "poolsize": {
+          "name": "poolsize",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "poolsoption": {
+          "name": "poolsoption",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": "'promotion'"
+        },
+        "promotionpercent": {
+          "name": "promotionpercent",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": 100
+        },
+        "targetbracket": {
+          "name": "targetbracket",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "usetargetbracket": {
+          "name": "usetargetbracket",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": false
+        },
+        "deformat": {
+          "name": "deformat",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "detablesize": {
+          "name": "detablesize",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "isstarted": {
+          "name": "isstarted",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": false
+        },
+        "iscomplete": {
+          "name": "iscomplete",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "Rounds_eventid_Events_id_fk": {
+          "name": "Rounds_eventid_Events_id_fk",
+          "tableFrom": "Rounds",
+          "tableTo": "Events",
+          "columnsFrom": [
+            "eventid"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "SeedingFromRoundResults": {
+      "name": "SeedingFromRoundResults",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "fencerid": {
+          "name": "fencerid",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "eventid": {
+          "name": "eventid",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "roundid": {
+          "name": "roundid",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "seed": {
+          "name": "seed",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "SeedingFromRoundResults_fencerid_Fencers_id_fk": {
+          "name": "SeedingFromRoundResults_fencerid_Fencers_id_fk",
+          "tableFrom": "SeedingFromRoundResults",
+          "tableTo": "Fencers",
+          "columnsFrom": [
+            "fencerid"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "SeedingFromRoundResults_eventid_Events_id_fk": {
+          "name": "SeedingFromRoundResults_eventid_Events_id_fk",
+          "tableFrom": "SeedingFromRoundResults",
+          "tableTo": "Events",
+          "columnsFrom": [
+            "eventid"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "SeedingFromRoundResults_roundid_Rounds_id_fk": {
+          "name": "SeedingFromRoundResults_roundid_Rounds_id_fk",
+          "tableFrom": "SeedingFromRoundResults",
+          "tableTo": "Rounds",
+          "columnsFrom": [
+            "roundid"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "TeamBoutScores": {
+      "name": "TeamBoutScores",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "team_bout_id": {
+          "name": "team_bout_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "bout_number": {
+          "name": "bout_number",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "fencer_a_id": {
+          "name": "fencer_a_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "fencer_b_id": {
+          "name": "fencer_b_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "fencer_a_score": {
+          "name": "fencer_a_score",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": 0
+        },
+        "fencer_b_score": {
+          "name": "fencer_b_score",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": 0
+        },
+        "winner_id": {
+          "name": "winner_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "is_complete": {
+          "name": "is_complete",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "TeamBoutScores_team_bout_id_TeamBouts_id_fk": {
+          "name": "TeamBoutScores_team_bout_id_TeamBouts_id_fk",
+          "tableFrom": "TeamBoutScores",
+          "tableTo": "TeamBouts",
+          "columnsFrom": [
+            "team_bout_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "TeamBoutScores_fencer_a_id_Fencers_id_fk": {
+          "name": "TeamBoutScores_fencer_a_id_Fencers_id_fk",
+          "tableFrom": "TeamBoutScores",
+          "tableTo": "Fencers",
+          "columnsFrom": [
+            "fencer_a_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "TeamBoutScores_fencer_b_id_Fencers_id_fk": {
+          "name": "TeamBoutScores_fencer_b_id_Fencers_id_fk",
+          "tableFrom": "TeamBoutScores",
+          "tableTo": "Fencers",
+          "columnsFrom": [
+            "fencer_b_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "TeamBoutScores_winner_id_Fencers_id_fk": {
+          "name": "TeamBoutScores_winner_id_Fencers_id_fk",
+          "tableFrom": "TeamBoutScores",
+          "tableTo": "Fencers",
+          "columnsFrom": [
+            "winner_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "TeamBouts": {
+      "name": "TeamBouts",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "roundid": {
+          "name": "roundid",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "team_a_id": {
+          "name": "team_a_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "team_b_id": {
+          "name": "team_b_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "format": {
+          "name": "format",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": "'pending'"
+        },
+        "winner_id": {
+          "name": "winner_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "team_a_score": {
+          "name": "team_a_score",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": 0
+        },
+        "team_b_score": {
+          "name": "team_b_score",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": 0
+        },
+        "tableof": {
+          "name": "tableof",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "TeamBouts_roundid_Rounds_id_fk": {
+          "name": "TeamBouts_roundid_Rounds_id_fk",
+          "tableFrom": "TeamBouts",
+          "tableTo": "Rounds",
+          "columnsFrom": [
+            "roundid"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "TeamBouts_team_a_id_Teams_id_fk": {
+          "name": "TeamBouts_team_a_id_Teams_id_fk",
+          "tableFrom": "TeamBouts",
+          "tableTo": "Teams",
+          "columnsFrom": [
+            "team_a_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "TeamBouts_team_b_id_Teams_id_fk": {
+          "name": "TeamBouts_team_b_id_Teams_id_fk",
+          "tableFrom": "TeamBouts",
+          "tableTo": "Teams",
+          "columnsFrom": [
+            "team_b_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "TeamBouts_winner_id_Teams_id_fk": {
+          "name": "TeamBouts_winner_id_Teams_id_fk",
+          "tableFrom": "TeamBouts",
+          "tableTo": "Teams",
+          "columnsFrom": [
+            "winner_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "TeamMembers": {
+      "name": "TeamMembers",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "teamid": {
+          "name": "teamid",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "fencerid": {
+          "name": "fencerid",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "role": {
+          "name": "role",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'starter'"
+        },
+        "position": {
+          "name": "position",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "TeamMembers_teamid_Teams_id_fk": {
+          "name": "TeamMembers_teamid_Teams_id_fk",
+          "tableFrom": "TeamMembers",
+          "tableTo": "Teams",
+          "columnsFrom": [
+            "teamid"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "TeamMembers_fencerid_Fencers_id_fk": {
+          "name": "TeamMembers_fencerid_Fencers_id_fk",
+          "tableFrom": "TeamMembers",
+          "tableTo": "Fencers",
+          "columnsFrom": [
+            "fencerid"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "TeamMembers_teamid_fencerid_pk": {
+          "columns": [
+            "teamid",
+            "fencerid"
+          ],
+          "name": "TeamMembers_teamid_fencerid_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "TeamPoolAssignment": {
+      "name": "TeamPoolAssignment",
+      "columns": {
+        "roundid": {
+          "name": "roundid",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "poolid": {
+          "name": "poolid",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "teamid": {
+          "name": "teamid",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "teamidinpool": {
+          "name": "teamidinpool",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "TeamPoolAssignment_roundid_Rounds_id_fk": {
+          "name": "TeamPoolAssignment_roundid_Rounds_id_fk",
+          "tableFrom": "TeamPoolAssignment",
+          "tableTo": "Rounds",
+          "columnsFrom": [
+            "roundid"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "TeamPoolAssignment_teamid_Teams_id_fk": {
+          "name": "TeamPoolAssignment_teamid_Teams_id_fk",
+          "tableFrom": "TeamPoolAssignment",
+          "tableTo": "Teams",
+          "columnsFrom": [
+            "teamid"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "TeamPoolAssignment_roundid_poolid_teamid_pk": {
+          "columns": [
+            "roundid",
+            "poolid",
+            "teamid"
+          ],
+          "name": "TeamPoolAssignment_roundid_poolid_teamid_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "Teams": {
+      "name": "Teams",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "eventid": {
+          "name": "eventid",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "clubid": {
+          "name": "clubid",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "seed": {
+          "name": "seed",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "Teams_eventid_Events_id_fk": {
+          "name": "Teams_eventid_Events_id_fk",
+          "tableFrom": "Teams",
+          "tableTo": "Events",
+          "columnsFrom": [
+            "eventid"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "Teams_clubid_Clubs_id_fk": {
+          "name": "Teams_clubid_Clubs_id_fk",
+          "tableFrom": "Teams",
+          "tableTo": "Clubs",
+          "columnsFrom": [
+            "clubid"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "Tournaments": {
+      "name": "Tournaments",
+      "columns": {
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "iscomplete": {
+          "name": "iscomplete",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    }
+  },
+  "views": {},
+  "enums": {},
+  "_meta": {
+    "schemas": {},
+    "tables": {},
+    "columns": {}
+  },
+  "internal": {
+    "indexes": {}
+  }
+}

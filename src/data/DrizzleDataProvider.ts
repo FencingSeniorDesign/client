@@ -32,6 +32,7 @@ import {
     dbUpdateBoutScores,
     dbMarkRoundAsComplete,
     dbInitializeRound,
+    dbInitializeTeamRound,
     dbDeleteOfficial,
     dbDeleteReferee,
     dbUpdateOfficial,
@@ -1064,10 +1065,16 @@ export class TournamentDataProvider {
             // Get the necessary data to initialize the round
             const event = await dbGetEventById(eventId);
             const round = await dbGetRoundById(roundId);
-            const fencers = await this.getFencers(event);
 
-            // Initialize the round
-            await dbInitializeRound(event, round, fencers);
+            // Check if this is a team event
+            if (event.event_type === 'team') {
+                // For team events, we need to initialize team pools
+                await dbInitializeTeamRound(event, round);
+            } else {
+                // For individual events, use the existing logic
+                const fencers = await this.getFencers(event);
+                await dbInitializeRound(event, round, fencers);
+            }
 
             return true;
         } catch (error) {

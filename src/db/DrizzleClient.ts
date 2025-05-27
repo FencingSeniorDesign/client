@@ -34,6 +34,8 @@ export async function initializeDatabase() {
         age text NOT NULL,
         class text NOT NULL,
         seeding text,
+        event_type text DEFAULT 'individual',
+        team_format text,
         FOREIGN KEY (tname) REFERENCES Tournaments(name) ON UPDATE no action ON DELETE no action
       );
     `);
@@ -259,6 +261,123 @@ export async function initializeDatabase() {
         AND NOT EXISTS (SELECT 1 FROM FencerBouts WHERE boutid = NEW.id AND fencerid = NEW.rfencer);
       END;
     `);
+        // Add new columns to Events table if they don't exist
+        try {
+            await db.run(sql`ALTER TABLE Events ADD COLUMN event_type text DEFAULT 'individual'`);
+        } catch (e) {
+            // Column might already exist, ignore error
+        }
+        
+        try {
+            await db.run(sql`ALTER TABLE Events ADD COLUMN team_format text`);
+        } catch (e) {
+            // Column might already exist, ignore error
+        }
+
+        // Add new columns to Fencers table if they don't exist
+        try {
+            await db.run(sql`ALTER TABLE Fencers ADD COLUMN clubid integer REFERENCES Clubs(id)`);
+        } catch (e) {
+            // Column might already exist, ignore error
+        }
+
+        // Create new team-related tables
+        await db.run(sql`
+      CREATE TABLE IF NOT EXISTS Teams (
+        id integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+        name text NOT NULL,
+        eventid integer NOT NULL,
+        clubid integer,
+        seed integer,
+        FOREIGN KEY (eventid) REFERENCES Events(id) ON UPDATE no action ON DELETE no action,
+        FOREIGN KEY (clubid) REFERENCES Clubs(id) ON UPDATE no action ON DELETE no action
+      );
+    `);
+
+        await db.run(sql`
+      CREATE TABLE IF NOT EXISTS TeamMembers (
+        id integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+        teamid integer NOT NULL,
+        fencerid integer NOT NULL,
+        role text DEFAULT 'starter' NOT NULL,
+        position integer,
+        FOREIGN KEY (teamid) REFERENCES Teams(id) ON UPDATE no action ON DELETE no action,
+        FOREIGN KEY (fencerid) REFERENCES Fencers(id) ON UPDATE no action ON DELETE no action
+      );
+    `);
+
+        // Create unique constraint on TeamMembers
+        try {
+            await db.run(sql`CREATE UNIQUE INDEX TeamMembers_teamid_fencerid_unique ON TeamMembers (teamid, fencerid);`);
+        } catch (e) {
+            // Index might already exist, ignore error
+        }
+
+        await db.run(sql`
+      CREATE TABLE IF NOT EXISTS TeamBouts (
+        id integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+        roundid integer NOT NULL,
+        team_a_id integer,
+        team_b_id integer,
+        format text NOT NULL,
+        status text DEFAULT 'pending',
+        winner_id integer,
+        team_a_score integer DEFAULT 0,
+        team_b_score integer DEFAULT 0,
+        tableof integer,
+        FOREIGN KEY (roundid) REFERENCES Rounds(id) ON UPDATE no action ON DELETE no action,
+        FOREIGN KEY (team_a_id) REFERENCES Teams(id) ON UPDATE no action ON DELETE no action,
+        FOREIGN KEY (team_b_id) REFERENCES Teams(id) ON UPDATE no action ON DELETE no action,
+        FOREIGN KEY (winner_id) REFERENCES Teams(id) ON UPDATE no action ON DELETE no action
+      );
+    `);
+
+        await db.run(sql`
+      CREATE TABLE IF NOT EXISTS TeamBoutScores (
+        id integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+        team_bout_id integer NOT NULL,
+        bout_number integer NOT NULL,
+        fencer_a_id integer,
+        fencer_b_id integer,
+        fencer_a_score integer DEFAULT 0,
+        fencer_b_score integer DEFAULT 0,
+        winner_id integer,
+        is_complete integer DEFAULT false,
+        FOREIGN KEY (team_bout_id) REFERENCES TeamBouts(id) ON UPDATE no action ON DELETE no action,
+        FOREIGN KEY (fencer_a_id) REFERENCES Fencers(id) ON UPDATE no action ON DELETE no action,
+        FOREIGN KEY (fencer_b_id) REFERENCES Fencers(id) ON UPDATE no action ON DELETE no action,
+        FOREIGN KEY (winner_id) REFERENCES Fencers(id) ON UPDATE no action ON DELETE no action
+      );
+    `);
+
+        await db.run(sql`
+      CREATE TABLE IF NOT EXISTS RelayBoutState (
+        id integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+        team_bout_id integer NOT NULL UNIQUE,
+        current_fencer_a_id integer,
+        current_fencer_b_id integer,
+        rotation_count_a integer DEFAULT 0,
+        rotation_count_b integer DEFAULT 0,
+        last_rotation_score_a integer DEFAULT 0,
+        last_rotation_score_b integer DEFAULT 0,
+        FOREIGN KEY (team_bout_id) REFERENCES TeamBouts(id) ON UPDATE no action ON DELETE no action,
+        FOREIGN KEY (current_fencer_a_id) REFERENCES Fencers(id) ON UPDATE no action ON DELETE no action,
+        FOREIGN KEY (current_fencer_b_id) REFERENCES Fencers(id) ON UPDATE no action ON DELETE no action
+      );
+    `);
+
+        await db.run(sql`
+      CREATE TABLE IF NOT EXISTS TeamPoolAssignment (
+        roundid integer NOT NULL,
+        poolid integer NOT NULL,
+        teamid integer NOT NULL,
+        teamidinpool integer NOT NULL,
+        PRIMARY KEY(roundid, poolid, teamid),
+        FOREIGN KEY (roundid) REFERENCES Rounds(id) ON UPDATE no action ON DELETE no action,
+        FOREIGN KEY (teamid) REFERENCES Teams(id) ON UPDATE no action ON DELETE no action
+      );
+    `);
+
         console.log('Database initialized successfully');
     } catch (error) {
         console.error('Error initializing database:', error);

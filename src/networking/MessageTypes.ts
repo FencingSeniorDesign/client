@@ -121,6 +121,117 @@ export interface UpdatePoolBoutScoresMessage extends BaseMessage {
 }
 
 /**
+ * Team Messages
+ */
+
+/**
+ * Request teams for an event
+ */
+export interface GetTeamsMessage extends BaseMessage {
+    type: 'get_teams';
+    eventId: number;
+}
+
+/**
+ * Create team message
+ */
+export interface CreateTeamMessage extends BaseMessage {
+    type: 'create_team';
+    name: string;
+    eventId: number;
+    clubId?: number;
+}
+
+/**
+ * Update team message
+ */
+export interface UpdateTeamMessage extends BaseMessage {
+    type: 'update_team';
+    teamId: number;
+    name?: string;
+    seed?: number;
+}
+
+/**
+ * Add team member message
+ */
+export interface AddTeamMemberMessage extends BaseMessage {
+    type: 'add_team_member';
+    teamId: number;
+    fencerId: number;
+    role: 'starter' | 'substitute';
+    position?: number;
+}
+
+/**
+ * Remove team member message
+ */
+export interface RemoveTeamMemberMessage extends BaseMessage {
+    type: 'remove_team_member';
+    teamId: number;
+    fencerId: number;
+}
+
+/**
+ * Substitute team member message
+ */
+export interface SubstituteTeamMemberMessage extends BaseMessage {
+    type: 'substitute_team_member';
+    teamId: number;
+    outFencerId: number;
+    inFencerId: number;
+}
+
+/**
+ * Request team pools for a round
+ */
+export interface GetTeamPoolsMessage extends BaseMessage {
+    type: 'get_team_pools';
+    roundId: number;
+}
+
+/**
+ * Request team bouts for a pool
+ */
+export interface GetTeamBoutsMessage extends BaseMessage {
+    type: 'get_team_bouts';
+    roundId: number;
+    poolId: number;
+}
+
+/**
+ * Update NCAA team bout score
+ */
+export interface UpdateNCAABoutScoreMessage extends BaseMessage {
+    type: 'update_ncaa_bout_score';
+    teamBoutId: number;
+    individualBoutId: number;
+    scoreA: number;
+    scoreB: number;
+}
+
+/**
+ * Update relay team bout score
+ */
+export interface UpdateRelayBoutScoreMessage extends BaseMessage {
+    type: 'update_relay_bout_score';
+    teamBoutId: number;
+    totalScoreA: number;
+    totalScoreB: number;
+    currentFencerA: number;
+    currentFencerB: number;
+}
+
+/**
+ * Force relay rotation message
+ */
+export interface ForceRelayRotationMessage extends BaseMessage {
+    type: 'force_relay_rotation';
+    teamBoutId: number;
+    team: 'A' | 'B';
+}
+
+/**
  * Complete round message
  */
 export interface CompleteRoundMessage extends BaseMessage {
@@ -210,6 +321,124 @@ export interface FencersListMessage extends BaseMessage {
     type: 'fencers_list';
     eventId: number;
     fencers: any[]; // Using 'any' to accommodate different fencer formats
+    error?: string;
+}
+
+/**
+ * Team Server Response Messages
+ */
+
+/**
+ * Teams list response
+ */
+export interface TeamsListMessage extends BaseMessage {
+    type: 'teams_list';
+    eventId: number;
+    teams: any[]; // Using 'any' to accommodate different team formats
+    error?: string;
+}
+
+/**
+ * Team created response
+ */
+export interface TeamCreatedMessage extends BaseMessage {
+    type: 'team_created';
+    teamId: number;
+    success: boolean;
+    error?: string;
+}
+
+/**
+ * Team updated response
+ */
+export interface TeamUpdatedMessage extends BaseMessage {
+    type: 'team_updated';
+    teamId: number;
+    success: boolean;
+    error?: string;
+}
+
+/**
+ * Team member added response
+ */
+export interface TeamMemberAddedMessage extends BaseMessage {
+    type: 'team_member_added';
+    teamId: number;
+    fencerId: number;
+    success: boolean;
+    error?: string;
+}
+
+/**
+ * Team member removed response
+ */
+export interface TeamMemberRemovedMessage extends BaseMessage {
+    type: 'team_member_removed';
+    teamId: number;
+    fencerId: number;
+    success: boolean;
+    error?: string;
+}
+
+/**
+ * Team member substituted response
+ */
+export interface TeamMemberSubstitutedMessage extends BaseMessage {
+    type: 'team_member_substituted';
+    teamId: number;
+    success: boolean;
+    error?: string;
+}
+
+/**
+ * Team pools list response
+ */
+export interface TeamPoolsListMessage extends BaseMessage {
+    type: 'team_pools_list';
+    roundId: number;
+    pools: any[]; // Using 'any' to accommodate different pool formats
+    error?: string;
+}
+
+/**
+ * Team bouts list response
+ */
+export interface TeamBoutsListMessage extends BaseMessage {
+    type: 'team_bouts_list';
+    roundId: number;
+    poolId: number;
+    bouts: any[]; // Using 'any' to accommodate different bout formats
+    error?: string;
+}
+
+/**
+ * NCAA bout score updated response
+ */
+export interface NCAABoutScoreUpdatedMessage extends BaseMessage {
+    type: 'ncaa_bout_score_updated';
+    teamBoutId: number;
+    individualBoutId: number;
+    success: boolean;
+    error?: string;
+}
+
+/**
+ * Relay bout score updated response
+ */
+export interface RelayBoutScoreUpdatedMessage extends BaseMessage {
+    type: 'relay_bout_score_updated';
+    teamBoutId: number;
+    success: boolean;
+    error?: string;
+}
+
+/**
+ * Relay rotation forced response
+ */
+export interface RelayRotationForcedMessage extends BaseMessage {
+    type: 'relay_rotation_forced';
+    teamBoutId: number;
+    success: boolean;
     error?: string;
 }
 
@@ -307,6 +536,17 @@ export type TournamentMessage =
     | GetFencersMessage
     | UpdateScoreMessage
     | UpdatePoolBoutScoresMessage
+    | GetTeamsMessage
+    | CreateTeamMessage
+    | UpdateTeamMessage
+    | AddTeamMemberMessage
+    | RemoveTeamMemberMessage
+    | SubstituteTeamMemberMessage
+    | GetTeamPoolsMessage
+    | GetTeamBoutsMessage
+    | UpdateNCAABoutScoreMessage
+    | UpdateRelayBoutScoreMessage
+    | ForceRelayRotationMessage
     | WelcomeMessage
     | JoinResponseMessage
     | EventsListMessage
@@ -315,6 +555,17 @@ export type TournamentMessage =
     | PoolsListMessage
     | PoolBoutsListMessage
     | FencersListMessage
+    | TeamsListMessage
+    | TeamCreatedMessage
+    | TeamUpdatedMessage
+    | TeamMemberAddedMessage
+    | TeamMemberRemovedMessage
+    | TeamMemberSubstitutedMessage
+    | TeamPoolsListMessage
+    | TeamBoutsListMessage
+    | NCAABoutScoreUpdatedMessage
+    | RelayBoutScoreUpdatedMessage
+    | RelayRotationForcedMessage
     | TournamentDataMessage
     | ScoreUpdateMessage
     | ServerClosingMessage
@@ -369,3 +620,28 @@ export const isPoolBoutsListMessage = (msg: any): msg is PoolBoutsListMessage =>
     typeof msg.roundId === 'number' &&
     typeof msg.poolId === 'number' &&
     Array.isArray(msg.bouts);
+
+export const isGetTeamsMessage = (msg: any): msg is GetTeamsMessage =>
+    validateMessage(msg) && msg.type === 'get_teams' && typeof msg.eventId === 'number';
+
+export const isTeamsListMessage = (msg: any): msg is TeamsListMessage =>
+    validateMessage(msg) && msg.type === 'teams_list' && typeof msg.eventId === 'number' && Array.isArray(msg.teams);
+
+export const isCreateTeamMessage = (msg: any): msg is CreateTeamMessage =>
+    validateMessage(msg) &&
+    msg.type === 'create_team' &&
+    typeof msg.name === 'string' &&
+    typeof msg.eventId === 'number';
+
+export const isUpdateNCAABoutScoreMessage = (msg: any): msg is UpdateNCAABoutScoreMessage =>
+    validateMessage(msg) &&
+    msg.type === 'update_ncaa_bout_score' &&
+    typeof msg.teamBoutId === 'number' &&
+    typeof msg.individualBoutId === 'number';
+
+export const isUpdateRelayBoutScoreMessage = (msg: any): msg is UpdateRelayBoutScoreMessage =>
+    validateMessage(msg) &&
+    msg.type === 'update_relay_bout_score' &&
+    typeof msg.teamBoutId === 'number' &&
+    typeof msg.totalScoreA === 'number' &&
+    typeof msg.totalScoreB === 'number';

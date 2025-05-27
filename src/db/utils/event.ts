@@ -36,6 +36,8 @@ export async function dbCreateEvent(tournamentName: string, event: Event): Promi
         const age = event.age || 'senior';
         const eventClass = event.class || 'N/A';
         const seeding = event.seeding || 'N/A';
+        const eventType = event.event_type || 'individual';
+        const teamFormat = event.team_format || null;
 
         await db.insert(schema.events).values({
             id: event.id,
@@ -45,6 +47,8 @@ export async function dbCreateEvent(tournamentName: string, event: Event): Promi
             age: age,
             class: eventClass,
             seeding: seeding,
+            event_type: eventType,
+            team_format: teamFormat,
         });
 
         console.log('Event created successfully.');

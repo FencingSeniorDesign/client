@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer, primaryKey } from 'drizzle-orm/sqlite-core';
+import { sqliteTable, text, integer, primaryKey, unique } from 'drizzle-orm/sqlite-core';
 import { sql } from 'drizzle-orm';
 
 // Clubs table
@@ -104,7 +104,107 @@ export const events = sqliteTable('Events', {
     age: text('age').notNull(),
     class: text('class').notNull(),
     seeding: text('seeding'),
+    event_type: text('event_type', { enum: ['individual', 'team'] }).default('individual'),
+    team_format: text('team_format', { enum: ['NCAA', '45-touch'] }),
 });
+
+// Teams table
+export const teams = sqliteTable('Teams', {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    name: text('name').notNull(),
+    eventid: integer('eventid')
+        .notNull()
+        .references(() => events.id),
+    clubid: integer('clubid').references(() => clubs.id),
+    seed: integer('seed'),
+});
+
+// TeamMembers table
+export const teamMembers = sqliteTable(
+    'TeamMembers',
+    {
+        id: integer('id').primaryKey({ autoIncrement: true }),
+        teamid: integer('teamid')
+            .notNull()
+            .references(() => teams.id),
+        fencerid: integer('fencerid')
+            .notNull()
+            .references(() => fencers.id),
+        role: text('role', { enum: ['starter', 'substitute'] }).notNull().default('starter'),
+        position: integer('position'), // 1, 2, 3 for starters
+    },
+    table => {
+        return {
+            uniqueMemberConstraint: unique().on(table.teamid, table.fencerid),
+        };
+    }
+);
+
+// TeamBouts table - replaces individual bouts for team events
+export const teamBouts = sqliteTable('TeamBouts', {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    roundid: integer('roundid')
+        .notNull()
+        .references(() => rounds.id),
+    team_a_id: integer('team_a_id').references(() => teams.id),
+    team_b_id: integer('team_b_id').references(() => teams.id),
+    format: text('format', { enum: ['NCAA', '45-touch'] }).notNull(),
+    status: text('status', { enum: ['pending', 'in_progress', 'complete'] }).default('pending'),
+    winner_id: integer('winner_id').references(() => teams.id),
+    team_a_score: integer('team_a_score').default(0),
+    team_b_score: integer('team_b_score').default(0),
+    tableof: integer('tableof'),
+});
+
+// TeamBoutScores table - for NCAA format individual matchups
+export const teamBoutScores = sqliteTable('TeamBoutScores', {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    team_bout_id: integer('team_bout_id')
+        .notNull()
+        .references(() => teamBouts.id),
+    bout_number: integer('bout_number').notNull(), // 1-9 for NCAA
+    fencer_a_id: integer('fencer_a_id').references(() => fencers.id),
+    fencer_b_id: integer('fencer_b_id').references(() => fencers.id),
+    fencer_a_score: integer('fencer_a_score').default(0),
+    fencer_b_score: integer('fencer_b_score').default(0),
+    winner_id: integer('winner_id').references(() => fencers.id),
+    is_complete: integer('is_complete', { mode: 'boolean' }).default(false),
+});
+
+// RelayBoutState table - for 45-touch relay format
+export const relayBoutState = sqliteTable('RelayBoutState', {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    team_bout_id: integer('team_bout_id')
+        .notNull()
+        .references(() => teamBouts.id)
+        .unique(),
+    current_fencer_a_id: integer('current_fencer_a_id').references(() => fencers.id),
+    current_fencer_b_id: integer('current_fencer_b_id').references(() => fencers.id),
+    rotation_count_a: integer('rotation_count_a').default(0),
+    rotation_count_b: integer('rotation_count_b').default(0),
+    last_rotation_score_a: integer('last_rotation_score_a').default(0),
+    last_rotation_score_b: integer('last_rotation_score_b').default(0),
+});
+
+// TeamPoolAssignment table
+export const teamPoolAssignment = sqliteTable(
+    'TeamPoolAssignment',
+    {
+        roundid: integer('roundid')
+            .notNull()
+            .references(() => rounds.id),
+        poolid: integer('poolid').notNull(),
+        teamid: integer('teamid')
+            .notNull()
+            .references(() => teams.id),
+        teamidinpool: integer('teamidinpool').notNull(),
+    },
+    table => {
+        return {
+            pk: primaryKey({ columns: [table.roundid, table.poolid, table.teamid] }),
+        };
+    }
+);
 
 // FencerEvents table
 export const fencerEvents = sqliteTable(
@@ -243,6 +343,11 @@ export const relations = {
             from: clubs.id,
             to: fencers.clubid,
         },
+        teams: {
+            relationship: 'has-many',
+            from: clubs.id,
+            to: teams.clubid,
+        },
     },
     tournaments: {
         events: {
@@ -261,6 +366,11 @@ export const relations = {
             relationship: 'has-many',
             from: events.id,
             to: fencerEvents.eventid,
+        },
+        teams: {
+            relationship: 'has-many',
+            from: events.id,
+            to: teams.eventid,
         },
         rounds: {
             relationship: 'has-many',
@@ -288,6 +398,11 @@ export const relations = {
             relationship: 'has-many',
             from: fencers.id,
             to: fencerEvents.fencerid,
+        },
+        teamMemberships: {
+            relationship: 'has-many',
+            from: fencers.id,
+            to: teamMembers.fencerid,
         },
         fencerPoolAssignments: {
             relationship: 'has-many',
@@ -345,10 +460,20 @@ export const relations = {
             from: rounds.id,
             to: fencerPoolAssignment.roundid,
         },
+        teamPoolAssignments: {
+            relationship: 'has-many',
+            from: rounds.id,
+            to: teamPoolAssignment.roundid,
+        },
         bouts: {
             relationship: 'has-many',
             from: rounds.id,
             to: bouts.roundid,
+        },
+        teamBouts: {
+            relationship: 'has-many',
+            from: rounds.id,
+            to: teamBouts.roundid,
         },
         deBracketBouts: {
             relationship: 'has-many',
@@ -406,6 +531,126 @@ export const relations = {
             relationship: 'has-one',
             from: bouts.id,
             to: deBracketBouts.bout_id,
+        },
+    },
+    teams: {
+        event: {
+            relationship: 'belongs-to',
+            from: teams.eventid,
+            to: events.id,
+        },
+        club: {
+            relationship: 'belongs-to',
+            from: teams.clubid,
+            to: clubs.id,
+        },
+        members: {
+            relationship: 'has-many',
+            from: teams.id,
+            to: teamMembers.teamid,
+        },
+        teamPoolAssignments: {
+            relationship: 'has-many',
+            from: teams.id,
+            to: teamPoolAssignment.teamid,
+        },
+        teamBoutsAsTeamA: {
+            relationship: 'has-many',
+            from: teams.id,
+            to: teamBouts.team_a_id,
+        },
+        teamBoutsAsTeamB: {
+            relationship: 'has-many',
+            from: teams.id,
+            to: teamBouts.team_b_id,
+        },
+        teamBoutsAsWinner: {
+            relationship: 'has-many',
+            from: teams.id,
+            to: teamBouts.winner_id,
+        },
+    },
+    teamMembers: {
+        team: {
+            relationship: 'belongs-to',
+            from: teamMembers.teamid,
+            to: teams.id,
+        },
+        fencer: {
+            relationship: 'belongs-to',
+            from: teamMembers.fencerid,
+            to: fencers.id,
+        },
+    },
+    teamBouts: {
+        round: {
+            relationship: 'belongs-to',
+            from: teamBouts.roundid,
+            to: rounds.id,
+        },
+        teamA: {
+            relationship: 'belongs-to',
+            from: teamBouts.team_a_id,
+            to: teams.id,
+        },
+        teamB: {
+            relationship: 'belongs-to',
+            from: teamBouts.team_b_id,
+            to: teams.id,
+        },
+        winner: {
+            relationship: 'belongs-to',
+            from: teamBouts.winner_id,
+            to: teams.id,
+        },
+        teamBoutScores: {
+            relationship: 'has-many',
+            from: teamBouts.id,
+            to: teamBoutScores.team_bout_id,
+        },
+        relayBoutState: {
+            relationship: 'has-one',
+            from: teamBouts.id,
+            to: relayBoutState.team_bout_id,
+        },
+    },
+    teamBoutScores: {
+        teamBout: {
+            relationship: 'belongs-to',
+            from: teamBoutScores.team_bout_id,
+            to: teamBouts.id,
+        },
+        fencerA: {
+            relationship: 'belongs-to',
+            from: teamBoutScores.fencer_a_id,
+            to: fencers.id,
+        },
+        fencerB: {
+            relationship: 'belongs-to',
+            from: teamBoutScores.fencer_b_id,
+            to: fencers.id,
+        },
+        winner: {
+            relationship: 'belongs-to',
+            from: teamBoutScores.winner_id,
+            to: fencers.id,
+        },
+    },
+    relayBoutState: {
+        teamBout: {
+            relationship: 'belongs-to',
+            from: relayBoutState.team_bout_id,
+            to: teamBouts.id,
+        },
+        currentFencerA: {
+            relationship: 'belongs-to',
+            from: relayBoutState.current_fencer_a_id,
+            to: fencers.id,
+        },
+        currentFencerB: {
+            relationship: 'belongs-to',
+            from: relayBoutState.current_fencer_b_id,
+            to: fencers.id,
         },
     },
 };

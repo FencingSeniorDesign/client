@@ -13,6 +13,11 @@ import DoubleEliminationPage from './screens/DoubleEliminationPage';
 import CompassDrawPage from './screens/CompassDrawPage';
 import ManageOfficials from './screens/ManageOfficials';
 import TournamentResultsPage from './screens/TournamentResultsPage'; // Add this import
+import TeamManagement from './screens/TeamManagement';
+import TeamPoolsPage from './screens/TeamPoolsPage';
+import TeamBoutOrderPage from './screens/TeamBoutOrderPage';
+import NCAATeamBoutPage from './screens/NCAATeamBoutPage';
+import RelayTeamBoutPage from './screens/RelayTeamBoutPage';
 import i18n from '../i18n';
 import { useTranslation } from 'react-i18next';
 import * as SplashScreen from 'expo-splash-screen';
@@ -90,6 +95,36 @@ const RootStack = createNativeStackNavigator({
             screen: TournamentResultsPage,
             options: () => ({
                 title: i18n.t('tournamentResults.title'),
+            }),
+        },
+        TeamManagement: {
+            screen: TeamManagement,
+            options: () => ({
+                title: i18n.t('teamManagement.teams'),
+            }),
+        },
+        TeamPoolsPage: {
+            screen: TeamPoolsPage,
+            options: () => ({
+                title: i18n.t('poolsPage.title'),
+            }),
+        },
+        TeamBoutOrderPage: {
+            screen: TeamBoutOrderPage,
+            options: () => ({
+                title: i18n.t('teamBoutOrderPage.teamBouts'),
+            }),
+        },
+        NCAATeamBoutPage: {
+            screen: NCAATeamBoutPage,
+            options: () => ({
+                title: i18n.t('ncaaTeamBoutPage.title'),
+            }),
+        },
+        RelayTeamBoutPage: {
+            screen: RelayTeamBoutPage,
+            options: () => ({
+                title: i18n.t('relayTeamBoutPage.title'),
             }),
         },
     },

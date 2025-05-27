@@ -8,6 +8,8 @@ import { dbCreatePoolAssignmentsAndBoutOrders } from './pool';
 import { calculatePreliminarySeeding } from '../../navigation/utils/RoundAlgorithms';
 import { dbSaveSeeding, dbGetSeedingForRound } from './seeding';
 import { createDEBoutsForRound } from './bracket';
+import * as teamUtils from './team';
+import * as teamPoolUtils from './teamPool';
 
 /**
  * Marks a round as complete and calculates seeding
@@ -260,6 +262,58 @@ export async function dbInitializeRound(event: Event, round: Round, fencers: Fen
         await dbMarkRoundAsStarted(round.id);
     } catch (error) {
         console.error('Error initializing round:', error);
+        throw error;
+    }
+}
+
+/**
+ * Initializes a team round with the proper bout structure
+ */
+export async function dbInitializeTeamRound(event: Event, round: Round): Promise<void> {
+    try {
+        console.log(
+            `Initializing team round ${round.id} (order: ${round.rorder}) for event ${event.id}, type: ${round.type}, format: ${event.team_format}`
+        );
+
+        if (!round.type) {
+            console.error('Round type is undefined, defaulting to "pool"');
+            round.type = 'pool';
+        }
+
+        // Get all teams for the event
+        const teams = await teamUtils.getEventTeams(db, event.id);
+        console.log(`Found ${teams.length} teams for the event`);
+
+        if (teams.length === 0) {
+            throw new Error('No teams found for the event. Cannot initialize round.');
+        }
+
+        // For now, we only support pool rounds for team events
+        if (round.type === 'pool') {
+            if (!round.poolcount || !round.poolsize) {
+                throw new Error('Pool count and size must be set before initializing a team pool round');
+            }
+
+            // First, seed teams by strength
+            await teamUtils.seedTeamsForEvent(db, event.id);
+            
+            // Get the seeded teams
+            const seededTeams = await teamUtils.getEventTeams(db, event.id);
+            
+            // Create pool assignments and team bouts
+            await teamPoolUtils.dbCreateTeamPoolAssignmentsAndBouts(db, event, round, seededTeams, round.poolcount, round.poolsize);
+            
+            console.log(`Created team pool assignments and bouts for round ${round.id}`);
+        } else if (round.type === 'de') {
+            // TODO: Implement DE rounds for team events
+            throw new Error('DE rounds for team events are not yet implemented');
+        }
+
+        // Mark the round as started
+        await dbMarkRoundAsStarted(round.id);
+        console.log(`Team round ${round.id} initialized successfully`);
+    } catch (error) {
+        console.error('Error initializing team round:', error);
         throw error;
     }
 }

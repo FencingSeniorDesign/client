@@ -1,10 +1,10 @@
 import { createMongoAbility, AbilityBuilder, MongoAbility } from '@casl/ability';
 
 // Define our subjects (entities we want to control access to)
-export type AppSubjects = 'Tournament' | 'Event' | 'Round' | 'Official' | 'Referee' | 'Bout' | 'Fencer' | 'all';
+export type AppSubjects = 'Tournament' | 'Event' | 'Round' | 'Official' | 'Referee' | 'Bout' | 'Fencer' | 'Team' | 'TeamMember' | 'TeamBout' | 'all';
 
 // Define possible actions
-export type Actions = 'manage' | 'create' | 'read' | 'update' | 'delete' | 'score';
+export type Actions = 'manage' | 'create' | 'read' | 'update' | 'delete' | 'score' | 'substitute';
 
 // Define our custom ability type for the application
 export type AppAbility = MongoAbility<[Actions, AppSubjects]>;
@@ -31,10 +31,19 @@ export function defineAbilityFor(role: Role): AppAbility {
         can('manage', 'all');
         cannot('manage', 'Official');
         cannot('manage', 'Referee');
+        // Officials can manage teams
+        can('manage', 'Team');
+        can('manage', 'TeamMember');
+        can('substitute', 'TeamMember');
+        can('score', 'TeamBout');
     } else if (role === Role.REFEREE) {
-        // Referees can only score bouts
+        // Referees can only score bouts (including team bouts)
         can('read', 'all');
         can('score', 'Bout');
+        can('score', 'TeamBout');
+        can('read', 'Team');
+        can('read', 'TeamMember');
+        can('substitute', 'TeamMember');
     } else {
         // Viewers can only read
         can('read', 'all');
