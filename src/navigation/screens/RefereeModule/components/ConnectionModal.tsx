@@ -247,13 +247,6 @@ export function ConnectionModal({
                         </>
                     ) : (
                         <>
-                            {isScanning && selectedBox === ScoringBoxType.TOURNAFENCE && (
-                                <View style={styles.nfcPrompt}>
-                                    <FontAwesome5 name="wifi" size={24} color="#1976d2" />
-                                    <Text style={styles.nfcPromptText}>{t('ble.tapNfcToPair')}</Text>
-                                </View>
-                            )}
-
                             <FlatList
                                 data={boxOptions}
                                 renderItem={renderBoxOption}
