@@ -53,7 +53,6 @@ export function ConnectionModal({
     const [selectedBox, setSelectedBox] = useState<ScoringBoxType | null>(null);
     const [isScanning, setIsScanning] = useState(false);
     const [foundDevices, setFoundDevices] = useState<Device[]>([]);
-    const [showDeviceSelection, setShowDeviceSelection] = useState(false);
     const [nfcSupported, setNfcSupported] = useState(false);
     const [isNFCScanning, setIsNFCScanning] = useState(false);
     const [showNFCWriteModal, setShowNFCWriteModal] = useState(false);
@@ -170,7 +169,14 @@ export function ConnectionModal({
             onCancelScan();
             setIsScanning(false);
             setSelectedBox(null);
+            setFoundDevices([]);
             return;
+        }
+
+        // If selecting a different box, reset previous selection
+        if (selectedBox && selectedBox !== box.type) {
+            onCancelScan();
+            setFoundDevices([]);
         }
 
         setSelectedBox(box.type);
@@ -181,11 +187,11 @@ export function ConnectionModal({
             const devices = await onScan(box.type);
             setFoundDevices(devices);
             setIsScanning(false);
-            setShowDeviceSelection(true);
         } catch (error) {
             console.error('Scan failed:', error);
             setIsScanning(false);
             setSelectedBox(null);
+            setFoundDevices([]);
             // Log error instead of showing alert
             if (error.message !== 'Scan cancelled') {
                 console.error('Scan failed:', error.message || 'Unknown error');
@@ -199,7 +205,6 @@ export function ConnectionModal({
         try {
             await onConnect(selectedBox, device.id);
             // Connection successful
-            setShowDeviceSelection(false);
             setFoundDevices([]);
             setSelectedBox(null);
             onClose(); // Close modal after successful connection
@@ -218,53 +223,80 @@ export function ConnectionModal({
             setIsScanning(false);
             setSelectedBox(null);
             setFoundDevices([]);
-            setShowDeviceSelection(false);
         }
     }, [visible, isScanning, onCancelScan]);
 
     const renderBoxOption = ({ item }: { item: BoxOption }) => {
         const isConnected = connectionState === ConnectionState.CONNECTED && connectedBoxType === item.type;
         const isThisBoxScanning = isScanning && selectedBox === item.type;
+        const isThisBoxSelected = selectedBox === item.type;
+        const hasFoundDevices = isThisBoxSelected && foundDevices.length > 0;
 
         return (
-            <TouchableOpacity
-                style={[
-                    styles.boxOption,
-                    isConnected && styles.boxOptionConnected,
-                    isThisBoxScanning && styles.boxOptionScanning,
-                    !item.available && styles.boxOptionDisabled,
-                ]}
-                onPress={() => handleBoxSelection(item)}
-                disabled={isScanning && !isThisBoxScanning}
-            >
-                <View style={styles.boxIconContainer}>
-                    <FontAwesome5
-                        name={item.icon}
-                        size={30}
-                        color={isConnected ? '#4CAF50' : isThisBoxScanning ? '#1976d2' : '#666'}
-                    />
-                </View>
-                <View style={styles.boxTextContainer}>
-                    <Text
-                        style={[
-                            styles.boxName,
-                            isConnected && styles.boxNameConnected,
-                            isThisBoxScanning && styles.boxNameScanning,
-                        ]}
-                    >
-                        {item.name}
-                        {!item.available && ' (Coming Soon)'}
-                    </Text>
-                    {isThisBoxScanning ? (
-                        <Text style={styles.scanningText}>{t('ble.scanning')}</Text>
-                    ) : (
-                        <Text style={styles.boxDescription}>{item.description}</Text>
-                    )}
-                    {isConnected && connectedDeviceName && <Text style={styles.deviceName}>{connectedDeviceName}</Text>}
-                </View>
-                {isThisBoxScanning && <ActivityIndicator size="small" color="#1976d2" style={styles.loader} />}
-                {isConnected && <FontAwesome5 name="check-circle" size={24} color="#4CAF50" style={styles.checkIcon} />}
-            </TouchableOpacity>
+            <View>
+                <TouchableOpacity
+                    style={[
+                        styles.boxOption,
+                        isConnected && styles.boxOptionConnected,
+                        isThisBoxScanning && styles.boxOptionScanning,
+                        !item.available && styles.boxOptionDisabled,
+                    ]}
+                    onPress={() => handleBoxSelection(item)}
+                    disabled={isScanning && !isThisBoxScanning}
+                >
+                    <View style={styles.boxIconContainer}>
+                        <FontAwesome5
+                            name={item.icon}
+                            size={30}
+                            color={isConnected ? '#4CAF50' : isThisBoxScanning ? '#1976d2' : '#666'}
+                        />
+                    </View>
+                    <View style={styles.boxTextContainer}>
+                        <Text
+                            style={[
+                                styles.boxName,
+                                isConnected && styles.boxNameConnected,
+                                isThisBoxScanning && styles.boxNameScanning,
+                            ]}
+                        >
+                            {item.name}
+                            {!item.available && ' (Coming Soon)'}
+                        </Text>
+                        {isThisBoxScanning ? (
+                            <Text style={styles.scanningText}>{t('ble.scanning')}</Text>
+                        ) : (
+                            <Text style={styles.boxDescription}>{item.description}</Text>
+                        )}
+                        {isConnected && connectedDeviceName && <Text style={styles.deviceName}>{connectedDeviceName}</Text>}
+                    </View>
+                    {isThisBoxScanning && <ActivityIndicator size="small" color="#1976d2" style={styles.loader} />}
+                    {isConnected && <FontAwesome5 name="check-circle" size={24} color="#4CAF50" style={styles.checkIcon} />}
+                </TouchableOpacity>
+                
+                {/* Found devices section */}
+                {hasFoundDevices && (
+                    <View style={styles.devicesContainer}>
+                        <Text style={styles.devicesTitle}>
+                            {t('ble.foundDevices', { count: foundDevices.length })}
+                        </Text>
+                        {foundDevices.map((device) => (
+                            <TouchableOpacity
+                                key={device.id}
+                                style={styles.deviceItem}
+                                onPress={() => handleDeviceSelection(device)}
+                            >
+                                <View style={styles.deviceInfo}>
+                                    <Text style={styles.deviceName}>
+                                        {device.name || device.localName || t('ble.unknownDevice')}
+                                    </Text>
+                                    <Text style={styles.deviceId}>{device.id}</Text>
+                                </View>
+                                <FontAwesome5 name="chevron-right" size={16} color="#666" />
+                            </TouchableOpacity>
+                        ))}
+                    </View>
+                )}
+            </View>
         );
     };
 
@@ -281,7 +313,7 @@ export function ConnectionModal({
                 <View style={styles.modalContent}>
                     <View style={styles.modalHeader}>
                         <Text style={styles.modalTitle}>
-                            {showDeviceSelection ? t('ble.selectDevice') : t('ble.connectToScoringBox')}
+                            {t('ble.connectToScoringBox')}
                         </Text>
                         <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
                             <FontAwesome5 name="times" size={24} color="#333" />
@@ -289,7 +321,7 @@ export function ConnectionModal({
                     </View>
 
                     {/* NFC Scan Button - shown when not connected */}
-                    {nfcSupported && connectionState !== ConnectionState.CONNECTED && !showDeviceSelection && (
+                    {nfcSupported && connectionState !== ConnectionState.CONNECTED && (
                         <TouchableOpacity
                             style={styles.nfcScanButton}
                             onPress={handleNFCScan}
@@ -305,7 +337,7 @@ export function ConnectionModal({
 
                     {/* NFC Manager Button - shown when connected to TournaFence */}
                     {nfcSupported && connectionState === ConnectionState.CONNECTED && 
-                     connectedBoxType === ScoringBoxType.TOURNAFENCE && !showDeviceSelection && (
+                     connectedBoxType === ScoringBoxType.TOURNAFENCE && (
                         <TouchableOpacity
                             style={styles.nfcManagerButton}
                             onPress={() => setShowNFCWriteModal(true)}
@@ -315,62 +347,23 @@ export function ConnectionModal({
                         </TouchableOpacity>
                     )}
 
-                    {showDeviceSelection ? (
-                        <>
-                            <Text style={styles.deviceListTitle}>
-                                {t('ble.foundDevices', { count: foundDevices.length })}
-                            </Text>
-                            <FlatList
-                                data={foundDevices}
-                                renderItem={({ item }) => (
-                                    <TouchableOpacity
-                                        style={styles.deviceItem}
-                                        onPress={() => handleDeviceSelection(item)}
-                                    >
-                                        <View style={styles.deviceInfo}>
-                                            <Text style={styles.deviceName}>
-                                                {item.name || item.localName || t('ble.unknownDevice')}
-                                            </Text>
-                                            <Text style={styles.deviceId}>{item.id}</Text>
-                                        </View>
-                                        <FontAwesome5 name="chevron-right" size={16} color="#666" />
-                                    </TouchableOpacity>
-                                )}
-                                keyExtractor={item => item.id}
-                                ItemSeparatorComponent={() => <View style={styles.separator} />}
-                            />
-                            <TouchableOpacity
-                                style={styles.cancelButton}
-                                onPress={() => {
-                                    setShowDeviceSelection(false);
-                                    setFoundDevices([]);
-                                    setSelectedBox(null);
-                                }}
-                            >
-                                <Text style={styles.cancelButtonText}>{t('common.cancel')}</Text>
-                            </TouchableOpacity>
-                        </>
-                    ) : (
-                        <>
-                            <FlatList
-                                data={boxOptions}
-                                renderItem={renderBoxOption}
-                                keyExtractor={item => item.type}
-                                ItemSeparatorComponent={() => <View style={styles.separator} />}
-                            />
+                    <FlatList
+                        data={selectedBox && !connectionState ? boxOptions.filter(box => box.type === selectedBox) : boxOptions}
+                        renderItem={renderBoxOption}
+                        keyExtractor={item => item.type}
+                        ItemSeparatorComponent={() => <View style={styles.separator} />}
+                    />
 
-                            {connectionState === ConnectionState.CONNECTED && (
-                                <TouchableOpacity
-                                    style={styles.disconnectButton}
-                                    onPress={() => {
-                                        onDisconnect();
-                                        onClose();
-                                    }}
-                                >
-                                    <Text style={styles.disconnectButtonText}>{t('ble.disconnect')}</Text>
-                                </TouchableOpacity>
-                            )}
-                        </>
+                    {connectionState === ConnectionState.CONNECTED && (
+                        <TouchableOpacity
+                            style={styles.disconnectButton}
+                            onPress={() => {
+                                onDisconnect();
+                                onClose();
+                            }}
+                        >
+                            <Text style={styles.disconnectButtonText}>{t('ble.disconnect')}</Text>
+                        </TouchableOpacity>
                     )}
                 </View>
             </View>
@@ -543,6 +536,20 @@ const styles = StyleSheet.create({
         fontSize: 16,
         fontWeight: '600',
     },
+    devicesContainer: {
+        marginTop: 10,
+        marginHorizontal: 10,
+        backgroundColor: '#f0f4f8',
+        borderRadius: 10,
+        padding: 10,
+    },
+    devicesTitle: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: '#666',
+        marginBottom: 10,
+        paddingHorizontal: 10,
+    },
     nfcPrompt: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -570,12 +577,14 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        paddingHorizontal: 20,
-        paddingVertical: 15,
-        backgroundColor: '#f8f9fa',
-        marginHorizontal: 10,
-        marginVertical: 5,
-        borderRadius: 10,
+        paddingHorizontal: 15,
+        paddingVertical: 12,
+        backgroundColor: '#fff',
+        marginHorizontal: 5,
+        marginVertical: 3,
+        borderRadius: 8,
+        borderWidth: 1,
+        borderColor: '#e0e0e0',
     },
     deviceInfo: {
         flex: 1,

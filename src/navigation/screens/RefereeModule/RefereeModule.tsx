@@ -572,8 +572,8 @@ export function RefereeModule() {
                 </View>
             </View>
 
-            {/* Only show double touch button for epee */}
-            {weapon?.toLowerCase() === 'epee' && (
+            {/* Show double touch button for epee or when not launched from tournament (standalone mode) */}
+            {(weapon?.toLowerCase() === 'epee' || !onSaveScores) && (
                 <TouchableOpacity
                     style={[styles.doubleTouchButton, kawaiiMode && kawaiiModeStyles.doubleTouchButton]}
                     onPress={() => {
