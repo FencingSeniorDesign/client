@@ -385,6 +385,8 @@ export default {
         tableOf128: '128强',
         tableOf256: '256强',
         tableOfX: '{{number}}强',
+        refModule: '裁判模块',
+        boutResult: '比赛结果',
     },
     roundResults: {
         title: '轮次结果',

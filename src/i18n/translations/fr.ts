@@ -410,6 +410,8 @@ export default {
         tableOf128: 'Table des 128',
         tableOf256: 'Table des 256',
         tableOfX: 'Table des {{number}}',
+        refModule: 'Module Arbitre',
+        boutResult: 'Résultat du Match',
         disconnectBoxPromptTitle: 'Déconnecter le Boîtier de Score?',
         disconnectBoxPromptMessage:
             'Vous êtes actuellement connecté à un boîtier de score. Voulez-vous vous déconnecter avant de sortir?',

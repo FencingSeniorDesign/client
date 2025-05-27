@@ -491,6 +491,8 @@ export default {
         tableOf128: 'Table of 128',
         tableOf256: 'Table of 256',
         tableOfX: 'Table of {{number}}',
+        refModule: 'Ref Module',
+        boutResult: 'Bout Result',
         disconnectBoxPromptTitle: 'Disconnect Scoring Box?',
         disconnectBoxPromptMessage:
             'You are currently connected to a scoring box. Would you like to disconnect before leaving?',

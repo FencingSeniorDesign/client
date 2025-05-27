@@ -13,7 +13,7 @@ import { useTranslation } from 'react-i18next';
 import { ConnectionModal } from './components/ConnectionModal';
 import { DataSourceDialog } from './components/DataSourceDialog';
 import { useScoringBox } from './hooks/useScoringBox';
-import { ScoringBoxType, ConnectionState } from '../../../networking/ble/types';
+import { ConnectionState } from '../../../networking/ble/types';
 
 type CardColor = 'yellow' | 'red' | 'black' | null;
 type FencerCard = { color: CardColor };
@@ -40,6 +40,7 @@ export function RefereeModule() {
     // Whether we're connected to a tournament server
     const [isConnected, setIsConnected] = useState(false);
     const [isHost, setIsHost] = useState(false);
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const [boutId, setBoutId] = useState<number | undefined>(boutIndex);
 
     // Main timer (persistent)
@@ -57,6 +58,7 @@ export function RefereeModule() {
 
     // Non‑combativity (passivity) timer state
     const [passivityTime, setPassivityTime] = useState(60);
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const [passivityTimerRunning, setPassivityTimerRunning] = useState(false);
     const [savedPassivityTime, setSavedPassivityTime] = useState<number | null>(null);
     const passivityTimerRef = useRef<NodeJS.Timer | null>(null);
@@ -66,6 +68,7 @@ export function RefereeModule() {
 
     const [showCardActionModal, setShowCardActionModal] = useState(false);
     const [selectedCard, setSelectedCard] = useState<CardColor>(null);
+    const [displayCard, setDisplayCard] = useState<CardColor>(null); // Keep track of display color during animation
     const [removalMode, setRemovalMode] = useState(false);
     const [fencer1Cards, setFencer1Cards] = useState<FencerCard[]>([]);
     const [fencer2Cards, setFencer2Cards] = useState<FencerCard[]>([]);
@@ -207,8 +210,19 @@ export function RefereeModule() {
 
     const handleCardPress = (color: CardColor, remove: boolean = false) => {
         setSelectedCard(color);
+        setDisplayCard(color); // Set display card for animation
         setRemovalMode(remove);
         setShowCardActionModal(true);
+    };
+
+    const closeCardModal = () => {
+        setShowCardActionModal(false);
+        // Clear other state after animation completes (approximately 300ms for slide animation)
+        setTimeout(() => {
+            setSelectedCard(null);
+            setDisplayCard(null);
+            setRemovalMode(false);
+        }, 300);
     };
 
     const assignCard = (fencer: 1 | 2) => {
@@ -218,9 +232,7 @@ export function RefereeModule() {
             } else {
                 setFencer2Cards([...fencer2Cards, { color: selectedCard }]);
             }
-            setSelectedCard(null);
-            setShowCardActionModal(false);
-            setRemovalMode(false);
+            closeCardModal();
         }
     };
 
@@ -241,9 +253,7 @@ export function RefereeModule() {
                     setFencer2Cards(newCards);
                 }
             }
-            setSelectedCard(null);
-            setShowCardActionModal(false);
-            setRemovalMode(false);
+            closeCardModal();
         }
     };
 
@@ -308,12 +318,22 @@ export function RefereeModule() {
             let newScore1 = fencer1Score;
             let newScore2 = fencer2Score;
 
-            if (fencer === 1) {
-                newScore1 = Math.max(0, fencer1Score - delta);
+            // Check if this was a double touch (delta === 2)
+            if (delta === 2) {
+                // Revert both scores
+                newScore1 = Math.max(0, fencer1Score - 1);
+                newScore2 = Math.max(0, fencer2Score - 1);
                 setFencer1Score(newScore1);
-            } else {
-                newScore2 = Math.max(0, fencer2Score - delta);
                 setFencer2Score(newScore2);
+            } else {
+                // Single touch revert
+                if (fencer === 1) {
+                    newScore1 = Math.max(0, fencer1Score - delta);
+                    setFencer1Score(newScore1);
+                } else {
+                    newScore2 = Math.max(0, fencer2Score - delta);
+                    setFencer2Score(newScore2);
+                }
             }
 
             // Only manage passivity timer locally when not connected to hardware
@@ -440,11 +460,14 @@ export function RefereeModule() {
             const count = cards.filter(card => card.color === type).length;
             if (count === 0) return;
             if (count > 3) {
-                // @ts-ignore
                 elements.push(
                     <View
                         key={type}
-                        style={[styles.cardIndicator, styles.aggregatedIndicator, { backgroundColor: type }]}
+                        style={[
+                            styles.cardIndicator,
+                            styles.aggregatedIndicator,
+                            { backgroundColor: type || 'transparent' },
+                        ]}
                     >
                         <Text style={[styles.cardCountText, { color: type === 'yellow' ? '#000' : '#fff' }]}>
                             {count}x
@@ -453,9 +476,11 @@ export function RefereeModule() {
                 );
             } else {
                 for (let i = 0; i < count; i++) {
-                    // @ts-ignore
                     elements.push(
-                        <View key={`${type}-${i}`} style={[styles.cardIndicator, { backgroundColor: type }]} />
+                        <View
+                            key={`${type}-${i}`}
+                            style={[styles.cardIndicator, { backgroundColor: type || 'transparent' }]}
+                        />
                     );
                 }
             }
@@ -577,8 +602,29 @@ export function RefereeModule() {
                 <TouchableOpacity
                     style={[styles.doubleTouchButton, kawaiiMode && kawaiiModeStyles.doubleTouchButton]}
                     onPress={() => {
-                        updateScore(1, true);
-                        updateScore(2, true);
+                        // Handle double touch atomically
+                        stopTimer();
+
+                        // Only manage passivity timer locally when not connected to hardware
+                        if (connectionState !== ConnectionState.CONNECTED) {
+                            setSavedPassivityTime(passivityTime);
+                            setPassivityTime(60);
+                        }
+
+                        // Update both scores
+                        const newScore1 = fencer1Score + 1;
+                        const newScore2 = fencer2Score + 1;
+                        setFencer1Score(newScore1);
+                        setFencer2Score(newScore2);
+
+                        // Send single update to BLE box if connected
+                        if (connectionState === ConnectionState.CONNECTED && initialSyncCompleted) {
+                            // Hardware left/right is swapped from UI left/right, so swap when sending
+                            sendScoreToBox(newScore2, newScore1);
+                        }
+
+                        // Track double touch for potential revert (using fencer: 1 with delta: 2 to indicate double touch)
+                        setLastScoreChange({ fencer: 1, delta: 2 });
                     }}
                 >
                     <Text style={styles.doubleTouchButtonText}>{t('refereeModule.doubleTouch')}</Text>
@@ -597,78 +643,53 @@ export function RefereeModule() {
                 </TouchableOpacity>
             )}
 
-            {showCardActionModal && (
-                <Modal
-                    visible={showCardActionModal}
-                    transparent
-                    animationType="slide"
-                    onRequestClose={() => setShowCardActionModal(false)}
-                >
-                    <View style={styles.modalOverlay}>
-                        <View style={styles.modalContainer}>
-                            {removalMode ? (
-                                <>
-                                    <View style={[styles.colorPreview, { backgroundColor: selectedCard || '#fff' }]} />
-                                    <View style={styles.modalFooter}>
-                                        <Text style={styles.modalTitle}>
-                                            {t('refereeModule.removeCardFrom', {
-                                                color: selectedCard ? t(`refereeModule.${selectedCard}`) : '',
-                                            })}
-                                        </Text>
-                                        <View style={styles.modalActionContainer}>
-                                            <TouchableOpacity
-                                                style={styles.modalButtonLeft}
-                                                onPress={() => removeCard(1)}
-                                            >
-                                                <Text style={styles.modalButtonText}>{t('refereeModule.left')}</Text>
-                                            </TouchableOpacity>
-                                            <TouchableOpacity
-                                                style={styles.modalCloseButton}
-                                                onPress={() => setShowCardActionModal(false)}
-                                            >
-                                                <AntDesign name="closecircle" size={36} color="#333" />
-                                            </TouchableOpacity>
-                                            <TouchableOpacity
-                                                style={styles.modalButtonRight}
-                                                onPress={() => removeCard(2)}
-                                            >
-                                                <Text style={styles.modalButtonText}>{t('refereeModule.right')}</Text>
-                                            </TouchableOpacity>
-                                        </View>
+            <Modal visible={showCardActionModal} transparent animationType="slide" onRequestClose={closeCardModal}>
+                <View style={styles.modalOverlay}>
+                    <View style={styles.modalContainer}>
+                        {removalMode ? (
+                            <>
+                                <View style={[styles.colorPreview, { backgroundColor: displayCard || '#fff' }]} />
+                                <View style={styles.modalFooter}>
+                                    <Text style={styles.modalTitle}>
+                                        {t('refereeModule.removeCardFrom', {
+                                            color: displayCard ? t(`refereeModule.${displayCard}`) : '',
+                                        })}
+                                    </Text>
+                                    <View style={styles.modalActionContainer}>
+                                        <TouchableOpacity style={styles.modalButtonLeft} onPress={() => removeCard(1)}>
+                                            <Text style={styles.modalButtonText}>{t('refereeModule.left')}</Text>
+                                        </TouchableOpacity>
+                                        <TouchableOpacity style={styles.modalCloseButton} onPress={closeCardModal}>
+                                            <AntDesign name="closecircle" size={36} color="#333" />
+                                        </TouchableOpacity>
+                                        <TouchableOpacity style={styles.modalButtonRight} onPress={() => removeCard(2)}>
+                                            <Text style={styles.modalButtonText}>{t('refereeModule.right')}</Text>
+                                        </TouchableOpacity>
                                     </View>
-                                </>
-                            ) : (
-                                <>
-                                    <View style={[styles.colorPreview, { backgroundColor: selectedCard || '#fff' }]} />
-                                    <View style={styles.modalFooter}>
-                                        <Text style={styles.modalTitle}>{t('refereeModule.assignCardTo')}</Text>
-                                        <View style={styles.modalActionContainer}>
-                                            <TouchableOpacity
-                                                style={styles.modalButtonLeft}
-                                                onPress={() => assignCard(1)}
-                                            >
-                                                <Text style={styles.modalButtonText}>{t('refereeModule.left')}</Text>
-                                            </TouchableOpacity>
-                                            <TouchableOpacity
-                                                style={styles.modalCloseButton}
-                                                onPress={() => setShowCardActionModal(false)}
-                                            >
-                                                <AntDesign name="closecircle" size={36} color="#333" />
-                                            </TouchableOpacity>
-                                            <TouchableOpacity
-                                                style={styles.modalButtonRight}
-                                                onPress={() => assignCard(2)}
-                                            >
-                                                <Text style={styles.modalButtonText}>{t('refereeModule.right')}</Text>
-                                            </TouchableOpacity>
-                                        </View>
+                                </View>
+                            </>
+                        ) : (
+                            <>
+                                <View style={[styles.colorPreview, { backgroundColor: displayCard || '#fff' }]} />
+                                <View style={styles.modalFooter}>
+                                    <Text style={styles.modalTitle}>{t('refereeModule.assignCardTo')}</Text>
+                                    <View style={styles.modalActionContainer}>
+                                        <TouchableOpacity style={styles.modalButtonLeft} onPress={() => assignCard(1)}>
+                                            <Text style={styles.modalButtonText}>{t('refereeModule.left')}</Text>
+                                        </TouchableOpacity>
+                                        <TouchableOpacity style={styles.modalCloseButton} onPress={closeCardModal}>
+                                            <AntDesign name="closecircle" size={36} color="#333" />
+                                        </TouchableOpacity>
+                                        <TouchableOpacity style={styles.modalButtonRight} onPress={() => assignCard(2)}>
+                                            <Text style={styles.modalButtonText}>{t('refereeModule.right')}</Text>
+                                        </TouchableOpacity>
                                     </View>
-                                </>
-                            )}
-                        </View>
+                                </View>
+                            </>
+                        )}
                     </View>
-                </Modal>
-            )}
+                </View>
+            </Modal>
 
             <View style={styles.cardButtonsContainer}>
                 <Pressable
@@ -749,9 +770,9 @@ export function RefereeModule() {
                 }}
                 onDisconnect={disconnect}
                 connectionState={connectionState}
-                connectedBoxType={connectedBoxType}
-                connectedDeviceName={connectedDeviceName}
-                connectedDeviceId={connectedDeviceId}
+                connectedBoxType={connectedBoxType || undefined}
+                connectedDeviceName={connectedDeviceName || undefined}
+                connectedDeviceId={connectedDeviceId || undefined}
             />
 
             {/* Data Source Selection Dialog */}

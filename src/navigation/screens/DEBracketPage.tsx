@@ -1,6 +1,6 @@
 // src/navigation/screens/DEBracketPage.tsx
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator, TextInput } from 'react-native';
 import { useRoute, RouteProp, useNavigation, useFocusEffect, usePreventRemove } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList, Event, Fencer, Round } from '../navigation/types';
@@ -65,6 +65,8 @@ const DEBracketPage: React.FC = () => {
     const [isRoundComplete, setIsRoundComplete] = useState<boolean>(false); // Add this state
     const [isFinalRound, setIsFinalRound] = useState<boolean>(false); // Add this state
     const [isRandomizing, setIsRandomizing] = useState<boolean>(false); // For Random Score button
+    const [expandedBoutIndex, setExpandedBoutIndex] = useState<number | null>(null);
+    const [scoreInputs, setScoreInputs] = useState<{ [key: number]: { scoreA: string; scoreB: string } }>({});
 
     // Check if we should prevent navigation
     const shouldPreventNavigation = connectionState === ConnectionState.CONNECTED;
@@ -243,79 +245,154 @@ const DEBracketPage: React.FC = () => {
                 return;
             }
 
-            // Validate fencer data before proceeding
-            //if (!bout.fencerA.id || !bout.fencerB.id) {
-                //console.error('Invalid fencer data - missing IDs', {
-                    //fencerAId: bout.fencerA.id,
-                    //fencerBId: bout.fencerB.id,
-                //});
-                //Alert.alert(t('common.error'), t('deBracketPage.invalidFencerData'));
-                //return;
-            //}
-
-            // Create safe fencer names
-            const fencer1Name =
-                `${bout.fencerA.fname || ''} ${bout.fencerA.lname || ''}`.trim() || t('common.defaultFencerA');
-            const fencer2Name =
-                `${bout.fencerB.fname || ''} ${bout.fencerB.lname || ''}`.trim() || t('common.defaultFencerB');
-
-            // Navigate to Referee Module
-            navigation.navigate('RefereeModule', {
-                boutIndex: bout.boutIndex,
-                fencer1Name: fencer1Name,
-                fencer2Name: fencer2Name,
-                currentScore1: bout.scoreA || 0,
-                currentScore2: bout.scoreB || 0,
-                weapon: event.weapon,
-                onSaveScores: async (score1: number, score2: number) => {
-                    try {
-                        // Update bout scores and advance winner
-                        await dbUpdateDEBoutAndAdvanceWinner(bout.id, score1, score2, bout.fencerA.id, bout.fencerB.id);
-
-                        // Refresh to show updated scores and advancement
-                        setRefreshKey(prev => prev + 1);
-
-                        // Check if connected to scoring box and show disconnect prompt
-                        if (connectionState === ConnectionState.CONNECTED) {
-                            Alert.alert(
-                                t('common.disconnectBoxPromptTitle'),
-                                t('common.disconnectBoxPromptMessage'),
-                                [
-                                    {
-                                        text: t('common.cancel'),
-                                        style: 'cancel',
-                                    },
-                                    {
-                                        text: t('common.exitWithoutDisconnecting'),
-                                        onPress: () => {
-                                            // Just close the alert - already saved scores
-                                        },
-                                    },
-                                    {
-                                        text: t('common.disconnectAndExit'),
-                                        onPress: async () => {
-                                            try {
-                                                await disconnect();
-                                            } catch (error) {
-                                                //console.error('Failed to disconnect:', error);
-                                            }
-                                        },
-                                        style: 'destructive',
-                                    },
-                                ],
-                                { cancelable: true }
-                            );
-                        }
-                    } catch (error) {
-                        //console.error('Error updating bout scores:', error);
-                        //Alert.alert(t('common.error'), t('deBracketPage.failedToSaveScores'));
-                    }
-                },
-            });
+            // Toggle expanded state for this bout
+            if (expandedBoutIndex === bout.id) {
+                setExpandedBoutIndex(null);
+            } else {
+                setExpandedBoutIndex(bout.id);
+                // Initialize score inputs for this bout if not already present
+                if (!scoreInputs[bout.id]) {
+                    setScoreInputs(prev => ({
+                        ...prev,
+                        [bout.id]: {
+                            scoreA: String(bout.scoreA || 0),
+                            scoreB: String(bout.scoreB || 0),
+                        },
+                    }));
+                }
+            }
         } catch (error) {
             //console.error('Error in handleBoutPress:', error);
             //Alert.alert(t('common.error'), t('deBracketPage.unexpectedBoutError'));
         }
+    };
+
+    // Handle score input changes
+    const handleScoreChange = (boutId: number, which: 'A' | 'B', value: string) => {
+        setScoreInputs(prev => ({
+            ...prev,
+            [boutId]: {
+                ...prev[boutId],
+                [`score${which}`]: value,
+            },
+        }));
+    };
+
+    // Handle score submission
+    const handleSubmitScores = async (bout: DEBout) => {
+        try {
+            const inputs = scoreInputs[bout.id];
+            if (!inputs) return;
+
+            const scoreA = parseInt(inputs.scoreA, 10) || 0;
+            const scoreB = parseInt(inputs.scoreB, 10) || 0;
+
+            // Update bout scores and advance winner
+            await dbUpdateDEBoutAndAdvanceWinner(bout.id, scoreA, scoreB, bout.fencerA!.id, bout.fencerB!.id);
+
+            // Refresh to show updated scores and advancement
+            setRefreshKey(prev => prev + 1);
+            setExpandedBoutIndex(null);
+
+            // Check if connected to scoring box and show disconnect prompt
+            if (connectionState === ConnectionState.CONNECTED) {
+                Alert.alert(
+                    t('common.disconnectBoxPromptTitle'),
+                    t('common.disconnectBoxPromptMessage'),
+                    [
+                        {
+                            text: t('common.cancel'),
+                            style: 'cancel',
+                        },
+                        {
+                            text: t('common.exitWithoutDisconnecting'),
+                            onPress: () => {
+                                // Just close the alert - already saved scores
+                            },
+                        },
+                        {
+                            text: t('common.disconnectAndExit'),
+                            onPress: async () => {
+                                try {
+                                    await disconnect();
+                                } catch (error) {
+                                    //console.error('Failed to disconnect:', error);
+                                }
+                            },
+                            style: 'destructive',
+                        },
+                    ],
+                    { cancelable: true }
+                );
+            }
+        } catch (error) {
+            //console.error('Error updating bout scores:', error);
+            //Alert.alert(t('common.error'), t('deBracketPage.failedToSaveScores'));
+        }
+    };
+
+    // Open referee module
+    const openRefModuleForBout = (bout: DEBout) => {
+        // Create safe fencer names
+        const fencer1Name =
+            `${bout.fencerA!.fname || ''} ${bout.fencerA!.lname || ''}`.trim() || t('common.defaultFencerA');
+        const fencer2Name =
+            `${bout.fencerB!.fname || ''} ${bout.fencerB!.lname || ''}`.trim() || t('common.defaultFencerB');
+
+        // Navigate to Referee Module
+        navigation.navigate('RefereeModule', {
+            boutIndex: bout.boutIndex,
+            fencer1Name: fencer1Name,
+            fencer2Name: fencer2Name,
+            currentScore1: bout.scoreA || 0,
+            currentScore2: bout.scoreB || 0,
+            weapon: event.weapon,
+            onSaveScores: async (score1: number, score2: number) => {
+                try {
+                    // Update bout scores and advance winner
+                    await dbUpdateDEBoutAndAdvanceWinner(bout.id, score1, score2, bout.fencerA!.id, bout.fencerB!.id);
+
+                    // Refresh to show updated scores and advancement
+                    setRefreshKey(prev => prev + 1);
+                    setExpandedBoutIndex(null);
+
+                    // Check if connected to scoring box and show disconnect prompt
+                    if (connectionState === ConnectionState.CONNECTED) {
+                        Alert.alert(
+                            t('common.disconnectBoxPromptTitle'),
+                            t('common.disconnectBoxPromptMessage'),
+                            [
+                                {
+                                    text: t('common.cancel'),
+                                    style: 'cancel',
+                                },
+                                {
+                                    text: t('common.exitWithoutDisconnecting'),
+                                    onPress: () => {
+                                        // Just close the alert - already saved scores
+                                    },
+                                },
+                                {
+                                    text: t('common.disconnectAndExit'),
+                                    onPress: async () => {
+                                        try {
+                                            await disconnect();
+                                        } catch (error) {
+                                            //console.error('Failed to disconnect:', error);
+                                        }
+                                    },
+                                    style: 'destructive',
+                                },
+                            ],
+                            { cancelable: true }
+                        );
+                    }
+                } catch (error) {
+                    //console.error('Error updating bout scores:', error);
+                    //Alert.alert(t('common.error'), t('deBracketPage.failedToSaveScores'));
+                }
+            },
+        });
     };
 
     const handleViewResults = () => {
@@ -527,6 +604,73 @@ const DEBracketPage: React.FC = () => {
                     <Text style={styles.fencerScore}>{bout.scoreB !== undefined ? bout.scoreB : '-'}</Text>
                 </View>
             </TouchableOpacity>
+
+            {/* Expanded view with score entry */}
+            {expandedBoutIndex === bout.id && !bout.winner && bout.fencerA && bout.fencerB && (
+                <View style={styles.scoreEntryContainer}>
+                    <View style={styles.scoreEntryRow}>
+                        <View style={styles.scoreColumn}>
+                            <Text style={styles.scoreFencerLabel}>
+                                {fencerAName}:
+                            </Text>
+                            <TextInput
+                                style={styles.scoreInput}
+                                keyboardType="numeric"
+                                value={scoreInputs[bout.id]?.scoreA || ''}
+                                onChangeText={val => handleScoreChange(bout.id, 'A', val)}
+                            />
+                        </View>
+                        <View style={styles.scoreColumn}>
+                            <Text style={styles.scoreFencerLabel}>
+                                {fencerBName}:
+                            </Text>
+                            <TextInput
+                                style={styles.scoreInput}
+                                keyboardType="numeric"
+                                value={scoreInputs[bout.id]?.scoreB || ''}
+                                onChangeText={val => handleScoreChange(bout.id, 'B', val)}
+                            />
+                        </View>
+                    </View>
+                    <View style={styles.scoreButtonsRow}>
+                        <TouchableOpacity
+                            style={styles.enterButton}
+                            onPress={() => handleSubmitScores(bout)}
+                        >
+                            <Text style={styles.enterButtonText}>{t('common.enter')}</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            style={styles.refModuleButton}
+                            onPress={() => openRefModuleForBout(bout)}
+                        >
+                            <Text style={styles.refModuleButtonText}>{t('deBracketPage.refModule')}</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            )}
+
+            {/* Expanded view for completed bouts */}
+            {expandedBoutIndex === bout.id && bout.winner && (
+                <View style={styles.boutDetailsContainer}>
+                    <Text style={styles.boutDetailsTitle}>{t('deBracketPage.boutResult')}</Text>
+                    <View style={styles.fencerDetailRow}>
+                        <Text style={[styles.fencerDetailName, bout.winner === bout.fencerA?.id && styles.winnerDetailText]}>
+                            {fencerAName}
+                        </Text>
+                        <Text style={[styles.fencerDetailScore, bout.winner === bout.fencerA?.id && styles.winnerDetailText]}>
+                            {bout.scoreA || 0}
+                        </Text>
+                    </View>
+                    <View style={styles.fencerDetailRow}>
+                        <Text style={[styles.fencerDetailName, bout.winner === bout.fencerB?.id && styles.winnerDetailText]}>
+                            {fencerBName}
+                        </Text>
+                        <Text style={[styles.fencerDetailScore, bout.winner === bout.fencerB?.id && styles.winnerDetailText]}>
+                            {bout.scoreB || 0}
+                        </Text>
+                    </View>
+                </View>
+            )}
         );
     };
 
@@ -786,6 +930,111 @@ const styles = StyleSheet.create({
     winnerText: {
         fontWeight: 'bold',
         color: '#4CAF50',
+    },
+    scoreEntryContainer: {
+        backgroundColor: '#f8f8f8',
+        padding: 15,
+        marginTop: -8,
+        borderBottomLeftRadius: 8,
+        borderBottomRightRadius: 8,
+        borderLeftWidth: 1,
+        borderRightWidth: 1,
+        borderBottomWidth: 1,
+        borderColor: '#ccc',
+        marginHorizontal: '5%',
+    },
+    scoreEntryRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        marginBottom: 12,
+    },
+    scoreColumn: {
+        flex: 1,
+        alignItems: 'center',
+        marginHorizontal: 4,
+    },
+    scoreFencerLabel: {
+        fontSize: 16,
+        marginBottom: 8,
+        textAlign: 'center',
+        fontWeight: '500',
+    },
+    scoreInput: {
+        borderWidth: 1,
+        borderColor: '#ccc',
+        borderRadius: 6,
+        width: 80,
+        padding: 8,
+        textAlign: 'center',
+        fontSize: 18,
+        backgroundColor: '#fff',
+    },
+    scoreButtonsRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        marginTop: 12,
+        gap: 10,
+    },
+    enterButton: {
+        flex: 1,
+        backgroundColor: '#4CAF50',
+        paddingVertical: 12,
+        borderRadius: 6,
+        alignItems: 'center',
+    },
+    enterButtonText: {
+        color: '#fff',
+        fontSize: 16,
+        fontWeight: 'bold',
+    },
+    refModuleButton: {
+        flex: 1,
+        backgroundColor: '#007AFF',
+        paddingVertical: 12,
+        borderRadius: 6,
+        alignItems: 'center',
+    },
+    refModuleButtonText: {
+        color: '#fff',
+        fontSize: 16,
+        fontWeight: 'bold',
+    },
+    boutDetailsContainer: {
+        backgroundColor: '#f0f0f0',
+        padding: 15,
+        marginTop: -8,
+        borderBottomLeftRadius: 8,
+        borderBottomRightRadius: 8,
+        borderLeftWidth: 1,
+        borderRightWidth: 1,
+        borderBottomWidth: 1,
+        borderColor: '#ccc',
+        marginHorizontal: '5%',
+    },
+    boutDetailsTitle: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        marginBottom: 10,
+        textAlign: 'center',
+    },
+    fencerDetailRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        paddingVertical: 6,
+    },
+    fencerDetailName: {
+        fontSize: 16,
+        flex: 1,
+    },
+    fencerDetailScore: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        width: 40,
+        textAlign: 'center',
+    },
+    winnerDetailText: {
+        color: '#4CAF50',
+        fontWeight: 'bold',
     },
 });
 

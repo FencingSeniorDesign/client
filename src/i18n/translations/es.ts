@@ -411,6 +411,8 @@ export default {
         tableOf128: 'Tabla de 128',
         tableOf256: 'Tabla de 256',
         tableOfX: 'Tabla de {{number}}',
+        refModule: 'Módulo de Árbitro',
+        boutResult: 'Resultado del Asalto',
     },
     roundResults: {
         title: 'Resultados de Ronda',
