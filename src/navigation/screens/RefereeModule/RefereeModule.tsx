@@ -82,6 +82,7 @@ export function RefereeModule() {
         connectionState,
         connectedBoxType,
         connectedDeviceName,
+        connectedDeviceId,
         initialSyncCompleted,
         scan,
         cancelScan,
@@ -750,6 +751,7 @@ export function RefereeModule() {
                 connectionState={connectionState}
                 connectedBoxType={connectedBoxType}
                 connectedDeviceName={connectedDeviceName}
+                connectedDeviceId={connectedDeviceId}
             />
 
             {/* Data Source Selection Dialog */}

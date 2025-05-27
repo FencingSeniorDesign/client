@@ -14,6 +14,7 @@ import { FontAwesome5 } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { Device } from 'react-native-ble-plx';
 import { ScoringBoxType, ConnectionState } from '../../../../networking/ble/types';
+import { nfcService, NFCTagData } from '../../../../networking/ble/NFCService';
 
 interface ConnectionModalProps {
     visible: boolean;
@@ -25,6 +26,7 @@ interface ConnectionModalProps {
     connectionState: ConnectionState;
     connectedBoxType?: ScoringBoxType;
     connectedDeviceName?: string;
+    connectedDeviceId?: string;
 }
 
 interface BoxOption {
@@ -45,12 +47,17 @@ export function ConnectionModal({
     connectionState,
     connectedBoxType,
     connectedDeviceName,
+    connectedDeviceId,
 }: ConnectionModalProps) {
     const { t } = useTranslation();
     const [selectedBox, setSelectedBox] = useState<ScoringBoxType | null>(null);
     const [isScanning, setIsScanning] = useState(false);
     const [foundDevices, setFoundDevices] = useState<Device[]>([]);
     const [showDeviceSelection, setShowDeviceSelection] = useState(false);
+    const [nfcSupported, setNfcSupported] = useState(false);
+    const [isNFCScanning, setIsNFCScanning] = useState(false);
+    const [showNFCWriteModal, setShowNFCWriteModal] = useState(false);
+    const [isNFCWriting, setIsNFCWriting] = useState(false);
 
     const boxOptions: BoxOption[] = [
         {
@@ -75,6 +82,77 @@ export function ConnectionModal({
             available: false, // Placeholder for now
         },
     ];
+
+    // Check NFC support on mount
+    useEffect(() => {
+        nfcService.isNFCSupported().then(setNfcSupported);
+    }, []);
+
+    const handleNFCScan = async () => {
+        if (!nfcSupported) {
+            Alert.alert(t('nfc.notSupported'), t('nfc.notSupportedMessage'));
+            return;
+        }
+
+        setIsNFCScanning(true);
+        try {
+            const tagData = await nfcService.readTag();
+            if (tagData) {
+                console.log('Read NFC tag:', tagData);
+                
+                // Check if the box type is supported
+                const supportedBox = boxOptions.find(box => box.type === tagData.boxType && box.available);
+                if (!supportedBox) {
+                    Alert.alert(t('nfc.error'), t('nfc.unsupportedBoxType'));
+                    return;
+                }
+
+                // Close any existing connections first
+                if (connectionState === ConnectionState.CONNECTED) {
+                    await onDisconnect();
+                }
+
+                // Connect to the device
+                await onConnect(tagData.boxType, tagData.deviceId);
+                onClose(); // Close modal on successful connection
+            }
+        } catch (error) {
+            console.error('NFC scan error:', error);
+            if (error.message && !error.message.includes('cancelled')) {
+                Alert.alert(t('nfc.scanError'), error.message);
+            }
+        } finally {
+            setIsNFCScanning(false);
+        }
+    };
+
+    const handleNFCWrite = async () => {
+        if (!nfcSupported || connectionState !== ConnectionState.CONNECTED || !connectedBoxType || !connectedDeviceId) {
+            return;
+        }
+
+        setIsNFCWriting(true);
+        try {
+            const tagData: NFCTagData = {
+                version: 1,
+                boxType: connectedBoxType,
+                deviceId: connectedDeviceId,
+                deviceName: connectedDeviceName || undefined,
+                timestamp: Date.now(),
+            };
+
+            await nfcService.writeTag(tagData);
+            Alert.alert(t('nfc.writeSuccess'), t('nfc.writeSuccessMessage'));
+            setShowNFCWriteModal(false);
+        } catch (error) {
+            console.error('NFC write error:', error);
+            if (error.message && !error.message.includes('cancelled')) {
+                Alert.alert(t('nfc.writeError'), error.message);
+            }
+        } finally {
+            setIsNFCWriting(false);
+        }
+    };
 
     const handleBoxSelection = async (box: BoxOption) => {
         if (!box.available) {
@@ -210,6 +288,33 @@ export function ConnectionModal({
                         </TouchableOpacity>
                     </View>
 
+                    {/* NFC Scan Button - shown when not connected */}
+                    {nfcSupported && connectionState !== ConnectionState.CONNECTED && !showDeviceSelection && (
+                        <TouchableOpacity
+                            style={styles.nfcScanButton}
+                            onPress={handleNFCScan}
+                            disabled={isNFCScanning}
+                        >
+                            <FontAwesome5 name="wifi" size={20} color="#fff" />
+                            <Text style={styles.nfcScanButtonText}>
+                                {isNFCScanning ? t('nfc.scanning') : t('nfc.scanTag')}
+                            </Text>
+                            {isNFCScanning && <ActivityIndicator size="small" color="#fff" style={styles.nfcLoader} />}
+                        </TouchableOpacity>
+                    )}
+
+                    {/* NFC Manager Button - shown when connected to TournaFence */}
+                    {nfcSupported && connectionState === ConnectionState.CONNECTED && 
+                     connectedBoxType === ScoringBoxType.TOURNAFENCE && !showDeviceSelection && (
+                        <TouchableOpacity
+                            style={styles.nfcManagerButton}
+                            onPress={() => setShowNFCWriteModal(true)}
+                        >
+                            <FontAwesome5 name="tag" size={20} color="#1976d2" />
+                            <Text style={styles.nfcManagerButtonText}>{t('nfc.nfcManager')}</Text>
+                        </TouchableOpacity>
+                    )}
+
                     {showDeviceSelection ? (
                         <>
                             <Text style={styles.deviceListTitle}>
@@ -269,6 +374,55 @@ export function ConnectionModal({
                     )}
                 </View>
             </View>
+
+            {/* NFC Write Modal */}
+            <Modal
+                visible={showNFCWriteModal}
+                animationType="slide"
+                transparent={true}
+                onRequestClose={() => setShowNFCWriteModal(false)}
+            >
+                <View style={styles.modalOverlay}>
+                    <View style={styles.nfcWriteModalContent}>
+                        <View style={styles.modalHeader}>
+                            <Text style={styles.modalTitle}>{t('nfc.writeTag')}</Text>
+                            <TouchableOpacity onPress={() => setShowNFCWriteModal(false)} style={styles.closeButton}>
+                                <FontAwesome5 name="times" size={24} color="#333" />
+                            </TouchableOpacity>
+                        </View>
+
+                        <View style={styles.nfcWriteContent}>
+                            <FontAwesome5 name="tag" size={48} color="#1976d2" style={styles.nfcIcon} />
+                            <Text style={styles.nfcWriteDescription}>{t('nfc.writeDescription')}</Text>
+                            
+                            <View style={styles.nfcInfoBox}>
+                                <Text style={styles.nfcInfoLabel}>{t('nfc.boxType')}:</Text>
+                                <Text style={styles.nfcInfoValue}>{connectedBoxType}</Text>
+                            </View>
+                            
+                            <View style={styles.nfcInfoBox}>
+                                <Text style={styles.nfcInfoLabel}>{t('nfc.deviceName')}:</Text>
+                                <Text style={styles.nfcInfoValue}>{connectedDeviceName || t('nfc.unknown')}</Text>
+                            </View>
+
+                            <TouchableOpacity
+                                style={[styles.nfcWriteButton, isNFCWriting && styles.nfcWriteButtonDisabled]}
+                                onPress={handleNFCWrite}
+                                disabled={isNFCWriting}
+                            >
+                                {isNFCWriting ? (
+                                    <ActivityIndicator size="small" color="#fff" />
+                                ) : (
+                                    <FontAwesome5 name="pencil-alt" size={20} color="#fff" />
+                                )}
+                                <Text style={styles.nfcWriteButtonText}>
+                                    {isNFCWriting ? t('nfc.writing') : t('nfc.writeToTag')}
+                                </Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </View>
+            </Modal>
         </Modal>
     );
 }
@@ -448,5 +602,114 @@ const styles = StyleSheet.create({
         color: '#fff',
         fontSize: 16,
         fontWeight: '600',
+    },
+    nfcScanButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: '#1976d2',
+        paddingVertical: 12,
+        paddingHorizontal: 20,
+        marginHorizontal: 20,
+        marginBottom: 15,
+        borderRadius: 8,
+    },
+    nfcScanButtonText: {
+        color: '#fff',
+        fontSize: 16,
+        fontWeight: '600',
+        marginLeft: 10,
+    },
+    nfcLoader: {
+        marginLeft: 10,
+    },
+    nfcManagerButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: '#e3f2fd',
+        paddingVertical: 12,
+        paddingHorizontal: 20,
+        marginHorizontal: 20,
+        marginBottom: 15,
+        borderRadius: 8,
+        borderWidth: 1,
+        borderColor: '#1976d2',
+    },
+    nfcManagerButtonText: {
+        color: '#1976d2',
+        fontSize: 16,
+        fontWeight: '600',
+        marginLeft: 10,
+    },
+    nfcWriteModalContent: {
+        backgroundColor: '#fff',
+        borderRadius: 15,
+        width: '90%',
+        maxWidth: 400,
+        ...Platform.select({
+            ios: {
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.25,
+                shadowRadius: 4,
+            },
+            android: {
+                elevation: 5,
+            },
+        }),
+    },
+    nfcWriteContent: {
+        padding: 20,
+        alignItems: 'center',
+    },
+    nfcIcon: {
+        marginBottom: 20,
+    },
+    nfcWriteDescription: {
+        fontSize: 16,
+        textAlign: 'center',
+        marginBottom: 20,
+        color: '#666',
+    },
+    nfcInfoBox: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#f8f9fa',
+        padding: 12,
+        borderRadius: 8,
+        marginVertical: 5,
+        width: '100%',
+    },
+    nfcInfoLabel: {
+        fontSize: 14,
+        color: '#666',
+        fontWeight: '600',
+        marginRight: 10,
+    },
+    nfcInfoValue: {
+        fontSize: 14,
+        color: '#333',
+        flex: 1,
+    },
+    nfcWriteButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: '#4caf50',
+        paddingVertical: 15,
+        paddingHorizontal: 30,
+        borderRadius: 10,
+        marginTop: 20,
+        minWidth: 200,
+    },
+    nfcWriteButtonDisabled: {
+        backgroundColor: '#9e9e9e',
+    },
+    nfcWriteButtonText: {
+        color: '#fff',
+        fontSize: 16,
+        fontWeight: '600',
+        marginLeft: 10,
     },
 });
