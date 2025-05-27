@@ -15,6 +15,8 @@ interface CustomTimeModalProps {
     onRevertLastPoint?: () => void; // New prop for reverting the last point
     kawaiiMode?: boolean; // Indicates if kawaii mode is active
     canRevertLastPoint?: boolean; // Whether there is a point to revert
+    onTogglePriority?: () => void; // New prop for toggling priority
+    hasPriority?: boolean; // Whether priority is currently assigned
 }
 
 export function CustomTimeModal({
@@ -30,6 +32,8 @@ export function CustomTimeModal({
     onRevertLastPoint,
     kawaiiMode = false,
     canRevertLastPoint = false,
+    onTogglePriority,
+    hasPriority = false,
 }: CustomTimeModalProps) {
     const { t } = useTranslation();
     const handleCustomTime = () => {
@@ -87,6 +91,7 @@ export function CustomTimeModal({
                             <TextInput
                                 style={styles.customTimeInput}
                                 placeholder={t('refereeModule.min')}
+                                placeholderTextColor="#999"
                                 keyboardType="number-pad"
                                 value={customMinutes}
                                 onChangeText={setCustomMinutes}
@@ -96,6 +101,7 @@ export function CustomTimeModal({
                             <TextInput
                                 style={styles.customTimeInput}
                                 placeholder={t('refereeModule.sec')}
+                                placeholderTextColor="#999"
                                 keyboardType="number-pad"
                                 value={customSeconds}
                                 onChangeText={setCustomSeconds}
@@ -153,6 +159,21 @@ export function CustomTimeModal({
                                 ]}
                             >
                                 {t('refereeModule.revertLastPoint')}
+                            </Text>
+                        </Pressable>
+                    )}
+
+                    {onTogglePriority && (
+                        <Pressable
+                            style={({ pressed }) => [
+                                styles.modalButton,
+                                { backgroundColor: '#008080' }, // Teal for priority
+                                pressed && { opacity: 0.6 },
+                            ]}
+                            onPress={onTogglePriority}
+                        >
+                            <Text style={[styles.modalButtonText]}>
+                                {hasPriority ? t('refereeModule.removePriority') : t('refereeModule.randomPriority')}
                             </Text>
                         </Pressable>
                     )}

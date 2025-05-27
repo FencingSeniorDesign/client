@@ -62,3 +62,18 @@ export async function dbListCompletedTournaments(): Promise<Tournament[]> {
         throw error;
     }
 }
+
+/**
+ * Marks a tournament as complete
+ */
+export async function dbMarkTournamentComplete(tournamentName: string): Promise<void> {
+    try {
+        await db.update(schema.tournaments)
+            .set({ iscomplete: true })
+            .where(eq(schema.tournaments.name, tournamentName));
+        console.log(`Tournament "${tournamentName}" marked as complete.`);
+    } catch (error) {
+        console.error('Error marking tournament as complete:', error);
+        throw error;
+    }
+}

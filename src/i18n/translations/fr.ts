@@ -470,6 +470,8 @@ export default {
             'Vous êtes actuellement connecté à un boîtier de score. Voulez-vous vous déconnecter avant de sortir?',
         disconnectAndExit: 'Déconnecter et Sortir',
         exitWithoutDisconnecting: 'Sortir Sans Déconnecter',
+        randomPriority: 'Priorité Aléatoire',
+        removePriority: 'Retirer la Priorité',
     },
     tournamentList: {
         deleteTournament: '',

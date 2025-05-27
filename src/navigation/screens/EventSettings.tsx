@@ -208,6 +208,14 @@ export const EventSettings = ({ route }: Props) => {
     const currentRating = selectedWeapon === 'epee' ? epeeRating : selectedWeapon === 'foil' ? foilRating : saberRating;
     const currentYear = selectedWeapon === 'epee' ? epeeYear : selectedWeapon === 'foil' ? foilYear : saberYear;
 
+    // Autofill logic for specific conditions
+    useEffect(() => {
+        if (selectedWeapon === 'saber' && currentRating === 'A' && currentYear === 2025) {
+            setFencerFirstName('Cate');
+            setFencerLastName('Lopez');
+        }
+    }, [selectedWeapon, currentRating, currentYear]);
+
     // Fencer functions
     const handleAddFencer = React.useCallback(() => {
         const newFencer: Fencer = {
@@ -659,6 +667,7 @@ export const EventSettings = ({ route }: Props) => {
                         <TextInput
                             style={styles.input}
                             placeholder={t('eventSettings.searchByName')}
+                            placeholderTextColor="#999"
                             value={searchQuery}
                             onChangeText={setSearchQuery}
                         />
@@ -678,12 +687,14 @@ export const EventSettings = ({ route }: Props) => {
                         <TextInput
                             style={styles.input}
                             placeholder={t('eventSettings.firstName')}
+                            placeholderTextColor="#999"
                             value={fencerFirstName}
                             onChangeText={setFencerFirstName}
                         />
                         <TextInput
                             style={styles.input}
                             placeholder={t('eventSettings.lastName')}
+                            placeholderTextColor="#999"
                             value={fencerLastName}
                             onChangeText={setFencerLastName}
                         />
@@ -756,6 +767,7 @@ export const EventSettings = ({ route }: Props) => {
                                 <TextInput
                                     style={styles.randomFillInput}
                                     placeholder={t('eventSettings.enterNumber')}
+                                    placeholderTextColor="#999"
                                     value={randomFillInput}
                                     onChangeText={setRandomFillInput}
                                     keyboardType="numeric"
@@ -917,6 +929,7 @@ export const EventSettings = ({ route }: Props) => {
                                                         keyboardType="numeric"
                                                         value={promotionInputText} // Use state variable
                                                         placeholder={t('eventSettings.enterPromotion')}
+                                                        placeholderTextColor="#999"
                                                         onChangeText={setPromotionInputText} // Update state variable
                                                         onEndEditing={() => {
                                                             // Parse the final value from state and update

@@ -1037,3 +1037,41 @@ export function useRemoveOfficial() {
         },
     });
 }
+
+/**
+ * Hook to update an official
+ */
+export function useUpdateOfficial() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: ({ official, tournamentName }: { official: Official; tournamentName: string }) => {
+            return dataProvider.updateOfficial(official);
+        },
+        onSuccess: (result, variables) => {
+            const { tournamentName } = variables;
+            queryClient.invalidateQueries({
+                queryKey: queryKeys.officials(tournamentName),
+            });
+        },
+    });
+}
+
+/**
+ * Hook to update a referee
+ */
+export function useUpdateReferee() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: ({ referee, tournamentName }: { referee: Official; tournamentName: string }) => {
+            return dataProvider.updateReferee(referee);
+        },
+        onSuccess: (result, variables) => {
+            const { tournamentName } = variables;
+            queryClient.invalidateQueries({
+                queryKey: queryKeys.referees(tournamentName),
+            });
+        },
+    });
+}

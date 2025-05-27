@@ -10,6 +10,8 @@ import {
     useAddReferee,
     useRemoveOfficial,
     useRemoveReferee,
+    useUpdateOfficial,
+    useUpdateReferee,
 } from '../../data/TournamentDataHooks';
 import { getDeviceId } from '../../networking/NetworkUtils';
 import { useTranslation } from 'react-i18next';
@@ -29,19 +31,23 @@ const ManageOfficials: React.FC<ManageOfficialsProps> = ({ route, navigation }) 
 
     const { data: referees = [], isLoading: refereesLoading } = useReferees(tournamentName);
 
-    // Mutations for adding and removing officials and referees
+    // Mutations for adding, updating and removing officials and referees
     const addOfficialMutation = useAddOfficial();
     const addRefereeMutation = useAddReferee();
+    const updateOfficialMutation = useUpdateOfficial();
+    const updateRefereeMutation = useUpdateReferee();
     const removeOfficialMutation = useRemoveOfficial();
     const removeRefereeMutation = useRemoveReferee();
 
-    // State for add person modal
+    // State for add/edit person modal
     const [modalVisible, setModalVisible] = useState(false);
     const [firstName, setFirstName] = useState('');
     const [lastName, setLastName] = useState('');
     const [deviceId, setDeviceId] = useState('');
     const [isAddingReferee, setIsAddingReferee] = useState(true);
     const [currentDeviceId, setCurrentDeviceId] = useState<string | null>(null);
+    const [editingPerson, setEditingPerson] = useState<Official | null>(null);
+    const [isEditMode, setIsEditMode] = useState(false);
 
     // Get current device ID
     React.useEffect(() => {
@@ -70,10 +76,18 @@ const ManageOfficials: React.FC<ManageOfficialsProps> = ({ route, navigation }) 
             return;
         }
 
-        if (isAddingReferee) {
-            addReferee();
+        if (isEditMode) {
+            if (isAddingReferee) {
+                updateReferee();
+            } else {
+                updateOfficial();
+            }
         } else {
-            addOfficial();
+            if (isAddingReferee) {
+                addReferee();
+            } else {
+                addOfficial();
+            }
         }
     };
 
@@ -121,17 +135,77 @@ const ManageOfficials: React.FC<ManageOfficialsProps> = ({ route, navigation }) 
         }
     };
 
+    const updateReferee = async () => {
+        if (!editingPerson?.id) return;
+        
+        try {
+            const updatedReferee: Official = {
+                ...editingPerson,
+                fname: firstName,
+                lname: lastName,
+                device_id: deviceId || '',
+            };
+
+            await updateRefereeMutation.mutateAsync({
+                referee: updatedReferee,
+                tournamentName,
+            });
+
+            setModalVisible(false);
+            resetFormFields();
+        } catch (error) {
+            console.error('Error updating referee:', error);
+            Alert.alert(t('common.error'), t('manageOfficials.failedToUpdateReferee'));
+        }
+    };
+
+    const updateOfficial = async () => {
+        if (!editingPerson?.id) return;
+        
+        try {
+            const updatedOfficial: Official = {
+                ...editingPerson,
+                fname: firstName,
+                lname: lastName,
+                device_id: deviceId || null,
+            };
+
+            await updateOfficialMutation.mutateAsync({
+                official: updatedOfficial,
+                tournamentName,
+            });
+
+            setModalVisible(false);
+            resetFormFields();
+        } catch (error) {
+            console.error('Error updating official:', error);
+            Alert.alert(t('common.error'), t('manageOfficials.failedToUpdateOfficial'));
+        }
+    };
+
     const resetFormFields = () => {
         setFirstName('');
         setLastName('');
         setDeviceId('');
         setIsAddingReferee(true);
+        setEditingPerson(null);
+        setIsEditMode(false);
     };
 
     const copyDeviceId = () => {
         if (currentDeviceId) {
             setDeviceId(currentDeviceId);
         }
+    };
+
+    const handleEditPerson = (person: Official, isReferee: boolean) => {
+        setEditingPerson(person);
+        setIsEditMode(true);
+        setIsAddingReferee(isReferee);
+        setFirstName(person.fname);
+        setLastName(person.lname || '');
+        setDeviceId(person.device_id || '');
+        setModalVisible(true);
     };
 
     const handleRemoveOfficial = (official: Official) => {
@@ -195,7 +269,11 @@ const ManageOfficials: React.FC<ManageOfficialsProps> = ({ route, navigation }) 
     };
 
     const renderRefereeItem = ({ item }: { item: Official }) => (
-        <View style={styles.listItem}>
+        <TouchableOpacity
+            style={styles.listItem}
+            onPress={() => !isRemote && handleEditPerson(item, true)}
+            disabled={isRemote}
+        >
             <View style={styles.personInfo}>
                 <Text style={styles.name}>
                     {item.fname} {item.lname}
@@ -213,11 +291,15 @@ const ManageOfficials: React.FC<ManageOfficialsProps> = ({ route, navigation }) 
                     <Text style={styles.removeButtonText}>{t('common.removeIcon')}</Text>
                 </TouchableOpacity>
             )}
-        </View>
+        </TouchableOpacity>
     );
 
     const renderOfficialItem = ({ item }: { item: Official }) => (
-        <View style={styles.listItem}>
+        <TouchableOpacity
+            style={styles.listItem}
+            onPress={() => !isRemote && handleEditPerson(item, false)}
+            disabled={isRemote}
+        >
             <View style={styles.personInfo}>
                 <Text style={styles.name}>
                     {item.fname} {item.lname}
@@ -235,7 +317,7 @@ const ManageOfficials: React.FC<ManageOfficialsProps> = ({ route, navigation }) 
                     <Text style={styles.removeButtonText}>{t('common.removeIcon')}</Text>
                 </TouchableOpacity>
             )}
-        </View>
+        </TouchableOpacity>
     );
 
     const isLoading = officialsLoading || refereesLoading;
@@ -321,12 +403,16 @@ const ManageOfficials: React.FC<ManageOfficialsProps> = ({ route, navigation }) 
                 <View style={styles.modalOverlay}>
                     <View style={styles.modalContent}>
                         <Text style={styles.modalTitle}>
-                            {isAddingReferee ? t('manageOfficials.addReferee') : t('manageOfficials.addOfficial')}
+                            {isEditMode 
+                                ? (isAddingReferee ? t('manageOfficials.editReferee') : t('manageOfficials.editOfficial'))
+                                : (isAddingReferee ? t('manageOfficials.addReferee') : t('manageOfficials.addOfficial'))
+                            }
                         </Text>
 
                         <TextInput
                             style={styles.input}
                             placeholder={t('manageOfficials.firstNameRequired')}
+                            placeholderTextColor="#999"
                             value={firstName}
                             onChangeText={setFirstName}
                         />
@@ -334,6 +420,7 @@ const ManageOfficials: React.FC<ManageOfficialsProps> = ({ route, navigation }) 
                         <TextInput
                             style={styles.input}
                             placeholder={t('manageOfficials.lastName')}
+                            placeholderTextColor="#999"
                             value={lastName}
                             onChangeText={setLastName}
                         />
@@ -342,6 +429,7 @@ const ManageOfficials: React.FC<ManageOfficialsProps> = ({ route, navigation }) 
                             <TextInput
                                 style={[styles.input, styles.deviceIdInput]}
                                 placeholder={t('manageOfficials.deviceIdInfo')}
+                                placeholderTextColor="#999"
                                 value={deviceId}
                                 onChangeText={text => setDeviceId(text.slice(0, 5).toUpperCase())}
                                 maxLength={5}
@@ -359,12 +447,12 @@ const ManageOfficials: React.FC<ManageOfficialsProps> = ({ route, navigation }) 
                             <TouchableOpacity
                                 style={styles.modalActionButton}
                                 onPress={handleAddPerson}
-                                disabled={addOfficialMutation.isPending || addRefereeMutation.isPending}
+                                disabled={addOfficialMutation.isPending || addRefereeMutation.isPending || updateOfficialMutation.isPending || updateRefereeMutation.isPending}
                             >
                                 <Text style={styles.modalActionText}>
-                                    {addOfficialMutation.isPending || addRefereeMutation.isPending
-                                        ? t('eventSettings.adding')
-                                        : t('common.add')}
+                                    {(addOfficialMutation.isPending || addRefereeMutation.isPending || updateOfficialMutation.isPending || updateRefereeMutation.isPending)
+                                        ? (isEditMode ? t('common.updating') : t('eventSettings.adding'))
+                                        : (isEditMode ? t('common.update') : t('common.add'))}
                                 </Text>
                             </TouchableOpacity>
 
@@ -374,7 +462,7 @@ const ManageOfficials: React.FC<ManageOfficialsProps> = ({ route, navigation }) 
                                     setModalVisible(false);
                                     resetFormFields();
                                 }}
-                                disabled={addOfficialMutation.isPending || addRefereeMutation.isPending}
+                                disabled={addOfficialMutation.isPending || addRefereeMutation.isPending || updateOfficialMutation.isPending || updateRefereeMutation.isPending}
                             >
                                 <Text style={styles.modalActionText}>{t('common.cancel')}</Text>
                             </TouchableOpacity>

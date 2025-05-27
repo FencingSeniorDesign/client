@@ -19,6 +19,8 @@ const mockReferees = [
 // Mocks for mutations
 const mockAddOfficialMutateAsync = jest.fn();
 const mockAddRefereeMutateAsync = jest.fn();
+const mockUpdateOfficialMutateAsync = jest.fn();
+const mockUpdateRefereeMutateAsync = jest.fn();
 const mockRemoveOfficialMutateAsync = jest.fn();
 const mockRemoveRefereeMutateAsync = jest.fn();
 
@@ -40,6 +42,14 @@ jest.mock('../../../src/data/TournamentDataHooks', () => ({
     })),
     useRemoveReferee: jest.fn(() => ({
         mutateAsync: mockRemoveRefereeMutateAsync,
+        isPending: false,
+    })),
+    useUpdateOfficial: jest.fn(() => ({
+        mutateAsync: mockUpdateOfficialMutateAsync,
+        isPending: false,
+    })),
+    useUpdateReferee: jest.fn(() => ({
+        mutateAsync: mockUpdateRefereeMutateAsync,
         isPending: false,
     })),
 }));
@@ -545,6 +555,35 @@ describe('ManageOfficials', () => {
 
     // Note: Testing the device ID fetch failure is challenging due to async effects and error handling.
     // Since we're already at >80% coverage, and this is just defensive error handling, we're skipping this test.
+
+    it('does not open edit modal in remote mode', async () => {
+        const remoteRoute = {
+            ...mockRoute,
+            params: {
+                ...mockRoute.params,
+                isRemote: true,
+            },
+        };
+
+        const useReferees = require('../../../src/data/TournamentDataHooks').useReferees;
+        useReferees.mockReturnValue({
+            data: mockReferees,
+            isLoading: false,
+        });
+
+        const { getByText, queryByText } = render(<ManageOfficials route={remoteRoute} navigation={mockNavigation} />);
+
+        await waitFor(() => {
+            expect(getByText('Bob Johnson')).toBeDefined();
+        });
+
+        // Find the TouchableOpacity containing the referee and tap it - should not open modal in remote mode
+        const refereeItem = getByText('Bob Johnson').parent.parent;
+        fireEvent.press(refereeItem);
+
+        // Modal should not open
+        expect(queryByText('Edit Referee')).toBeNull();
+    });
 
     it('closes modal and resets form when Cancel is clicked', async () => {
         const { getByText, getByPlaceholderText, queryByPlaceholderText } = render(

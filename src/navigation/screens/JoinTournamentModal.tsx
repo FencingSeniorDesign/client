@@ -297,6 +297,7 @@ export const JoinTournamentModal: React.FC<JoinTournamentModalProps> = ({ visibl
                                 value={hostIp}
                                 onChangeText={setHostIp}
                                 placeholder={t('joinTournament.enterHostIp')}
+                                placeholderTextColor="#999"
                                 autoCapitalize="none"
                                 autoCorrect={false}
                                 keyboardType="numeric"
@@ -309,6 +310,7 @@ export const JoinTournamentModal: React.FC<JoinTournamentModalProps> = ({ visibl
                                 value={port}
                                 onChangeText={setPort}
                                 placeholder={t('joinTournament.enterPort')}
+                                placeholderTextColor="#999"
                                 keyboardType="numeric"
                                 editable={!connecting}
                             />

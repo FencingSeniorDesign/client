@@ -478,6 +478,8 @@ export default {
         disconnectBoxPromptMessage: '您当前已连接到计分器。退出前要断开连接吗？',
         disconnectAndExit: '断开连接并退出',
         exitWithoutDisconnecting: '不断开连接直接退出',
+        randomPriority: '随机优先权',
+        removePriority: '移除优先权',
     },
     tournamentList: {
         deleteTournament: '删除比赛',
