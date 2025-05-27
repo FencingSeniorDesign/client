@@ -680,14 +680,14 @@ class TournamentServer {
             console.log(`🔍 Fetching pools for round ${roundId}...`);
             const pools = await dbGetPoolsForRound(roundId);
             console.log(`✅ Fetched ${pools.length} pools for round ${roundId}`);
-            
+
             // For each pool, fetch its bouts to determine if the pool is complete
             const poolsWithCompletionStatus = await Promise.all(
-                pools.map(async (pool) => {
+                pools.map(async pool => {
                     try {
                         // Get all bouts for this pool
                         const bouts = await dbGetBoutsForPool(roundId, pool.poolid);
-                        
+
                         // Calculate if the pool is complete (all bouts have scores)
                         // Only mark as complete if ALL bouts have at least one non-zero score
                         const isComplete = bouts.every(bout => {
@@ -695,11 +695,11 @@ class TournamentServer {
                             const rightScore = bout.right_score ?? 0;
                             return leftScore > 0 || rightScore > 0;
                         });
-                        
+
                         // Return pool with completion status
                         return {
                             ...pool,
-                            isComplete,  // Add isComplete property to each pool
+                            isComplete, // Add isComplete property to each pool
                         };
                     } catch (error) {
                         console.error(`Error determining completion status for pool ${pool.poolid}:`, error);
@@ -711,7 +711,7 @@ class TournamentServer {
                     }
                 })
             );
-            
+
             console.log(`✅ Added completion status to ${poolsWithCompletionStatus.length} pools`);
             // Log the completion status of each pool
             poolsWithCompletionStatus.forEach(pool => {

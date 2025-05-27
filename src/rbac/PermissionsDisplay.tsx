@@ -28,7 +28,7 @@ export const PermissionsDisplay: React.FC<PermissionsDisplayProps> = ({ tourname
                 const id = await getDeviceId();
                 setDeviceId(id);
             } catch (error) {
-                console.error('Error fetching device ID:', error);
+                //console.error('Error fetching device ID:', error);
             }
         };
 

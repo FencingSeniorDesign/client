@@ -71,7 +71,7 @@ export function ScoringBoxProvider({ children }: ScoringBoxProviderProps) {
 
     const handleError = useCallback(
         (error: Error) => {
-            console.error('BLE Error:', error);
+           // console.error('BLE Error:', error);
         },
         [t]
     );
@@ -125,7 +125,7 @@ export function ScoringBoxProvider({ children }: ScoringBoxProviderProps) {
             const devices = await service.scan();
             return devices;
         } catch (error) {
-            console.error('Scan error:', error);
+            ///('Scan error:', error);
             throw error;
         }
     };
@@ -168,7 +168,7 @@ export function ScoringBoxProvider({ children }: ScoringBoxProviderProps) {
             // Return true to indicate we need to show data source dialog
             return true;
         } catch (error) {
-            console.error('Connection error:', error);
+            //console.error('Connection error:', error);
             throw error;
         }
     };
@@ -198,7 +198,7 @@ export function ScoringBoxProvider({ children }: ScoringBoxProviderProps) {
                 }
                 setInitialSyncCompleted(true);
             } catch (error) {
-                console.error('Failed to perform initial sync:', error);
+                //console.error('Failed to perform initial sync:', error);
                 throw error;
             }
         }
@@ -211,7 +211,7 @@ export function ScoringBoxProvider({ children }: ScoringBoxProviderProps) {
                 try {
                     await boxService.current.sendScore(leftScore, rightScore);
                 } catch (error) {
-                    console.error('Failed to send score to box:', error);
+                    //console.error('Failed to send score to box:', error);
                 }
             }
         },
@@ -225,7 +225,7 @@ export function ScoringBoxProvider({ children }: ScoringBoxProviderProps) {
                 try {
                     await boxService.current.sendTimer(timeMs, isRunning);
                 } catch (error) {
-                    console.error('Failed to send timer to box:', error);
+                    //console.error('Failed to send timer to box:', error);
                 }
             }
         },
@@ -238,7 +238,7 @@ export function ScoringBoxProvider({ children }: ScoringBoxProviderProps) {
             try {
                 await boxService.current.startTimer();
             } catch (error) {
-                console.error('Failed to start timer:', error);
+                //.error('Failed to start timer:', error);
             }
         }
     }, [connectionState]);
@@ -248,7 +248,7 @@ export function ScoringBoxProvider({ children }: ScoringBoxProviderProps) {
             try {
                 await boxService.current.stopTimer();
             } catch (error) {
-                console.error('Failed to stop timer:', error);
+                //('Failed to stop timer:', error);
             }
         }
     }, [connectionState]);
@@ -259,7 +259,7 @@ export function ScoringBoxProvider({ children }: ScoringBoxProviderProps) {
                 try {
                     await boxService.current.resetTimer(timeMs);
                 } catch (error) {
-                    console.error('Failed to reset timer:', error);
+                    //('Failed to reset timer:', error);
                 }
             }
         },

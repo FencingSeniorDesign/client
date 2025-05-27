@@ -31,7 +31,7 @@ export function Home() {
 
     // Load custom font
     const [fontsLoaded, setFontsLoaded] = useState(false);
-    
+
     useEffect(() => {
         async function loadFonts() {
             await Font.loadAsync({
@@ -39,7 +39,7 @@ export function Home() {
             });
             setFontsLoaded(true);
         }
-        
+
         loadFonts();
     }, []);
 
@@ -141,10 +141,10 @@ export function Home() {
                     isRemoteConnection: true,
                 });
             } else {
-                console.error('Failed to connect to saved tournament');
+                //console.error('Failed to connect to saved tournament');
             }
         } catch (error) {
-            console.error('Error connecting to saved tournament:', error);
+            //console.error('Error connecting to saved tournament:', error);
         }
     };
 
@@ -157,7 +157,7 @@ export function Home() {
             const remoteTournaments = await tournamentClient.getSavedRemoteTournaments();
             setSavedRemoteTournaments(remoteTournaments);
         } catch (error) {
-            console.error('Error removing saved tournament:', error);
+            //console.error('Error removing saved tournament:', error);
         }
     };
 
@@ -313,11 +313,11 @@ export function Home() {
                                     });
                                 } else {
                                     // Connection failed, keep modal open
-                                    Alert.alert(t('home.failedToConnect'));
+                                    //Alert.alert(t('home.failedToConnect'));
                                 }
                             } catch (error) {
-                                console.error('Error reconnecting:', error);
-                                Alert.alert(t('home.failedToConnect'));
+                                //console.error('Error reconnecting:', error);
+                                //Alert.alert(t('home.failedToConnect'));
                             }
                         }
                     }}

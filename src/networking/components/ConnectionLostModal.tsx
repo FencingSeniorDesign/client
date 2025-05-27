@@ -44,7 +44,7 @@ export const ConnectionLostModal: React.FC<ConnectionLostModalProps> = ({
                                         tournamentClient.isIntentionalDisconnect = true;
                                         await onReconnect();
                                     } catch (error) {
-                                        console.error('Error in reconnect handler:', error);
+                                       // console.error('Error in reconnect handler:', error);
                                     } finally {
                                         setIsReconnecting(false);
                                     }

@@ -185,7 +185,7 @@ export class TournamentDataProvider {
                     type: 'get_rounds',
                     eventId,
                 });
-                
+
                 if (!messageSent) {
                     console.error('[DataProvider] Failed to send get_rounds message - connection may be lost');
                     throw new Error('Failed to send request to server (NOBRIDGE)');
@@ -205,10 +205,12 @@ export class TournamentDataProvider {
             } catch (error) {
                 console.error('[DataProvider] Error fetching remote rounds:', error);
                 // Tag network connectivity errors with NOBRIDGE prefix for easier diagnosis
-                if (error instanceof Error && 
-                    (error.message.includes('timeout') || 
-                     error.message.includes('connection') ||
-                     !tournamentClient.isConnected())) {
+                if (
+                    error instanceof Error &&
+                    (error.message.includes('timeout') ||
+                        error.message.includes('connection') ||
+                        !tournamentClient.isConnected())
+                ) {
                     throw new Error(`Failed to fetch rounds from server (NOBRIDGE): ${error.message}`);
                 }
                 // Let Tanstack Query handle retries and error state
@@ -812,7 +814,7 @@ export class TournamentDataProvider {
 
                 // Request bouts for the pool from server and check if message was sent successfully
                 const messageSent = tournamentClient.requestPoolBouts(roundId, poolId);
-                
+
                 if (!messageSent) {
                     console.error('[DataProvider] Failed to send pool bouts request - connection may be lost');
                     throw new Error('Failed to send request to server (NOBRIDGE)');
@@ -831,10 +833,12 @@ export class TournamentDataProvider {
             } catch (error) {
                 console.error('[DataProvider] Error fetching remote pool bouts:', error);
                 // Tag network connectivity errors with NOBRIDGE prefix for easier diagnosis
-                if (error instanceof Error && 
-                    (error.message.includes('timeout') || 
-                     error.message.includes('connection') ||
-                     !tournamentClient.isConnected())) {
+                if (
+                    error instanceof Error &&
+                    (error.message.includes('timeout') ||
+                        error.message.includes('connection') ||
+                        !tournamentClient.isConnected())
+                ) {
                     throw new Error(`Failed to fetch pool bouts from server (NOBRIDGE): ${error.message}`);
                 }
                 throw error; // Re-throw error for Tanstack Query
@@ -1545,7 +1549,7 @@ export class TournamentDataProvider {
                     type: 'get_rounds',
                     eventId: roundId,
                 });
-                
+
                 if (!messageSent) {
                     console.error('[DataProvider] Failed to send get_rounds message - connection may be lost');
                     throw new Error('Failed to send request to server (NOBRIDGE)');
@@ -1556,14 +1560,14 @@ export class TournamentDataProvider {
 
                 if (response && Array.isArray(response.rounds)) {
                     console.log(`[DataProvider] Received ${response.rounds.length} rounds from server`);
-                    
+
                     // Use the first round that matches the roundId
                     const round = response.rounds.find((r: any) => r.id === roundId);
                     if (round) {
                         console.log(`[DataProvider] Found matching round ${roundId} in server response`);
                         return round;
                     }
-                    
+
                     // When no matching round is found but response contains rounds
                     // This can happen if the server returned rounds for a different event
                     if (response.rounds.length > 0) {
@@ -1582,10 +1586,12 @@ export class TournamentDataProvider {
             } catch (error) {
                 console.error('[DataProvider] Error fetching remote round data:', error);
                 // Tag network connectivity errors with NOBRIDGE prefix for easier diagnosis
-                if (error instanceof Error && 
-                    (error.message.includes('timeout') || 
-                     error.message.includes('connection') ||
-                     !tournamentClient.isConnected())) {
+                if (
+                    error instanceof Error &&
+                    (error.message.includes('timeout') ||
+                        error.message.includes('connection') ||
+                        !tournamentClient.isConnected())
+                ) {
                     throw new Error(`Failed to fetch round data from server (NOBRIDGE): ${error.message}`);
                 }
                 throw error; // Re-throw error for Tanstack Query

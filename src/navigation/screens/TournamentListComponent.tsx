@@ -42,8 +42,8 @@ export const TournamentList: React.FC<TournamentListProps> = ({ tournaments, onT
                             await dbDeleteTournament(tournamentName);
                             onTournamentDeleted(); // Refresh the tournament list
                         } catch (error) {
-                            Alert.alert(t('common.error'), t('tournamentList.deleteFailed'));
-                            console.error(error);
+                            //Alert.alert(t('common.error'), t('tournamentList.deleteFailed'));
+                            //console.error(error);
                         }
                     },
                 },

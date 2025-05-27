@@ -98,7 +98,7 @@ export function ConnectionModal({
             const tagData = await nfcService.readTag();
             if (tagData) {
                 console.log('Read NFC tag:', tagData);
-                
+
                 // Check if the box type is supported
                 const supportedBox = boxOptions.find(box => box.type === tagData.boxType && box.available);
                 if (!supportedBox) {
@@ -116,10 +116,10 @@ export function ConnectionModal({
                 onClose(); // Close modal on successful connection
             }
         } catch (error) {
-            console.error('NFC scan error:', error);
-            if (error.message && !error.message.includes('cancelled')) {
-                Alert.alert(t('nfc.scanError'), error.message);
-            }
+            //console.error('NFC scan error:', error);
+            //if (error.message && !error.message.includes('cancelled')) {
+                //Alert.alert(t('nfc.scanError'), error.message);
+            //}
         } finally {
             setIsNFCScanning(false);
         }
@@ -144,7 +144,7 @@ export function ConnectionModal({
             Alert.alert(t('nfc.writeSuccess'), t('nfc.writeSuccessMessage'));
             setShowNFCWriteModal(false);
         } catch (error) {
-            console.error('NFC write error:', error);
+            //console.error('NFC write error:', error);
             if (error.message && !error.message.includes('cancelled')) {
                 Alert.alert(t('nfc.writeError'), error.message);
             }
@@ -188,13 +188,13 @@ export function ConnectionModal({
             setFoundDevices(devices);
             setIsScanning(false);
         } catch (error) {
-            console.error('Scan failed:', error);
+            //('Scan failed:', error);
             setIsScanning(false);
             setSelectedBox(null);
             setFoundDevices([]);
             // Log error instead of showing alert
             if (error.message !== 'Scan cancelled') {
-                console.error('Scan failed:', error.message || 'Unknown error');
+                //('Scan failed:', error.message || 'Unknown error');
             }
         }
     };
@@ -209,7 +209,7 @@ export function ConnectionModal({
             setSelectedBox(null);
             onClose(); // Close modal after successful connection
         } catch (error) {
-            console.error('Connection failed:', error);
+            //('Connection failed:', error);
         }
     };
 
@@ -267,19 +267,21 @@ export function ConnectionModal({
                         ) : (
                             <Text style={styles.boxDescription}>{item.description}</Text>
                         )}
-                        {isConnected && connectedDeviceName && <Text style={styles.deviceName}>{connectedDeviceName}</Text>}
+                        {isConnected && connectedDeviceName && (
+                            <Text style={styles.deviceName}>{connectedDeviceName}</Text>
+                        )}
                     </View>
                     {isThisBoxScanning && <ActivityIndicator size="small" color="#1976d2" style={styles.loader} />}
-                    {isConnected && <FontAwesome5 name="check-circle" size={24} color="#4CAF50" style={styles.checkIcon} />}
+                    {isConnected && (
+                        <FontAwesome5 name="check-circle" size={24} color="#4CAF50" style={styles.checkIcon} />
+                    )}
                 </TouchableOpacity>
-                
+
                 {/* Found devices section */}
                 {hasFoundDevices && (
                     <View style={styles.devicesContainer}>
-                        <Text style={styles.devicesTitle}>
-                            {t('ble.foundDevices', { count: foundDevices.length })}
-                        </Text>
-                        {foundDevices.map((device) => (
+                        <Text style={styles.devicesTitle}>{t('ble.foundDevices', { count: foundDevices.length })}</Text>
+                        {foundDevices.map(device => (
                             <TouchableOpacity
                                 key={device.id}
                                 style={styles.deviceItem}
@@ -312,9 +314,7 @@ export function ConnectionModal({
             <View style={styles.modalOverlay}>
                 <View style={styles.modalContent}>
                     <View style={styles.modalHeader}>
-                        <Text style={styles.modalTitle}>
-                            {t('ble.connectToScoringBox')}
-                        </Text>
+                        <Text style={styles.modalTitle}>{t('ble.connectToScoringBox')}</Text>
                         <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
                             <FontAwesome5 name="times" size={24} color="#333" />
                         </TouchableOpacity>
@@ -322,11 +322,7 @@ export function ConnectionModal({
 
                     {/* NFC Scan Button - shown when not connected */}
                     {nfcSupported && connectionState !== ConnectionState.CONNECTED && (
-                        <TouchableOpacity
-                            style={styles.nfcScanButton}
-                            onPress={handleNFCScan}
-                            disabled={isNFCScanning}
-                        >
+                        <TouchableOpacity style={styles.nfcScanButton} onPress={handleNFCScan} disabled={isNFCScanning}>
                             <FontAwesome5 name="wifi" size={20} color="#fff" />
                             <Text style={styles.nfcScanButtonText}>
                                 {isNFCScanning ? t('nfc.scanning') : t('nfc.scanTag')}
@@ -336,19 +332,24 @@ export function ConnectionModal({
                     )}
 
                     {/* NFC Manager Button - shown when connected to TournaFence */}
-                    {nfcSupported && connectionState === ConnectionState.CONNECTED && 
-                     connectedBoxType === ScoringBoxType.TOURNAFENCE && (
-                        <TouchableOpacity
-                            style={styles.nfcManagerButton}
-                            onPress={() => setShowNFCWriteModal(true)}
-                        >
-                            <FontAwesome5 name="tag" size={20} color="#1976d2" />
-                            <Text style={styles.nfcManagerButtonText}>{t('nfc.nfcManager')}</Text>
-                        </TouchableOpacity>
-                    )}
+                    {nfcSupported &&
+                        connectionState === ConnectionState.CONNECTED &&
+                        connectedBoxType === ScoringBoxType.TOURNAFENCE && (
+                            <TouchableOpacity
+                                style={styles.nfcManagerButton}
+                                onPress={() => setShowNFCWriteModal(true)}
+                            >
+                                <FontAwesome5 name="tag" size={20} color="#1976d2" />
+                                <Text style={styles.nfcManagerButtonText}>{t('nfc.nfcManager')}</Text>
+                            </TouchableOpacity>
+                        )}
 
                     <FlatList
-                        data={selectedBox && !connectionState ? boxOptions.filter(box => box.type === selectedBox) : boxOptions}
+                        data={
+                            selectedBox && !connectionState
+                                ? boxOptions.filter(box => box.type === selectedBox)
+                                : boxOptions
+                        }
                         renderItem={renderBoxOption}
                         keyExtractor={item => item.type}
                         ItemSeparatorComponent={() => <View style={styles.separator} />}
@@ -387,12 +388,12 @@ export function ConnectionModal({
                         <View style={styles.nfcWriteContent}>
                             <FontAwesome5 name="tag" size={48} color="#1976d2" style={styles.nfcIcon} />
                             <Text style={styles.nfcWriteDescription}>{t('nfc.writeDescription')}</Text>
-                            
+
                             <View style={styles.nfcInfoBox}>
                                 <Text style={styles.nfcInfoLabel}>{t('nfc.boxType')}:</Text>
                                 <Text style={styles.nfcInfoValue}>{connectedBoxType}</Text>
                             </View>
-                            
+
                             <View style={styles.nfcInfoBox}>
                                 <Text style={styles.nfcInfoLabel}>{t('nfc.deviceName')}:</Text>
                                 <Text style={styles.nfcInfoValue}>{connectedDeviceName || t('nfc.unknown')}</Text>

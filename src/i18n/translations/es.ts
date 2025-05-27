@@ -396,7 +396,8 @@ export default {
         viewTournamentResults: 'Ver Resultados del Torneo',
         randomizeScores: 'Generar Puntuación Aleatoria',
         randomizeScoresTitle: 'Aleatorizar Puntuaciones',
-        randomizeScoresMessage: '¿Está seguro de que desea asignar puntuaciones aleatorias a {{count}} asaltos no puntuados?',
+        randomizeScoresMessage:
+            '¿Está seguro de que desea asignar puntuaciones aleatorias a {{count}} asaltos no puntuados?',
         noUnscoredBouts: 'No se encontraron asaltos sin puntuar para aleatorizar.',
         failedToRandomizeScores: 'No se pudieron asignar puntuaciones aleatorias a algunos asaltos.',
         tbd: 'PD',

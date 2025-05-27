@@ -220,7 +220,7 @@ export const EventManagement = ({ route }: Props) => {
 
             return connected;
         } catch (error) {
-            console.error('Error checking network connectivity:', error);
+            //console.error('Error checking network connectivity:', error);
             setIsNetworkConnected(false);
             return false;
         }
@@ -284,8 +284,8 @@ export const EventManagement = ({ route }: Props) => {
             }
             setModalVisible(false);
         } catch (error) {
-            Alert.alert(t('common.error'), t('eventManagement.failedToOpenEvent'));
-            console.error(error);
+            //Alert.alert(t('common.error'), t('eventManagement.failedToOpenEvent'));
+            //console.error(error);
         }
     };
 
@@ -293,7 +293,7 @@ export const EventManagement = ({ route }: Props) => {
         try {
             deleteEventMutation.mutate(id);
         } catch (error) {
-            console.error('Error deleting event:', error);
+            //console.error('Error deleting event:', error);
         }
     };
 
@@ -323,8 +323,8 @@ export const EventManagement = ({ route }: Props) => {
 
     const navigateToRoundPage = (event: Event, round: Round, roundIndex: number) => {
         if (!round || !round.type) {
-            console.error('Cannot navigate: round or round.type is undefined');
-            Alert.alert(t('common.error'), t('eventManagement.failedToNavigateRound'));
+            //console.error('Cannot navigate: round or round.type is undefined');
+            //Alert.alert(t('common.error'), t('eventManagement.failedToNavigateRound'));
             return;
         }
 
@@ -339,8 +339,8 @@ export const EventManagement = ({ route }: Props) => {
             // Pass isRemote flag to the DE navigation utility
             navigateToDEPage(navigation, event, round, roundIndex, isRemote);
         } else {
-            console.error(`Unknown round type: ${round.type}`);
-            Alert.alert(t('common.error'), t('eventManagement.unknownRoundType', { type: round.type }));
+            //console.error(`Unknown round type: ${round.type}`);
+            //Alert.alert(t('common.error'), t('eventManagement.unknownRoundType', { type: round.type }));
         }
     };
 
@@ -369,11 +369,11 @@ export const EventManagement = ({ route }: Props) => {
                 navigateToRoundPage(event, round, roundIndex);
             } else {
                 console.log(`Round initialization failed for event ${eventId}`);
-                Alert.alert(t('common.error'), t('eventManagement.roundNotInitialized'));
+                //Alert.alert(t('common.error'), t('eventManagement.roundNotInitialized'));
             }
         } catch (error) {
-            console.error('Error initializing round:', error);
-            Alert.alert(t('common.error'), t('eventManagement.roundNotInitialized'));
+            //console.error('Error initializing round:', error);
+            //Alert.alert(t('common.error'), t('eventManagement.roundNotInitialized'));
         }
     };
 
@@ -442,7 +442,7 @@ export const EventManagement = ({ route }: Props) => {
                 await initializeAndNavigate(eventToStart.id, firstRound.id, eventToStart, firstRound, 0);
             }
         } catch (error) {
-            console.error('Error starting event:', error);
+           // console.error('Error starting event:', error);
             Alert.alert(t('common.error'), t('eventManagement.failedToStartEvent'));
         }
     };
@@ -491,7 +491,7 @@ export const EventManagement = ({ route }: Props) => {
 
             navigateToRoundPage(eventToOpen, firstRound, 0);
         } catch (error) {
-            console.error('Error opening event:', error);
+            //console.error('Error opening event:', error);
             Alert.alert(t('common.error'), t('eventManagement.failedToOpenEvent'));
         }
     };
@@ -501,7 +501,7 @@ export const EventManagement = ({ route }: Props) => {
             // Invalidate events query to refresh the data
             queryClient.invalidateQueries({ queryKey: queryKeys.events(tournamentName) });
         } catch (error) {
-            console.error('Error updating event settings:', error);
+           //('Error updating event settings:', error);
         }
     };
 
@@ -554,8 +554,8 @@ export const EventManagement = ({ route }: Props) => {
                 await startTournamentServer();
             }
         } catch (error) {
-            console.error('Error toggling server:', error);
-            Alert.alert(t('common.error'), t('eventManagement.unexpectedServerError'));
+           //('Error toggling server:', error);
+            //A/lert.alert(t('common.error'), t('eventManagement.unexpectedServerError'));
         } finally {
             setServerOperationPending(false);
         }
@@ -595,8 +595,8 @@ export const EventManagement = ({ route }: Props) => {
                 Alert.alert(t('common.error'), t('eventManagement.serverStartFailed'));
             }
         } catch (error) {
-            console.error('Error starting tournament server:', error);
-            Alert.alert(t('common.error'), t('eventManagement.unexpectedServerError'));
+           //('Error starting tournament server:', error);
+            //Alert.alert(t('common.error'), t('eventManagement.unexpectedServerError'));
         }
     };
 
@@ -691,7 +691,6 @@ export const EventManagement = ({ route }: Props) => {
                         )}
                     </TouchableOpacity>
                 )}
-
 
                 {/* Conditionally render Manage Officials button with Can tag and only when server is started */}
                 {(serverEnabled || isRemote) && (
@@ -941,11 +940,11 @@ export const EventManagement = ({ route }: Props) => {
                                 queryClient.invalidateQueries({ queryKey: queryKeys.events });
                             } else {
                                 // Connection failed, keep modal open
-                                Alert.alert(t('joinTournament.errorConnectionFailed'));
+                                //Alert.alert(t('joinTournament.errorConnectionFailed'));
                             }
                         } catch (error) {
-                            console.error('Error reconnecting:', error);
-                            Alert.alert(t('joinTournament.errorConnectionFailed'));
+                            //console.error('Error reconnecting:', error);
+                            //Alert.alert(t('joinTournament.errorConnectionFailed'));
                         }
                     }
                 }}

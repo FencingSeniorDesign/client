@@ -114,7 +114,7 @@ const RoundResults: React.FC = () => {
                                 await disconnect();
                                 proceedToNextRound();
                             } catch (error) {
-                                console.error('Failed to disconnect:', error);
+                                //console.error('Failed to disconnect:', error);
                                 proceedToNextRound();
                             }
                         },
@@ -148,8 +148,8 @@ const RoundResults: React.FC = () => {
                 navigateToNextRound();
             }
         } catch (error) {
-            console.error('Error handling next round:', error);
-            Alert.alert(t('common.error'), t('roundResults.failedToInitializeNextRound'));
+            //console.error('Error handling next round:', error);
+            //Alert.alert(t('common.error'), t('roundResults.failedToInitializeNextRound'));
         } finally {
             setIsInitializingNextRound(false);
         }

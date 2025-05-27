@@ -155,7 +155,7 @@ export function RefereeModule() {
                             await disconnect();
                             navigation.dispatch(data.action);
                         } catch (error) {
-                            console.error('Failed to disconnect:', error);
+                            //console.error('Failed to disconnect:', error);
                             navigation.dispatch(data.action);
                         }
                     },
@@ -307,7 +307,7 @@ export function RefereeModule() {
             const { fencer, delta } = lastScoreChange;
             let newScore1 = fencer1Score;
             let newScore2 = fencer2Score;
-            
+
             if (fencer === 1) {
                 newScore1 = Math.max(0, fencer1Score - delta);
                 setFencer1Score(newScore1);
@@ -320,7 +320,7 @@ export function RefereeModule() {
             if (connectionState !== ConnectionState.CONNECTED && savedPassivityTime !== null) {
                 setPassivityTime(savedPassivityTime);
             }
-            
+
             // Send reverted score to BLE box if connected
             if (connectionState === ConnectionState.CONNECTED && initialSyncCompleted) {
                 // Hardware left/right is swapped from UI left/right, so swap when sending
@@ -743,7 +743,7 @@ export function RefereeModule() {
                             setShowDataSourceDialog(true);
                         }
                     } catch (error) {
-                        console.error('Connection failed:', error);
+                        //console.error('Connection failed:', error);
                         // Modal will handle showing error state
                     }
                 }}

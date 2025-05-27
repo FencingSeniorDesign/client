@@ -3,11 +3,11 @@ import { Platform } from 'react-native';
 import { ScoringBoxType } from './types';
 
 export interface NFCTagData {
-    version: number;          // Format version for future compatibility
-    boxType: ScoringBoxType;  // TournaFence, EnPointe, or Skewered
-    deviceId: string;         // BLE device MAC address
-    deviceName?: string;      // Human-readable name
-    timestamp?: number;       // When tag was written
+    version: number; // Format version for future compatibility
+    boxType: ScoringBoxType; // TournaFence, EnPointe, or Skewered
+    deviceId: string; // BLE device MAC address
+    deviceName?: string; // Human-readable name
+    timestamp?: number; // When tag was written
 }
 
 const CURRENT_VERSION = 1;
@@ -67,9 +67,7 @@ class NFCService {
             const ndefMessage = tag.ndefMessage;
             const textRecord = ndefMessage.find(record => {
                 // Check if it's a text record
-                return record.tnf === Ndef.TNF_WELL_KNOWN && 
-                       record.type && 
-                       String.fromCharCode(...record.type) === 'T';
+                return record.tnf === Ndef.TNF_WELL_KNOWN && record.type && String.fromCharCode(...record.type) === 'T';
             });
 
             if (!textRecord || !textRecord.payload) {
@@ -81,7 +79,7 @@ class NFCService {
             // Skip language code bytes (first byte is length, then language code)
             const languageCodeLength = payload[0];
             const textStartIndex = 1 + languageCodeLength;
-            
+
             // Extract text content
             const textBytes = payload.slice(textStartIndex);
             const text = String.fromCharCode(...textBytes);
@@ -136,9 +134,7 @@ class NFCService {
             });
 
             // Create NDEF message with text record
-            const bytes = Ndef.encodeMessage([
-                Ndef.textRecord(textContent, 'en'),
-            ]);
+            const bytes = Ndef.encodeMessage([Ndef.textRecord(textContent, 'en')]);
 
             if (!bytes) {
                 throw new Error('Failed to encode NDEF message');
@@ -150,18 +146,20 @@ class NFCService {
             console.log('Successfully wrote NFC tag:', data);
         } catch (error) {
             console.error('Failed to write NFC tag:', error);
-            
+
             // Provide more specific error messages
             if (error instanceof Error) {
                 if (error.message.includes('Tag is not ndef')) {
-                    throw new Error('This NFC tag is not compatible. Please use an NTAG215 or similar NDEF-compatible tag.');
+                    throw new Error(
+                        'This NFC tag is not compatible. Please use an NTAG215 or similar NDEF-compatible tag.'
+                    );
                 } else if (error.message.includes('Tag capacity')) {
                     throw new Error('Not enough space on the NFC tag. Please use a tag with more storage capacity.');
                 } else if (error.message.includes('read-only')) {
                     throw new Error('This NFC tag is read-only and cannot be written to.');
                 }
             }
-            
+
             throw error;
         } finally {
             // Always cancel NFC session

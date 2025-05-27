@@ -165,7 +165,7 @@ export const JoinTournamentModal: React.FC<JoinTournamentModalProps> = ({ visibl
             }
         } catch (error: any) {
             setConnecting(false);
-            console.error('Connection error:', error);
+            //console.error('Connection error:', error);
             // No error alerts
         }
     };
@@ -185,7 +185,7 @@ export const JoinTournamentModal: React.FC<JoinTournamentModalProps> = ({ visibl
             }
         } catch (error: any) {
             setConnecting(false);
-            console.error('Connection error:', error);
+            //console.error('Connection error:', error);
             // No error alerts
         }
     };
@@ -199,7 +199,7 @@ export const JoinTournamentModal: React.FC<JoinTournamentModalProps> = ({ visibl
             const servers = await startServerDiscovery();
             setDiscoveredServers(servers);
         } catch (error: any) {
-            console.error('Error discovering servers:', error);
+            //console.error('Error discovering servers:', error);
             // Don't show error alert
         } finally {
             setIsDiscovering(false);
@@ -269,16 +269,19 @@ export const JoinTournamentModal: React.FC<JoinTournamentModalProps> = ({ visibl
 
                             {/* Buttons in a single row with centered layout */}
                             <View style={[styles.buttonContainer, { justifyContent: 'center' }]}>
-                                <TouchableOpacity 
-                                    style={[styles.cancelButton, { alignItems: 'center', justifyContent: 'center' }]} 
-                                    onPress={onClose} 
+                                <TouchableOpacity
+                                    style={[styles.cancelButton, { alignItems: 'center', justifyContent: 'center' }]}
+                                    onPress={onClose}
                                     disabled={connecting}
                                 >
                                     <Text style={styles.buttonText}>{t('common.cancel')}</Text>
                                 </TouchableOpacity>
 
                                 <TouchableOpacity
-                                    style={[styles.manualConnectButton, { alignItems: 'center', justifyContent: 'center' }]}
+                                    style={[
+                                        styles.manualConnectButton,
+                                        { alignItems: 'center', justifyContent: 'center' },
+                                    ]}
                                     onPress={() => setShowManualEntry(true)}
                                     disabled={connecting}
                                 >

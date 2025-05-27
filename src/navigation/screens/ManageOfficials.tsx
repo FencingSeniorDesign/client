@@ -56,7 +56,7 @@ const ManageOfficials: React.FC<ManageOfficialsProps> = ({ route, navigation }) 
                 const deviceId = await getDeviceId();
                 setCurrentDeviceId(deviceId);
             } catch (error) {
-                console.error('Failed to get device ID:', error);
+                //console.error('Failed to get device ID:', error);
                 setCurrentDeviceId('unknown');
             }
         };
@@ -108,8 +108,8 @@ const ManageOfficials: React.FC<ManageOfficialsProps> = ({ route, navigation }) 
             setModalVisible(false);
             resetFormFields();
         } catch (error) {
-            console.error('Error adding referee:', error);
-            Alert.alert(t('common.error'), t('manageOfficials.failedToAddReferee'));
+            //console.error('Error adding referee:', error);
+            //Alert.alert(t('common.error'), t('manageOfficials.failedToAddReferee'));
         }
     };
 
@@ -130,14 +130,14 @@ const ManageOfficials: React.FC<ManageOfficialsProps> = ({ route, navigation }) 
             setModalVisible(false);
             resetFormFields();
         } catch (error) {
-            console.error('Error adding tournament official:', error);
-            Alert.alert(t('common.error'), t('manageOfficials.failedToAddOfficial'));
+            //console.error('Error adding tournament official:', error);
+            //Alert.alert(t('common.error'), t('manageOfficials.failedToAddOfficial'));
         }
     };
 
     const updateReferee = async () => {
         if (!editingPerson?.id) return;
-        
+
         try {
             const updatedReferee: Official = {
                 ...editingPerson,
@@ -154,14 +154,14 @@ const ManageOfficials: React.FC<ManageOfficialsProps> = ({ route, navigation }) 
             setModalVisible(false);
             resetFormFields();
         } catch (error) {
-            console.error('Error updating referee:', error);
-            Alert.alert(t('common.error'), t('manageOfficials.failedToUpdateReferee'));
+            //console.error('Error updating referee:', error);
+            //Alert.alert(t('common.error'), t('manageOfficials.failedToUpdateReferee'));
         }
     };
 
     const updateOfficial = async () => {
         if (!editingPerson?.id) return;
-        
+
         try {
             const updatedOfficial: Official = {
                 ...editingPerson,
@@ -178,8 +178,8 @@ const ManageOfficials: React.FC<ManageOfficialsProps> = ({ route, navigation }) 
             setModalVisible(false);
             resetFormFields();
         } catch (error) {
-            console.error('Error updating official:', error);
-            Alert.alert(t('common.error'), t('manageOfficials.failedToUpdateOfficial'));
+            //console.error('Error updating official:', error);
+            //Alert.alert(t('common.error'), t('manageOfficials.failedToUpdateOfficial'));
         }
     };
 
@@ -229,8 +229,8 @@ const ManageOfficials: React.FC<ManageOfficialsProps> = ({ route, navigation }) 
                                 tournamentName,
                             });
                         } catch (error) {
-                            console.error('Error removing official:', error);
-                            Alert.alert(t('common.error'), t('manageOfficials.failedToRemoveOfficial'));
+                            //console.error('Error removing official:', error);
+                            //Alert.alert(t('common.error'), t('manageOfficials.failedToRemoveOfficial'));
                         }
                     },
                 },
@@ -259,8 +259,8 @@ const ManageOfficials: React.FC<ManageOfficialsProps> = ({ route, navigation }) 
                                 tournamentName,
                             });
                         } catch (error) {
-                            console.error('Error removing referee:', error);
-                            Alert.alert(t('common.error'), t('manageOfficials.failedToRemoveReferee'));
+                            //console.error('Error removing referee:', error);
+                            //Alert.alert(t('common.error'), t('manageOfficials.failedToRemoveReferee'));
                         }
                     },
                 },
@@ -403,10 +403,13 @@ const ManageOfficials: React.FC<ManageOfficialsProps> = ({ route, navigation }) 
                 <View style={styles.modalOverlay}>
                     <View style={styles.modalContent}>
                         <Text style={styles.modalTitle}>
-                            {isEditMode 
-                                ? (isAddingReferee ? t('manageOfficials.editReferee') : t('manageOfficials.editOfficial'))
-                                : (isAddingReferee ? t('manageOfficials.addReferee') : t('manageOfficials.addOfficial'))
-                            }
+                            {isEditMode
+                                ? isAddingReferee
+                                    ? t('manageOfficials.editReferee')
+                                    : t('manageOfficials.editOfficial')
+                                : isAddingReferee
+                                  ? t('manageOfficials.addReferee')
+                                  : t('manageOfficials.addOfficial')}
                         </Text>
 
                         <TextInput
@@ -447,12 +450,24 @@ const ManageOfficials: React.FC<ManageOfficialsProps> = ({ route, navigation }) 
                             <TouchableOpacity
                                 style={styles.modalActionButton}
                                 onPress={handleAddPerson}
-                                disabled={addOfficialMutation.isPending || addRefereeMutation.isPending || updateOfficialMutation.isPending || updateRefereeMutation.isPending}
+                                disabled={
+                                    addOfficialMutation.isPending ||
+                                    addRefereeMutation.isPending ||
+                                    updateOfficialMutation.isPending ||
+                                    updateRefereeMutation.isPending
+                                }
                             >
                                 <Text style={styles.modalActionText}>
-                                    {(addOfficialMutation.isPending || addRefereeMutation.isPending || updateOfficialMutation.isPending || updateRefereeMutation.isPending)
-                                        ? (isEditMode ? t('common.updating') : t('eventSettings.adding'))
-                                        : (isEditMode ? t('common.update') : t('common.add'))}
+                                    {addOfficialMutation.isPending ||
+                                    addRefereeMutation.isPending ||
+                                    updateOfficialMutation.isPending ||
+                                    updateRefereeMutation.isPending
+                                        ? isEditMode
+                                            ? t('common.updating')
+                                            : t('eventSettings.adding')
+                                        : isEditMode
+                                          ? t('common.update')
+                                          : t('common.add')}
                                 </Text>
                             </TouchableOpacity>
 
@@ -462,7 +477,12 @@ const ManageOfficials: React.FC<ManageOfficialsProps> = ({ route, navigation }) 
                                     setModalVisible(false);
                                     resetFormFields();
                                 }}
-                                disabled={addOfficialMutation.isPending || addRefereeMutation.isPending || updateOfficialMutation.isPending || updateRefereeMutation.isPending}
+                                disabled={
+                                    addOfficialMutation.isPending ||
+                                    addRefereeMutation.isPending ||
+                                    updateOfficialMutation.isPending ||
+                                    updateRefereeMutation.isPending
+                                }
                             >
                                 <Text style={styles.modalActionText}>{t('common.cancel')}</Text>
                             </TouchableOpacity>

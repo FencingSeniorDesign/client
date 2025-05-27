@@ -73,8 +73,8 @@ const TournamentResultsPage: React.FC = () => {
                 const eventData = await dataProvider.getEventById(eventId);
                 setEvent(eventData);
             } catch (err) {
-                console.error('Error fetching event data:', err);
-                setError(t('tournamentResults.failedToLoadEventData'));
+                //console.error('Error fetching event data:', err);
+                //setError(t('tournamentResults.failedToLoadEventData'));
             }
         };
 
@@ -85,45 +85,34 @@ const TournamentResultsPage: React.FC = () => {
     const handleMarkTournamentComplete = async () => {
         if (!event) return;
 
-        Alert.alert(
-            t('tournamentResults.confirmCompleteTitle'),
-            t('tournamentResults.confirmCompleteMessage'),
-            [
-                {
-                    text: t('common.cancel'),
-                    style: 'cancel',
+        Alert.alert(t('tournamentResults.confirmCompleteTitle'), t('tournamentResults.confirmCompleteMessage'), [
+            {
+                text: t('common.cancel'),
+                style: 'cancel',
+            },
+            {
+                text: t('common.confirm'),
+                onPress: async () => {
+                    setIsMarkingComplete(true);
+                    try {
+                        await dataProvider.markTournamentComplete(event.tname);
+                        Alert.alert(t('tournamentResults.successTitle'), t('tournamentResults.successMessage'), [
+                            {
+                                text: t('common.ok'),
+                                onPress: () => {
+                                    navigation.navigate('HomeTabs');
+                                },
+                            },
+                        ]);
+                    } catch (error) {
+                        //console.error('Error marking tournament as complete:', error);
+                        //Alert.alert(t('common.error'), t('tournamentResults.errorMarkingComplete'));
+                    } finally {
+                        setIsMarkingComplete(false);
+                    }
                 },
-                {
-                    text: t('common.confirm'),
-                    onPress: async () => {
-                        setIsMarkingComplete(true);
-                        try {
-                            await dataProvider.markTournamentComplete(event.tname);
-                            Alert.alert(
-                                t('tournamentResults.successTitle'),
-                                t('tournamentResults.successMessage'),
-                                [
-                                    {
-                                        text: t('common.ok'),
-                                        onPress: () => {
-                                            navigation.navigate('HomeTabs');
-                                        },
-                                    },
-                                ]
-                            );
-                        } catch (error) {
-                            console.error('Error marking tournament as complete:', error);
-                            Alert.alert(
-                                t('common.error'),
-                                t('tournamentResults.errorMarkingComplete')
-                            );
-                        } finally {
-                            setIsMarkingComplete(false);
-                        }
-                    },
-                },
-            ]
-        );
+            },
+        ]);
     };
 
     // Fetch results for the selected round
@@ -151,8 +140,8 @@ const TournamentResultsPage: React.FC = () => {
                     await fetchDEResults(selectedRound);
                 }
             } catch (err) {
-                console.error('Error fetching round results:', err);
-                setError(t('tournamentResults.failedToLoadRoundResults'));
+                //console.error('Error fetching round results:', err);
+                //setError(t('tournamentResults.failedToLoadRoundResults'));
             } finally {
                 setLoading(false);
             }
@@ -400,8 +389,8 @@ const TournamentResultsPage: React.FC = () => {
             setDEResults(results);
             setPoolResults([]);
         } catch (err) {
-            console.error('Error fetching DE results:', err);
-            setError(t('tournamentResults.failedToLoadDEResults'));
+            //console.error('Error fetching DE results:', err);
+            //setError(t('tournamentResults.failedToLoadDEResults'));
         }
     };
 
@@ -584,11 +573,11 @@ const TournamentResultsPage: React.FC = () => {
                 <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
                     <Text style={styles.backButtonText}>{t('tournamentResults.backToEvent')}</Text>
                 </TouchableOpacity>
-                
+
                 {!isRemote && (
                     <Can I="manage" a="Tournament">
-                        <TouchableOpacity 
-                            style={[styles.completeButton, isMarkingComplete && styles.disabledButton]} 
+                        <TouchableOpacity
+                            style={[styles.completeButton, isMarkingComplete && styles.disabledButton]}
                             onPress={handleMarkTournamentComplete}
                             disabled={isMarkingComplete}
                         >
@@ -596,7 +585,12 @@ const TournamentResultsPage: React.FC = () => {
                                 <ActivityIndicator size="small" color="#fff" />
                             ) : (
                                 <>
-                                    <MaterialIcons name="check-circle" size={20} color="#fff" style={{ marginRight: 5 }} />
+                                    <MaterialIcons
+                                        name="check-circle"
+                                        size={20}
+                                        color="#fff"
+                                        style={{ marginRight: 5 }}
+                                    />
                                     <Text style={styles.completeButtonText}>{t('tournamentResults.markComplete')}</Text>
                                 </>
                             )}

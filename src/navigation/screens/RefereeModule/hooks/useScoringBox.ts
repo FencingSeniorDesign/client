@@ -45,7 +45,7 @@ export function useScoringBox({
                     // Hardware left touch should increment UI right fencer
                     newRightScore++;
                 } else if (update.fencer === 'right') {
-                    // Hardware right touch should increment UI left fencer  
+                    // Hardware right touch should increment UI left fencer
                     newLeftScore++;
                 } else if (update.fencer === 'both') {
                     newLeftScore++;

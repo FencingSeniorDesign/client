@@ -45,7 +45,7 @@ export const AbilityProvider: React.FC<AbilityProviderProps> = ({ children }) =>
                 const id = await getDeviceId();
                 setDeviceId(id);
             } catch (error) {
-                console.error('Error fetching device ID:', error);
+                //console.error('Error fetching device ID:', error);
             }
         };
 
@@ -124,7 +124,7 @@ export const AbilityProvider: React.FC<AbilityProviderProps> = ({ children }) =>
             // Default to viewer if we can't determine the role
             return Role.VIEWER;
         } catch (error) {
-            console.error('Error determining role:', error);
+            //console.error('Error determining role:', error);
             return Role.VIEWER;
         }
     };

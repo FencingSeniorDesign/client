@@ -89,7 +89,7 @@ TournaFence is designed to handle all aspects of fencing tournament management, 
 | SRS         | Software Requirements Specification                                               |
 | DB          | Database                                                                          |
 | SQLite      | Self-contained, serverless, zero-configuration, transactional SQL database engine |
-| Drizzle ORM | TypeScript-first ORM for type-safe database operations                           |
+| Drizzle ORM | TypeScript-first ORM for type-safe database operations                            |
 | JSX         | JavaScript XML (syntax extension for JavaScript)                                  |
 | Props       | Properties passed to React components                                             |
 | State       | Object representing component data that can change over time                      |
@@ -117,22 +117,22 @@ TournaFence is designed to handle all aspects of fencing tournament management, 
 
 The TournaFence application is built using modern cross-platform mobile development technologies:
 
-| Technology         | Version | Purpose                                                          |
-| ------------------ | ------- | ---------------------------------------------------------------- |
-| React              | 18.3.1  | JavaScript library for building user interfaces                  |
-| React Native       | 0.76.9  | Framework for building native mobile apps using React            |
-| TypeScript         | 5.7.2   | Typed JavaScript that compiles to plain JavaScript               |
-| Expo               | 52.0.44 | Framework and platform for universal React applications          |
-| Expo SQLite        | 15.1.4  | SQLite database for local data storage                           |
-| Drizzle ORM        | 0.41.0  | TypeScript ORM for SQLite database operations                    |
-| React Navigation   | 7.0.12  | Routing and navigation for React Native apps                     |
-| TanStack Query     | 5.67.2  | Data synchronization and caching library                         |
-| CASL               | 6.7.3   | Authorization library for role-based access control              |
-| React i18next      | 15.5.1  | Internationalization framework for multilingual support          |
-| React Native BLE   | 3.5.0   | Bluetooth Low Energy communication for scoring boxes             |
-| TCP Socket         | 6.2.0   | TCP networking for tournament client/server communication        |
-| React Native NFC   | 3.16.1  | NFC support for fencer check-in and identification              |
-| Zeroconf           | 0.13.8  | Service discovery for automatic tournament server detection      |
+| Technology       | Version | Purpose                                                     |
+| ---------------- | ------- | ----------------------------------------------------------- |
+| React            | 18.3.1  | JavaScript library for building user interfaces             |
+| React Native     | 0.76.9  | Framework for building native mobile apps using React       |
+| TypeScript       | 5.7.2   | Typed JavaScript that compiles to plain JavaScript          |
+| Expo             | 52.0.44 | Framework and platform for universal React applications     |
+| Expo SQLite      | 15.1.4  | SQLite database for local data storage                      |
+| Drizzle ORM      | 0.41.0  | TypeScript ORM for SQLite database operations               |
+| React Navigation | 7.0.12  | Routing and navigation for React Native apps                |
+| TanStack Query   | 5.67.2  | Data synchronization and caching library                    |
+| CASL             | 6.7.3   | Authorization library for role-based access control         |
+| React i18next    | 15.5.1  | Internationalization framework for multilingual support     |
+| React Native BLE | 3.5.0   | Bluetooth Low Energy communication for scoring boxes        |
+| TCP Socket       | 6.2.0   | TCP networking for tournament client/server communication   |
+| React Native NFC | 3.16.1  | NFC support for fencer check-in and identification          |
+| Zeroconf         | 0.13.8  | Service discovery for automatic tournament server detection |
 
 ### 3.2 Architecture Diagram
 
@@ -785,17 +785,17 @@ sequenceDiagram
         Drizzle-->>DB: Bout updated
         DB-->>Query: Return success
         Query->>Query: Invalidate bout and round caches
-        
+
         alt Remote Tournament
             Query->>Client: Broadcast bout result
             Client-->>Query: Confirmation
         end
-        
+
         alt BLE Connected
             Referee->>BLE: Send bout complete signal
             BLE-->>Referee: Disconnect from box
         end
-        
+
         Query-->>Referee: Update complete
         Referee-->>User: Navigate back to previous screen
     else Standalone mode
@@ -897,49 +897,49 @@ The screen manages tournament connectivity through the TournamentClient service,
 
 ###### 4.2.1.1.1 Attributes
 
-| Name                | Access  | Type                   | Description                                                |
-| ------------------- | ------- | ---------------------- | ---------------------------------------------------------- |
-| joinModalVisible    | private | boolean                | Controls visibility of the join tournament modal           |
-| connectedTournament | private | string \| null         | Name of currently connected remote tournament              |
-| deviceId            | private | string                 | Unique device identifier for permissions                   |
+| Name                | Access  | Type           | Description                                      |
+| ------------------- | ------- | -------------- | ------------------------------------------------ |
+| joinModalVisible    | private | boolean        | Controls visibility of the join tournament modal |
+| connectedTournament | private | string \| null | Name of currently connected remote tournament    |
+| deviceId            | private | string         | Unique device identifier for permissions         |
 
 ###### 4.2.1.1.2 Methods
 
-| Name:            | useOngoingTournaments                                                                                 |
-| ---------------- | ----------------------------------------------------------------------------------------------------- |
-| **Input:**       | None                                                                                                  |
-| **Output:**      | QueryResult<Tournament[]>                                                                             |
-| **Description:** | TanStack Query hook that fetches and caches ongoing tournaments with real-time updates                |
+| Name:            | useOngoingTournaments                                                                  |
+| ---------------- | -------------------------------------------------------------------------------------- |
+| **Input:**       | None                                                                                   |
+| **Output:**      | QueryResult<Tournament[]>                                                              |
+| **Description:** | TanStack Query hook that fetches and caches ongoing tournaments with real-time updates |
 
-| Name:            | useCompletedTournaments                                                                               |
-| ---------------- | ----------------------------------------------------------------------------------------------------- |
-| **Input:**       | None                                                                                                  |
-| **Output:**      | QueryResult<Tournament[]>                                                                             |
-| **Description:** | TanStack Query hook that fetches and caches completed tournaments                                     |
+| Name:            | useCompletedTournaments                                           |
+| ---------------- | ----------------------------------------------------------------- |
+| **Input:**       | None                                                              |
+| **Output:**      | QueryResult<Tournament[]>                                         |
+| **Description:** | TanStack Query hook that fetches and caches completed tournaments |
 
-| Name:            | handleJoinSuccess                                                                                     |
-| ---------------- | ----------------------------------------------------------------------------------------------------- |
-| **Input:**       | string tournamentName : Name of the tournament joined                                                |
-| **Output:**      | void                                                                                                  |
-| **Description:** | Handles successful connection to a remote tournament, updates UI and sets permission context          |
+| Name:            | handleJoinSuccess                                                                            |
+| ---------------- | -------------------------------------------------------------------------------------------- |
+| **Input:**       | string tournamentName : Name of the tournament joined                                        |
+| **Output:**      | void                                                                                         |
+| **Description:** | Handles successful connection to a remote tournament, updates UI and sets permission context |
 
-| Name:            | handleDisconnect                                                                                      |
-| ---------------- | ----------------------------------------------------------------------------------------------------- |
-| **Input:**       | None                                                                                                  |
-| **Output:**      | void                                                                                                  |
-| **Description:** | Disconnects from remote tournament and resets permission context                                      |
+| Name:            | handleDisconnect                                                 |
+| ---------------- | ---------------------------------------------------------------- |
+| **Input:**       | None                                                             |
+| **Output:**      | void                                                             |
+| **Description:** | Disconnects from remote tournament and resets permission context |
 
-| Name:            | refreshTournaments                                                                                    |
-| ---------------- | ----------------------------------------------------------------------------------------------------- |
-| **Input:**       | None                                                                                                  |
-| **Output:**      | void                                                                                                  |
-| **Description:** | Invalidates tournament queries to force refresh from database                                         |
+| Name:            | refreshTournaments                                            |
+| ---------------- | ------------------------------------------------------------- |
+| **Input:**       | None                                                          |
+| **Output:**      | void                                                          |
+| **Description:** | Invalidates tournament queries to force refresh from database |
 
-| Name:            | render                                                                                                |
-| ---------------- | ----------------------------------------------------------------------------------------------------- |
-| **Input:**       | None                                                                                                  |
-| **Output:**      | JSX.Element                                                                                           |
-| **Description:** | Renders the home screen UI with tournament lists, action buttons, and connection status               |
+| Name:            | render                                                                                  |
+| ---------------- | --------------------------------------------------------------------------------------- |
+| **Input:**       | None                                                                                    |
+| **Output:**      | JSX.Element                                                                             |
+| **Description:** | Renders the home screen UI with tournament lists, action buttons, and connection status |
 
 ##### 4.2.1.2 CreateTournamentButton (replaces CreateTournamentModal)
 
@@ -958,32 +958,32 @@ classDiagram
 
 ###### 4.2.1.2.1 Attributes
 
-| Name                | Access  | Type      | Description                                    |
-| ------------------- | ------- | --------- | ---------------------------------------------- |
-| modalVisible        | private | boolean   | Controls modal visibility                      |
-| tournamentName      | private | string    | Name input for the new tournament              |
-| creating            | private | boolean   | Indicates if creation is in progress           |
-| onTournamentCreated | private | Function  | Callback when tournament is successfully created |
+| Name                | Access  | Type     | Description                                      |
+| ------------------- | ------- | -------- | ------------------------------------------------ |
+| modalVisible        | private | boolean  | Controls modal visibility                        |
+| tournamentName      | private | string   | Name input for the new tournament                |
+| creating            | private | boolean  | Indicates if creation is in progress             |
+| onTournamentCreated | private | Function | Callback when tournament is successfully created |
 
 ###### 4.2.1.2.2 Methods
 
-| Name:            | useCreateTournament                                                              |
-| ---------------- | -------------------------------------------------------------------------------- |
-| **Input:**       | None                                                                             |
-| **Output:**      | MutationResult<Tournament, Error>                                                |
-| **Description:** | TanStack Query mutation hook for creating tournaments with optimistic updates    |
+| Name:            | useCreateTournament                                                           |
+| ---------------- | ----------------------------------------------------------------------------- |
+| **Input:**       | None                                                                          |
+| **Output:**      | MutationResult<Tournament, Error>                                             |
+| **Description:** | TanStack Query mutation hook for creating tournaments with optimistic updates |
 
-| Name:            | handleSubmit                                                                     |
-| ---------------- | -------------------------------------------------------------------------------- |
-| **Input:**       | None                                                                             |
-| **Output:**      | void                                                                             |
-| **Description:** | Validates input and triggers tournament creation mutation                        |
+| Name:            | handleSubmit                                              |
+| ---------------- | --------------------------------------------------------- |
+| **Input:**       | None                                                      |
+| **Output:**      | void                                                      |
+| **Description:** | Validates input and triggers tournament creation mutation |
 
-| Name:            | render                                                                           |
-| ---------------- | -------------------------------------------------------------------------------- |
-| **Input:**       | None                                                                             |
-| **Output:**      | JSX.Element                                                                      |
-| **Description:** | Renders the create button and modal dialog with name input field                 |
+| Name:            | render                                                           |
+| ---------------- | ---------------------------------------------------------------- |
+| **Input:**       | None                                                             |
+| **Output:**      | JSX.Element                                                      |
+| **Description:** | Renders the create button and modal dialog with name input field |
 
 ##### 4.2.1.3 TournamentList (updated from TournamentListComponent)
 
@@ -1002,11 +1002,11 @@ classDiagram
 
 ###### 4.2.1.3.1 Attributes
 
-| Name                | Access  | Type         | Description                                       |
-| ------------------- | ------- | ------------ | ------------------------------------------------- |
-| tournaments         | private | Tournament[] | List of tournaments to display                    |
-| onTournamentDeleted | private | Function     | Callback when a tournament is deleted             |
-| isComplete          | private | boolean      | Whether showing completed or ongoing tournaments  |
+| Name                | Access  | Type         | Description                                      |
+| ------------------- | ------- | ------------ | ------------------------------------------------ |
+| tournaments         | private | Tournament[] | List of tournaments to display                   |
+| onTournamentDeleted | private | Function     | Callback when a tournament is deleted            |
+| isComplete          | private | boolean      | Whether showing completed or ongoing tournaments |
 
 ###### 4.2.1.3.2 Methods
 
@@ -1016,23 +1016,23 @@ classDiagram
 | **Output:**      | MutationResult<void, Error>                                                   |
 | **Description:** | TanStack Query mutation hook for deleting tournaments with cache invalidation |
 
-| Name:            | navigateToEvent                                                               |
-| ---------------- | ----------------------------------------------------------------------------- |
-| **Input:**       | Tournament tournament : The tournament to navigate to                         |
-| **Output:**      | void                                                                          |
-| **Description:** | Navigates to event management screen for the selected tournament              |
+| Name:            | navigateToEvent                                                  |
+| ---------------- | ---------------------------------------------------------------- |
+| **Input:**       | Tournament tournament : The tournament to navigate to            |
+| **Output:**      | void                                                             |
+| **Description:** | Navigates to event management screen for the selected tournament |
 
-| Name:            | handleDelete                                                                  |
-| ---------------- | ----------------------------------------------------------------------------- |
-| **Input:**       | string tournamentName : Name of tournament to delete                          |
-| **Output:**      | void                                                                          |
-| **Description:** | Shows confirmation dialog and deletes tournament if confirmed                 |
+| Name:            | handleDelete                                                  |
+| ---------------- | ------------------------------------------------------------- |
+| **Input:**       | string tournamentName : Name of tournament to delete          |
+| **Output:**      | void                                                          |
+| **Description:** | Shows confirmation dialog and deletes tournament if confirmed |
 
-| Name:            | render                                                                        |
-| ---------------- | ----------------------------------------------------------------------------- |
-| **Input:**       | None                                                                          |
-| **Output:**      | JSX.Element                                                                   |
-| **Description:** | Renders the tournament list with delete buttons and navigation capability     |
+| Name:            | render                                                                    |
+| ---------------- | ------------------------------------------------------------------------- |
+| **Input:**       | None                                                                      |
+| **Output:**      | JSX.Element                                                               |
+| **Description:** | Renders the tournament list with delete buttons and navigation capability |
 
 #### 4.2.2 Event Management
 
@@ -1287,65 +1287,65 @@ classDiagram
 
 ###### 4.2.3.1.1 Attributes
 
-| Name                 | Access  | Type               | Description                                     |
-| -------------------- | ------- | ------------------ | ----------------------------------------------- |
-| event                | private | Event              | Event object containing configuration data      |
-| isRemote             | private | boolean            | Flag indicating if this is a remote connection  |
-| fencerSearch         | private | string             | Search query for fencer lookup                  |
-| selectedClub         | private | Club \| null       | Currently selected club for fencer registration |
-| selectedPoolConfig   | private | PoolConfiguration  | Selected pool distribution configuration        |
-| formatOptions        | private | string[]           | Available tournament format options             |
-| importedCsvData      | private | Fencer[]           | Data imported from CSV file                     |
+| Name               | Access  | Type              | Description                                     |
+| ------------------ | ------- | ----------------- | ----------------------------------------------- |
+| event              | private | Event             | Event object containing configuration data      |
+| isRemote           | private | boolean           | Flag indicating if this is a remote connection  |
+| fencerSearch       | private | string            | Search query for fencer lookup                  |
+| selectedClub       | private | Club \| null      | Currently selected club for fencer registration |
+| selectedPoolConfig | private | PoolConfiguration | Selected pool distribution configuration        |
+| formatOptions      | private | string[]          | Available tournament format options             |
+| importedCsvData    | private | Fencer[]          | Data imported from CSV file                     |
 
 ###### 4.2.3.1.2 Methods
 
-| Name:            | useRounds                                                                        |
-| ---------------- | -------------------------------------------------------------------------------- |
+| Name:            | useRounds                                                                       |
+| ---------------- | ------------------------------------------------------------------------------- |
 | **Input:**       | number eventId : ID of the event to get rounds for                              |
 | **Output:**      | QueryResult<Round[]>                                                            |
 | **Description:** | TanStack Query hook that fetches and manages round data for the specified event |
 
-| Name:            | useFencers                                                                |
-| ---------------- | ------------------------------------------------------------------------- |
+| Name:            | useFencers                                                               |
+| ---------------- | ------------------------------------------------------------------------ |
 | **Input:**       | Event event : Event object to get fencers for                            |
 | **Output:**      | QueryResult<Fencer[]>                                                    |
 | **Description:** | TanStack Query hook that fetches and manages fencers for the given event |
 
-| Name:            | useAddFencer                                                                |
-| ---------------- | --------------------------------------------------------------------------- |
-| **Input:**       | None                                                                        |
-| **Output:**      | MutationResult<{ fencer: Fencer, event: Event }, unknown>                  |
-| **Description:** | TanStack Query mutation hook for adding a fencer to an event               |
+| Name:            | useAddFencer                                                 |
+| ---------------- | ------------------------------------------------------------ |
+| **Input:**       | None                                                         |
+| **Output:**      | MutationResult<{ fencer: Fencer, event: Event }, unknown>    |
+| **Description:** | TanStack Query mutation hook for adding a fencer to an event |
 
-| Name:            | useRemoveFencer                                                              |
-| ---------------- | ---------------------------------------------------------------------------- |
-| **Input:**       | None                                                                         |
-| **Output:**      | MutationResult<{ fencer: Fencer, event: Event }, unknown>                   |
-| **Description:** | TanStack Query mutation hook for removing a fencer from an event            |
+| Name:            | useRemoveFencer                                                  |
+| ---------------- | ---------------------------------------------------------------- |
+| **Input:**       | None                                                             |
+| **Output:**      | MutationResult<{ fencer: Fencer, event: Event }, unknown>        |
+| **Description:** | TanStack Query mutation hook for removing a fencer from an event |
 
-| Name:            | calculatePoolConfigurations                                                       |
-| ---------------- | --------------------------------------------------------------------------------- |
-| **Input:**       | number totalFencers : Total number of fencers to distribute                      |
-| **Output:**      | PoolConfiguration[]                                                              |
+| Name:            | calculatePoolConfigurations                                                        |
+| ---------------- | ---------------------------------------------------------------------------------- |
+| **Input:**       | number totalFencers : Total number of fencers to distribute                        |
+| **Output:**      | PoolConfiguration[]                                                                |
 | **Description:** | Calculates optimal pool distributions based on the number of participating fencers |
 
-| Name:            | handleImportCSV                                                                   |
-| ---------------- | --------------------------------------------------------------------------------- |
-| **Input:**       | None                                                                              |
-| **Output:**      | Promise<void>                                                                     |
-| **Description:** | Opens file picker, reads CSV, parses data, and converts it to fencer objects     |
+| Name:            | handleImportCSV                                                              |
+| ---------------- | ---------------------------------------------------------------------------- |
+| **Input:**       | None                                                                         |
+| **Output:**      | Promise<void>                                                                |
+| **Description:** | Opens file picker, reads CSV, parses data, and converts it to fencer objects |
 
-| Name:            | handleStartEvent                                                                  |
-| ---------------- | --------------------------------------------------------------------------------- |
-| **Input:**       | None                                                                              |
-| **Output:**      | Promise<void>                                                                     |
+| Name:            | handleStartEvent                                                                                                      |
+| ---------------- | --------------------------------------------------------------------------------------------------------------------- |
+| **Input:**       | None                                                                                                                  |
+| **Output:**      | Promise<void>                                                                                                         |
 | **Description:** | Creates a round, initializes it with the selected format, and navigates to the appropriate screen based on the format |
 
-| Name:            | render                                                                          |
-| ---------------- | ------------------------------------------------------------------------------- |
-| **Input:**       | None                                                                            |
-| **Output:**      | JSX.Element                                                                     |
-| **Description:** | Renders the event settings UI with fencer management and format configuration   |
+| Name:            | render                                                                        |
+| ---------------- | ----------------------------------------------------------------------------- |
+| **Input:**       | None                                                                          |
+| **Output:**      | JSX.Element                                                                   |
+| **Description:** | Renders the event settings UI with fencer management and format configuration |
 
 #### 4.2.4 Pools Page
 
@@ -1960,91 +1960,91 @@ erDiagram
 
 ## 6. Traceability Matrix
 
-| Req ID                                      | Implementing Component                                               |
-| ------------------------------------------- | -------------------------------------------------------------------- |
-| **Tournament Management**                   |                                                                      |
-| 3.1 - Tournament Creation                   | CreateTournamentButton.tsx, DrizzleDatabaseUtils.ts                  |
-| 3.1.1 - Tournament Name Input               | CreateTournamentButton.tsx                                           |
-| 3.1.2 - Require At Least One Event          | EventManagement.tsx, DrizzleDatabaseUtils.ts                         |
-| 3.1.3 - Create Events Within Tournaments    | EventManagement.tsx                                                  |
-| 3.2 - Tournament Management                 | Home.tsx, TournamentList.tsx                                         |
-| 3.2.1 - Complete All Events Before Ending   | DrizzleDatabaseUtils.ts                                              |
-| 3.2.2 - Delete Tournament                   | TournamentList.tsx, DrizzleDatabaseUtils.ts                          |
-| 3.2.3 - View Tournaments in Progress        | Home.tsx, TournamentList.tsx                                         |
-| 3.2.4 - Invite Referees                     | JoinTournamentModal.tsx, TournamentClient.ts                         |
-| 3.2.5 - Tournament History                  | Home.tsx, TournamentList.tsx                                         |
-| 3.2.6 - Enable Embedded Server              | EventManagement.tsx, TournamentServer.ts                             |
-| 3.2.7 - Export Tournament Data              | DrizzleDatabaseUtils.ts                                              |
-| **Event Management**                        |                                                                      |
-| 3.3 - Event Management                      | EventManagement.tsx, EventSettings.tsx                               |
-| 3.3.1 - View Created Events                 | EventManagement.tsx                                                  |
-| 3.3.2 - Generate Event Name                 | EventManagement.tsx                                                  |
-| 3.3.3 - Add at Least One Round              | EventSettings.tsx                                                    |
-| 3.3.4 - Add Arbitrary Number of Fencers     | EventSettings.tsx, ClubAutocomplete.tsx                              |
-| 3.3.5 - Create DE Table                     | DEBracketPage.tsx, RoundAlgorithms.tsx                               |
-| 3.3.6 - Enter/Select Fencers                | EventSettings.tsx, ClubAutocomplete.tsx                              |
-| 3.3.7 - Support Additional Formats          | BracketFormats.ts, CompassDrawUtils.ts, DoubleEliminationUtils.ts    |
-| 3.3.8 - Delete Events                       | EventManagement.tsx                                                  |
-| 3.3.9 - Import Fencers from CSV             | EventSettings.tsx                                                    |
-| **Pools/DE Management**                     |                                                                      |
-| 3.4 - Pools Management                      | PoolsPage.tsx                                                        |
-| 3.4.1 - Create Bout Order                   | BoutOrderPage.tsx, BoutOrderUtils.ts                                 |
-| 3.4.2 - Allow Referees to Select Bouts      | BoutOrderPage.tsx, RefereeModule.tsx                                 |
-| 3.4.3 - End Pools Button                    | PoolsPage.tsx                                                        |
-| 3.4.4 - Create DE After Pools               | RoundResults.tsx, DEBracketPage.tsx                                  |
-| 3.4.5 - Generate Results Page After Pools   | PoolsPage.tsx, RoundResults.tsx                                      |
-| 3.5 - DE Table Creation                     | DEBracketPage.tsx, RoundAlgorithms.tsx                               |
-| 3.5.1 - Use Prior Round Results for Seeding | RoundResults.tsx, DrizzleDatabaseUtils.ts                            |
-| 3.5.2 - Use Specified Seeding Method        | EventSettings.tsx, RoundAlgorithms.tsx                               |
-| 3.5.3 - Grant Byes to Fencers               | DEBracketPage.tsx, RoundAlgorithms.tsx                               |
-| 3.6 - Fencer Following                      | TournamentResultsPage.tsx                                            |
-| 3.7 - Results Generation                    | RoundResults.tsx, TournamentResultsPage.tsx                          |
-| **Scoring and Refereeing**                  |                                                                      |
-| 3.8 - Scoring Module                        | RefereeModule.tsx                                                    |
-| 3.8.1 - Increment/Decrement Score           | RefereeModule.tsx                                                    |
-| 3.8.2 - Start/Stop Clock                    | RefereeModule.tsx                                                    |
-| 3.8.3 - Passivity Timer                     | RefereeModule.tsx                                                    |
-| 3.8.4 - Clock Presets                       | RefereeModule.tsx, CustomTimeModal.tsx                               |
-| 3.8.5 - Assign Cards                        | RefereeModule.tsx                                                    |
-| 3.8.6 - Assign Priority                     | RefereeModule.tsx (priority display)                                 |
-| 3.8.7 - Select Winner                       | RefereeModule.tsx                                                    |
-| 3.8.8 - Connect to Scoring Box              | RefereeModule.tsx, ScoringBoxContext.tsx, BLEManager.ts              |
-| 3.8.9 - Weapon Selection                    | RefereeModule.tsx                                                    |
-| 3.8.10 - Hide Unused UI Elements            | RefereeModule.tsx                                                    |
-| 3.9 - Referee Management                    | ManageOfficials.tsx, EventManagement.tsx                             |
-| 3.9.1 - Link for Referees                   | TournamentClient.ts, JoinTournamentModal.tsx                         |
-| 3.9.2 - Create Referee Whitelist            | ManageOfficials.tsx, ability.ts                                      |
-| **Hardware**                                |                                                                      |
-| 3.10 - Scoring Box                          | BLEManager.ts, ScoringBoxService interfaces                          |
-| 3.10.1 - Conform to USA Fencing Rules       | ScoringBoxService implementations                                    |
-| 3.10.2 - Audible Touch Indication           | External Hardware Component                                          |
-| 3.10.3 - Customizable Light Colors          | External Hardware Component                                          |
-| 3.10.4 - Bluetooth Pairing                  | BLEManager.ts, ScoringBoxContext.tsx                                 |
-| 3.10.5 - Modular Design                     | ScoringBoxService interfaces (TournaFence, EnPointe, Skewered)       |
-| **Data Management**                         |                                                                      |
-| 3.11 - Database Requirements                | DrizzleDatabaseUtils.ts, DrizzleClient.ts                            |
-| 3.11.1 - Use Primary and Foreign Keys       | Drizzle Schema (schema/index.ts)                                     |
-| 3.11.2 - Write-Ahead-Log                    | SQLite configuration in DrizzleClient.ts                             |
-| 3.11.3 - Detect Database Changes            | TanStack Query, TournamentDataHooks.ts                               |
-| 3.11.4 - Store Scoring Box Configurations   | ScoringBoxContext.tsx, usePersistentStateHook.ts                     |
-| 3.11.5 - Rolling Backups                    | Not implemented                                                      |
-| 3.11.6 - Audit Log                          | Not implemented                                                      |
-| 3.11.7 - View Audit Log                     | Not implemented                                                      |
-| 3.11.8 - Detect Data Mismatches             | TournamentClient.ts, TournamentServer.ts                             |
-| 3.11.9 - Export Tournament Data             | Not implemented                                                      |
-| **Non-Functional Requirements**             |                                                                      |
-| 4.1 - Human Factors                         | i18n system, accessible UI components                                |
-| 4.1.1 - Types of Users                      | RBAC system (ability.ts)                                             |
-| 4.1.2 - Technical Proficiency               | Simplified UI, tooltips                                              |
-| 4.2 - Hardware Support                      | React Native, Expo                                                   |
-| 4.2.1 - Client Hardware Requirements        | iOS 13+, Android 6+                                                  |
-| 4.2.2 - Scoring Box Hardware                | BLE support via react-native-ble-plx                                 |
-| 4.2.3 - Modular Hardware                    | Multiple scoring box services                                        |
-| 4.3 - Software Compatibility                | React Native cross-platform                                          |
-| 4.3.1 - SQLite Support                      | expo-sqlite with Drizzle ORM                                         |
-| 4.3.2 - Operating System Support            | iOS, Android, Web (limited)                                          |
-| 4.4 - Performance                           | TanStack Query caching, optimized re-renders                         |
-| 4.4.1 - Page Load Time                      | Splash screen, lazy loading                                          |
-| 4.4.2 - Database Query Performance          | Drizzle ORM optimizations, indexes                                   |
-| 4.5 - Error Handling                        | NetworkErrors.ts, error boundaries                                   |
-| 4.5.1 - Client Error Handling               | Try-catch blocks, user-friendly error messages                       |
+| Req ID                                      | Implementing Component                                            |
+| ------------------------------------------- | ----------------------------------------------------------------- |
+| **Tournament Management**                   |                                                                   |
+| 3.1 - Tournament Creation                   | CreateTournamentButton.tsx, DrizzleDatabaseUtils.ts               |
+| 3.1.1 - Tournament Name Input               | CreateTournamentButton.tsx                                        |
+| 3.1.2 - Require At Least One Event          | EventManagement.tsx, DrizzleDatabaseUtils.ts                      |
+| 3.1.3 - Create Events Within Tournaments    | EventManagement.tsx                                               |
+| 3.2 - Tournament Management                 | Home.tsx, TournamentList.tsx                                      |
+| 3.2.1 - Complete All Events Before Ending   | DrizzleDatabaseUtils.ts                                           |
+| 3.2.2 - Delete Tournament                   | TournamentList.tsx, DrizzleDatabaseUtils.ts                       |
+| 3.2.3 - View Tournaments in Progress        | Home.tsx, TournamentList.tsx                                      |
+| 3.2.4 - Invite Referees                     | JoinTournamentModal.tsx, TournamentClient.ts                      |
+| 3.2.5 - Tournament History                  | Home.tsx, TournamentList.tsx                                      |
+| 3.2.6 - Enable Embedded Server              | EventManagement.tsx, TournamentServer.ts                          |
+| 3.2.7 - Export Tournament Data              | DrizzleDatabaseUtils.ts                                           |
+| **Event Management**                        |                                                                   |
+| 3.3 - Event Management                      | EventManagement.tsx, EventSettings.tsx                            |
+| 3.3.1 - View Created Events                 | EventManagement.tsx                                               |
+| 3.3.2 - Generate Event Name                 | EventManagement.tsx                                               |
+| 3.3.3 - Add at Least One Round              | EventSettings.tsx                                                 |
+| 3.3.4 - Add Arbitrary Number of Fencers     | EventSettings.tsx, ClubAutocomplete.tsx                           |
+| 3.3.5 - Create DE Table                     | DEBracketPage.tsx, RoundAlgorithms.tsx                            |
+| 3.3.6 - Enter/Select Fencers                | EventSettings.tsx, ClubAutocomplete.tsx                           |
+| 3.3.7 - Support Additional Formats          | BracketFormats.ts, CompassDrawUtils.ts, DoubleEliminationUtils.ts |
+| 3.3.8 - Delete Events                       | EventManagement.tsx                                               |
+| 3.3.9 - Import Fencers from CSV             | EventSettings.tsx                                                 |
+| **Pools/DE Management**                     |                                                                   |
+| 3.4 - Pools Management                      | PoolsPage.tsx                                                     |
+| 3.4.1 - Create Bout Order                   | BoutOrderPage.tsx, BoutOrderUtils.ts                              |
+| 3.4.2 - Allow Referees to Select Bouts      | BoutOrderPage.tsx, RefereeModule.tsx                              |
+| 3.4.3 - End Pools Button                    | PoolsPage.tsx                                                     |
+| 3.4.4 - Create DE After Pools               | RoundResults.tsx, DEBracketPage.tsx                               |
+| 3.4.5 - Generate Results Page After Pools   | PoolsPage.tsx, RoundResults.tsx                                   |
+| 3.5 - DE Table Creation                     | DEBracketPage.tsx, RoundAlgorithms.tsx                            |
+| 3.5.1 - Use Prior Round Results for Seeding | RoundResults.tsx, DrizzleDatabaseUtils.ts                         |
+| 3.5.2 - Use Specified Seeding Method        | EventSettings.tsx, RoundAlgorithms.tsx                            |
+| 3.5.3 - Grant Byes to Fencers               | DEBracketPage.tsx, RoundAlgorithms.tsx                            |
+| 3.6 - Fencer Following                      | TournamentResultsPage.tsx                                         |
+| 3.7 - Results Generation                    | RoundResults.tsx, TournamentResultsPage.tsx                       |
+| **Scoring and Refereeing**                  |                                                                   |
+| 3.8 - Scoring Module                        | RefereeModule.tsx                                                 |
+| 3.8.1 - Increment/Decrement Score           | RefereeModule.tsx                                                 |
+| 3.8.2 - Start/Stop Clock                    | RefereeModule.tsx                                                 |
+| 3.8.3 - Passivity Timer                     | RefereeModule.tsx                                                 |
+| 3.8.4 - Clock Presets                       | RefereeModule.tsx, CustomTimeModal.tsx                            |
+| 3.8.5 - Assign Cards                        | RefereeModule.tsx                                                 |
+| 3.8.6 - Assign Priority                     | RefereeModule.tsx (priority display)                              |
+| 3.8.7 - Select Winner                       | RefereeModule.tsx                                                 |
+| 3.8.8 - Connect to Scoring Box              | RefereeModule.tsx, ScoringBoxContext.tsx, BLEManager.ts           |
+| 3.8.9 - Weapon Selection                    | RefereeModule.tsx                                                 |
+| 3.8.10 - Hide Unused UI Elements            | RefereeModule.tsx                                                 |
+| 3.9 - Referee Management                    | ManageOfficials.tsx, EventManagement.tsx                          |
+| 3.9.1 - Link for Referees                   | TournamentClient.ts, JoinTournamentModal.tsx                      |
+| 3.9.2 - Create Referee Whitelist            | ManageOfficials.tsx, ability.ts                                   |
+| **Hardware**                                |                                                                   |
+| 3.10 - Scoring Box                          | BLEManager.ts, ScoringBoxService interfaces                       |
+| 3.10.1 - Conform to USA Fencing Rules       | ScoringBoxService implementations                                 |
+| 3.10.2 - Audible Touch Indication           | External Hardware Component                                       |
+| 3.10.3 - Customizable Light Colors          | External Hardware Component                                       |
+| 3.10.4 - Bluetooth Pairing                  | BLEManager.ts, ScoringBoxContext.tsx                              |
+| 3.10.5 - Modular Design                     | ScoringBoxService interfaces (TournaFence, EnPointe, Skewered)    |
+| **Data Management**                         |                                                                   |
+| 3.11 - Database Requirements                | DrizzleDatabaseUtils.ts, DrizzleClient.ts                         |
+| 3.11.1 - Use Primary and Foreign Keys       | Drizzle Schema (schema/index.ts)                                  |
+| 3.11.2 - Write-Ahead-Log                    | SQLite configuration in DrizzleClient.ts                          |
+| 3.11.3 - Detect Database Changes            | TanStack Query, TournamentDataHooks.ts                            |
+| 3.11.4 - Store Scoring Box Configurations   | ScoringBoxContext.tsx, usePersistentStateHook.ts                  |
+| 3.11.5 - Rolling Backups                    | Not implemented                                                   |
+| 3.11.6 - Audit Log                          | Not implemented                                                   |
+| 3.11.7 - View Audit Log                     | Not implemented                                                   |
+| 3.11.8 - Detect Data Mismatches             | TournamentClient.ts, TournamentServer.ts                          |
+| 3.11.9 - Export Tournament Data             | Not implemented                                                   |
+| **Non-Functional Requirements**             |                                                                   |
+| 4.1 - Human Factors                         | i18n system, accessible UI components                             |
+| 4.1.1 - Types of Users                      | RBAC system (ability.ts)                                          |
+| 4.1.2 - Technical Proficiency               | Simplified UI, tooltips                                           |
+| 4.2 - Hardware Support                      | React Native, Expo                                                |
+| 4.2.1 - Client Hardware Requirements        | iOS 13+, Android 6+                                               |
+| 4.2.2 - Scoring Box Hardware                | BLE support via react-native-ble-plx                              |
+| 4.2.3 - Modular Hardware                    | Multiple scoring box services                                     |
+| 4.3 - Software Compatibility                | React Native cross-platform                                       |
+| 4.3.1 - SQLite Support                      | expo-sqlite with Drizzle ORM                                      |
+| 4.3.2 - Operating System Support            | iOS, Android, Web (limited)                                       |
+| 4.4 - Performance                           | TanStack Query caching, optimized re-renders                      |
+| 4.4.1 - Page Load Time                      | Splash screen, lazy loading                                       |
+| 4.4.2 - Database Query Performance          | Drizzle ORM optimizations, indexes                                |
+| 4.5 - Error Handling                        | NetworkErrors.ts, error boundaries                                |
+| 4.5.1 - Client Error Handling               | Try-catch blocks, user-friendly error messages                    |

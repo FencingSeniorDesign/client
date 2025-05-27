@@ -74,7 +74,7 @@ export const ClubAutocomplete = ({ value, abbreviation, onValueChange, container
                 handleSelectClub(query, result, abbr);
             }
         } catch (error) {
-            console.error('Error creating club:', error);
+            //console.error('Error creating club:', error);
         }
     };
 

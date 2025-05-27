@@ -68,7 +68,8 @@ export async function dbListCompletedTournaments(): Promise<Tournament[]> {
  */
 export async function dbMarkTournamentComplete(tournamentName: string): Promise<void> {
     try {
-        await db.update(schema.tournaments)
+        await db
+            .update(schema.tournaments)
             .set({ iscomplete: true })
             .where(eq(schema.tournaments.name, tournamentName));
         console.log(`Tournament "${tournamentName}" marked as complete.`);
