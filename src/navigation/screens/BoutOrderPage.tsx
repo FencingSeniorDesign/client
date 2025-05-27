@@ -69,34 +69,34 @@ const BoutOrderPage: React.FC = () => {
 
     // Use the recommended hook for preventing navigation
     usePreventRemove(shouldPreventNavigation, ({ data }) => {
-        Alert.alert(
-            t('boutOrderPage.disconnectBoxPromptTitle'),
-            t('boutOrderPage.disconnectBoxPromptMessage'),
-            [
-                {
-                    text: t('common.cancel'),
-                    style: 'cancel',
-                },
-                {
-                    text: t('boutOrderPage.exitWithoutDisconnecting'),
-                    onPress: () => navigation.dispatch(data.action),
-                },
-                {
-                    text: t('boutOrderPage.disconnectAndExit'),
-                    onPress: async () => {
-                        try {
-                            await disconnect();
-                            navigation.dispatch(data.action);
-                        } catch (error) {
-                            console.error('Failed to disconnect:', error);
-                            navigation.dispatch(data.action);
-                        }
-                    },
-                    style: 'destructive',
-                },
-            ],
-            { cancelable: true }
-        );
+        // Alert.alert(
+        //     t('boutOrderPage.disconnectBoxPromptTitle'),
+        //     t('boutOrderPage.disconnectBoxPromptMessage'),
+        //     [
+        //         {
+        //             text: t('common.cancel'),
+        //             style: 'cancel',
+        //         },
+        //         {
+        //             text: t('boutOrderPage.exitWithoutDisconnecting'),
+        //             onPress: () => navigation.dispatch(data.action),
+        //         },
+        //         {
+        //             text: t('boutOrderPage.disconnectAndExit'),
+        //             onPress: async () => {
+        //                 try {
+        //                     await disconnect();
+        //                     navigation.dispatch(data.action);
+        //                 } catch (error) {
+        //                     console.error('Failed to disconnect:', error);
+        //                     navigation.dispatch(data.action);
+        //                 }
+        //             },
+        //             style: 'destructive',
+        //         },
+        //     ],
+        //     { cancelable: true }
+        // );
     });
 
     // Extract fencers from pools data
@@ -258,8 +258,8 @@ const BoutOrderPage: React.FC = () => {
 
             setExpandedBoutIndex(null);
         } catch (error) {
-            console.error('Error updating bout scores:', error);
-            Alert.alert(t('common.error'), t('boutOrderPage.failedToUpdateScores'));
+            //console.error('Error updating bout scores:', error);
+            // Alert.alert(t('common.error'), t('boutOrderPage.failedToUpdateScores'));
         }
     };
 
@@ -343,8 +343,8 @@ const BoutOrderPage: React.FC = () => {
             setAlterModalVisible(false);
             setAlterIndex(null);
         } catch (error) {
-            console.error('Error updating bout scores:', error);
-            Alert.alert(t('common.error'), t('boutOrderPage.failedToUpdateScores'));
+            //console.error('Error updating bout scores:', error);
+            // Alert.alert(t('common.error'), t('boutOrderPage.failedToUpdateScores'));
         }
     };
 
@@ -410,7 +410,7 @@ const BoutOrderPage: React.FC = () => {
 
                     console.log(`Ref module score update completed with result:`, result);
                 } catch (error) {
-                    console.error('Error updating bout scores:', error);
+                    //console.error('Error updating bout scores:', error);
                 }
             },
         });
@@ -462,8 +462,8 @@ const BoutOrderPage: React.FC = () => {
             setTieBoutIndex(null);
             setSelectedWinnerId(null);
         } catch (error) {
-            console.error('Error updating tied bout:', error);
-            Alert.alert(t('common.error'), t('boutOrderPage.failedToUpdateScores'));
+            //console.error('Error updating tied bout:', error);
+            // Alert.alert(t('common.error'), t('boutOrderPage.failedToUpdateScores'));
         }
     };
 
@@ -506,8 +506,8 @@ const BoutOrderPage: React.FC = () => {
             setAlterModalVisible(false);
             setAlterIndex(null);
         } catch (error) {
-            console.error('Error resetting bout:', error);
-            Alert.alert(t('common.error'), t('boutOrderPage.failedToResetBout'));
+            //.error('Error resetting bout:', error);
+            // Alert.alert(t('common.error'), t('boutOrderPage.failedToResetBout'));
         }
     };
 
@@ -557,8 +557,8 @@ const BoutOrderPage: React.FC = () => {
                         winnerId,
                     } as Bout;
                 } catch (error) {
-                    console.error(`Error updating bout ${bout.id} with random scores:`, error);
-                    Alert.alert(t('common.error'), t('boutOrderPage.failedToUpdateRandomScores', { boutId: bout.id }));
+                    //console.error(`Error updating bout ${bout.id} with random scores:`, error);
+                    // Alert.alert(t('common.error'), t('boutOrderPage.failedToUpdateRandomScores', { boutId: bout.id }));
                     return bout;
                 }
             })
@@ -636,28 +636,29 @@ const BoutOrderPage: React.FC = () => {
                         {/* For referees with scoring permissions and pending bouts - show score entry */}
                         {canScoreBouts && bout.status === 'pending' ? (
                             <>
-                                <Text style={styles.scoreEntryTitle}>{t('boutOrderPage.enterScores')}</Text>
-                                <View style={styles.scoreRow}>
-                                    <Text style={styles.scoreFencerLabel}>
-                                        {bout.fencerA.lname}, {bout.fencerA.fname}:
-                                    </Text>
-                                    <TextInput
-                                        style={styles.scoreInput}
-                                        keyboardType="numeric"
-                                        value={String(bout.scoreA)}
-                                        onChangeText={val => handleScoreChange(index, 'A', val)}
-                                    />
-                                </View>
-                                <View style={styles.scoreRow}>
-                                    <Text style={styles.scoreFencerLabel}>
-                                        {bout.fencerB.lname}, {bout.fencerB.fname}:
-                                    </Text>
-                                    <TextInput
-                                        style={styles.scoreInput}
-                                        keyboardType="numeric"
-                                        value={String(bout.scoreB)}
-                                        onChangeText={val => handleScoreChange(index, 'B', val)}
-                                    />
+                                <View style={styles.scoreEntryRow}>
+                                    <View style={styles.scoreColumn}>
+                                        <Text style={styles.scoreFencerLabel}>
+                                            {bout.fencerA.lname}, {bout.fencerA.fname}:
+                                        </Text>
+                                        <TextInput
+                                            style={styles.scoreInput}
+                                            keyboardType="numeric"
+                                            value={String(bout.scoreA)}
+                                            onChangeText={val => handleScoreChange(index, 'A', val)}
+                                        />
+                                    </View>
+                                    <View style={styles.scoreColumn}>
+                                        <Text style={styles.scoreFencerLabel}>
+                                            {bout.fencerB.lname}, {bout.fencerB.fname}:
+                                        </Text>
+                                        <TextInput
+                                            style={styles.scoreInput}
+                                            keyboardType="numeric"
+                                            value={String(bout.scoreB)}
+                                            onChangeText={val => handleScoreChange(index, 'B', val)}
+                                        />
+                                    </View>
                                 </View>
                                 <View style={styles.scoreButtonsRow}>
                                     <TouchableOpacity
@@ -1034,15 +1035,27 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         marginBottom: 6,
     },
+    scoreEntryRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        marginBottom: 8,
+    },
+    scoreColumn: {
+        flex: 1,
+        alignItems: 'center',
+        marginHorizontal: 4,
+    },
     scoreFencerLabel: {
-        fontSize: 16,
+        fontSize: 18,
         marginRight: 8,
+        marginBottom: 8,
+        textAlign: 'center',
     },
     scoreInput: {
         borderWidth: 1,
         borderColor: '#ccc',
         borderRadius: 6,
-        width: 60,
+        width: 80,
         padding: 6,
         textAlign: 'center',
         fontSize: 16,

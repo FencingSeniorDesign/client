@@ -90,7 +90,7 @@ const DEBracketPage: React.FC = () => {
                             await disconnect();
                             navigation.dispatch(data.action);
                         } catch (error) {
-                            console.error('Failed to disconnect:', error);
+                            //console.error('Failed to disconnect:', error);
                             navigation.dispatch(data.action);
                         }
                     },
@@ -143,8 +143,8 @@ const DEBracketPage: React.FC = () => {
                 const processedBracket = processBoutsIntoBracket(bouts, tableSize);
                 setBracketData(processedBracket);
             } catch (error) {
-                console.error('Error loading DE bracket:', error);
-                Alert.alert(t('common.error'), t('deBracketPage.failedToLoadBracket'));
+                //console.error('Error loading DE bracket:', error);
+                //Alert.alert(t('common.error'), t('deBracketPage.failedToLoadBracket'));
             } finally {
                 setLoading(false);
             }
@@ -244,14 +244,14 @@ const DEBracketPage: React.FC = () => {
             }
 
             // Validate fencer data before proceeding
-            if (!bout.fencerA.id || !bout.fencerB.id) {
-                console.error('Invalid fencer data - missing IDs', {
-                    fencerAId: bout.fencerA.id,
-                    fencerBId: bout.fencerB.id,
-                });
-                Alert.alert(t('common.error'), t('deBracketPage.invalidFencerData'));
-                return;
-            }
+            //if (!bout.fencerA.id || !bout.fencerB.id) {
+                //console.error('Invalid fencer data - missing IDs', {
+                    //fencerAId: bout.fencerA.id,
+                    //fencerBId: bout.fencerB.id,
+                //});
+                //Alert.alert(t('common.error'), t('deBracketPage.invalidFencerData'));
+                //return;
+            //}
 
             // Create safe fencer names
             const fencer1Name =
@@ -297,7 +297,7 @@ const DEBracketPage: React.FC = () => {
                                             try {
                                                 await disconnect();
                                             } catch (error) {
-                                                console.error('Failed to disconnect:', error);
+                                                //console.error('Failed to disconnect:', error);
                                             }
                                         },
                                         style: 'destructive',
@@ -307,14 +307,14 @@ const DEBracketPage: React.FC = () => {
                             );
                         }
                     } catch (error) {
-                        console.error('Error updating bout scores:', error);
-                        Alert.alert(t('common.error'), t('deBracketPage.failedToSaveScores'));
+                        //console.error('Error updating bout scores:', error);
+                        //Alert.alert(t('common.error'), t('deBracketPage.failedToSaveScores'));
                     }
                 },
             });
         } catch (error) {
-            console.error('Error in handleBoutPress:', error);
-            Alert.alert(t('common.error'), t('deBracketPage.unexpectedBoutError'));
+            //console.error('Error in handleBoutPress:', error);
+            //Alert.alert(t('common.error'), t('deBracketPage.unexpectedBoutError'));
         }
     };
 
@@ -324,14 +324,14 @@ const DEBracketPage: React.FC = () => {
             isRemote,
         });
     };
-    
+
     // Function to randomly assign scores to all bouts in the bracket
     const handleRandomizeScores = async () => {
         if (!bracketData || isRandomizing) return;
-        
+
         try {
             setIsRandomizing(true);
-            
+
             const scoreAllAvailableBouts = async () => {
                 // Get fresh bracket data
                 const rounds = await dbGetRoundsForEvent(event.id);
@@ -339,32 +339,34 @@ const DEBracketPage: React.FC = () => {
                 if (!currentRound) {
                     throw new Error('Round not found');
                 }
-                
+
                 const tableSize = currentRound.detablesize || 0;
                 const bouts = await dbGetDEBouts(roundId);
-                
+
                 // Find all unscored bouts with both fencers assigned
-                const unscoredBouts: any[] = bouts.filter(bout => 
-                    bout.lfencer && bout.rfencer && 
-                    (bout.left_score === null || bout.left_score === undefined) && 
-                    (bout.right_score === null || bout.right_score === undefined)
+                const unscoredBouts: any[] = bouts.filter(
+                    bout =>
+                        bout.lfencer &&
+                        bout.rfencer &&
+                        (bout.left_score === null || bout.left_score === undefined) &&
+                        (bout.right_score === null || bout.right_score === undefined)
                 );
-                
+
                 if (unscoredBouts.length === 0) {
                     return false; // No more bouts to score
                 }
-                
+
                 console.log(`Found ${unscoredBouts.length} unscored bouts to randomize`);
-                
+
                 // Sort by tableOf in descending order to process earlier rounds first
                 unscoredBouts.sort((a, b) => b.tableof - a.tableof);
-                
+
                 // Process each bout
                 for (const bout of unscoredBouts) {
                     // Generate random scores
                     const winnerScore = Math.floor(Math.random() * 6) + 10; // 10-15
                     const loserScore = Math.floor(Math.random() * winnerScore); // 0 to (winnerScore-1)
-                    
+
                     // Randomly decide which fencer gets the higher score
                     let scoreA, scoreB;
                     if (Math.random() < 0.5) {
@@ -374,20 +376,14 @@ const DEBracketPage: React.FC = () => {
                         scoreA = loserScore;
                         scoreB = winnerScore;
                     }
-                    
+
                     // Update bout scores and advance winner
-                    await dbUpdateDEBoutAndAdvanceWinner(
-                        bout.id,
-                        scoreA,
-                        scoreB,
-                        bout.lfencer,
-                        bout.rfencer
-                    );
+                    await dbUpdateDEBoutAndAdvanceWinner(bout.id, scoreA, scoreB, bout.lfencer, bout.rfencer);
                 }
-                
+
                 return true; // Successfully scored some bouts
             };
-            
+
             // Recursive function to score all bouts until no more are available
             const recursivelyScoreAllBouts = async () => {
                 const moreAvailable = await scoreAllAvailableBouts();
@@ -399,7 +395,7 @@ const DEBracketPage: React.FC = () => {
                 }
                 return;
             };
-            
+
             // Ask for confirmation before randomizing scores
             Alert.alert(
                 t('deBracketPage.randomizeScoresTitle'),
@@ -418,8 +414,8 @@ const DEBracketPage: React.FC = () => {
                                 // Refresh to show updated bracket
                                 setRefreshKey(prev => prev + 1);
                             } catch (error) {
-                                console.error('Error in recursive scoring:', error);
-                                Alert.alert(t('common.error'), t('deBracketPage.failedToRandomizeScores'));
+                                //console.error('Error in recursive scoring:', error);
+                                //Alert.alert(t('common.error'), t('deBracketPage.failedToRandomizeScores'));
                             } finally {
                                 setIsRandomizing(false);
                             }
@@ -429,8 +425,8 @@ const DEBracketPage: React.FC = () => {
                 { cancelable: false }
             );
         } catch (error) {
-            console.error('Error randomizing scores:', error);
-            Alert.alert(t('common.error'), t('deBracketPage.failedToRandomizeScores'));
+            //console.error('Error randomizing scores:', error);
+            //Alert.alert(t('common.error'), t('deBracketPage.failedToRandomizeScores'));
             setIsRandomizing(false);
         }
     };
@@ -438,7 +434,7 @@ const DEBracketPage: React.FC = () => {
     const renderBout = (bout: DEBout) => {
         // Check if bout is valid
         if (!bout) {
-            console.error('Received invalid bout in renderBout');
+            //console.error('Received invalid bout in renderBout');
             return null;
         }
 
@@ -569,10 +565,10 @@ const DEBracketPage: React.FC = () => {
                     <Text style={styles.viewResultsButtonText}>{t('deBracketPage.viewTournamentResults')}</Text>
                 </TouchableOpacity>
             )}
-            
+
             {/* Random Score button */}
-            <TouchableOpacity 
-                style={[styles.randomScoreButton, isRandomizing && styles.disabledButton]} 
+            <TouchableOpacity
+                style={[styles.randomScoreButton, isRandomizing && styles.disabledButton]}
                 onPress={handleRandomizeScores}
                 disabled={isRandomizing}
             >

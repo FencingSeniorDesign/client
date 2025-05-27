@@ -211,7 +211,7 @@ export default {
         fencersImported: 'Fencers imported successfully',
         importFailed: 'Failed to import fencers from CSV',
         pool: 'pool',
-        pools: 'pools',
+        pools: 'Pools',
         of: 'of',
         fencers: 'fencers',
     },
@@ -400,7 +400,8 @@ export default {
         viewTournamentResults: 'View Tournament Results',
         randomizeScores: 'Random Score Generation',
         randomizeScoresTitle: 'Randomize Scores',
-        randomizeScoresMessage: 'Are you sure you want to randomly assign scores to all unscored bouts? This will score the entire bracket.',
+        randomizeScoresMessage:
+            'Are you sure you want to randomly assign scores to all unscored bouts? This will score the entire bracket.',
         noUnscoredBouts: 'No unscored bouts found to randomize.',
         failedToRandomizeScores: 'Failed to assign random scores to some bouts.',
         tbd: 'TBD',

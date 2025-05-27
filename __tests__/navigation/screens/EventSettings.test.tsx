@@ -243,8 +243,8 @@ describe('EventSettings', () => {
                 Alert.alert('common.success', 'eventSettings.fencersImported');
             }
         } catch (error) {
-            console.error('Error reading CSV file:', error);
-            Alert.alert('common.error', 'eventSettings.importFailed');
+            //console.error('Error reading CSV file:', error);
+            //Alert.alert('common.error', 'eventSettings.importFailed');
         }
     });
 
@@ -2046,7 +2046,7 @@ describe('EventSettings', () => {
                             this.scrollViewRef.current,
                             () => {},
                             () => {
-                                console.error('Failed to measure layout');
+                               // console.error('Failed to measure layout');
                             }
                         );
                     }
@@ -2336,8 +2336,8 @@ describe('EventSettings', () => {
                     Alert.alert('common.success', 'eventSettings.fencersImported');
                 }
             } catch (error) {
-                console.error('Error reading CSV file:', error);
-                Alert.alert('common.error', 'eventSettings.importFailed');
+               // console.error('Error reading CSV file:', error);
+                //Alert.alert('common.error', 'eventSettings.importFailed');
             }
         };
 
@@ -2781,8 +2781,8 @@ describe('EventSettings', () => {
                     Alert.alert('Success', 'Fencers imported successfully');
                 }
             } catch (error) {
-                console.error('Error reading CSV file:', error);
-                Alert.alert('Error', 'Failed to import fencers');
+               //('Error reading CSV file:', error);
+                //Alert.alert('Error', 'Failed to import fencers');
             }
         };
 

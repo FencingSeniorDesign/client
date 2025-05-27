@@ -133,7 +133,7 @@ describe('TournamentList', () => {
 
         // Test that the error handling function exists
         expect(dbDeleteTournament).toBeDefined();
-        
+
         // Test the error case
         try {
             await dbDeleteTournament('test');

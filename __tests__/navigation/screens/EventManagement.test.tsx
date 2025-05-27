@@ -205,7 +205,7 @@ describe('EventManagement', () => {
     it('renders manage officials button when user has permissions', async () => {
         // Mock server as enabled to show the manage officials button
         tournamentServer.isServerRunning = jest.fn().mockReturnValue(true);
-        
+
         const { getByText } = render(
             <EventManagement
                 route={{ key: 'test-key', name: 'params', params: { tournamentName: 'Test Tournament' } }}

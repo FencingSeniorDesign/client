@@ -168,7 +168,7 @@ export const EventSettings = ({ route }: Props) => {
                 // Invalidate to refetch and confirm the order from the source of truth
                 queryClient.invalidateQueries({ queryKey: ['rounds', event.id] });
             } catch (error) {
-                console.error('Failed to reorder rounds:', error);
+                //console.error('Failed to reorder rounds:', error);
                 Alert.alert(t('common.error'), t('eventSettings.updatingRound'));
                 // Revert optimistic update on failure
                 queryClient.setQueryData(['rounds', event.id], rounds);
@@ -298,8 +298,8 @@ export const EventSettings = ({ route }: Props) => {
                 Alert.alert(t('common.success'), t('eventSettings.fencersImported'));
             }
         } catch (error) {
-            console.error('Error reading CSV file:', error);
-            Alert.alert(t('common.error'), t('eventSettings.importFailed'));
+            //console.error('Error reading CSV file:', error);
+            //Alert.alert(t('common.error'), t('eventSettings.importFailed'));
         }
     }, [createFencerMutation, event]);
 
@@ -340,7 +340,7 @@ export const EventSettings = ({ route }: Props) => {
             'Olsen',
         ];
         const clubs = [
-            { name: 'Salle d\'Armes', abbreviation: 'SDA' },
+            { name: "Salle d'Armes", abbreviation: 'SDA' },
             { name: 'Fencing Academy', abbreviation: 'FA' },
             { name: 'City Fencers Club', abbreviation: 'CFC' },
             { name: 'University Fencing', abbreviation: 'UF' },

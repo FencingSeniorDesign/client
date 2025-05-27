@@ -27,7 +27,7 @@ const queryClient = new QueryClient({
 
 // Initialize database
 initializeDatabase().catch(error => {
-    console.error('Error initializing database:', error);
+    //console.error('Error initializing database:', error);
 });
 
 // Set up tournament sync with real-time updates

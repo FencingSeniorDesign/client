@@ -120,7 +120,7 @@ const PoolsPage: React.FC = () => {
             const poolsWithPositions = poolsData.map(pool => {
                 // Make sure pool.fencers exists and is an array before applying assignPoolPositions
                 if (!pool.fencers || !Array.isArray(pool.fencers)) {
-                    console.error(`Missing or invalid fencers array for pool ${pool.poolid}`, pool);
+                    //console.error(`Missing or invalid fencers array for pool ${pool.poolid}`, pool);
                     return { ...pool, fencers: [] };
                 }
 
@@ -145,7 +145,7 @@ const PoolsPage: React.FC = () => {
 
             setPools(poolsWithPositions);
             setExpandedPools(new Array(poolsData.length).fill(false));
-            
+
             // If remote connection, also trigger checkBoutsCompletion to process server-provided completion status
             if (isRemote && poolsWithPositions.length > 0) {
                 console.log('Triggering checkBoutsCompletion to process server-provided completion status');
@@ -159,7 +159,7 @@ const PoolsPage: React.FC = () => {
     const checkBoutsCompletion = useCallback(async () => {
         // Initialize with all pools marked as incomplete
         const statusObj: { [poolId: number]: boolean } = {};
-        
+
         // Initialize all pools as not complete by default
         pools.forEach(pool => {
             statusObj[pool.poolid] = false;
@@ -169,7 +169,7 @@ const PoolsPage: React.FC = () => {
             // For remote clients, use the server's completion status
             // Each pool object from the server should have an isComplete field
             console.log('Remote client: Using server-provided pool completion status');
-            
+
             pools.forEach(pool => {
                 // Use the server's completion status directly
                 const serverCompletionStatus = pool.isComplete === true;
@@ -180,7 +180,7 @@ const PoolsPage: React.FC = () => {
             // For local tournaments, calculate completion based on bout scores
             // Process each pool individually to handle per-pool errors
             console.log('Local client: Calculating pool completion status');
-            
+
             for (const pool of pools) {
                 try {
                     // Use data provider instead of direct DB access
@@ -190,7 +190,7 @@ const PoolsPage: React.FC = () => {
                     const complete = bouts.every(bout => {
                         const scoreA = bout.left_score ?? 0;
                         const scoreB = bout.right_score ?? 0;
-                        
+
                         // Original check for local tournaments
                         return scoreA !== 0 || scoreB !== 0;
                     });
@@ -199,7 +199,7 @@ const PoolsPage: React.FC = () => {
                 } catch (error) {
                     // If there's an error fetching bout data for this pool,
                     // ensure it stays marked as incomplete (default false)
-                    console.error(`Error checking completion for pool ${pool.poolid}:`, error);
+                    //console.error(`Error checking completion for pool ${pool.poolid}:`, error);
                     // The pool already has a default "false" status from initialization
                 }
             }
@@ -263,8 +263,8 @@ const PoolsPage: React.FC = () => {
             setSeeding(seedingData);
             setSeedingModalVisible(true);
         } catch (error) {
-            console.error('Error fetching seeding:', error);
-            Alert.alert(t('common.error'), t('poolsPage.errorFetchingSeeding'));
+            //console.error('Error fetching seeding:', error);
+            //Alert.alert(t('common.error'), t('poolsPage.errorFetchingSeeding'));
         }
     };
 
@@ -335,7 +335,7 @@ const PoolsPage: React.FC = () => {
                                                         currentRoundIndex,
                                                     });
                                                 } catch (error) {
-                                                    console.error('Failed to disconnect:', error);
+                                                    //console.error('Failed to disconnect:', error);
                                                     // Navigate anyway
                                                     navigation.navigate('RoundResults', {
                                                         roundId,
@@ -360,8 +360,8 @@ const PoolsPage: React.FC = () => {
                             }
                         }, 500);
                     } catch (error) {
-                        console.error('Error marking round as complete:', error);
-                        Alert.alert(t('common.error'), t('poolsPage.failedToCompleteRound'));
+                        //console.error('Error marking round as complete:', error);
+                        //Alert.alert(t('common.error'), t('poolsPage.failedToCompleteRound'));
                     }
                 },
             },
@@ -507,7 +507,7 @@ const PoolsPage: React.FC = () => {
                                                                       currentRoundIndex,
                                                                   });
                                                               } catch (error) {
-                                                                  console.error('Failed to disconnect:', error);
+                                                                  //console.error('Failed to disconnect:', error);
                                                                   // Navigate anyway
                                                                   navigation.navigate('RoundResults', {
                                                                       roundId,
