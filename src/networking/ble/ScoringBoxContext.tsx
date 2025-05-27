@@ -18,6 +18,7 @@ interface ScoringBoxContextType {
     connectionState: ConnectionState;
     connectedBoxType: ScoringBoxType | null;
     connectedDeviceName: string | null;
+    connectedDeviceId: string | null;
     initialSyncCompleted: boolean;
     scan: (boxType: ScoringBoxType) => Promise<BLEDevice[]>;
     cancelScan: () => void;
@@ -51,6 +52,7 @@ export function ScoringBoxProvider({ children }: ScoringBoxProviderProps) {
     const [connectionState, setConnectionState] = useState<ConnectionState>(ConnectionState.DISCONNECTED);
     const [connectedBoxType, setConnectedBoxType] = useState<ScoringBoxType | null>(null);
     const [connectedDeviceName, setConnectedDeviceName] = useState<string | null>(null);
+    const [connectedDeviceId, setConnectedDeviceId] = useState<string | null>(null);
     const [initialSyncCompleted, setInitialSyncCompleted] = useState(false);
 
     const boxService = useRef<IScoringBoxService | null>(null);
@@ -62,6 +64,7 @@ export function ScoringBoxProvider({ children }: ScoringBoxProviderProps) {
         if (state === ConnectionState.DISCONNECTED) {
             setConnectedBoxType(null);
             setConnectedDeviceName(null);
+            setConnectedDeviceId(null);
             setInitialSyncCompleted(false);
         }
     }, []);
@@ -160,6 +163,7 @@ export function ScoringBoxProvider({ children }: ScoringBoxProviderProps) {
 
             setConnectedBoxType(boxType);
             setConnectedDeviceName(boxService.current.state.deviceName || 'Unknown Device');
+            setConnectedDeviceId(deviceId);
 
             // Return true to indicate we need to show data source dialog
             return true;
@@ -266,6 +270,7 @@ export function ScoringBoxProvider({ children }: ScoringBoxProviderProps) {
         connectionState,
         connectedBoxType,
         connectedDeviceName,
+        connectedDeviceId,
         initialSyncCompleted,
         scan,
         cancelScan,

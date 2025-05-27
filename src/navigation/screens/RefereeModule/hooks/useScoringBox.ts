@@ -98,6 +98,7 @@ export function useScoringBox({
     // Return the context methods with our overrides
     return {
         connectionState: context.connectionState,
+        connectedDeviceId: context.connectedDeviceId,
         connectedBoxType: context.connectedBoxType,
         connectedDeviceName: context.connectedDeviceName,
         initialSyncCompleted: context.initialSyncCompleted,
