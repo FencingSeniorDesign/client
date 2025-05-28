@@ -31,15 +31,25 @@ export function navigateToDEPage(
         return;
     }
 
-    // Navigate based on DE format
+    // Navigate based on DE format and event type
     switch (round.deformat) {
         case 'single':
-            navigation.navigate('DEBracketPage', {
-                event,
-                currentRoundIndex,
-                roundId: round.id,
-                isRemote,
-            });
+            // Check if this is a team event
+            if (event.event_type === 'team') {
+                navigation.navigate('TeamDEBracketPage' as any, {
+                    event,
+                    currentRoundIndex,
+                    roundId: round.id,
+                    isRemote,
+                });
+            } else {
+                navigation.navigate('DEBracketPage', {
+                    event,
+                    currentRoundIndex,
+                    roundId: round.id,
+                    isRemote,
+                });
+            }
             break;
         case 'double':
             // Show message instead of navigating to Double Elimination
@@ -60,12 +70,21 @@ export function navigateToDEPage(
         default:
             console.log(`DE format not specified, defaulting to single elimination. Format was: ${round.deformat}`);
             // Default to single elimination if format is not recognized
-            navigation.navigate('DEBracketPage', {
-                event,
-                currentRoundIndex,
-                roundId: round.id,
-                isRemote,
-            });
+            if (event.event_type === 'team') {
+                navigation.navigate('TeamDEBracketPage' as any, {
+                    event,
+                    currentRoundIndex,
+                    roundId: round.id,
+                    isRemote,
+                });
+            } else {
+                navigation.navigate('DEBracketPage', {
+                    event,
+                    currentRoundIndex,
+                    roundId: round.id,
+                    isRemote,
+                });
+            }
     }
 }
 

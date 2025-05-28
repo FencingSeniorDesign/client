@@ -68,8 +68,9 @@ export type Round = {
     eventid: number;
     rorder: number;
     type: 'pool' | 'de';
-    poolcount?: number; // Made optional
-    poolsize?: number; // Made optional
+    round_format: 'individual_pools' | 'team_round_robin' | 'individual_de' | 'team_de';
+    poolcount?: number; // Made optional - only applies to individual_pools
+    poolsize?: number; // Made optional - only applies to individual_pools
     promotionpercent: number;
     targetbracket: number;
     usetargetbracket: 0 | 1;
@@ -191,7 +192,7 @@ export type RootStackParamList = {
         event: Event;
         isRemote?: boolean;
     };
-    TeamPoolsPage: {
+    TeamRoundRobinPage: {
         event: Event;
         currentRoundIndex: number;
         roundId: number;
@@ -211,6 +212,12 @@ export type RootStackParamList = {
     RelayTeamBoutPage: {
         teamBoutId: number;
         event: Event;
+        isRemote?: boolean;
+    };
+    TeamDEBracketPage: {
+        event: Event;
+        currentRoundIndex: number;
+        roundId: number;
         isRemote?: boolean;
     };
 };

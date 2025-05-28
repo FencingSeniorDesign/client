@@ -14,10 +14,11 @@ import CompassDrawPage from './screens/CompassDrawPage';
 import ManageOfficials from './screens/ManageOfficials';
 import TournamentResultsPage from './screens/TournamentResultsPage'; // Add this import
 import TeamManagement from './screens/TeamManagement';
-import TeamPoolsPage from './screens/TeamPoolsPage';
+import TeamRoundRobinPage from './screens/TeamRoundRobinPage';
 import TeamBoutOrderPage from './screens/TeamBoutOrderPage';
 import NCAATeamBoutPage from './screens/NCAATeamBoutPage';
 import RelayTeamBoutPage from './screens/RelayTeamBoutPage';
+import TeamDEBracketPage from './screens/TeamDEBracketPage';
 import i18n from '../i18n';
 import { useTranslation } from 'react-i18next';
 import * as SplashScreen from 'expo-splash-screen';
@@ -103,8 +104,8 @@ const RootStack = createNativeStackNavigator({
                 title: i18n.t('teamManagement.teams'),
             }),
         },
-        TeamPoolsPage: {
-            screen: TeamPoolsPage,
+        TeamRoundRobinPage: {
+            screen: TeamRoundRobinPage,
             options: () => ({
                 title: i18n.t('poolsPage.title'),
             }),
@@ -125,6 +126,12 @@ const RootStack = createNativeStackNavigator({
             screen: RelayTeamBoutPage,
             options: () => ({
                 title: i18n.t('relayTeamBoutPage.title'),
+            }),
+        },
+        TeamDEBracketPage: {
+            screen: TeamDEBracketPage,
+            options: () => ({
+                title: i18n.t('teamDEBracketPage.title'),
             }),
         },
     },

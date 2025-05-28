@@ -14,10 +14,11 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList, Event, Team } from '../navigation/types';
 import { useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import DrizzleClient from '../../db/DrizzleClient';
+import { db } from '../../db/DrizzleClient';
 import * as teamPoolUtils from '../../db/utils/teamPool';
 import * as teamBoutUtils from '../../db/utils/teamBoutNCAA';
 import * as relayBoutUtils from '../../db/utils/teamBoutRelay';
+import * as teamUtils from '../../db/utils/team';
 import { BLEStatusBar } from '../../networking/components/BLEStatusBar';
 
 type TeamBoutOrderPageRouteParams = {
@@ -27,6 +28,16 @@ type TeamBoutOrderPageRouteParams = {
     isRemote?: boolean;
 };
 
+type TeamBout = {
+    id: number;
+    team_a_id: number;
+    team_b_id: number;
+    teamA?: Team;
+    teamB?: Team;
+    ncaaStatus?: any;
+    relayStatus?: any;
+};
+
 const TeamBoutOrderPage: React.FC = () => {
     const route = useRoute<RouteProp<{ params: TeamBoutOrderPageRouteParams }, 'params'>>();
     const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
@@ -34,14 +45,14 @@ const TeamBoutOrderPage: React.FC = () => {
     const queryClient = useQueryClient();
 
     const { roundId, poolId, event, isRemote = false } = route.params;
-    const [teamBouts, setTeamBouts] = useState<any[]>([]);
+    const [teamBouts, setTeamBouts] = useState<TeamBout[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
 
     const loadBouts = useCallback(async () => {
         try {
             setLoading(true);
-            const client = await DrizzleClient.getInstance();
+            const client = db;
             
             // Get team bouts for this pool
             const bouts = await teamPoolUtils.dbGetTeamBoutsForPool(
@@ -51,15 +62,23 @@ const TeamBoutOrderPage: React.FC = () => {
                 event.team_format || 'NCAA'
             );
 
-            // Get full bout details including status
+            // Get full bout details including status and team information
             const boutsWithDetails = await Promise.all(
                 bouts.map(async (bout) => {
+                    // Get team details
+                    const [teamA, teamB] = await Promise.all([
+                        teamUtils.getTeam(client, bout.team_a_id),
+                        teamUtils.getTeam(client, bout.team_b_id),
+                    ]);
+                    
+                    let boutWithTeams = { ...bout, teamA, teamB };
+                    
                     if (event.team_format === 'NCAA') {
                         const status = await teamBoutUtils.getNCAABoutStatus(client, bout.id);
-                        return { ...bout, ncaaStatus: status };
+                        return { ...boutWithTeams, ncaaStatus: status };
                     } else {
                         const status = await relayBoutUtils.getRelayBoutStatus(client, bout.id);
-                        return { ...bout, relayStatus: status };
+                        return { ...boutWithTeams, relayStatus: status };
                     }
                 })
             );
@@ -78,7 +97,7 @@ const TeamBoutOrderPage: React.FC = () => {
         loadBouts();
     }, [loadBouts]);
 
-    const handleOpenBout = (bout: any) => {
+    const handleOpenBout = (bout: TeamBout) => {
         if (event.team_format === 'NCAA') {
             navigation.navigate('NCAATeamBoutPage' as any, {
                 teamBoutId: bout.id,
@@ -94,7 +113,7 @@ const TeamBoutOrderPage: React.FC = () => {
         }
     };
 
-    const getBoutStatus = (bout: any): string => {
+    const getBoutStatus = (bout: TeamBout): string => {
         if (event.team_format === 'NCAA' && bout.ncaaStatus) {
             const { teamAScore, teamBScore, isComplete } = bout.ncaaStatus;
             if (isComplete) {
@@ -121,7 +140,7 @@ const TeamBoutOrderPage: React.FC = () => {
                     text: t('common.confirm'),
                     onPress: async () => {
                         try {
-                            const client = await DrizzleClient.getInstance();
+                            const client = db;
                             await teamPoolUtils.dbCompleteTeamPool(client, roundId, poolId);
                             navigation.goBack();
                         } catch (error) {
@@ -153,7 +172,7 @@ const TeamBoutOrderPage: React.FC = () => {
                 </Text>
                 
                 <Text style={styles.formatInfo}>
-                    {t('teamBoutOrderPage.format')}: {event.team_format}
+                    {t('teamBoutOrderPage.format')}: {event.team_format === 'NCAA' ? 'NCAA (9 bouts)' : '45-touch Relay'}
                 </Text>
 
                 {teamBouts.length === 0 ? (
@@ -172,9 +191,9 @@ const TeamBoutOrderPage: React.FC = () => {
                                 <Text style={styles.boutStatus}>{getBoutStatus(bout)}</Text>
                             </View>
                             <View style={styles.boutTeams}>
-                                <Text style={styles.teamName}>Team A ID: {bout.team_a_id}</Text>
+                                <Text style={styles.teamName}>{bout.teamA?.name || `Team ${bout.team_a_id}`}</Text>
                                 <Text style={styles.vsText}>vs</Text>
-                                <Text style={styles.teamName}>Team B ID: {bout.team_b_id}</Text>
+                                <Text style={styles.teamName}>{bout.teamB?.name || `Team ${bout.team_b_id}`}</Text>
                             </View>
                         </TouchableOpacity>
                     ))

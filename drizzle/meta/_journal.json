@@ -22,6 +22,20 @@
       "when": 1748327223342,
       "tag": "0002_clear_tinkerer",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1748377302242,
+      "tag": "0003_regular_callisto",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1748380330478,
+      "tag": "0004_elite_paper_doll",
+      "breakpoints": true
     }
   ]
 }

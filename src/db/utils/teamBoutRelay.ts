@@ -39,6 +39,7 @@ export async function createRelayTeamBout(
     roundId: number,
     teamAId: number,
     teamBId: number,
+    eventId: number,
     tableOf?: number
 ): Promise<number> {
     // Get starters for both teams
@@ -56,9 +57,12 @@ export async function createRelayTeamBout(
     // Create the team bout
     const [teamBout] = await client.insert(teamBouts).values({
         roundid: roundId,
+        eventid: eventId,
         team_a_id: teamAId,
         team_b_id: teamBId,
         format: '45-touch',
+        team_format: '45-touch',
+        bout_type: 'pool',
         status: 'pending',
         team_a_score: 0,
         team_b_score: 0,
@@ -204,9 +208,12 @@ export async function updateRelayBoutScore(
         }
         
         // Check if bout is complete
-        const isComplete = teamAScore >= RELAY_TOTAL_TOUCHES || teamBScore >= RELAY_TOTAL_TOUCHES;
+        // A relay bout is complete if either team reaches 45 touches OR if scores are different (indicating time/decision)
+        const isComplete = (teamAScore >= RELAY_TOTAL_TOUCHES || teamBScore >= RELAY_TOTAL_TOUCHES) ||
+                          (teamAScore !== teamBScore && (teamAScore > 0 || teamBScore > 0));
         const winnerId = isComplete 
-            ? (teamAScore > teamBScore ? teamBout.team_a_id : teamBout.team_b_id)
+            ? (teamAScore > teamBScore ? teamBout.team_a_id : 
+               teamBScore > teamAScore ? teamBout.team_b_id : null)
             : null;
         
         // Update team bout scores

@@ -14,11 +14,12 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList, Event } from '../navigation/types';
 import { useTranslation } from 'react-i18next';
 import { BLEStatusBar } from '../../networking/components/BLEStatusBar';
-import DrizzleClient from '../../db/DrizzleClient';
+import { db } from '../../db/DrizzleClient';
 import * as relayBoutUtils from '../../db/utils/teamBoutRelay';
 import * as teamUtils from '../../db/utils/team';
 import * as schema from '../../db/schema';
 import { eq } from 'drizzle-orm';
+import ScoreInputModal from '../../components/ui/ScoreInputModal';
 
 type RelayTeamBoutPageRouteParams = {
     teamBoutId: number;
@@ -37,11 +38,14 @@ const RelayTeamBoutPage: React.FC = () => {
     const [teamAName, setTeamAName] = useState('Team A');
     const [teamBName, setTeamBName] = useState('Team B');
     const [updating, setUpdating] = useState(false);
+    
+    // Score input modal state
+    const [scoreModalVisible, setScoreModalVisible] = useState(false);
 
     const loadBoutStatus = useCallback(async () => {
         try {
             setLoading(true);
-            const client = await DrizzleClient.getInstance();
+            const client = db;
             const status = await relayBoutUtils.getRelayBoutStatus(client, teamBoutId);
             
             if (status) {
@@ -76,38 +80,33 @@ const RelayTeamBoutPage: React.FC = () => {
         loadBoutStatus();
     }, [loadBoutStatus]);
 
-    const handleOpenRefereeModule = () => {
+    const handleOpenScoreInput = () => {
         if (!boutStatus || boutStatus.isComplete) {
             return;
         }
+        setScoreModalVisible(true);
+    };
 
-        navigation.navigate('RefereeModule', {
-            boutIndex: 1,
-            fencer1Name: boutStatus.currentFencerAName,
-            fencer2Name: boutStatus.currentFencerBName,
-            currentScore1: boutStatus.teamAScore,
-            currentScore2: boutStatus.teamBScore,
-            isRemote,
-            weapon: event.weapon,
-            onSaveScores: async (score1: number, score2: number) => {
-                try {
-                    setUpdating(true);
-                    const client = await DrizzleClient.getInstance();
-                    await relayBoutUtils.updateRelayBoutScore(
-                        client,
-                        teamBoutId,
-                        score1,
-                        score2
-                    );
-                    await loadBoutStatus();
-                } catch (error) {
-                    console.error('Error updating relay score:', error);
-                    Alert.alert(t('common.error'), t('relayTeamBout.errorUpdating'));
-                } finally {
-                    setUpdating(false);
-                }
-            },
-        });
+    const handleScoreSubmit = async (scoreA: number, scoreB: number, winnerId?: number) => {
+        if (!boutStatus) return;
+
+        try {
+            setUpdating(true);
+            const client = db;
+            await relayBoutUtils.updateRelayBoutScore(
+                client,
+                teamBoutId,
+                scoreA,
+                scoreB
+            );
+            await loadBoutStatus();
+            setScoreModalVisible(false);
+        } catch (error) {
+            console.error('Error updating relay score:', error);
+            Alert.alert(t('common.error'), t('relayTeamBout.errorUpdating'));
+        } finally {
+            setUpdating(false);
+        }
     };
 
     const handleForceRotation = async (teamId: number) => {
@@ -120,7 +119,7 @@ const RelayTeamBoutPage: React.FC = () => {
                     text: t('common.confirm'),
                     onPress: async () => {
                         try {
-                            const client = await DrizzleClient.getInstance();
+                            const client = db;
                             const currentFencerId = teamId === 1 
                                 ? boutStatus?.currentFencerAId 
                                 : boutStatus?.currentFencerBId;
@@ -219,10 +218,10 @@ const RelayTeamBoutPage: React.FC = () => {
                         
                         <TouchableOpacity
                             style={styles.refereeButton}
-                            onPress={handleOpenRefereeModule}
+                            onPress={handleOpenScoreInput}
                             disabled={updating}
                         >
-                            <Text style={styles.refereeButtonText}>{t('relayTeamBout.openRefereeModule')}</Text>
+                            <Text style={styles.refereeButtonText}>{t('relayTeamBout.enterScores')}</Text>
                         </TouchableOpacity>
 
                         <View style={styles.fencersInfo}>
@@ -290,6 +289,19 @@ const RelayTeamBoutPage: React.FC = () => {
                     </View>
                 </View>
             </ScrollView>
+            
+            {/* Score Input Modal */}
+            <ScoreInputModal
+                visible={scoreModalVisible}
+                onClose={() => setScoreModalVisible(false)}
+                onSubmit={handleScoreSubmit}
+                fencerAName={boutStatus?.currentFencerAName || teamAName}
+                fencerBName={boutStatus?.currentFencerBName || teamBName}
+                initialScoreA={boutStatus?.teamAScore || 0}
+                initialScoreB={boutStatus?.teamBScore || 0}
+                title={t('relayTeamBout.enterScores')}
+                allowTies={false}
+            />
         </View>
     );
 };

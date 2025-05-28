@@ -64,14 +64,16 @@ export async function dbCreateTeamPoolAssignmentsAndBouts(
                             client,
                             round.id,
                             teamA.id,
-                            teamB.id
+                            teamB.id,
+                            event.id
                         );
                     } else if (event.team_format === '45-touch') {
                         await relayBoutUtils.createRelayTeamBout(
                             client,
                             round.id,
                             teamA.id,
-                            teamB.id
+                            teamB.id,
+                            event.id
                         );
                     }
                 }

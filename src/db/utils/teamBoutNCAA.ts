@@ -52,14 +52,18 @@ export async function createNCAATeamBout(
     roundId: number,
     teamAId: number,
     teamBId: number,
+    eventId: number,
     tableOf?: number
 ): Promise<number> {
     // Create the team bout
     const [teamBout] = await client.insert(teamBouts).values({
         roundid: roundId,
+        eventid: eventId,
         team_a_id: teamAId,
         team_b_id: teamBId,
         format: 'NCAA',
+        team_format: 'NCAA',
+        bout_type: 'pool',
         status: 'pending',
         team_a_score: 0,
         team_b_score: 0,
@@ -179,8 +183,11 @@ export async function updateNCAABoutScore(
         }
         
         // Check if bout should be complete
-        const isComplete = fencerAScore >= NCAA_TOUCHES_PER_BOUT || fencerBScore >= NCAA_TOUCHES_PER_BOUT;
-        const winnerId = fencerAScore > fencerBScore ? boutScore.fencer_a_id : boutScore.fencer_b_id;
+        // A bout is complete if either fencer reaches 5 touches OR if scores are different (indicating a time/cards decision)
+        const isComplete = (fencerAScore >= NCAA_TOUCHES_PER_BOUT || fencerBScore >= NCAA_TOUCHES_PER_BOUT) || 
+                          (fencerAScore !== fencerBScore && (fencerAScore > 0 || fencerBScore > 0));
+        const winnerId = fencerAScore > fencerBScore ? boutScore.fencer_a_id : 
+                        fencerBScore > fencerAScore ? boutScore.fencer_b_id : null;
         
         // Update the individual bout score
         await tx.update(teamBoutScores)

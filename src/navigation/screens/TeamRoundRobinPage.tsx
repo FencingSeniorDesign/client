@@ -1,4 +1,4 @@
-// src/navigation/screens/TeamPoolsPage.tsx
+// src/navigation/screens/TeamRoundRobinPage.tsx
 import React, { useEffect, useState, useCallback } from 'react';
 import {
     View,
@@ -25,89 +25,89 @@ import * as teamUtils from '../../db/utils/team';
 import * as schema from '../../db/schema';
 import { eq } from 'drizzle-orm';
 
-type TeamPoolsPageRouteParams = {
+type TeamRoundRobinPageRouteParams = {
     event: Event;
     currentRoundIndex: number;
     roundId: number;
     isRemote?: boolean;
 };
 
-type TeamPoolsPageNavProp = NativeStackNavigationProp<RootStackParamList, 'PoolsPage'>;
+type TeamRoundRobinPageNavProp = NativeStackNavigationProp<RootStackParamList, 'PoolsPage'>;
 
-const TeamPoolsPage: React.FC = () => {
-    const route = useRoute<RouteProp<{ params: TeamPoolsPageRouteParams }, 'params'>>();
-    const navigation = useNavigation<TeamPoolsPageNavProp>();
+const TeamRoundRobinPage: React.FC = () => {
+    const route = useRoute<RouteProp<{ params: TeamRoundRobinPageRouteParams }, 'params'>>();
+    const navigation = useNavigation<TeamRoundRobinPageNavProp>();
     const queryClient = useQueryClient();
     const { ability } = useAbility();
     const { t } = useTranslation();
 
     const { event, currentRoundIndex, roundId, isRemote = false } = route.params;
-    const [pools, setPools] = useState<{ poolid: number; teams: Team[] }[]>([]);
-    const [expandedPools, setExpandedPools] = useState<boolean[]>([]);
-    const [poolCompletionStatus, setPoolCompletionStatus] = useState<{ [poolId: number]: boolean }>({});
+    const [groups, setGroups] = useState<{ groupId: number; teams: Team[] }[]>([]);
+    const [expandedGroups, setExpandedGroups] = useState<boolean[]>([]);
+    const [groupCompletionStatus, setGroupCompletionStatus] = useState<{ [groupId: number]: boolean }>({});
     const [loading, setLoading] = useState(true);
 
     // For strip number modal
     const [stripModalVisible, setStripModalVisible] = useState<boolean>(false);
-    const [currentPoolForStrip, setCurrentPoolForStrip] = useState<number | null>(null);
+    const [currentGroupForStrip, setCurrentGroupForStrip] = useState<number | null>(null);
     const [stripInput, setStripInput] = useState<string>('');
-    const [poolStrips, setPoolStrips] = useState<{ [poolId: number]: number }>({});
+    const [groupStrips, setGroupStrips] = useState<{ [groupId: number]: number }>({});
 
-    // Load team pools
-    const loadPools = useCallback(async () => {
+    // Load team round robin groups
+    const loadGroups = useCallback(async () => {
         try {
             setLoading(true);
             
             // Get all teams for the event
             const teams = await teamUtils.getEventTeams(db, event.id);
             
-            // Get unique pool IDs
-            const poolIds = new Set<number>();
+            // Get unique group IDs from pool assignments
+            const groupIds = new Set<number>();
             const roundData = await db.select()
                 .from(schema.teamPoolAssignment)
                 .where(eq(schema.teamPoolAssignment.roundid, roundId));
             
-            console.log(`Found ${roundData.length} team pool assignments for round ${roundId}`);
+            console.log(`Found ${roundData.length} team group assignments for round ${roundId}`);
             
             roundData.forEach(assignment => {
-                poolIds.add(assignment.poolid);
-                console.log(`Team ${assignment.teamid} assigned to pool ${assignment.poolid}`);
+                groupIds.add(assignment.poolid);
+                console.log(`Team ${assignment.teamid} assigned to group ${assignment.poolid}`);
             });
 
-            console.log(`Unique pool IDs: ${Array.from(poolIds).join(', ')}`);
+            console.log(`Unique group IDs: ${Array.from(groupIds).join(', ')}`);
 
-            // Load teams for each pool
-            const poolsData: { poolid: number; teams: Team[] }[] = [];
-            for (const poolId of poolIds) {
-                const teamsInPool = await teamPoolUtils.dbGetTeamsInPool(db, roundId, poolId);
-                console.log(`Pool ${poolId} has ${teamsInPool.length} teams`);
-                poolsData.push({ poolid: poolId, teams: teamsInPool });
+            // Load teams for each group
+            const groupsData: { groupId: number; teams: Team[] }[] = [];
+            for (const groupId of groupIds) {
+                const teamsInGroup = await teamPoolUtils.dbGetTeamsInPool(db, roundId, groupId);
+                console.log(`Group ${groupId} has ${teamsInGroup.length} teams`);
+                groupsData.push({ groupId: groupId, teams: teamsInGroup });
             }
 
-            setPools(poolsData);
-            setExpandedPools(new Array(poolsData.length).fill(false));
+            setGroups(groupsData);
+            setExpandedGroups(new Array(groupsData.length).fill(false));
         } catch (error) {
             console.error('Error loading team pools:', error);
-            Alert.alert(t('common.error'), t('poolsPage.errorLoadingPools'));
+            Alert.alert(t('common.error'), t('teamRoundRobinPage.errorLoadingGroups'));
         } finally {
             setLoading(false);
         }
     }, [event.id, roundId, t]);
 
     useEffect(() => {
-        loadPools();
-    }, [loadPools]);
+        loadGroups();
+    }, [loadGroups]);
 
-    const togglePool = (index: number) => {
-        const newExpandedPools = [...expandedPools];
-        newExpandedPools[index] = !newExpandedPools[index];
-        setExpandedPools(newExpandedPools);
+    const toggleGroup = (index: number) => {
+        const newExpandedGroups = [...expandedGroups];
+        newExpandedGroups[index] = !newExpandedGroups[index];
+        setExpandedGroups(newExpandedGroups);
     };
 
-    const openPoolBouts = (poolId: number) => {
+    const openGroupBouts = (groupId: number) => {
         navigation.navigate('TeamBoutOrderPage' as any, {
             roundId,
-            poolId,
+            poolId: groupId, // Still using poolId for compatibility with existing code
             event,
             isRemote,
         });
@@ -148,32 +148,32 @@ const TeamPoolsPage: React.FC = () => {
             .where(eq(schema.rounds.id, roundId));
     };
 
-    const handleOpenStripModal = (poolId: number) => {
-        setCurrentPoolForStrip(poolId);
-        setStripInput(poolStrips[poolId]?.toString() || '');
+    const handleOpenStripModal = (groupId: number) => {
+        setCurrentGroupForStrip(groupId);
+        setStripInput(groupStrips[groupId]?.toString() || '');
         setStripModalVisible(true);
     };
 
     const handleSetStrip = () => {
-        if (currentPoolForStrip !== null) {
+        if (currentGroupForStrip !== null) {
             const stripNumber = parseInt(stripInput, 10);
             if (!isNaN(stripNumber)) {
-                setPoolStrips(prev => ({ ...prev, [currentPoolForStrip]: stripNumber }));
+                setGroupStrips(prev => ({ ...prev, [currentGroupForStrip]: stripNumber }));
             }
         }
         setStripModalVisible(false);
         setStripInput('');
     };
 
-    const isAllPoolsComplete = () => {
-        return pools.every(pool => poolCompletionStatus[pool.poolid] === true);
+    const isAllGroupsComplete = () => {
+        return groups.every(group => groupCompletionStatus[group.groupId] === true);
     };
 
     if (loading) {
         return (
             <View style={styles.loadingContainer}>
                 <ActivityIndicator size="large" color="#001f3f" />
-                <Text style={styles.loadingText}>{t('poolsPage.loadingPools')}</Text>
+                <Text style={styles.loadingText}>{t('teamRoundRobinPage.loadingGroups')}</Text>
             </View>
         );
     }
@@ -184,23 +184,23 @@ const TeamPoolsPage: React.FC = () => {
             
             <ScrollView contentContainerStyle={styles.scrollContent}>
                 <Text style={styles.title}>
-                    {event.age} {event.gender} {event.weapon} - {t('poolsPage.title')}
+                    {event.age} {event.gender} {event.weapon} - {t('teamRoundRobinPage.title')}
                 </Text>
 
-                {pools.length === 0 ? (
-                    <Text style={styles.noPoolsText}>{t('teamPoolsPage.noTeams')}</Text>
+                {groups.length === 0 ? (
+                    <Text style={styles.noGroupsText}>{t('teamRoundRobinPage.noTeams')}</Text>
                 ) : (
-                    pools.map((pool, index) => (
-                        <View key={pool.poolid} style={styles.poolContainer}>
-                            <TouchableOpacity onPress={() => togglePool(index)} style={styles.poolHeader}>
-                                <Text style={styles.poolTitle}>
-                                    {t('poolsPage.poolPrefix')} {pool.poolid + 1} - {pool.teams.length} {t('teamPoolsPage.teams')}
+                    groups.map((group, index) => (
+                        <View key={group.groupId} style={styles.groupContainer}>
+                            <TouchableOpacity onPress={() => toggleGroup(index)} style={styles.groupHeader}>
+                                <Text style={styles.groupTitle}>
+                                    {t('teamRoundRobinPage.groupPrefix')} {group.groupId + 1} - {group.teams.length} {t('teamRoundRobinPage.teams')}
                                 </Text>
-                                <Text style={styles.expandIcon}>{expandedPools[index] ? '▼' : '▶'}</Text>
+                                <Text style={styles.expandIcon}>{expandedGroups[index] ? '▼' : '▶'}</Text>
                             </TouchableOpacity>
-                            {expandedPools[index] && (
-                                <View style={styles.poolContent}>
-                                    {pool.teams.map((team, teamIndex) => {
+                            {expandedGroups[index] && (
+                                <View style={styles.groupContent}>
+                                    {group.teams.map((team, teamIndex) => {
                                         const starterCount = team.members?.filter(m => m.role === 'starter').length || 0;
                                         return (
                                             <View key={team.id} style={styles.teamItem}>
@@ -208,21 +208,21 @@ const TeamPoolsPage: React.FC = () => {
                                                     {teamIndex + 1}. {team.name}
                                                 </Text>
                                                 <Text style={styles.teamRoster}>
-                                                    {starterCount} {t('teamPoolsPage.starters')}
+                                                    {starterCount} {t('teamRoundRobinPage.starters')}
                                                 </Text>
                                             </View>
                                         );
                                     })}
-                                    <View style={styles.poolActions}>
-                                        {poolStrips[pool.poolid] && (
+                                    <View style={styles.groupActions}>
+                                        {groupStrips[group.groupId] && (
                                             <Text style={styles.stripInfo}>
-                                                {t('poolsPage.onStrip', { strip: poolStrips[pool.poolid] })}
+                                                {t('teamRoundRobinPage.onStrip', { strip: groupStrips[group.groupId] })}
                                             </Text>
                                         )}
                                         <Can I="update" a="Pool">
                                             <TouchableOpacity
                                                 style={styles.assignStripButton}
-                                                onPress={() => handleOpenStripModal(pool.poolid)}
+                                                onPress={() => handleOpenStripModal(group.groupId)}
                                             >
                                                 <Text style={styles.assignStripText}>📍</Text>
                                             </TouchableOpacity>
@@ -230,14 +230,14 @@ const TeamPoolsPage: React.FC = () => {
                                         <TouchableOpacity
                                             style={[
                                                 styles.openButton,
-                                                poolCompletionStatus[pool.poolid] && styles.completedButton,
+                                                groupCompletionStatus[group.groupId] && styles.completedButton,
                                             ]}
-                                            onPress={() => openPoolBouts(pool.poolid)}
+                                            onPress={() => openGroupBouts(group.groupId)}
                                         >
                                             <Text style={styles.openButtonText}>
-                                                {poolCompletionStatus[pool.poolid]
-                                                    ? t('poolsPage.editCompletedPool')
-                                                    : t('poolsPage.open')}
+                                                {groupCompletionStatus[group.groupId]
+                                                    ? t('teamRoundRobinPage.editCompletedGroup')
+                                                    : t('teamRoundRobinPage.open')}
                                             </Text>
                                         </TouchableOpacity>
                                     </View>
@@ -247,10 +247,10 @@ const TeamPoolsPage: React.FC = () => {
                     ))
                 )}
 
-                {pools.length > 0 && (
+                {groups.length > 0 && (
                     <Can I="update" a="Round">
                         <TouchableOpacity style={styles.endRoundButton} onPress={handleEndRound}>
-                            <Text style={styles.endRoundButtonText}>{t('poolsPage.endRound')}</Text>
+                            <Text style={styles.endRoundButtonText}>{t('teamRoundRobinPage.endRound')}</Text>
                         </TouchableOpacity>
                     </Can>
                 )}
@@ -317,13 +317,13 @@ const styles = StyleSheet.create({
         textAlign: 'center',
         color: '#001f3f',
     },
-    noPoolsText: {
+    noGroupsText: {
         fontSize: 16,
         textAlign: 'center',
         marginTop: 50,
         color: '#666',
     },
-    poolContainer: {
+    groupContainer: {
         backgroundColor: '#fff',
         borderRadius: 8,
         marginBottom: 15,
@@ -333,7 +333,7 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.1,
         shadowRadius: 4,
     },
-    poolHeader: {
+    groupHeader: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
@@ -341,7 +341,7 @@ const styles = StyleSheet.create({
         borderBottomWidth: 1,
         borderBottomColor: '#e0e0e0',
     },
-    poolTitle: {
+    groupTitle: {
         fontSize: 18,
         fontWeight: 'bold',
         color: '#001f3f',
@@ -350,7 +350,7 @@ const styles = StyleSheet.create({
         fontSize: 16,
         color: '#001f3f',
     },
-    poolContent: {
+    groupContent: {
         padding: 15,
     },
     teamItem: {
@@ -368,7 +368,7 @@ const styles = StyleSheet.create({
         color: '#666',
         marginTop: 2,
     },
-    poolActions: {
+    groupActions: {
         flexDirection: 'row',
         justifyContent: 'flex-end',
         alignItems: 'center',
@@ -461,4 +461,4 @@ const styles = StyleSheet.create({
     },
 });
 
-export default TeamPoolsPage;
+export default TeamRoundRobinPage;

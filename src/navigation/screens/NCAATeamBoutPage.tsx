@@ -14,11 +14,12 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList, Event } from '../navigation/types';
 import { useTranslation } from 'react-i18next';
 import { BLEStatusBar } from '../../networking/components/BLEStatusBar';
-import DrizzleClient from '../../db/DrizzleClient';
+import { db } from '../../db/DrizzleClient';
 import * as teamBoutUtils from '../../db/utils/teamBoutNCAA';
 import * as teamUtils from '../../db/utils/team';
 import * as schema from '../../db/schema';
 import { eq } from 'drizzle-orm';
+import ScoreInputModal from '../../components/ui/ScoreInputModal';
 
 type NCAATeamBoutPageRouteParams = {
     teamBoutId: number;
@@ -36,11 +37,15 @@ const NCAATeamBoutPage: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [teamAName, setTeamAName] = useState('Team A');
     const [teamBName, setTeamBName] = useState('Team B');
+    
+    // Score input modal state
+    const [scoreModalVisible, setScoreModalVisible] = useState(false);
+    const [selectedBout, setSelectedBout] = useState<teamBoutUtils.NCAAIndividualBout | null>(null);
 
     const loadBoutStatus = useCallback(async () => {
         try {
             setLoading(true);
-            const client = await DrizzleClient.getInstance();
+            const client = db;
             const status = await teamBoutUtils.getNCAABoutStatus(client, teamBoutId);
             
             if (status) {
@@ -76,36 +81,31 @@ const NCAATeamBoutPage: React.FC = () => {
     }, [loadBoutStatus]);
 
     const handleOpenIndividualBout = (bout: teamBoutUtils.NCAAIndividualBout) => {
-        if (bout.isComplete) {
-            Alert.alert(t('ncaaTeamBout.boutComplete'), t('ncaaTeamBout.boutCompleteMessage'));
-            return;
-        }
+        // Allow opening completed bouts for editing/viewing
+        setSelectedBout(bout);
+        setScoreModalVisible(true);
+    };
 
-        navigation.navigate('RefereeModule', {
-            boutIndex: bout.boutNumber,
-            fencer1Name: bout.fencerAName,
-            fencer2Name: bout.fencerBName,
-            currentScore1: bout.fencerAScore,
-            currentScore2: bout.fencerBScore,
-            isRemote,
-            weapon: event.weapon,
-            onSaveScores: async (score1: number, score2: number) => {
-                try {
-                    const client = await DrizzleClient.getInstance();
-                    await teamBoutUtils.updateNCAABoutScore(
-                        client,
-                        teamBoutId,
-                        bout.boutNumber,
-                        score1,
-                        score2
-                    );
-                    await loadBoutStatus();
-                } catch (error) {
-                    console.error('Error updating bout score:', error);
-                    Alert.alert(t('common.error'), t('ncaaTeamBout.errorUpdating'));
-                }
-            },
-        });
+    const handleScoreSubmit = async (scoreA: number, scoreB: number, winnerId?: number) => {
+        if (!selectedBout) return;
+
+        try {
+            const client = db;
+            await teamBoutUtils.updateNCAABoutScore(
+                client,
+                teamBoutId,
+                selectedBout.boutNumber,
+                scoreA,
+                scoreB,
+                winnerId // Pass the winnerId for tie-breaking
+            );
+            await loadBoutStatus();
+            setScoreModalVisible(false);
+            setSelectedBout(null);
+        } catch (error) {
+            console.error('Error updating bout score:', error);
+            Alert.alert(t('common.error'), t('ncaaTeamBout.errorUpdating'));
+        }
     };
 
     const getBoutPositionDescription = (boutNumber: number): string => {
@@ -150,9 +150,14 @@ const NCAATeamBoutPage: React.FC = () => {
                 </View>
 
                 {isComplete && (
-                    <Text style={styles.completeText}>
-                        {t('ncaaTeamBout.matchComplete', { winner: teamAScore > teamBScore ? teamAName : teamBName })}
-                    </Text>
+                    <View style={styles.matchCompleteContainer}>
+                        <Text style={styles.completeText}>
+                            {t('ncaaTeamBout.matchComplete', { winner: teamAScore > teamBScore ? teamAName : teamBName })}
+                        </Text>
+                        <Text style={styles.exhibitionText}>
+                            {t('ncaaTeamBout.exhibitionNote')}
+                        </Text>
+                    </View>
                 )}
 
                 <Text style={styles.formatInfo}>
@@ -168,9 +173,9 @@ const NCAATeamBoutPage: React.FC = () => {
                                 styles.boutCard,
                                 bout.isComplete && styles.completedBoutCard,
                                 bout.boutNumber === boutStatus.currentBoutNumber && styles.currentBoutCard,
+                                isComplete && bout.boutNumber > (teamAScore + teamBScore) && styles.exhibitionBoutCard,
                             ]}
                             onPress={() => handleOpenIndividualBout(bout)}
-                            disabled={isComplete}
                         >
                             <View style={styles.boutHeader}>
                                 <Text style={styles.boutNumber}>
@@ -182,18 +187,24 @@ const NCAATeamBoutPage: React.FC = () => {
                             </View>
                             
                             <View style={styles.boutFencers}>
-                                <View style={styles.fencerRow}>
-                                    <Text style={[styles.fencerName, bout.winnerId === bout.fencerAId && styles.winnerText]}>
-                                        {bout.fencerAName}
-                                    </Text>
+                                <View style={[styles.fencerRow, styles.teamARow]}>
+                                    <View style={styles.fencerInfo}>
+                                        <Text style={[styles.fencerName, bout.winnerId === bout.fencerAId && styles.winnerText]}>
+                                            {bout.fencerAName}
+                                        </Text>
+                                        <Text style={styles.teamBadge}>{teamAName}</Text>
+                                    </View>
                                     <Text style={[styles.fencerScore, bout.winnerId === bout.fencerAId && styles.winnerText]}>
                                         {bout.fencerAScore}
                                     </Text>
                                 </View>
-                                <View style={styles.fencerRow}>
-                                    <Text style={[styles.fencerName, bout.winnerId === bout.fencerBId && styles.winnerText]}>
-                                        {bout.fencerBName}
-                                    </Text>
+                                <View style={[styles.fencerRow, styles.teamBRow]}>
+                                    <View style={styles.fencerInfo}>
+                                        <Text style={[styles.fencerName, bout.winnerId === bout.fencerBId && styles.winnerText]}>
+                                            {bout.fencerBName}
+                                        </Text>
+                                        <Text style={styles.teamBadge}>{teamBName}</Text>
+                                    </View>
                                     <Text style={[styles.fencerScore, bout.winnerId === bout.fencerBId && styles.winnerText]}>
                                         {bout.fencerBScore}
                                     </Text>
@@ -201,12 +212,62 @@ const NCAATeamBoutPage: React.FC = () => {
                             </View>
 
                             {bout.isComplete && (
-                                <Text style={styles.boutCompleteText}>{t('ncaaTeamBout.complete')}</Text>
+                                <Text style={styles.boutCompleteText}>
+                                    {isComplete && bout.boutNumber > (teamAScore + teamBScore) 
+                                        ? t('ncaaTeamBout.exhibition') 
+                                        : t('ncaaTeamBout.complete')}
+                                </Text>
                             )}
                         </TouchableOpacity>
                     ))}
                 </View>
             </ScrollView>
+            
+            {/* Score Input Modal */}
+            <ScoreInputModal
+                visible={scoreModalVisible}
+                onClose={() => {
+                    setScoreModalVisible(false);
+                    setSelectedBout(null);
+                }}
+                onSubmit={handleScoreSubmit}
+                fencerAName={selectedBout?.fencerAName || ''}
+                fencerBName={selectedBout?.fencerBName || ''}
+                fencerAId={selectedBout?.fencerAId}
+                fencerBId={selectedBout?.fencerBId}
+                initialScoreA={selectedBout?.fencerAScore || 0}
+                initialScoreB={selectedBout?.fencerBScore || 0}
+                title={t('ncaaTeamBout.enterScores')}
+                allowTies={false}
+                showRefereeButton={true}
+                onOpenRefereeModule={() => {
+                    setScoreModalVisible(false);
+                    navigation.navigate('RefereeModule', {
+                        boutIndex: selectedBout?.boutNumber || 0,
+                        fencer1Name: selectedBout?.fencerAName || '',
+                        fencer2Name: selectedBout?.fencerBName || '',
+                        currentScore1: selectedBout?.fencerAScore || 0,
+                        currentScore2: selectedBout?.fencerBScore || 0,
+                        weapon: event.weapon,
+                        isRemote,
+                        onSaveScores: (score1: number, score2: number) => {
+                            // If scores are tied, we need to show the modal for tie-breaking
+                            if (score1 === score2 && selectedBout) {
+                                // Update the selectedBout with new scores and show modal
+                                setSelectedBout({
+                                    ...selectedBout,
+                                    fencerAScore: score1,
+                                    fencerBScore: score2
+                                });
+                                setScoreModalVisible(true);
+                            } else {
+                                // Save the scores directly
+                                handleScoreSubmit(score1, score2);
+                            }
+                        },
+                    });
+                }}
+            />
         </View>
     );
 };
@@ -336,11 +397,28 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         alignItems: 'center',
         paddingVertical: 3,
+        paddingHorizontal: 8,
+        borderRadius: 4,
+        marginVertical: 2,
+    },
+    teamARow: {
+        backgroundColor: '#e6f3ff',
+    },
+    teamBRow: {
+        backgroundColor: '#fff0e6',
+    },
+    fencerInfo: {
+        flex: 1,
     },
     fencerName: {
         fontSize: 15,
         color: '#333',
-        flex: 1,
+    },
+    teamBadge: {
+        fontSize: 12,
+        color: '#666',
+        fontStyle: 'italic',
+        marginTop: 2,
     },
     fencerScore: {
         fontSize: 16,
@@ -357,6 +435,22 @@ const styles = StyleSheet.create({
         color: '#28a745',
         textAlign: 'center',
         marginTop: 5,
+    },
+    matchCompleteContainer: {
+        alignItems: 'center',
+        marginBottom: 15,
+    },
+    exhibitionText: {
+        fontSize: 14,
+        color: '#666',
+        fontStyle: 'italic',
+        marginTop: 5,
+    },
+    exhibitionBoutCard: {
+        borderWidth: 1,
+        borderColor: '#ffc107',
+        borderStyle: 'dashed',
+        opacity: 0.9,
     },
 });
 

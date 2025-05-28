@@ -7,7 +7,7 @@ import { dbCalculateAndSaveSeedingFromRoundResults } from './seeding';
 import { dbCreatePoolAssignmentsAndBoutOrders } from './pool';
 import { calculatePreliminarySeeding } from '../../navigation/utils/RoundAlgorithms';
 import { dbSaveSeeding, dbGetSeedingForRound } from './seeding';
-import { createDEBoutsForRound } from './bracket';
+import { createDEBoutsForRound, generateBracketPositions } from './bracket';
 import * as teamUtils from './team';
 import * as teamPoolUtils from './teamPool';
 
@@ -66,6 +66,7 @@ export async function dbAddRound(round: {
     eventid: number;
     rorder: number;
     type: 'pool' | 'de';
+    round_format: 'individual_pools' | 'team_round_robin' | 'individual_de' | 'team_de';
     promotionpercent: number;
     targetbracket: number;
     usetargetbracket: number;
@@ -81,6 +82,7 @@ export async function dbAddRound(round: {
             eventid: round.eventid,
             rorder: round.rorder,
             type: round.type,
+            round_format: round.round_format,
             promotionpercent: round.promotionpercent,
             targetbracket: round.targetbracket,
             usetargetbracket: round.usetargetbracket === 1,
@@ -109,6 +111,7 @@ export async function dbUpdateRound(round: Round): Promise<void> {
             .set({
                 rorder: round.rorder,
                 type: round.type,
+                round_format: round.round_format,
                 promotionpercent: round.promotionpercent,
                 targetbracket: round.targetbracket,
                 usetargetbracket: round.usetargetbracket === 1,
@@ -222,16 +225,21 @@ export async function dbInitializeRound(event: Event, round: Round, fencers: Fen
             await dbSaveSeeding(event.id, round.id, seeding);
         }
 
-        if (round.type === 'pool') {
+        if (round.round_format === 'individual_pools') {
+            // For individual pools, require pool configuration
+            if (!round.poolcount || !round.poolsize) {
+                throw new Error('Pool count and size must be set for individual pool rounds');
+            }
+            
             await dbCreatePoolAssignmentsAndBoutOrders(
                 event,
                 round,
                 fencers,
-                round.poolcount || 1,
-                round.poolsize || 6,
+                round.poolcount,
+                round.poolsize,
                 seeding
             );
-        } else if (round.type === 'de') {
+        } else if (round.round_format === 'individual_de') {
             // Automatically determine the appropriate bracket size
             let tableSize = 2;
             while (tableSize < fencers.length) {
@@ -258,6 +266,8 @@ export async function dbInitializeRound(event: Event, round: Round, fencers: Fen
                 console.log('Falling back to single elimination bracket');
                 await createDEBoutsForRound(event, round, fencers, seeding);
             }
+        } else {
+            throw new Error(`Unsupported individual round format: ${round.round_format}`);
         }
         await dbMarkRoundAsStarted(round.id);
     } catch (error) {
@@ -288,11 +298,17 @@ export async function dbInitializeTeamRound(event: Event, round: Round): Promise
             throw new Error('No teams found for the event. Cannot initialize round.');
         }
 
-        // For now, we only support pool rounds for team events
-        if (round.type === 'pool') {
-            if (!round.poolcount || !round.poolsize) {
-                throw new Error('Pool count and size must be set before initializing a team pool round');
-            }
+        // Handle different round formats for team events
+        if (round.round_format === 'team_round_robin') {
+            // Team Round Robin: all teams fence all teams in one group
+            // No pool configuration needed, but set for compatibility
+            const poolcount = 1; // Single round robin group
+            const poolsize = teams.length; // All teams in one group
+
+            // Update the round with the computed values for consistency
+            await db.update(schema.rounds)
+                .set({ poolcount: poolcount, poolsize: poolsize })
+                .where(eq(schema.rounds.id, round.id));
 
             // First, seed teams by strength
             await teamUtils.seedTeamsForEvent(db, event.id);
@@ -301,12 +317,33 @@ export async function dbInitializeTeamRound(event: Event, round: Round): Promise
             const seededTeams = await teamUtils.getEventTeams(db, event.id);
             
             // Create pool assignments and team bouts
-            await teamPoolUtils.dbCreateTeamPoolAssignmentsAndBouts(db, event, round, seededTeams, round.poolcount, round.poolsize);
+            await teamPoolUtils.dbCreateTeamPoolAssignmentsAndBouts(db, event, round, seededTeams, poolcount, poolsize);
             
             console.log(`Created team pool assignments and bouts for round ${round.id}`);
-        } else if (round.type === 'de') {
-            // TODO: Implement DE rounds for team events
-            throw new Error('DE rounds for team events are not yet implemented');
+        } else if (round.round_format === 'team_de') {
+            // Seed teams if not already done
+            await teamUtils.seedTeamsForEvent(db, event.id);
+            const seededTeams = await teamUtils.getEventTeams(db, event.id);
+            
+            // Automatically determine table size
+            let tableSize = 2;
+            while (tableSize < seededTeams.length) {
+                tableSize *= 2;
+            }
+            
+            // Update round with table size and force single elimination for team events
+            await db.update(schema.rounds)
+                .set({ detablesize: tableSize, deformat: 'single' })
+                .where(eq(schema.rounds.id, round.id));
+            
+            console.log(`Automatically set team DE table size to ${tableSize} for ${seededTeams.length} teams`);
+            
+            // Create team DE bracket
+            await createTeamDEBoutsForRound(event, round, seededTeams);
+            
+            console.log(`Created team DE bracket for round ${round.id}`);
+        } else {
+            throw new Error(`Unsupported team round format: ${round.round_format}`);
         }
 
         // Mark the round as started
@@ -362,5 +399,183 @@ export async function dbGetDETableSize(roundId: number): Promise<number> {
     } catch (error) {
         console.error('Error getting DE table size:', error);
         return 0;
+    }
+}
+
+/**
+ * Creates the DE bouts for a team round and sets up the bracket structure
+ */
+async function createTeamDEBoutsForRound(
+    event: Event,
+    round: any,
+    teams: teamUtils.TeamWithMembers[]
+): Promise<void> {
+    try {
+        console.log(`Creating team DE bouts for event ${event.id}, round ${round.id} with ${teams.length} teams`);
+
+        // Check if team bouts already exist for this round to prevent duplicates
+        const existingBouts = await db
+            .select({ count: schema.teamBouts.id })
+            .from(schema.teamBouts)
+            .where(eq(schema.teamBouts.roundid, round.id));
+
+        if (existingBouts[0]?.count > 0) {
+            console.log(`Team bouts already exist for round ${round.id}. Skipping creation to prevent duplicates.`);
+            return;
+        }
+
+        // Determine the appropriate table size based on number of teams
+        const teamCount = teams.length;
+        let tableSize = 2;
+        while (tableSize < teamCount) {
+            tableSize *= 2;
+        }
+
+        console.log(`Using table size ${tableSize} for ${teamCount} teams`);
+
+        // Use a transaction to ensure all operations succeed or fail together
+        await db.transaction(async tx => {
+            try {
+                // Update the round with the DE table size
+                await tx.update(schema.rounds).set({ detablesize: tableSize }).where(eq(schema.rounds.id, round.id));
+
+                // Teams should already be sorted by seed
+                const sortedTeams = teams.sort((a, b) => (a.seed || 999) - (b.seed || 999));
+
+                // Generate standard bracket positions
+                const positions = generateBracketPositions(tableSize);
+                console.log(`Generated ${positions.length} bracket positions`);
+
+                // Create a map to track bouts for each round
+                const boutsByRound: Map<number, number[]> = new Map();
+
+                // Initialize maps for each table size
+                let currentTableSize = tableSize;
+                while (currentTableSize >= 2) {
+                    boutsByRound.set(currentTableSize, []);
+                    currentTableSize /= 2;
+                }
+
+                // Create all bouts for all rounds
+                currentTableSize = tableSize;
+
+                while (currentTableSize >= 2) {
+                    const boutIds: number[] = [];
+                    const numBouts = currentTableSize / 2;
+
+                    console.log(`Creating ${numBouts} team bouts for table of ${currentTableSize}`);
+
+                    for (let i = 0; i < numBouts; i++) {
+                        // For the first round, place teams according to seeding
+                        let teamAId = null;
+                        let teamBId = null;
+                        let winnerTeamId = null;
+
+                        if (currentTableSize === tableSize) {
+                            // This is the first round, so place teams according to seeding
+                            const [posA, posB] = positions[i];
+
+                            // Get teams for this bout (or null for byes)
+                            const teamA = posA <= sortedTeams.length ? sortedTeams[posA - 1] : null;
+                            const teamB = posB <= sortedTeams.length ? sortedTeams[posB - 1] : null;
+
+                            teamAId = teamA ? teamA.id : null;
+                            teamBId = teamB ? teamB.id : null;
+
+                            // If only one team, it's a bye
+                            const isBye = !teamA || !teamB;
+
+                            // If it's a bye, the present team automatically advances
+                            winnerTeamId = isBye ? (teamA ? teamA.id : teamB ? teamB.id : null) : null;
+
+                            console.log(
+                                `Creating team bout ${i + 1}: ${teamA?.name || 'BYE'} vs ${teamB?.name || 'BYE'}, bye: ${isBye}, winner: ${winnerTeamId}`
+                            );
+                        }
+
+                        // Insert the team bout
+                        const boutResult = await tx
+                            .insert(schema.teamBouts)
+                            .values({
+                                team_a_id: teamAId,
+                                team_b_id: teamBId,
+                                winner_team_id: winnerTeamId,
+                                eventid: event.id,
+                                roundid: round.id,
+                                tableof: currentTableSize,
+                                team_a_wins: 0,
+                                team_b_wins: 0,
+                                // Format will be determined by event.team_format
+                            })
+                            .returning({ id: schema.teamBouts.id });
+
+                        const boutId = boutResult[0].id;
+                        boutIds.push(boutId);
+                        console.log(`Created team bout with ID ${boutId} for table of ${currentTableSize}`);
+                    }
+
+                    // Store the bout IDs for this round
+                    boutsByRound.set(currentTableSize, boutIds);
+
+                    // Move to the next round
+                    currentTableSize /= 2;
+                }
+
+                // Now create the DEBracketBouts entries to define the bracket structure
+                // Note: We're reusing the same deBracketBouts table as individual events
+                // but referencing team bout IDs
+                for (const [tableSize, boutIds] of boutsByRound.entries()) {
+                    if (tableSize === 2) {
+                        // This is the final - it has no next bout
+                        if (boutIds.length > 0) {
+                            await tx.insert(schema.deBracketBouts).values({
+                                roundid: round.id,
+                                bout_id: boutIds[0],
+                                bracket_type: 'winners',
+                                bracket_round: Math.log2(tableSize),
+                                bout_order: 0,
+                                next_bout_id: null, // Final has no next bout
+                                loser_next_bout_id: null, // Not used in single elimination
+                            });
+                            console.log(`Created bracket entry for final team bout ${boutIds[0]}`);
+                        }
+                        continue;
+                    }
+
+                    const nextTableSize = tableSize / 2;
+                    const nextRoundBouts = boutsByRound.get(nextTableSize) || [];
+
+                    for (let i = 0; i < boutIds.length; i++) {
+                        const boutId = boutIds[i];
+                        const nextBoutIndex = Math.floor(i / 2);
+
+                        if (nextBoutIndex < nextRoundBouts.length) {
+                            const nextBoutId = nextRoundBouts[nextBoutIndex];
+
+                            // Create the DEBracketBout entry
+                            await tx.insert(schema.deBracketBouts).values({
+                                roundid: round.id,
+                                bout_id: boutId,
+                                bracket_type: 'winners',
+                                bracket_round: Math.log2(tableSize),
+                                bout_order: i,
+                                next_bout_id: nextBoutId,
+                                loser_next_bout_id: null, // Not used in single elimination
+                            });
+
+                            console.log(`Created bracket structure: Team bout ${boutId} -> Next bout ${nextBoutId}`);
+                        }
+                    }
+                }
+
+                console.log('Team DE bracket creation completed successfully');
+            } catch (error) {
+                console.error('Error in team DE bout creation transaction:', error);
+                throw error;
+            }
+        });
+    } catch (error) {
+        console.error('Error creating team DE bouts:', error);
+        throw error;
     }
 }

@@ -22,6 +22,7 @@ import { BLEStatusBar } from '../../networking/components/BLEStatusBar';
 import { useQueryClient } from '@tanstack/react-query';
 import {
     useFencers,
+    useTeams,
     useRounds,
     useSearchFencers,
     useAddFencer,
@@ -62,22 +63,50 @@ function calculatePoolConfigurations(totalFencers: number): PoolConfiguration[] 
     return configurations;
 }
 
-function formatPoolLabel(config: PoolConfiguration, t: any): string {
+// Team-specific pool configuration
+function calculateTeamPoolConfigurations(totalTeams: number): PoolConfiguration[] {
+    const configurations: PoolConfiguration[] = [];
+    // For team events, groups should have at least 2 teams
+    for (let numPools = 1; numPools <= Math.floor(totalTeams / 2); numPools++) {
+        const baseSize = Math.floor(totalTeams / numPools);
+        const remainder = totalTeams % numPools;
+
+        // Ensure every group has between 2 and 8 teams
+        if (baseSize < 2) continue;
+        if (remainder > 0 && baseSize + 1 > 8) continue;
+        if (baseSize > 8) continue;
+
+        configurations.push({
+            pools: numPools,
+            baseSize: baseSize,
+            extraPools: remainder, // remainder groups will have baseSize+1 teams
+        });
+    }
+    return configurations;
+}
+
+function formatPoolLabel(config: PoolConfiguration, t: any, isTeamEvent: boolean = false): string {
     const { pools, baseSize, extraPools } = config;
+    
+    // Use appropriate terminology based on event type
+    const unitName = isTeamEvent ? t('eventSettings.teams') : t('eventSettings.fencers');
+    const groupName = isTeamEvent ? t('eventSettings.group') : t('eventSettings.pool');
+    const groupsName = isTeamEvent ? t('eventSettings.groups') : t('eventSettings.pools');
+    
     if (extraPools === 0) {
         // Return directly formatted text without using translation keys for plurals
-        const poolText = pools === 1 ? t('eventSettings.pool') : t('eventSettings.pools');
-        return `${pools} ${poolText} ${t('eventSettings.of')} ${baseSize} ${t('eventSettings.fencers')}`;
+        const poolText = pools === 1 ? groupName : groupsName;
+        return `${pools} ${poolText} ${t('eventSettings.of')} ${baseSize} ${unitName}`;
     } else {
         const evenPools = pools - extraPools;
 
         // Format first part
-        const extraPoolText = extraPools === 1 ? t('eventSettings.pool') : t('eventSettings.pools');
-        const extraLabel = `${extraPools} ${extraPoolText} ${t('eventSettings.of')} ${baseSize + 1} ${t('eventSettings.fencers')}`;
+        const extraPoolText = extraPools === 1 ? groupName : groupsName;
+        const extraLabel = `${extraPools} ${extraPoolText} ${t('eventSettings.of')} ${baseSize + 1} ${unitName}`;
 
         // Format second part
-        const evenPoolText = evenPools === 1 ? t('eventSettings.pool') : t('eventSettings.pools');
-        const evenLabel = `${evenPools} ${evenPoolText} ${t('eventSettings.of')} ${baseSize} ${t('eventSettings.fencers')}`;
+        const evenPoolText = evenPools === 1 ? groupName : groupsName;
+        const evenLabel = `${evenPools} ${evenPoolText} ${t('eventSettings.of')} ${baseSize} ${unitName}`;
 
         return `${extraLabel}, ${evenLabel}`;
     }
@@ -120,8 +149,12 @@ export const EventSettings = ({ route }: Props) => {
 
     // TanStack Query hooks
     const { data: fencers = [], isLoading: fencersLoading } = useFencers(event);
+    const { data: teams = [], isLoading: teamsLoading } = useTeams(event.id);
 
     const { data: rounds = [], isLoading: roundsLoading } = useRounds(event.id);
+    
+    // Check if this is a team event
+    const isTeamEvent = event.event_type === 'team';
 
     // Mutations
     const addFencerMutation = useAddFencer();
@@ -201,8 +234,10 @@ export const EventSettings = ({ route }: Props) => {
 
     // Pool configurations - using React.useMemo to avoid unnecessary recalculations
     const poolConfigurations = React.useMemo(
-        () => calculatePoolConfigurations(fencers?.length || 0),
-        [fencers?.length]
+        () => isTeamEvent 
+            ? calculateTeamPoolConfigurations(teams?.length || 0)
+            : calculatePoolConfigurations(fencers?.length || 0),
+        [isTeamEvent, teams?.length, fencers?.length]
     );
 
     const currentRating = selectedWeapon === 'epee' ? epeeRating : selectedWeapon === 'foil' ? foilRating : saberRating;
@@ -579,18 +614,28 @@ export const EventSettings = ({ route }: Props) => {
     // Handler to add a new round. Creates a new round object with default values.
     const handleAddRound = useCallback(
         (roundType: 'pool' | 'de') => {
+            // Determine the round format based on event type and round type
+            let roundFormat: 'individual_pools' | 'team_round_robin' | 'individual_de' | 'team_de';
+            if (isTeamEvent) {
+                roundFormat = roundType === 'pool' ? 'team_round_robin' : 'team_de';
+            } else {
+                roundFormat = roundType === 'pool' ? 'individual_pools' : 'individual_de';
+            }
+
             const newRound = {
                 eventid: event.id,
                 rorder: rounds.length + 1, // Append at the end
                 type: roundType,
+                round_format: roundFormat,
                 promotionpercent: roundType === 'pool' ? 100 : 0,
                 targetbracket: roundType === 'pool' ? 0 : 0,
                 usetargetbracket: 0 as 0 | 1, // Use literal 0 and assert type
                 deformat: roundType === 'de' ? 'single' : '',
                 detablesize: roundType === 'de' ? 0 : 0,
                 iscomplete: 0,
-                poolcount: roundType === 'pool' ? 0 : undefined, // Use undefined instead of null
-                poolsize: roundType === 'pool' ? 0 : undefined, // Use undefined instead of null
+                // Only set pool configuration for individual pools
+                poolcount: roundFormat === 'individual_pools' ? 0 : undefined,
+                poolsize: roundFormat === 'individual_pools' ? 0 : undefined,
                 poolsoption: roundType === 'pool' ? 'promotion' : undefined,
                 isstarted: false, // Use boolean false for isstarted
             };
@@ -860,9 +905,11 @@ export const EventSettings = ({ route }: Props) => {
                                         </TouchableOpacity>
                                     </View>
                                     <Text style={styles.roundLabelText}>
-                                        {round.type === 'pool'
-                                            ? t('eventSettings.poolsRound')
-                                            : t('eventSettings.deRound')}
+                                        {round.round_format === 'team_round_robin'
+                                            ? t('eventSettings.roundRobinRound')
+                                            : round.round_format === 'individual_pools'
+                                                ? t('eventSettings.poolsRound')
+                                                : t('eventSettings.deRound')}
                                     </Text>
                                     <View style={styles.roundItemActions}>
                                         <TouchableOpacity
@@ -975,43 +1022,53 @@ export const EventSettings = ({ route }: Props) => {
                                                         ))}
                                                     </View>
                                                 )}
-                                                <View style={styles.poolConfigContainer}>
-                                                    <Text style={styles.configTitle}>
-                                                        {t('eventSettings.poolConfigurations')}
-                                                    </Text>
-                                                    {poolConfigurations.map((config, index) => {
-                                                        // Determine the expected poolsize based on this config.
-                                                        const expectedPoolSize =
-                                                            config.extraPools > 0
-                                                                ? config.baseSize + 1
-                                                                : config.baseSize;
-                                                        // Check if the current round's pool configuration matches this one.
-                                                        const isSelected =
-                                                            round.poolcount === config.pools &&
-                                                            round.poolsize === expectedPoolSize;
-                                                        return (
-                                                            <TouchableOpacity
-                                                                key={index}
-                                                                style={[
-                                                                    styles.poolConfigButton,
-                                                                    isSelected && styles.poolConfigButtonSelected,
-                                                                ]}
-                                                                onPress={() => {
-                                                                    const updatedRound = {
-                                                                        ...round,
-                                                                        poolcount: config.pools,
-                                                                        poolsize: expectedPoolSize,
-                                                                    };
-                                                                    handleUpdateRound(updatedRound);
-                                                                }}
-                                                            >
-                                                                <Text style={styles.poolConfigButtonText}>
-                                                                    {formatPoolLabel(config, t)}
-                                                                </Text>
-                                                            </TouchableOpacity>
-                                                        );
-                                                    })}
-                                                </View>
+                                                {/* Show different UI based on round format */}
+                                                {round.round_format === 'team_round_robin' ? (
+                                                    <View style={styles.roundRobinNote}>
+                                                        <Text style={styles.roundRobinNoteText}>
+                                                            {t('eventSettings.teamRoundRobinNote', 'In team Round Robin, all teams fence all other teams in the event.')}
+                                                        </Text>
+                                                    </View>
+                                                ) : (
+                                                    <View style={styles.poolConfigContainer}>
+                                                        <Text style={styles.configTitle}>
+                                                            {t('eventSettings.poolConfigurations')}
+                                                        </Text>
+                                                        {poolConfigurations.map((config, index) => {
+                                                            // Determine the expected poolsize based on this config.
+                                                            const expectedPoolSize =
+                                                                config.extraPools > 0
+                                                                    ? config.baseSize + 1
+                                                                    : config.baseSize;
+                                                            // Check if the current round's pool configuration matches this one.
+                                                            const isSelected =
+                                                                round.poolcount === config.pools &&
+                                                                round.poolsize === expectedPoolSize;
+                                                            return (
+                                                                <TouchableOpacity
+                                                                    key={index}
+                                                                    style={[
+                                                                        styles.poolConfigButton,
+                                                                        isSelected && styles.poolConfigButtonSelected,
+                                                                    ]}
+                                                                    onPress={() => {
+                                                                        const updatedRound = {
+                                                                            ...round,
+                                                                            poolcount: config.pools,
+                                                                            poolsize: expectedPoolSize,
+                                                                        };
+                                                                        handleUpdateRound(updatedRound);
+                                                                    }}
+                                                                >
+                                                                    <Text style={styles.poolConfigButtonText}>
+                                                                        {formatPoolLabel(config, t, isTeamEvent)}
+                                                                    </Text>
+                                                                </TouchableOpacity>
+                                                            );
+                                                        })}
+                                                    </View>
+                                                )}
+                                                {/* End of conditional rendering */}
                                             </View>
                                         ) : (
                                             <View style={styles.deConfig}>
@@ -1118,7 +1175,9 @@ export const EventSettings = ({ route }: Props) => {
                                     setShowRoundTypeOptions(false);
                                 }}
                             >
-                                <Text style={styles.roundTypeChoiceText}>{t('eventSettings.pools')}</Text>
+                                <Text style={styles.roundTypeChoiceText}>
+                                    {isTeamEvent ? t('eventSettings.roundRobin') : t('eventSettings.pools')}
+                                </Text>
                             </TouchableOpacity>
                             <TouchableOpacity
                                 style={styles.roundTypeChoice}
@@ -1644,5 +1703,19 @@ const styles = StyleSheet.create({
         color: '#fff',
         fontSize: 18,
         fontWeight: '600',
+    },
+    roundRobinNote: {
+        marginTop: 10,
+        padding: 12,
+        backgroundColor: '#e7f3ff',
+        borderRadius: 6,
+        borderWidth: 1,
+        borderColor: '#b3d9ff',
+    },
+    roundRobinNoteText: {
+        fontSize: 14,
+        color: '#0066cc',
+        fontStyle: 'italic',
+        textAlign: 'center',
     },
 });

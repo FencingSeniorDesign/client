@@ -214,6 +214,8 @@ export default {
         pools: 'poules',
         of: 'de',
         fencers: 'esgrimistas',
+        roundRobin: 'Todos contra todos',
+        singleElimination: 'Eliminación Simple',
     },
     manageOfficials: {
         title: 'Administrar Oficiales',
@@ -515,6 +517,13 @@ export default {
         deleteTournamentConfirm: '¿Está seguro de que desea eliminar "{{name}}"?',
         deleteFailed: 'Error al eliminar el torneo',
         noTournaments: 'Aún no se han creado torneos.',
+    },
+    scoreInput: {
+        enterScores: 'Introducir Puntuaciones',
+        selectWinnerForTie: 'Por favor seleccione un ganador para el asalto empatado',
+        boutsCannotEndInTie: 'Los asaltos no pueden terminar en empate - por favor seleccione el ganador',
+        finalScore: 'Puntuación Final',
+        refereeModule: 'Módulo de Árbitro',
     },
     ble: {
         connectToScoringBox: 'Conectar a caja de puntuación',

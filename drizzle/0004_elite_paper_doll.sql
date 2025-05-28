@@ -1,0 +1,1 @@
+ALTER TABLE `Rounds` ADD `round_format` text DEFAULT 'individual_pools' NOT NULL;

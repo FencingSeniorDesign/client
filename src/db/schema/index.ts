@@ -146,14 +146,20 @@ export const teamBouts = sqliteTable('TeamBouts', {
     roundid: integer('roundid')
         .notNull()
         .references(() => rounds.id),
+    eventid: integer('eventid')
+        .notNull()
+        .references(() => events.id),
     team_a_id: integer('team_a_id').references(() => teams.id),
     team_b_id: integer('team_b_id').references(() => teams.id),
     format: text('format', { enum: ['NCAA', '45-touch'] }).notNull(),
+    team_format: text('team_format', { enum: ['NCAA', '45-touch'] }).default('NCAA'),
+    bout_type: text('bout_type', { enum: ['pool', 'de'] }).default('pool'),
     status: text('status', { enum: ['pending', 'in_progress', 'complete'] }).default('pending'),
     winner_id: integer('winner_id').references(() => teams.id),
     team_a_score: integer('team_a_score').default(0),
     team_b_score: integer('team_b_score').default(0),
     tableof: integer('tableof'),
+    table_of: integer('table_of'),
 });
 
 // TeamBoutScores table - for NCAA format individual matchups
@@ -231,6 +237,9 @@ export const rounds = sqliteTable('Rounds', {
         .notNull()
         .references(() => events.id),
     type: text('type', { enum: ['pool', 'de'] }).notNull(),
+    round_format: text('round_format', { 
+        enum: ['individual_pools', 'team_round_robin', 'individual_de', 'team_de'] 
+    }).notNull().default('individual_pools'),
     rorder: integer('rorder').notNull(), // round 1 is fenced first, then round 2, etc
 
     // Pool Settings
@@ -301,6 +310,18 @@ export const deBracketBouts = sqliteTable('DEBracketBouts', {
     bout_order: integer('bout_order'),
     next_bout_id: integer('next_bout_id').references(() => bouts.id),
     loser_next_bout_id: integer('loser_next_bout_id').references(() => bouts.id),
+});
+
+// TeamDEBracketBouts table for team bracket structure
+export const teamDeBracketBouts = sqliteTable('TeamDEBracketBouts', {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    roundid: integer('roundid').references(() => rounds.id),
+    team_bout_id: integer('team_bout_id').references(() => teamBouts.id),
+    bracket_type: text('bracket_type', { enum: ['winners', 'losers', 'finals'] }),
+    bracket_round: integer('bracket_round'),
+    bout_order: integer('bout_order'),
+    next_bout_id: integer('next_bout_id').references(() => teamBouts.id),
+    loser_next_bout_id: integer('loser_next_bout_id').references(() => teamBouts.id),
 });
 
 // DETable table

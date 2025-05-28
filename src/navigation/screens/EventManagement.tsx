@@ -342,7 +342,7 @@ export const EventManagement = ({ route }: Props) => {
         if (round.type === 'pool') {
             // Navigate to team pools page for team events
             if (event.event_type === 'team') {
-                navigation.navigate('TeamPoolsPage' as any, {
+                navigation.navigate('TeamRoundRobinPage' as any, {
                     event: event,
                     currentRoundIndex: roundIndex,
                     roundId: round.id,
@@ -445,8 +445,10 @@ export const EventManagement = ({ route }: Props) => {
                 return;
             }
 
+            // Only check pool configuration for individual pool rounds
+            // Team round robin and DE rounds don't need pool configuration
             const poolRoundsWithoutConfig = rounds.filter(
-                round => round.type === 'pool' && (!round.poolcount || !round.poolsize)
+                round => round.round_format === 'individual_pools' && (!round.poolcount || !round.poolsize)
             );
 
             if (poolRoundsWithoutConfig.length > 0) {
@@ -506,8 +508,10 @@ export const EventManagement = ({ route }: Props) => {
                 return;
             }
 
+            // Only check pool configuration for individual pool rounds
+            // Team round robin and DE rounds don't need pool configuration
             const poolRoundsWithoutConfig = rounds.filter(
-                round => round.type === 'pool' && (!round.poolcount || !round.poolsize)
+                round => round.round_format === 'individual_pools' && (!round.poolcount || !round.poolsize)
             );
 
             if (poolRoundsWithoutConfig.length > 0) {

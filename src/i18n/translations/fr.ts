@@ -214,6 +214,8 @@ export default {
         pools: 'Poules',
         of: 'de',
         fencers: ' escrimeurs',
+        roundRobin: 'Poules',
+        singleElimination: 'Élimination Simple',
     },
     manageOfficials: {
         title: 'Gérer les officiels',
@@ -530,6 +532,13 @@ export default {
         deleteTournamentConfirm: 'Êtes-vous sûr de vouloir supprimer "{{name}}"?',
         deleteFailed: 'Échec de la suppression du tournoi',
         noTournaments: "Aucun tournoi n'a encore été créé",
+    },
+    scoreInput: {
+        enterScores: 'Entrer les scores',
+        selectWinnerForTie: 'Veuillez sélectionner un gagnant pour le combat à égalité',
+        boutsCannotEndInTie: 'Les combats ne peuvent pas se terminer par une égalité - veuillez sélectionner le gagnant',
+        finalScore: 'Score final',
+        refereeModule: 'Module d\'arbitre',
     },
     ble: {
         connectToScoringBox: 'Connecter à la boîte de pointage',

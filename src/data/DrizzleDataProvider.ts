@@ -48,6 +48,8 @@ import {
 import tournamentClient from '../networking/TournamentClient';
 import tournamentServer from '../networking/TournamentServer';
 import { getClientId } from '../networking/NetworkUtils';
+import { db } from '../db/DrizzleClient';
+import * as teamUtils from '../db/utils/team';
 
 /**
  * A class that abstracts data access for tournament-related operations,
@@ -273,6 +275,40 @@ export class TournamentDataProvider {
         } catch (error) {
             console.error('[DataProvider] Error reading local fencers:', error);
             throw error; // Re-throw error for Tanstack Query
+        }
+    }
+
+    async getEventTeams(eventId: number): Promise<any[]> {
+        console.log(`[DataProvider] Getting teams for event ${eventId}, remote: ${this.isRemoteConnection()}`);
+
+        if (this.isRemoteConnection()) {
+            try {
+                // Request teams from server
+                const response = await tournamentClient.sendRequest({
+                    type: 'GET_EVENT_TEAMS',
+                    eventId,
+                });
+
+                if (response && Array.isArray(response.teams)) {
+                    console.log(`[DataProvider] Received ${response.teams.length} teams from server`);
+                    return response.teams;
+                }
+
+                throw new Error('Failed to fetch teams from server');
+            } catch (error) {
+                console.error('[DataProvider] Error fetching remote teams:', error);
+                throw error;
+            }
+        }
+
+        // For local tournaments, fetch from database
+        try {
+            const teams = await teamUtils.getEventTeams(db, eventId);
+            console.log(`[DataProvider] Retrieved ${teams.length} teams from local database`);
+            return teams;
+        } catch (error) {
+            console.error('[DataProvider] Error reading local teams:', error);
+            throw error;
         }
     }
 

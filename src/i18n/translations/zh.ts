@@ -197,6 +197,8 @@ export default {
         pools: '小组',
         of: '的',
         fencers: '运动员',
+        roundRobin: '循环赛',
+        singleElimination: '单淘汰赛',
     },
     manageOfficials: {
         title: '管理官员',
@@ -488,6 +490,13 @@ export default {
         deleteTournamentConfirm: '您确定要删除 "{{name}}"吗？',
         deleteFailed: '删除比赛失败',
         noTournaments: '尚未创建比赛。',
+    },
+    scoreInput: {
+        enterScores: '输入分数',
+        selectWinnerForTie: '请为平局比赛选择获胜者',
+        boutsCannotEndInTie: '比赛不能以平局结束 - 请选择获胜者',
+        finalScore: '最终得分',
+        refereeModule: '裁判模块',
     },
     ble: {
         connectToScoringBox: '连接到计分盒',

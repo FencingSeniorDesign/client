@@ -83,6 +83,7 @@ export async function initializeDatabase() {
         id integer PRIMARY KEY AUTOINCREMENT NOT NULL,
         eventid integer NOT NULL,
         type text NOT NULL,
+        round_format text DEFAULT 'individual_pools' NOT NULL,
         rorder integer NOT NULL,
         poolcount integer,
         poolsize integer,
@@ -281,6 +282,74 @@ export async function initializeDatabase() {
             // Column might already exist, ignore error
         }
 
+        // Add round_format column to Rounds table if it doesn't exist
+        try {
+            await db.run(sql`ALTER TABLE Rounds ADD COLUMN round_format text DEFAULT 'individual_pools' NOT NULL`);
+            
+            // Update existing rounds to have correct round_format based on event type
+            // First, update individual pool rounds
+            await db.run(sql`
+                UPDATE Rounds 
+                SET round_format = 'individual_pools' 
+                WHERE type = 'pool' 
+                AND eventid IN (SELECT id FROM Events WHERE event_type = 'individual' OR event_type IS NULL)
+            `);
+            
+            // Update team round robin rounds
+            await db.run(sql`
+                UPDATE Rounds 
+                SET round_format = 'team_round_robin' 
+                WHERE type = 'pool' 
+                AND eventid IN (SELECT id FROM Events WHERE event_type = 'team')
+            `);
+            
+            // Update individual DE rounds
+            await db.run(sql`
+                UPDATE Rounds 
+                SET round_format = 'individual_de' 
+                WHERE type = 'de' 
+                AND eventid IN (SELECT id FROM Events WHERE event_type = 'individual' OR event_type IS NULL)
+            `);
+            
+            // Update team DE rounds
+            await db.run(sql`
+                UPDATE Rounds 
+                SET round_format = 'team_de' 
+                WHERE type = 'de' 
+                AND eventid IN (SELECT id FROM Events WHERE event_type = 'team')
+            `);
+            
+            console.log('Updated existing rounds with round_format');
+        } catch (e) {
+            // Column might already exist, ignore error
+            console.log('round_format column already exists or migration already applied');
+        }
+
+        // Add missing columns to TeamBouts table if they don't exist
+        try {
+            await db.run(sql`ALTER TABLE TeamBouts ADD COLUMN eventid integer NOT NULL DEFAULT 0 REFERENCES Events(id)`);
+        } catch (e) {
+            // Column might already exist, ignore error
+        }
+
+        try {
+            await db.run(sql`ALTER TABLE TeamBouts ADD COLUMN team_format text DEFAULT 'NCAA'`);
+        } catch (e) {
+            // Column might already exist, ignore error
+        }
+
+        try {
+            await db.run(sql`ALTER TABLE TeamBouts ADD COLUMN bout_type text DEFAULT 'pool'`);
+        } catch (e) {
+            // Column might already exist, ignore error
+        }
+
+        try {
+            await db.run(sql`ALTER TABLE TeamBouts ADD COLUMN table_of integer`);
+        } catch (e) {
+            // Column might already exist, ignore error
+        }
+
         // Create new team-related tables
         await db.run(sql`
       CREATE TABLE IF NOT EXISTS Teams (
@@ -317,15 +386,20 @@ export async function initializeDatabase() {
       CREATE TABLE IF NOT EXISTS TeamBouts (
         id integer PRIMARY KEY AUTOINCREMENT NOT NULL,
         roundid integer NOT NULL,
+        eventid integer NOT NULL,
         team_a_id integer,
         team_b_id integer,
         format text NOT NULL,
+        team_format text DEFAULT 'NCAA',
+        bout_type text DEFAULT 'pool',
         status text DEFAULT 'pending',
         winner_id integer,
         team_a_score integer DEFAULT 0,
         team_b_score integer DEFAULT 0,
         tableof integer,
+        table_of integer,
         FOREIGN KEY (roundid) REFERENCES Rounds(id) ON UPDATE no action ON DELETE no action,
+        FOREIGN KEY (eventid) REFERENCES Events(id) ON UPDATE no action ON DELETE no action,
         FOREIGN KEY (team_a_id) REFERENCES Teams(id) ON UPDATE no action ON DELETE no action,
         FOREIGN KEY (team_b_id) REFERENCES Teams(id) ON UPDATE no action ON DELETE no action,
         FOREIGN KEY (winner_id) REFERENCES Teams(id) ON UPDATE no action ON DELETE no action

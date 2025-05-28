@@ -16,6 +16,7 @@ export const queryKeys = {
     eventStatus: (eventId: number) => ['eventStatus', eventId] as const,
     eventStatuses: ['eventStatuses'] as const,
     fencers: (eventId: number) => ['fencers', eventId] as const,
+    teams: (eventId: number) => ['teams', eventId] as const,
     rounds: (eventId: number) => ['rounds', eventId] as const,
     round: (roundId: number) => ['round', roundId] as const,
     roundStarted: (roundId: number) => ['round', roundId, 'started'] as const,
@@ -129,6 +130,18 @@ export function useFencers(event: Event) {
         queryKey: queryKeys.fencers(event?.id),
         queryFn: () => dataProvider.getFencers(event),
         enabled: !!event?.id,
+        staleTime: dataProvider.isRemoteConnection() ? 10000 : 60000,
+    });
+}
+
+/**
+ * Hook to get teams for an event
+ */
+export function useTeams(eventId: number) {
+    return useQuery({
+        queryKey: queryKeys.teams(eventId),
+        queryFn: () => dataProvider.getEventTeams(eventId),
+        enabled: !!eventId,
         staleTime: dataProvider.isRemoteConnection() ? 10000 : 60000,
     });
 }
