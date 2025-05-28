@@ -197,12 +197,12 @@ const TeamDEBracketPage: React.FC = () => {
 
     // Render a match
     const renderMatch = (match: TeamDEBout) => {
-        let teamAName = 'TBD';
+        let teamAName = t('teamDEBracketPage.tbd');
         if (match.teamA) {
             teamAName = `${match.teamA.name}`;
         }
 
-        let teamBName = 'TBD';
+        let teamBName = t('teamDEBracketPage.tbd');
         if (match.teamB) {
             teamBName = `${match.teamB.name}`;
         }
@@ -320,7 +320,7 @@ const TeamDEBracketPage: React.FC = () => {
         <ScrollView style={styles.container}>
             <BLEStatusBar compact={true} />
             <Text style={styles.title}>
-                {event.weapon} {event.gender} {event.age} Team DE
+                {event.weapon} {event.gender} {event.age} {t('teamDEBracketPage.title')}
             </Text>
 
             {bracketData && bracketData.rounds.map(round => renderRound(round))}

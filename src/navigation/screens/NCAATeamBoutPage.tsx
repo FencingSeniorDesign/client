@@ -30,8 +30,8 @@ const NCAATeamBoutPage: React.FC = () => {
     const { teamBoutId, event, isRemote = false } = route.params;
     const [boutStatus, setBoutStatus] = useState<teamBoutUtils.NCAABoutStatus | null>(null);
     const [loading, setLoading] = useState(true);
-    const [teamAName, setTeamAName] = useState('Team A');
-    const [teamBName, setTeamBName] = useState('Team B');
+    const [teamAName, setTeamAName] = useState(t('ncaaTeamBout.teamA'));
+    const [teamBName, setTeamBName] = useState(t('ncaaTeamBout.teamB'));
     const [roundId, setRoundId] = useState<number | null>(null);
 
     // Score input modal state
@@ -157,7 +157,7 @@ const NCAATeamBoutPage: React.FC = () => {
             }
 
             await loadBoutStatus();
-            Alert.alert('Success', 'Random scores assigned to all bouts');
+            Alert.alert(t('common.success'), t('ncaaTeamBout.randomScoresAssigned'));
 
             // Invalidate queries to update bracket display
             if (roundId) {
@@ -167,7 +167,7 @@ const NCAATeamBoutPage: React.FC = () => {
             await queryClient.invalidateQueries({ queryKey: queryKeys.rounds(event.id) });
         } catch (error) {
             console.error('Error assigning random scores:', error);
-            Alert.alert(t('common.error'), 'Failed to assign random scores');
+            Alert.alert(t('common.error'), t('ncaaTeamBout.failedToAssignRandomScores'));
         }
     };
 
@@ -205,7 +205,7 @@ const NCAATeamBoutPage: React.FC = () => {
                         <Text style={styles.teamName}>{teamAName}</Text>
                         <Text style={styles.scoreText}>{teamAScore}</Text>
                     </View>
-                    <Text style={styles.vsText}>vs</Text>
+                    <Text style={styles.vsText}>{t('ncaaTeamBout.vs')}</Text>
                     <View style={[styles.teamScore, winnerId && teamBScore > teamAScore && styles.winningTeam]}>
                         <Text style={styles.teamName}>{teamBName}</Text>
                         <Text style={styles.scoreText}>{teamBScore}</Text>
@@ -352,7 +352,7 @@ const NCAATeamBoutPage: React.FC = () => {
 
             {/* Assign Random Scores Button */}
             <TouchableOpacity style={styles.randomScoresButton} onPress={assignRandomScores}>
-                <Text style={styles.randomScoresButtonText}>Assign Random Scores to All Bouts</Text>
+                <Text style={styles.randomScoresButtonText}>{t('ncaaTeamBout.assignRandomScoresToAllBouts')}</Text>
             </TouchableOpacity>
         </View>
     );

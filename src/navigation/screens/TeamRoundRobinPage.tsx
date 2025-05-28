@@ -309,10 +309,10 @@ const TeamRoundRobinPage: React.FC = () => {
             }
 
             await loadData();
-            Alert.alert('Success', 'Random scores assigned to all bouts');
+            Alert.alert(t('common.success'), t('ncaaTeamBout.randomScoresAssigned'));
         } catch (error) {
             console.error('Error assigning random scores:', error);
-            Alert.alert(t('common.error'), 'Failed to assign random scores');
+            Alert.alert(t('common.error'), t('ncaaTeamBout.failedToAssignRandomScores'));
         }
     };
 
@@ -440,7 +440,7 @@ const TeamRoundRobinPage: React.FC = () => {
 
                 <Text style={styles.formatInfo}>
                     {t('teamBoutOrderPage.format')}:{' '}
-                    {event.team_format === 'NCAA' ? 'NCAA (9 bouts)' : '45-touch Relay'}
+                    {event.team_format === 'NCAA' ? t('teamBoutOrderPage.ncaaFormat') : t('teamBoutOrderPage.relayFormat')}
                 </Text>
 
                 {/* Team List Section */}
@@ -566,7 +566,7 @@ const TeamRoundRobinPage: React.FC = () => {
                     <>
                         {/* Assign Random Scores Button */}
                         <TouchableOpacity style={styles.randomScoresButton} onPress={assignRandomScores}>
-                            <Text style={styles.randomScoresButtonText}>Assign Random Scores to All Bouts</Text>
+                            <Text style={styles.randomScoresButtonText}>{t('assignRandomScoresToAllBouts')}</Text>
                         </TouchableOpacity>
 
                         <Can I="update" a="Round">

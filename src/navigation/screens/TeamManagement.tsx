@@ -180,7 +180,7 @@ export const TeamManagement = ({ route }: Props) => {
 
                         <View style={styles.modalActions}>
                             <TouchableOpacity style={styles.modalButton} onPress={handleCreateTeam}>
-                                <Text style={styles.modalButtonText}>{t('common.create')}</Text>
+                                <Text style={styles.modalButtonText}>{t('teamManagement.create')}</Text>
                             </TouchableOpacity>
                             <TouchableOpacity
                                 style={[styles.modalButton, styles.cancelButton]}

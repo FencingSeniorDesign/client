@@ -23,6 +23,7 @@ import { useTranslation } from 'react-i18next';
 import { BLEStatusBar } from '../../networking/components/BLEStatusBar';
 import { useScoringBoxContext } from '../../networking/ble/ScoringBoxContext';
 import { ConnectionState } from '../../networking/ble/types';
+import AlterScoreModal from '../../components/ui/AlterScoreModal';
 
 type BoutOrderPageRouteProps = RouteProp<RootStackParamList, 'BoutOrderPage'>;
 type BoutOrderPageNavProp = StackNavigationProp<RootStackParamList, 'BoutOrderPage'>;
@@ -54,10 +55,7 @@ const BoutOrderPage: React.FC = () => {
     const [alterScoreA, setAlterScoreA] = useState<string>('0');
     const [alterScoreB, setAlterScoreB] = useState<string>('0');
 
-    // Tie resolution state
-    const [tieModalVisible, setTieModalVisible] = useState<boolean>(false);
-    const [tieBoutIndex, setTieBoutIndex] = useState<number | null>(null);
-    const [selectedWinnerId, setSelectedWinnerId] = useState<number | null>(null);
+    // Tie resolution is now handled by AlterScoreModal
 
     // Toggle for double stripping mode (only used by referees)
     const [doubleStripping, setDoubleStripping] = useState<boolean>(false);
@@ -224,9 +222,11 @@ const BoutOrderPage: React.FC = () => {
 
         // Check for tie and prompt for winner selection if scores are equal
         if (bout.scoreA === bout.scoreB) {
-            setTieBoutIndex(index);
-            setSelectedWinnerId(null); // Reset winner selection
-            setTieModalVisible(true);
+            // Open alter modal which will handle tie resolution
+            setAlterIndex(index);
+            setAlterScoreA(String(bout.scoreA));
+            setAlterScoreB(String(bout.scoreB));
+            setAlterModalVisible(true);
             return;
         }
 
@@ -295,23 +295,7 @@ const BoutOrderPage: React.FC = () => {
         const newScoreA = parseInt(alterScoreA, 10) || 0;
         const newScoreB = parseInt(alterScoreB, 10) || 0;
 
-        // If entering a tie, close the alter modal and show tie resolution modal
-        if (newScoreA === newScoreB) {
-            // Store the entered scores first
-            const updatedBouts = bouts.map((b, i) => {
-                if (i === alterIndex) {
-                    return { ...b, scoreA: newScoreA, scoreB: newScoreB };
-                }
-                return b;
-            });
-            setBouts(updatedBouts);
-
-            setAlterModalVisible(false);
-            setTieBoutIndex(alterIndex);
-            setSelectedWinnerId(null);
-            setTieModalVisible(true);
-            return;
-        }
+        // AlterScoreModal now handles tie resolution internally
 
         // If not a tie, set winner automatically
         const winnerId = newScoreA > newScoreB ? bout.fencerA.id : bout.fencerB.id;
@@ -373,11 +357,12 @@ const BoutOrderPage: React.FC = () => {
                         });
                         setBouts(updatedBouts);
 
-                        // Show tie resolution modal on next render
+                        // Open alter modal which will handle tie resolution
                         setTimeout(() => {
-                            setTieBoutIndex(index);
-                            setSelectedWinnerId(null);
-                            setTieModalVisible(true);
+                            setAlterIndex(index);
+                            setAlterScoreA(String(score1));
+                            setAlterScoreB(String(score2));
+                            setAlterModalVisible(true);
                         }, 500);
                         return;
                     }
@@ -416,53 +401,45 @@ const BoutOrderPage: React.FC = () => {
         });
     };
 
-    // Handle submitting tied bout with selected winner
-    const handleTieWinnerSubmit = async () => {
-        if (!canScoreBouts || tieBoutIndex === null || selectedWinnerId === null) {
-            setTieModalVisible(false);
+    // Handle score submission from AlterScoreModal
+    const handleAlterScoreSubmit = async (scoreA: number, scoreB: number, winnerId?: number) => {
+        if (!canScoreBouts || alterIndex === null) {
+            setAlterModalVisible(false);
             return;
         }
 
-        const bout = bouts[tieBoutIndex];
+        const bout = bouts[alterIndex];
 
         try {
-            console.log(
-                `Submitting tied bout ${bout.id} with scores ${bout.scoreA}-${bout.scoreB}, selected winner: ${selectedWinnerId}`
-            );
-
-            // Ensure winner ID is explicitly cast to a number to avoid type issues
-            const winnerIdAsNumber = Number(selectedWinnerId);
-            console.log(`Winner ID converted to number: ${winnerIdAsNumber}, type: ${typeof winnerIdAsNumber}`);
+            console.log(`Submitting altered scores for bout ${bout.id}: ${scoreA}-${scoreB}, winner: ${winnerId}`);
 
             const result = await updateBoutScoresMutation.mutateAsync({
                 boutId: bout.id,
-                scoreA: bout.scoreA,
-                scoreB: bout.scoreB,
+                scoreA,
+                scoreB,
                 fencerAId: bout.fencerA.id!,
                 fencerBId: bout.fencerB.id!,
                 roundId,
                 poolId,
-                winnerId: winnerIdAsNumber,
+                winnerId,
             });
 
-            console.log(`Tie resolution completed with result:`, result);
+            console.log(`Score update completed with result:`, result);
 
-            // Update local bout state with the winner ID
+            // Update local bout state
             const updatedBouts = bouts.map((b, i) => {
-                if (i === tieBoutIndex) {
-                    console.log(`Updating local bout state for index ${i}, setting winnerId to ${winnerIdAsNumber}`);
-                    return { ...b, winnerId: winnerIdAsNumber, status: 'completed' };
+                if (i === alterIndex) {
+                    return { ...b, scoreA, scoreB, winnerId, status: 'completed' };
                 }
                 return b;
             });
             setBouts(updatedBouts);
 
-            // Close the tie modal
-            setTieModalVisible(false);
-            setTieBoutIndex(null);
-            setSelectedWinnerId(null);
+            // Close the modal
+            setAlterModalVisible(false);
+            setAlterIndex(null);
         } catch (error) {
-            //console.error('Error updating tied bout:', error);
+            console.error('Error updating bout scores:', error);
             // Alert.alert(t('common.error'), t('boutOrderPage.failedToUpdateScores'));
         }
     };
@@ -665,13 +642,13 @@ const BoutOrderPage: React.FC = () => {
                                         style={styles.enterButton}
                                         onPress={() => handleSubmitScores(index)}
                                     >
-                                        <Text style={styles.enterButtonText}>{t('boutOrderPage.enter')}</Text>
+                                        <Text style={styles.enterButtonText}>{t('common.submit')}</Text>
                                     </TouchableOpacity>
                                     <TouchableOpacity
                                         style={styles.refModuleButton}
                                         onPress={() => openRefModuleForBout(index)}
                                     >
-                                        <Text style={styles.refModuleButtonText}>{t('boutOrderPage.refModule')}</Text>
+                                        <Text style={styles.refModuleButtonText}>{t('scoreInput.refereeModule')}</Text>
                                     </TouchableOpacity>
                                 </View>
                             </>
@@ -798,72 +775,25 @@ const BoutOrderPage: React.FC = () => {
             )}
 
             {/* Alter Scores Modal - only used by referees */}
-            <Modal visible={alterModalVisible} transparent animationType="fade">
-                <View style={styles.modalOverlay}>
-                    <View style={styles.alterModalContent}>
-                        <Text style={styles.alterModalTitle}>{t('boutOrderPage.alterBoutScore')}</Text>
-                        {alterIndex !== null && (
-                            <View
-                                style={{
-                                    backgroundColor: '#f0f0f0',
-                                    padding: 10,
-                                    borderRadius: 6,
-                                    marginBottom: 16,
-                                    borderWidth: 1,
-                                    borderColor: navyBlue,
-                                }}
-                            >
-                                <Text
-                                    style={{
-                                        fontSize: 18,
-                                        fontWeight: 'bold',
-                                        textAlign: 'center',
-                                        color: navyBlue,
-                                    }}
-                                >
-                                    {bouts[alterIndex].fencerA.lname} vs {bouts[alterIndex].fencerB.lname}
-                                </Text>
-                            </View>
-                        )}
-                        <View style={styles.scoreRow}>
-                            <Text style={styles.scoreFencerLabel}>
-                                {alterIndex !== null ? bouts[alterIndex].fencerA.lname : t('common.defaultFencerA')}:
-                            </Text>
-                            <TextInput
-                                style={styles.scoreInput}
-                                keyboardType="numeric"
-                                value={alterScoreA}
-                                onChangeText={setAlterScoreA}
-                            />
-                        </View>
-                        <View style={styles.scoreRow}>
-                            <Text style={styles.scoreFencerLabel}>
-                                {alterIndex !== null ? bouts[alterIndex].fencerB.lname : t('common.defaultFencerB')}:
-                            </Text>
-                            <TextInput
-                                style={styles.scoreInput}
-                                keyboardType="numeric"
-                                value={alterScoreB}
-                                onChangeText={setAlterScoreB}
-                            />
-                        </View>
-                        <View style={styles.scoreButtonsRow}>
-                            <TouchableOpacity style={styles.enterButton} onPress={handleAlterSave}>
-                                <Text style={styles.enterButtonText}>{t('boutOrderPage.save')}</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                                style={[styles.enterButton, { backgroundColor: '#666' }]}
-                                onPress={() => setAlterModalVisible(false)}
-                            >
-                                <Text style={styles.enterButtonText}>{t('boutOrderPage.cancel')}</Text>
-                            </TouchableOpacity>
-                        </View>
-                        <TouchableOpacity style={[styles.resetBoutButton]} onPress={handleResetBout}>
-                            <Text style={styles.resetBoutButtonText}>{t('boutOrderPage.resetBout')}</Text>
-                        </TouchableOpacity>
-                    </View>
-                </View>
-            </Modal>
+            <AlterScoreModal
+                visible={alterModalVisible}
+                onClose={() => {
+                    setAlterModalVisible(false);
+                    setAlterIndex(null);
+                }}
+                onSubmit={handleAlterScoreSubmit}
+                onResetBout={handleResetBout}
+                onOpenRefereeModule={() => openRefModuleForBout(alterIndex!)}
+                fencerAName={alterIndex !== null ? bouts[alterIndex]?.fencerA?.lname || t('common.defaultFencerA') : ''}
+                fencerBName={alterIndex !== null ? bouts[alterIndex]?.fencerB?.lname || t('common.defaultFencerB') : ''}
+                fencerAId={alterIndex !== null ? bouts[alterIndex]?.fencerA?.id : undefined}
+                fencerBId={alterIndex !== null ? bouts[alterIndex]?.fencerB?.id : undefined}
+                initialScoreA={parseInt(alterScoreA) || 0}
+                initialScoreB={parseInt(alterScoreB) || 0}
+                title={t('common.enterScores')}
+                showResetButton={true}
+                showRefereeButton={true}
+            />
 
             {/* Loading overlay for mutations */}
             {updateBoutScoresMutation.isPending && (
@@ -875,65 +805,6 @@ const BoutOrderPage: React.FC = () => {
                 </View>
             )}
 
-            {/* Tie Resolution Modal */}
-            <Modal visible={tieModalVisible} transparent animationType="fade">
-                <View style={styles.modalOverlay}>
-                    <View style={styles.alterModalContent}>
-                        <Text style={styles.alterModalTitle}>{t('boutOrderPage.selectWinnerForTiedBout')}</Text>
-                        <Text style={styles.tieWarningText}>{t('boutOrderPage.boutsCannotEndInTie')}</Text>
-
-                        {tieBoutIndex !== null && (
-                            <>
-                                <TouchableOpacity
-                                    style={[
-                                        styles.winnerSelectButton,
-                                        selectedWinnerId === bouts[tieBoutIndex]?.fencerA.id &&
-                                            styles.winnerSelectButtonActive,
-                                    ]}
-                                    onPress={() => setSelectedWinnerId(bouts[tieBoutIndex].fencerA.id)}
-                                >
-                                    <Text style={styles.winnerSelectText}>
-                                        {bouts[tieBoutIndex].fencerA.lname}, {bouts[tieBoutIndex].fencerA.fname}
-                                    </Text>
-                                </TouchableOpacity>
-
-                                <TouchableOpacity
-                                    style={[
-                                        styles.winnerSelectButton,
-                                        selectedWinnerId === bouts[tieBoutIndex]?.fencerB.id &&
-                                            styles.winnerSelectButtonActive,
-                                    ]}
-                                    onPress={() => setSelectedWinnerId(bouts[tieBoutIndex].fencerB.id)}
-                                >
-                                    <Text style={styles.winnerSelectText}>
-                                        {bouts[tieBoutIndex].fencerB.lname}, {bouts[tieBoutIndex].fencerB.fname}
-                                    </Text>
-                                </TouchableOpacity>
-                            </>
-                        )}
-
-                        <View style={styles.scoreButtonsRow}>
-                            <TouchableOpacity
-                                style={[styles.enterButton, !selectedWinnerId && { opacity: 0.5 }]}
-                                onPress={handleTieWinnerSubmit}
-                                disabled={!selectedWinnerId}
-                            >
-                                <Text style={styles.enterButtonText}>{t('boutOrderPage.submit')}</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                                style={[styles.enterButton, { backgroundColor: '#666' }]}
-                                onPress={() => {
-                                    setTieModalVisible(false);
-                                    setTieBoutIndex(null);
-                                    setSelectedWinnerId(null);
-                                }}
-                            >
-                                <Text style={styles.enterButtonText}>{t('boutOrderPage.cancel')}</Text>
-                            </TouchableOpacity>
-                        </View>
-                    </View>
-                </View>
-            </Modal>
         </View>
     );
 };
@@ -941,7 +812,9 @@ const BoutOrderPage: React.FC = () => {
 export default BoutOrderPage;
 
 /** ------------ Styles ------------ */
-const navyBlue = '#000080';
+const navyBlue = '#001f3f'; // Match ScoreInputModal primary color
+const refereeBlue = '#007acc'; // Match ScoreInputModal referee button color
+const cancelGrey = '#666'; // Match ScoreInputModal cancel button color
 const darkGrey = '#4f4f4f';
 const mediumGrey = '#888888';
 const green = '#4CAF50';
@@ -1080,7 +953,7 @@ const styles = StyleSheet.create({
         fontSize: 16,
     },
     refModuleButton: {
-        backgroundColor: navyBlue,
+        backgroundColor: refereeBlue,
         paddingVertical: 8,
         paddingHorizontal: 16,
         borderRadius: 6,
@@ -1184,31 +1057,6 @@ const styles = StyleSheet.create({
         textAlign: 'center',
         fontStyle: 'italic',
         color: darkGrey,
-    },
-    // New styles for tie resolution
-    tieWarningText: {
-        fontSize: 16,
-        marginVertical: 10,
-        textAlign: 'center',
-        color: red,
-    },
-    winnerSelectButton: {
-        backgroundColor: '#f0f0f0',
-        padding: 16,
-        borderRadius: 6,
-        marginVertical: 8,
-        borderWidth: 1,
-        borderColor: '#ccc',
-    },
-    winnerSelectButtonActive: {
-        backgroundColor: '#d0f0d0',
-        borderColor: green,
-        borderWidth: 2,
-    },
-    winnerSelectText: {
-        fontSize: 16,
-        fontWeight: '500',
-        textAlign: 'center',
     },
     resetBoutButton: {
         backgroundColor: red,

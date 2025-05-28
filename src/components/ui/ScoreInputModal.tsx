@@ -246,6 +246,8 @@ const styles = StyleSheet.create({
         paddingHorizontal: 16,
         borderRadius: 6,
         flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     submitButtonText: {
         color: '#fff',
@@ -259,6 +261,8 @@ const styles = StyleSheet.create({
         paddingHorizontal: 16,
         borderRadius: 6,
         flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     refereeButtonText: {
         color: '#fff',
@@ -272,6 +276,8 @@ const styles = StyleSheet.create({
         paddingHorizontal: 16,
         borderRadius: 6,
         flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     cancelButtonText: {
         color: '#fff',
@@ -300,6 +306,8 @@ const styles = StyleSheet.create({
         marginBottom: 8,
         borderWidth: 1,
         borderColor: '#ccc',
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     winnerSelectButtonActive: {
         backgroundColor: '#001f3f',

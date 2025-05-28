@@ -55,7 +55,7 @@ const LegScoreInput: React.FC<LegScoreInputProps> = ({
 
         // Validate individual scores are non-negative
         if (numericScoreA < 0 || numericScoreB < 0) {
-            Alert.alert(t('common.error'), 'Scores cannot be negative');
+            Alert.alert(t('common.error'), t('relayTeamBout.scoresCannotBeNegative'));
             return;
         }
 
@@ -71,7 +71,7 @@ const LegScoreInput: React.FC<LegScoreInputProps> = ({
             const maxScoreA = legTargetScore - currentTeamAScore;
             Alert.alert(
                 t('common.error'),
-                `Team A score cannot exceed ${legTargetScore} for leg ${legNumber}. Maximum additional score: ${maxScoreA}`
+                t('relayTeamBout.teamScoreExceedsLimit', { team: 'A', limit: legTargetScore, leg: legNumber, max: maxScoreA })
             );
             return;
         }
@@ -80,7 +80,7 @@ const LegScoreInput: React.FC<LegScoreInputProps> = ({
             const maxScoreB = legTargetScore - currentTeamBScore;
             Alert.alert(
                 t('common.error'),
-                `Team B score cannot exceed ${legTargetScore} for leg ${legNumber}. Maximum additional score: ${maxScoreB}`
+                t('relayTeamBout.teamScoreExceedsLimit', { team: 'B', limit: legTargetScore, leg: legNumber, max: maxScoreB })
             );
             return;
         }
@@ -90,7 +90,7 @@ const LegScoreInput: React.FC<LegScoreInputProps> = ({
 
     return (
         <View style={styles.legScoreInputContainer}>
-            <Text style={styles.legScoreInputLabel}>Enter scores for this leg:</Text>
+            <Text style={styles.legScoreInputLabel}>{t('relayTeamBout.enterScoresForThisLeg')}</Text>
 
             <View style={styles.fencerScoreRow}>
                 <View style={styles.fencerScoreSection}>
@@ -106,7 +106,7 @@ const LegScoreInput: React.FC<LegScoreInputProps> = ({
                     />
                 </View>
 
-                <Text style={styles.scoreSeparator}>-</Text>
+                <Text style={styles.scoreSeparator}>{t('relayTeamBout.scoreSeparator')}</Text>
 
                 <View style={styles.fencerScoreSection}>
                     <Text style={styles.fencerScoreLabel}>{fencerBName}</Text>
@@ -124,10 +124,10 @@ const LegScoreInput: React.FC<LegScoreInputProps> = ({
 
             <View style={styles.legScoreButtonsRow}>
                 <TouchableOpacity style={styles.legScoreCancelButton} onPress={onCancel}>
-                    <Text style={styles.legScoreCancelButtonText}>Cancel</Text>
+                    <Text style={styles.legScoreCancelButtonText}>{t('common.cancel')}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.legScoreSubmitButton} onPress={handleSubmit}>
-                    <Text style={styles.legScoreSubmitButtonText}>Submit</Text>
+                    <Text style={styles.legScoreSubmitButtonText}>{t('common.submit')}</Text>
                 </TouchableOpacity>
             </View>
         </View>
@@ -226,7 +226,7 @@ const RelayTeamBoutPage: React.FC = () => {
             }
         } catch (error) {
             console.error('Error loading bout status:', error);
-            Alert.alert(t('common.error'), 'Error loading relay bout status');
+            Alert.alert(t('common.error'), t('relayTeamBout.errorLoadingBoutStatus'));
         } finally {
             setLoading(false);
         }
@@ -243,7 +243,7 @@ const RelayTeamBoutPage: React.FC = () => {
             setShowSubstitutionModal(false);
         } catch (error) {
             console.error('Error with substitution:', error);
-            Alert.alert(t('common.error'), 'Error with substitution');
+            Alert.alert(t('common.error'), t('relayTeamBout.errorWithSubstitution'));
         }
     };
 
@@ -303,7 +303,7 @@ const RelayTeamBoutPage: React.FC = () => {
                 const selectedLeg = legs[selectedLegIndex];
 
                 if (!selectedLeg) {
-                    Alert.alert(t('common.error'), 'Selected leg not found');
+                    Alert.alert(t('common.error'), t('relayTeamBout.selectedLegNotFound'));
                     return;
                 }
 
@@ -324,7 +324,7 @@ const RelayTeamBoutPage: React.FC = () => {
             setSelectedLegIndex(null);
         } catch (error) {
             console.error('Error updating leg score:', error);
-            Alert.alert(t('common.error'), 'Error updating leg score');
+            Alert.alert(t('common.error'), t('relayTeamBout.errorUpdatingLegScore'));
         }
     };
 
@@ -350,7 +350,7 @@ const RelayTeamBoutPage: React.FC = () => {
 
                     // Validate the leg score
                     if (combinedLegScore > 5) {
-                        Alert.alert(t('common.error'), 'Invalid leg score. Maximum 5 combined touches per leg.');
+                        Alert.alert(t('common.error'), t('relayTeamBout.invalidLegScore'));
                         return;
                     }
 
@@ -359,7 +359,7 @@ const RelayTeamBoutPage: React.FC = () => {
                     await loadBoutStatus();
                 } catch (error) {
                     console.error('Error saving scores from referee module:', error);
-                    Alert.alert(t('common.error'), 'Error saving scores from referee module');
+                    Alert.alert(t('common.error'), t('relayTeamBout.errorSavingScores'));
                 }
             },
         });
@@ -375,7 +375,7 @@ const RelayTeamBoutPage: React.FC = () => {
         const selectedLeg = legs[legIndex];
 
         if (!selectedLeg) {
-            Alert.alert(t('common.error'), 'Selected leg not found');
+            Alert.alert(t('common.error'), t('relayTeamBout.selectedLegNotFound'));
             return;
         }
 
@@ -392,7 +392,7 @@ const RelayTeamBoutPage: React.FC = () => {
                 try {
                     const combinedLegScore = score1 + score2;
                     if (combinedLegScore > 5) {
-                        Alert.alert(t('common.error'), 'Invalid leg score. Maximum 5 combined touches per leg.');
+                        Alert.alert(t('common.error'), t('relayTeamBout.invalidLegScore'));
                         return;
                     }
 
@@ -408,7 +408,7 @@ const RelayTeamBoutPage: React.FC = () => {
                     await loadBoutStatus();
                 } catch (error) {
                     console.error('Error saving leg score from referee module:', error);
-                    Alert.alert(t('common.error'), 'Error saving leg score from referee module');
+                    Alert.alert(t('common.error'), t('relayTeamBout.errorSavingLegScore'));
                 }
             },
         });
@@ -426,9 +426,9 @@ const RelayTeamBoutPage: React.FC = () => {
     if (!boutStatus || !teamA || !teamB) {
         return (
             <View style={[styles.container, styles.centered]}>
-                <Text style={styles.errorText}>Error loading bout data</Text>
+                <Text style={styles.errorText}>{t('relayTeamBout.errorLoadingBoutData')}</Text>
                 <TouchableOpacity style={styles.retryButton} onPress={loadBoutStatus}>
-                    <Text style={styles.retryButtonText}>Retry</Text>
+                    <Text style={styles.retryButtonText}>{t('relayTeamBout.retry')}</Text>
                 </TouchableOpacity>
             </View>
         );
@@ -448,11 +448,11 @@ const RelayTeamBoutPage: React.FC = () => {
                             <Text style={styles.teamName}>{teamA.name}</Text>
                             <Text style={styles.scoreText}>{localScoreA}</Text>
                             <Text style={styles.scoreSubtext}>/ 45</Text>
-                            {boutStatus.winnerId === teamA.id && <Text style={styles.winnerBadge}>WINNER</Text>}
+                            {boutStatus.winnerId === teamA.id && <Text style={styles.winnerBadge}>{t('relayTeamBout.winner')}</Text>}
                         </View>
 
                         <View style={styles.vsSection}>
-                            <Text style={styles.vsText}>VS</Text>
+                            <Text style={styles.vsText}>{t('relayTeamBout.vs')}</Text>
                             <View style={styles.progressBarContainer}>
                                 <View style={[styles.progressBar, { width: `${progress * 100}%` }]} />
                             </View>
@@ -462,7 +462,7 @@ const RelayTeamBoutPage: React.FC = () => {
                             <Text style={styles.teamName}>{teamB.name}</Text>
                             <Text style={styles.scoreText}>{localScoreB}</Text>
                             <Text style={styles.scoreSubtext}>/ 45</Text>
-                            {boutStatus.winnerId === teamB.id && <Text style={styles.winnerBadge}>WINNER</Text>}
+                            {boutStatus.winnerId === teamB.id && <Text style={styles.winnerBadge}>{t('relayTeamBout.winner')}</Text>}
                         </View>
                     </View>
                 </View>
@@ -491,8 +491,8 @@ const RelayTeamBoutPage: React.FC = () => {
                                     setLegScoreModalVisible(true);
                                 }}
                             >
-                                <Text style={styles.legScoreButtonText}>Enter Fencer Scores</Text>
-                                <Text style={styles.legScoreButtonSubtext}>Manual Input</Text>
+                                <Text style={styles.legScoreButtonText}>{t('relayTeamBout.enterFencerScores')}</Text>
+                                <Text style={styles.legScoreButtonSubtext}>{t('relayTeamBout.manualInput')}</Text>
                             </TouchableOpacity>
 
                             <TouchableOpacity
@@ -500,8 +500,8 @@ const RelayTeamBoutPage: React.FC = () => {
                                 onPress={openRefereeModule}
                                 disabled={boutStatus.isComplete}
                             >
-                                <Text style={styles.refereeModuleText}>Referee Module</Text>
-                                <Text style={styles.refereeModuleSubtext}>Current Leg</Text>
+                                <Text style={styles.refereeModuleText}>{t('relayTeamBout.refereeModule')}</Text>
+                                <Text style={styles.refereeModuleSubtext}>{t('relayTeamBout.currentLeg')}</Text>
                             </TouchableOpacity>
                         </View>
                     </View>
@@ -510,18 +510,18 @@ const RelayTeamBoutPage: React.FC = () => {
                 {/* Score Control Panel */}
                 {!boutStatus.isComplete && (
                     <View style={styles.scoreControlSection}>
-                        <Text style={styles.sectionTitle}>Leg Control</Text>
+                        <Text style={styles.sectionTitle}>{t('relayTeamBout.legControl')}</Text>
 
                         <View style={styles.controlActionsRow}>
                             <TouchableOpacity
                                 style={styles.secondaryButton}
                                 onPress={() => setShowLegHistoryModal(true)}
                             >
-                                <Text style={styles.secondaryButtonText}>Leg History</Text>
+                                <Text style={styles.secondaryButtonText}>{t('relayTeamBout.legHistory')}</Text>
                             </TouchableOpacity>
 
                             <TouchableOpacity style={styles.secondaryButton} onPress={() => setShowRostersModal(true)}>
-                                <Text style={styles.secondaryButtonText}>View Rosters</Text>
+                                <Text style={styles.secondaryButtonText}>{t('relayTeamBout.viewRosters')}</Text>
                             </TouchableOpacity>
                         </View>
                     </View>
@@ -529,7 +529,7 @@ const RelayTeamBoutPage: React.FC = () => {
 
                 {/* Bout Management Actions */}
                 <View style={styles.managementSection}>
-                    <Text style={styles.sectionTitle}>Bout Management</Text>
+                    <Text style={styles.sectionTitle}>{t('relayTeamBout.boutManagement')}</Text>
 
                     <View style={styles.managementActionsRow}>
                         <TouchableOpacity
@@ -539,7 +539,7 @@ const RelayTeamBoutPage: React.FC = () => {
                                 setShowSubstitutionModal(true);
                             }}
                         >
-                            <Text style={styles.actionButtonText}>Sub {teamA.name}</Text>
+                            <Text style={styles.actionButtonText}>{t('relayTeamBout.sub', { team: teamA.name })}</Text>
                         </TouchableOpacity>
 
                         <TouchableOpacity
@@ -549,15 +549,15 @@ const RelayTeamBoutPage: React.FC = () => {
                                 setShowSubstitutionModal(true);
                             }}
                         >
-                            <Text style={styles.actionButtonText}>Sub {teamB.name}</Text>
+                            <Text style={styles.actionButtonText}>{t('relayTeamBout.sub', { team: teamB.name })}</Text>
                         </TouchableOpacity>
                     </View>
 
                     {boutStatus.isComplete && (
                         <View style={styles.completedSection}>
-                            <Text style={styles.completedText}>Bout Complete</Text>
+                            <Text style={styles.completedText}>{t('relayTeamBout.boutComplete')}</Text>
                             <Text style={styles.finalScoreText}>
-                                Final Score: {boutStatus.teamAScore} - {boutStatus.teamBScore}
+                                {t('relayTeamBout.finalScore', { scoreA: boutStatus.teamAScore, scoreB: boutStatus.teamBScore })}
                             </Text>
                         </View>
                     )}
@@ -573,11 +573,11 @@ const RelayTeamBoutPage: React.FC = () => {
             >
                 <View style={styles.modalOverlay}>
                     <View style={styles.modalContent}>
-                        <Text style={styles.modalTitle}>Enter Leg Score</Text>
+                        <Text style={styles.modalTitle}>{t('relayTeamBout.enterLegScore')}</Text>
                         <Text style={styles.modalSubtitle}>
                             {selectedLegIndex !== null && getLegHistory()[selectedLegIndex]
-                                ? `Leg ${getLegHistory()[selectedLegIndex].legNumber} - Individual fencer scores`
-                                : 'Current Leg - Individual fencer scores'}
+                                ? t('relayTeamBout.legNumberDescription', { number: getLegHistory()[selectedLegIndex].legNumber })
+                                : t('relayTeamBout.currentLegDescription')}
                         </Text>
 
                         <LegScoreInput
@@ -627,7 +627,7 @@ const RelayTeamBoutPage: React.FC = () => {
             >
                 <View style={styles.modalOverlay}>
                     <View style={styles.modalContent}>
-                        <Text style={styles.modalTitle}>Team Rosters</Text>
+                        <Text style={styles.modalTitle}>{t('relayTeamBout.teamRosters')}</Text>
 
                         <View style={styles.rostersContainer}>
                             <View style={styles.rosterSection}>
@@ -643,7 +643,7 @@ const RelayTeamBoutPage: React.FC = () => {
                                         <Text style={styles.rosterFencerName}>
                                             {index + 1}. {fencer.fname} {fencer.lname}
                                         </Text>
-                                        <Text style={styles.rosterFencerTouches}>{fencer.touchesScored} touches</Text>
+                                        <Text style={styles.rosterFencerTouches}>{t('relayTeamBout.touches', { touches: fencer.touchesScored })}</Text>
                                     </View>
                                 ))}
                             </View>
@@ -661,14 +661,14 @@ const RelayTeamBoutPage: React.FC = () => {
                                         <Text style={styles.rosterFencerName}>
                                             {index + 1}. {fencer.fname} {fencer.lname}
                                         </Text>
-                                        <Text style={styles.rosterFencerTouches}>{fencer.touchesScored} touches</Text>
+                                        <Text style={styles.rosterFencerTouches}>{t('relayTeamBout.touches', { touches: fencer.touchesScored })}</Text>
                                     </View>
                                 ))}
                             </View>
                         </View>
 
                         <TouchableOpacity style={styles.modalCloseButton} onPress={() => setShowRostersModal(false)}>
-                            <Text style={styles.modalCloseButtonText}>Close</Text>
+                            <Text style={styles.modalCloseButtonText}>{t('relayTeamBout.close')}</Text>
                         </TouchableOpacity>
                     </View>
                 </View>
@@ -683,7 +683,7 @@ const RelayTeamBoutPage: React.FC = () => {
             >
                 <View style={styles.modalOverlay}>
                     <View style={styles.modalContent}>
-                        <Text style={styles.modalTitle}>Select Substitute</Text>
+                        <Text style={styles.modalTitle}>{t('relayTeamBout.selectSubstitute')}</Text>
 
                         {substitutionTeamId && (
                             <View style={styles.substitutionContainer}>
@@ -705,7 +705,7 @@ const RelayTeamBoutPage: React.FC = () => {
                             style={styles.modalCloseButton}
                             onPress={() => setShowSubstitutionModal(false)}
                         >
-                            <Text style={styles.modalCloseButtonText}>Cancel</Text>
+                            <Text style={styles.modalCloseButtonText}>{t('relayTeamBout.cancel')}</Text>
                         </TouchableOpacity>
                     </View>
                 </View>
@@ -720,7 +720,7 @@ const RelayTeamBoutPage: React.FC = () => {
             >
                 <View style={styles.modalOverlay}>
                     <View style={styles.modalContent}>
-                        <Text style={styles.modalTitle}>Leg History</Text>
+                        <Text style={styles.modalTitle}>{t('relayTeamBout.legHistory')}</Text>
 
                         <ScrollView style={styles.legHistoryContainer}>
                             {getLegHistory().map((leg, index) => (
@@ -733,16 +733,16 @@ const RelayTeamBoutPage: React.FC = () => {
                                         if (leg.isComplete) {
                                             // For completed legs, offer options: manual edit or referee module
                                             Alert.alert(
-                                                'Edit Leg',
-                                                `How would you like to edit Leg ${leg.legNumber}?`,
+                                                t('relayTeamBout.editLeg'),
+                                                t('relayTeamBout.editLegPrompt', { number: leg.legNumber }),
                                                 [
-                                                    { text: 'Cancel', style: 'cancel' },
+                                                    { text: t('common.cancel'), style: 'cancel' },
                                                     {
-                                                        text: 'Manual Entry',
+                                                        text: t('relayTeamBout.manualEntry'),
                                                         onPress: () => setLegScoreModalVisible(true),
                                                     },
                                                     {
-                                                        text: 'Referee Module',
+                                                        text: t('relayTeamBout.refereeModule'),
                                                         onPress: () => openRefereeModuleForLeg(index, leg),
                                                     },
                                                 ]
@@ -758,8 +758,8 @@ const RelayTeamBoutPage: React.FC = () => {
                                         <Text style={styles.legHistoryNumber}>Leg {leg.legNumber}</Text>
                                         <Text style={styles.legHistoryScore}>
                                             {leg.isComplete
-                                                ? `${leg.scoreA}-${leg.scoreB} (${leg.combinedScore} total)`
-                                                : 'Current leg'}
+                                                ? t('relayTeamBout.totalScore', { scoreA: leg.scoreA, scoreB: leg.scoreB, total: leg.combinedScore })
+                                                : t('relayTeamBout.currentLegStatus')}
                                         </Text>
                                         {leg.isComplete && (
                                             <Text style={styles.legHistoryFencers}>
@@ -769,13 +769,13 @@ const RelayTeamBoutPage: React.FC = () => {
                                     </View>
                                     <View style={styles.legHistoryStatus}>
                                         {leg.isComplete ? (
-                                            <Text style={styles.legCompleteText}>Complete</Text>
+                                            <Text style={styles.legCompleteText}>{t('relayTeamBout.complete')}</Text>
                                         ) : (
-                                            <Text style={styles.legInProgressText}>In Progress</Text>
+                                            <Text style={styles.legInProgressText}>{t('relayTeamBout.inProgress')}</Text>
                                         )}
                                         {leg.canEdit && (
                                             <Text style={styles.legEditableText}>
-                                                {leg.isComplete ? 'Tap for edit options' : 'Tap to edit'}
+                                                {leg.isComplete ? t('relayTeamBout.tapForEditOptions') : t('relayTeamBout.tapToEdit')}
                                             </Text>
                                         )}
                                     </View>
@@ -784,7 +784,7 @@ const RelayTeamBoutPage: React.FC = () => {
                         </ScrollView>
 
                         <TouchableOpacity style={styles.modalCloseButton} onPress={() => setShowLegHistoryModal(false)}>
-                            <Text style={styles.modalCloseButtonText}>Close</Text>
+                            <Text style={styles.modalCloseButtonText}>{t('relayTeamBout.close')}</Text>
                         </TouchableOpacity>
                     </View>
                 </View>

@@ -8,6 +8,7 @@ import { useTranslation } from 'react-i18next';
 import { BLEStatusBar } from '../../networking/components/BLEStatusBar';
 import { useScoringBoxContext } from '../../networking/ble/ScoringBoxContext';
 import { ConnectionState } from '../../networking/ble/types';
+import AlterScoreModal from '../../components/ui/AlterScoreModal';
 import {
     dbGetDEBouts,
     dbGetRoundsForEvent,
@@ -65,6 +66,10 @@ const DEBracketPage: React.FC = () => {
     const [isRoundComplete, setIsRoundComplete] = useState<boolean>(false); // Add this state
     const [isFinalRound, setIsFinalRound] = useState<boolean>(false); // Add this state
     const [isRandomizing, setIsRandomizing] = useState<boolean>(false); // For Random Score button
+    
+    // Score modal state
+    const [scoreModalVisible, setScoreModalVisible] = useState<boolean>(false);
+    const [selectedBout, setSelectedBout] = useState<DEBout | null>(null);
 
     // Check if we should prevent navigation
     const shouldPreventNavigation = connectionState === ConnectionState.CONNECTED;
@@ -259,63 +264,97 @@ const DEBracketPage: React.FC = () => {
             const fencer2Name =
                 `${bout.fencerB.fname || ''} ${bout.fencerB.lname || ''}`.trim() || t('common.defaultFencerB');
 
-            // Navigate to Referee Module
-            navigation.navigate('RefereeModule', {
-                boutIndex: bout.boutIndex,
-                fencer1Name: fencer1Name,
-                fencer2Name: fencer2Name,
-                currentScore1: bout.scoreA || 0,
-                currentScore2: bout.scoreB || 0,
-                weapon: event.weapon,
-                onSaveScores: async (score1: number, score2: number) => {
-                    try {
-                        // Update bout scores and advance winner
-                        await dbUpdateDEBoutAndAdvanceWinner(bout.id, score1, score2, bout.fencerA.id, bout.fencerB.id);
-
-                        // Refresh to show updated scores and advancement
-                        setRefreshKey(prev => prev + 1);
-
-                        // Check if connected to scoring box and show disconnect prompt
-                        if (connectionState === ConnectionState.CONNECTED) {
-                            Alert.alert(
-                                t('common.disconnectBoxPromptTitle'),
-                                t('common.disconnectBoxPromptMessage'),
-                                [
-                                    {
-                                        text: t('common.cancel'),
-                                        style: 'cancel',
-                                    },
-                                    {
-                                        text: t('common.exitWithoutDisconnecting'),
-                                        onPress: () => {
-                                            // Just close the alert - already saved scores
-                                        },
-                                    },
-                                    {
-                                        text: t('common.disconnectAndExit'),
-                                        onPress: async () => {
-                                            try {
-                                                await disconnect();
-                                            } catch (error) {
-                                                console.error('Failed to disconnect:', error);
-                                            }
-                                        },
-                                        style: 'destructive',
-                                    },
-                                ],
-                                { cancelable: true }
-                            );
-                        }
-                    } catch (error) {
-                        console.error('Error updating bout scores:', error);
-                        Alert.alert(t('common.error'), t('deBracketPage.failedToSaveScores'));
-                    }
-                },
-            });
+            // Open score entry modal directly
+            setSelectedBout(bout);
+            setScoreModalVisible(true);
         } catch (error) {
             console.error('Error in handleBoutPress:', error);
             Alert.alert(t('common.error'), t('deBracketPage.unexpectedBoutError'));
         }
+    };
+
+    const handleScoreSubmit = async (scoreA: number, scoreB: number, winnerId?: number) => {
+        if (!selectedBout) return;
+
+        try {
+            // Update bout scores and advance winner
+            await dbUpdateDEBoutAndAdvanceWinner(selectedBout.id, scoreA, scoreB, selectedBout.fencerA!.id, selectedBout.fencerB!.id);
+
+            // Refresh to show updated scores and advancement
+            setRefreshKey(prev => prev + 1);
+
+            // Close modal
+            setScoreModalVisible(false);
+            setSelectedBout(null);
+        } catch (error) {
+            console.error('Error updating bout scores:', error);
+            Alert.alert(t('common.error'), t('deBracketPage.failedToSaveScores'));
+        }
+    };
+
+    const handleOpenRefereeModule = () => {
+        if (!selectedBout) return;
+
+        const fencer1Name = `${selectedBout.fencerA?.fname || ''} ${selectedBout.fencerA?.lname || ''}`.trim() || t('common.defaultFencerA');
+        const fencer2Name = `${selectedBout.fencerB?.fname || ''} ${selectedBout.fencerB?.lname || ''}`.trim() || t('common.defaultFencerB');
+
+        setScoreModalVisible(false);
+        
+        navigation.navigate('RefereeModule', {
+            boutIndex: selectedBout.boutIndex,
+            fencer1Name: fencer1Name,
+            fencer2Name: fencer2Name,
+            currentScore1: selectedBout.scoreA || 0,
+            currentScore2: selectedBout.scoreB || 0,
+            weapon: event.weapon,
+            onSaveScores: async (score1: number, score2: number) => {
+                try {
+                    // Update bout scores and advance winner
+                    await dbUpdateDEBoutAndAdvanceWinner(selectedBout.id, score1, score2, selectedBout.fencerA!.id, selectedBout.fencerB!.id);
+
+                    // Refresh to show updated scores and advancement
+                    setRefreshKey(prev => prev + 1);
+
+                    // Reset selected bout
+                    setSelectedBout(null);
+
+                    // Check if connected to scoring box and show disconnect prompt
+                    if (connectionState === ConnectionState.CONNECTED) {
+                        Alert.alert(
+                            t('common.disconnectBoxPromptTitle'),
+                            t('common.disconnectBoxPromptMessage'),
+                            [
+                                {
+                                    text: t('common.cancel'),
+                                    style: 'cancel',
+                                },
+                                {
+                                    text: t('common.exitWithoutDisconnecting'),
+                                    onPress: () => {
+                                        // Just close the alert - already saved scores
+                                    },
+                                },
+                                {
+                                    text: t('common.disconnectAndExit'),
+                                    onPress: async () => {
+                                        try {
+                                            await disconnect();
+                                        } catch (error) {
+                                            console.error('Failed to disconnect:', error);
+                                        }
+                                    },
+                                    style: 'destructive',
+                                },
+                            ],
+                            { cancelable: true }
+                        );
+                    }
+                } catch (error) {
+                    console.error('Error updating bout scores:', error);
+                    Alert.alert(t('common.error'), t('deBracketPage.failedToSaveScores'));
+                }
+            },
+        });
     };
 
     const handleViewResults = () => {
@@ -591,6 +630,26 @@ const DEBracketPage: React.FC = () => {
                     </View>
                 </View>
             ))}
+
+            {/* Score Input Modal */}
+            <AlterScoreModal
+                visible={scoreModalVisible}
+                onClose={() => {
+                    setScoreModalVisible(false);
+                    setSelectedBout(null);
+                }}
+                onSubmit={handleScoreSubmit}
+                onOpenRefereeModule={handleOpenRefereeModule}
+                fencerAName={selectedBout?.fencerA ? `${selectedBout.fencerA.lname}, ${selectedBout.fencerA.fname}` : ''}
+                fencerBName={selectedBout?.fencerB ? `${selectedBout.fencerB.lname}, ${selectedBout.fencerB.fname}` : ''}
+                fencerAId={selectedBout?.fencerA?.id}
+                fencerBId={selectedBout?.fencerB?.id}
+                initialScoreA={selectedBout?.scoreA || 0}
+                initialScoreB={selectedBout?.scoreB || 0}
+                title={t('deBracketPage.enterScores')}
+                showResetButton={false}
+                showRefereeButton={true}
+            />
         </ScrollView>
     );
 };
