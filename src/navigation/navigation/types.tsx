@@ -198,12 +198,6 @@ export type RootStackParamList = {
         roundId: number;
         isRemote?: boolean;
     };
-    TeamBoutOrderPage: {
-        roundId: number;
-        poolId: number;
-        event: Event;
-        isRemote?: boolean;
-    };
     NCAATeamBoutPage: {
         teamBoutId: number;
         event: Event;

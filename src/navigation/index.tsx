@@ -15,7 +15,6 @@ import ManageOfficials from './screens/ManageOfficials';
 import TournamentResultsPage from './screens/TournamentResultsPage'; // Add this import
 import TeamManagement from './screens/TeamManagement';
 import TeamRoundRobinPage from './screens/TeamRoundRobinPage';
-import TeamBoutOrderPage from './screens/TeamBoutOrderPage';
 import NCAATeamBoutPage from './screens/NCAATeamBoutPage';
 import RelayTeamBoutPage from './screens/RelayTeamBoutPage';
 import TeamDEBracketPage from './screens/TeamDEBracketPage';
@@ -108,12 +107,6 @@ const RootStack = createNativeStackNavigator({
             screen: TeamRoundRobinPage,
             options: () => ({
                 title: i18n.t('poolsPage.title'),
-            }),
-        },
-        TeamBoutOrderPage: {
-            screen: TeamBoutOrderPage,
-            options: () => ({
-                title: i18n.t('teamBoutOrderPage.teamBouts'),
             }),
         },
         NCAATeamBoutPage: {

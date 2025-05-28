@@ -173,15 +173,20 @@ const TeamDEBracketPage: React.FC = () => {
             return;
         }
 
-        // Navigate to team bout order page
-        navigation.navigate('TeamBoutOrderPage' as any, {
-            roundId,
-            poolId: 0, // DE doesn't use pools
-            event,
-            isRemote,
-            teamBoutId: match.id,
-            isDE: true,
-        });
+        // Navigate directly to the appropriate team bout page
+        if (event.team_format === 'NCAA') {
+            navigation.navigate('NCAATeamBoutPage' as any, {
+                teamBoutId: match.id,
+                event,
+                isRemote,
+            });
+        } else {
+            navigation.navigate('RelayTeamBoutPage' as any, {
+                teamBoutId: match.id,
+                event,
+                isRemote,
+            });
+        }
     };
 
     // Handle navigation to round results

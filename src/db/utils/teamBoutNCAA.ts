@@ -167,7 +167,8 @@ export async function updateNCAABoutScore(
     teamBoutId: number,
     boutNumber: number,
     fencerAScore: number,
-    fencerBScore: number
+    fencerBScore: number,
+    manualWinnerId?: number
 ): Promise<void> {
     await client.transaction(async (tx) => {
         // Get the bout score record
@@ -184,10 +185,20 @@ export async function updateNCAABoutScore(
         
         // Check if bout should be complete
         // A bout is complete if either fencer reaches 5 touches OR if scores are different (indicating a time/cards decision)
+        // OR if a manual winner is provided (for tie-breaking)
         const isComplete = (fencerAScore >= NCAA_TOUCHES_PER_BOUT || fencerBScore >= NCAA_TOUCHES_PER_BOUT) || 
-                          (fencerAScore !== fencerBScore && (fencerAScore > 0 || fencerBScore > 0));
-        const winnerId = fencerAScore > fencerBScore ? boutScore.fencer_a_id : 
-                        fencerBScore > fencerAScore ? boutScore.fencer_b_id : null;
+                          (fencerAScore !== fencerBScore && (fencerAScore > 0 || fencerBScore > 0)) ||
+                          (manualWinnerId !== undefined);
+        
+        // Determine winner: use manual winner if provided, otherwise base on scores
+        let winnerId: number | null = null;
+        if (manualWinnerId !== undefined) {
+            winnerId = manualWinnerId;
+        } else if (fencerAScore > fencerBScore) {
+            winnerId = boutScore.fencer_a_id;
+        } else if (fencerBScore > fencerAScore) {
+            winnerId = boutScore.fencer_b_id;
+        }
         
         // Update the individual bout score
         await tx.update(teamBoutScores)

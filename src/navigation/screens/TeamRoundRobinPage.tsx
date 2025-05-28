@@ -10,6 +10,7 @@ import {
     Modal,
     TextInput,
     ActivityIndicator,
+    RefreshControl,
 } from 'react-native';
 import { useRoute, RouteProp, useNavigation, useFocusEffect } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -22,8 +23,11 @@ import { BLEStatusBar } from '../../networking/components/BLEStatusBar';
 import { db } from '../../db/DrizzleClient';
 import * as teamPoolUtils from '../../db/utils/teamPool';
 import * as teamUtils from '../../db/utils/team';
+import * as teamBoutUtils from '../../db/utils/teamBoutNCAA';
+import * as relayBoutUtils from '../../db/utils/teamBoutRelay';
 import * as schema from '../../db/schema';
 import { eq } from 'drizzle-orm';
+import { Ionicons } from '@expo/vector-icons';
 
 type TeamRoundRobinPageRouteParams = {
     event: Event;
@@ -32,7 +36,17 @@ type TeamRoundRobinPageRouteParams = {
     isRemote?: boolean;
 };
 
-type TeamRoundRobinPageNavProp = NativeStackNavigationProp<RootStackParamList, 'PoolsPage'>;
+type TeamRoundRobinPageNavProp = NativeStackNavigationProp<RootStackParamList, 'TeamRoundRobinPage'>;
+
+type TeamBout = {
+    id: number;
+    team_a_id: number;
+    team_b_id: number;
+    teamA?: Team;
+    teamB?: Team;
+    ncaaStatus?: any;
+    relayStatus?: any;
+};
 
 const TeamRoundRobinPage: React.FC = () => {
     const route = useRoute<RouteProp<{ params: TeamRoundRobinPageRouteParams }, 'params'>>();
@@ -42,78 +56,137 @@ const TeamRoundRobinPage: React.FC = () => {
     const { t } = useTranslation();
 
     const { event, currentRoundIndex, roundId, isRemote = false } = route.params;
-    const [groups, setGroups] = useState<{ groupId: number; teams: Team[] }[]>([]);
-    const [expandedGroups, setExpandedGroups] = useState<boolean[]>([]);
-    const [groupCompletionStatus, setGroupCompletionStatus] = useState<{ [groupId: number]: boolean }>({});
+    const [teams, setTeams] = useState<Team[]>([]);
+    const [teamBouts, setTeamBouts] = useState<TeamBout[]>([]);
     const [loading, setLoading] = useState(true);
+    const [refreshing, setRefreshing] = useState(false);
+    const [boutStrips, setBoutStrips] = useState<{ [boutId: number]: number }>({});
+    const [showTeamList, setShowTeamList] = useState(true);
 
     // For strip number modal
     const [stripModalVisible, setStripModalVisible] = useState<boolean>(false);
-    const [currentGroupForStrip, setCurrentGroupForStrip] = useState<number | null>(null);
     const [stripInput, setStripInput] = useState<string>('');
-    const [groupStrips, setGroupStrips] = useState<{ [groupId: number]: number }>({});
+    const [currentBoutForStrip, setCurrentBoutForStrip] = useState<number | null>(null);
+    
+    // For auto-assignment modal
+    const [autoAssignModalVisible, setAutoAssignModalVisible] = useState<boolean>(false);
+    const [numberOfStrips, setNumberOfStrips] = useState<string>('');
 
-    // Load team round robin groups
-    const loadGroups = useCallback(async () => {
+    // Load teams and bouts
+    const loadData = useCallback(async () => {
         try {
-            setLoading(true);
+            const client = db;
             
             // Get all teams for the event
-            const teams = await teamUtils.getEventTeams(db, event.id);
+            const eventTeams = await teamUtils.getEventTeams(client, event.id);
+            setTeams(eventTeams);
             
-            // Get unique group IDs from pool assignments
-            const groupIds = new Set<number>();
-            const roundData = await db.select()
-                .from(schema.teamPoolAssignment)
-                .where(eq(schema.teamPoolAssignment.roundid, roundId));
+            // For round robin, there's only one pool (poolId = 1)
+            const poolId = 1;
             
-            console.log(`Found ${roundData.length} team group assignments for round ${roundId}`);
-            
-            roundData.forEach(assignment => {
-                groupIds.add(assignment.poolid);
-                console.log(`Team ${assignment.teamid} assigned to group ${assignment.poolid}`);
-            });
+            // Get team bouts for this round
+            const bouts = await teamPoolUtils.dbGetTeamBoutsForPool(
+                client,
+                roundId,
+                poolId,
+                event.team_format || 'NCAA'
+            );
 
-            console.log(`Unique group IDs: ${Array.from(groupIds).join(', ')}`);
+            // Get full bout details including status and team information
+            const boutsWithDetails = await Promise.all(
+                bouts.map(async (bout) => {
+                    // Get team details
+                    const [teamA, teamB] = await Promise.all([
+                        teamUtils.getTeam(client, bout.team_a_id),
+                        teamUtils.getTeam(client, bout.team_b_id),
+                    ]);
+                    
+                    let boutWithTeams = { ...bout, teamA, teamB };
+                    
+                    if (event.team_format === 'NCAA') {
+                        const status = await teamBoutUtils.getNCAABoutStatus(client, bout.id);
+                        return { ...boutWithTeams, ncaaStatus: status };
+                    } else {
+                        const status = await relayBoutUtils.getRelayBoutStatus(client, bout.id);
+                        return { ...boutWithTeams, relayStatus: status };
+                    }
+                })
+            );
 
-            // Load teams for each group
-            const groupsData: { groupId: number; teams: Team[] }[] = [];
-            for (const groupId of groupIds) {
-                const teamsInGroup = await teamPoolUtils.dbGetTeamsInPool(db, roundId, groupId);
-                console.log(`Group ${groupId} has ${teamsInGroup.length} teams`);
-                groupsData.push({ groupId: groupId, teams: teamsInGroup });
-            }
-
-            setGroups(groupsData);
-            setExpandedGroups(new Array(groupsData.length).fill(false));
+            setTeamBouts(boutsWithDetails);
         } catch (error) {
-            console.error('Error loading team pools:', error);
-            Alert.alert(t('common.error'), t('teamRoundRobinPage.errorLoadingGroups'));
+            console.error('Error loading team round robin data:', error);
+            Alert.alert(t('common.error'), t('teamRoundRobinPage.errorLoadingData'));
         } finally {
             setLoading(false);
+            setRefreshing(false);
         }
-    }, [event.id, roundId, t]);
+    }, [event.id, event.team_format, roundId, t]);
 
     useEffect(() => {
-        loadGroups();
-    }, [loadGroups]);
+        loadData();
+    }, [loadData]);
 
-    const toggleGroup = (index: number) => {
-        const newExpandedGroups = [...expandedGroups];
-        newExpandedGroups[index] = !newExpandedGroups[index];
-        setExpandedGroups(newExpandedGroups);
+    // Refresh when returning to this screen
+    useFocusEffect(
+        useCallback(() => {
+            if (!loading) {
+                loadData();
+            }
+        }, [loadData, loading])
+    );
+
+    const handleOpenBout = (bout: TeamBout) => {
+        if (event.team_format === 'NCAA') {
+            navigation.navigate('NCAATeamBoutPage' as any, {
+                teamBoutId: bout.id,
+                event,
+                isRemote,
+            });
+        } else {
+            navigation.navigate('RelayTeamBoutPage' as any, {
+                teamBoutId: bout.id,
+                event,
+                isRemote,
+            });
+        }
     };
 
-    const openGroupBouts = (groupId: number) => {
-        navigation.navigate('TeamBoutOrderPage' as any, {
-            roundId,
-            poolId: groupId, // Still using poolId for compatibility with existing code
-            event,
-            isRemote,
-        });
+    const getBoutStatus = (bout: TeamBout): { text: string; isComplete: boolean } => {
+        if (event.team_format === 'NCAA' && bout.ncaaStatus) {
+            const { teamAScore, teamBScore, isComplete } = bout.ncaaStatus;
+            if (isComplete) {
+                return { 
+                    text: `${t('teamBoutOrderPage.complete')}: ${teamAScore}-${teamBScore}`,
+                    isComplete: true
+                };
+            }
+            return { 
+                text: `${t('teamBoutOrderPage.inProgress')}: ${teamAScore}-${teamBScore}`,
+                isComplete: false
+            };
+        } else if (event.team_format === '45-touch' && bout.relayStatus) {
+            const { teamAScore, teamBScore, isComplete } = bout.relayStatus;
+            if (isComplete) {
+                return { 
+                    text: `${t('teamBoutOrderPage.complete')}: ${teamAScore}-${teamBScore}`,
+                    isComplete: true
+                };
+            }
+            return { 
+                text: `${t('teamBoutOrderPage.inProgress')}: ${teamAScore}-${teamBScore}`,
+                isComplete: false
+            };
+        }
+        return { text: t('teamBoutOrderPage.notStarted'), isComplete: false };
     };
 
     const handleEndRound = async () => {
+        // Since button is disabled when bouts are incomplete, we can directly confirm
+        confirmEndRound();
+    };
+
+    const confirmEndRound = () => {
         Alert.alert(
             t('poolsPage.confirmEndRound'),
             t('poolsPage.confirmEndRound'),
@@ -123,8 +196,14 @@ const TeamRoundRobinPage: React.FC = () => {
                     text: t('common.confirm'),
                     onPress: async () => {
                         try {
+                            // Complete the pool
+                            await teamPoolUtils.dbCompleteTeamPool(db, roundId, 1);
+                            
                             // Complete the round
-                            await completeRound();
+                            await db.update(schema.rounds)
+                                .set({ iscomplete: 1 })
+                                .where(eq(schema.rounds.id, roundId));
+                                
                             navigation.navigate('RoundResults', {
                                 roundId,
                                 eventId: event.id,
@@ -141,39 +220,131 @@ const TeamRoundRobinPage: React.FC = () => {
         );
     };
 
-    const completeRound = async () => {
-        // Mark round as complete
-        await db.update(schema.rounds)
-            .set({ iscomplete: 1 })
-            .where(eq(schema.rounds.id, roundId));
-    };
-
-    const handleOpenStripModal = (groupId: number) => {
-        setCurrentGroupForStrip(groupId);
-        setStripInput(groupStrips[groupId]?.toString() || '');
+    const handleOpenStripModal = (boutId: number) => {
+        setCurrentBoutForStrip(boutId);
+        setStripInput(boutStrips[boutId]?.toString() || '');
         setStripModalVisible(true);
     };
 
     const handleSetStrip = () => {
-        if (currentGroupForStrip !== null) {
-            const stripNumber = parseInt(stripInput, 10);
-            if (!isNaN(stripNumber)) {
-                setGroupStrips(prev => ({ ...prev, [currentGroupForStrip]: stripNumber }));
+        if (currentBoutForStrip !== null) {
+            const number = parseInt(stripInput, 10);
+            if (!isNaN(number)) {
+                setBoutStrips(prev => ({ ...prev, [currentBoutForStrip]: number }));
             }
         }
         setStripModalVisible(false);
         setStripInput('');
+        setCurrentBoutForStrip(null);
     };
 
-    const isAllGroupsComplete = () => {
-        return groups.every(group => groupCompletionStatus[group.groupId] === true);
+    const onRefresh = () => {
+        setRefreshing(true);
+        loadData();
+    };
+
+    // Auto-assign strips to bouts
+    const handleAutoAssignStrips = () => {
+        const numStrips = parseInt(numberOfStrips, 10);
+        if (isNaN(numStrips) || numStrips < 1) {
+            Alert.alert(t('common.error'), t('teamRoundRobinPage.invalidNumberOfStrips'));
+            return;
+        }
+
+        const newBoutStrips: { [boutId: number]: number } = {};
+        
+        // Group bouts into waves where no team appears twice in the same wave
+        const waves: TeamBout[][] = [];
+        const unassignedBouts = [...teamBouts];
+        
+        while (unassignedBouts.length > 0) {
+            const wave: TeamBout[] = [];
+            const teamsInWave = new Set<number>();
+            
+            // Build a wave by selecting bouts where neither team is already in the wave
+            for (let i = 0; i < unassignedBouts.length && wave.length < numStrips; i++) {
+                const bout = unassignedBouts[i];
+                if (!teamsInWave.has(bout.team_a_id) && !teamsInWave.has(bout.team_b_id)) {
+                    wave.push(bout);
+                    teamsInWave.add(bout.team_a_id);
+                    teamsInWave.add(bout.team_b_id);
+                }
+            }
+            
+            // Remove assigned bouts from unassigned list
+            wave.forEach(bout => {
+                const index = unassignedBouts.findIndex(b => b.id === bout.id);
+                if (index !== -1) {
+                    unassignedBouts.splice(index, 1);
+                }
+            });
+            
+            waves.push(wave);
+        }
+        
+        // Track which strip each team prefers (based on previous assignments)
+        const teamPreferredStrip: { [teamId: number]: number } = {};
+        
+        // Assign strips to each wave
+        waves.forEach((wave, waveIndex) => {
+            const usedStrips = new Set<number>();
+            
+            wave.forEach(bout => {
+                let assignedStrip: number | null = null;
+                
+                // Try to keep teams on their preferred strips
+                const teamAPreferred = teamPreferredStrip[bout.team_a_id];
+                const teamBPreferred = teamPreferredStrip[bout.team_b_id];
+                
+                // If both teams prefer the same strip and it's available, use it
+                if (teamAPreferred !== undefined && teamAPreferred === teamBPreferred && !usedStrips.has(teamAPreferred)) {
+                    assignedStrip = teamAPreferred;
+                }
+                // If only team A has a preference and it's available, use it
+                else if (teamAPreferred !== undefined && !usedStrips.has(teamAPreferred)) {
+                    assignedStrip = teamAPreferred;
+                }
+                // If only team B has a preference and it's available, use it
+                else if (teamBPreferred !== undefined && !usedStrips.has(teamBPreferred)) {
+                    assignedStrip = teamBPreferred;
+                }
+                // Otherwise, find the first available strip
+                else {
+                    for (let strip = 0; strip < numStrips; strip++) {
+                        if (!usedStrips.has(strip)) {
+                            assignedStrip = strip;
+                            break;
+                        }
+                    }
+                }
+                
+                if (assignedStrip !== null) {
+                    // Assign the bout to the strip (1-indexed for display)
+                    newBoutStrips[bout.id] = assignedStrip + 1;
+                    usedStrips.add(assignedStrip);
+                    
+                    // Update team preferences for next wave
+                    teamPreferredStrip[bout.team_a_id] = assignedStrip;
+                    teamPreferredStrip[bout.team_b_id] = assignedStrip;
+                }
+            });
+        });
+
+        setBoutStrips(newBoutStrips);
+        setAutoAssignModalVisible(false);
+        setNumberOfStrips('');
+        
+        Alert.alert(
+            t('common.success'), 
+            t('teamRoundRobinPage.stripsAssignedSuccess', { count: Object.keys(newBoutStrips).length })
+        );
     };
 
     if (loading) {
         return (
             <View style={styles.loadingContainer}>
                 <ActivityIndicator size="large" color="#001f3f" />
-                <Text style={styles.loadingText}>{t('teamRoundRobinPage.loadingGroups')}</Text>
+                <Text style={styles.loadingText}>{t('teamRoundRobinPage.loadingData')}</Text>
             </View>
         );
     }
@@ -182,75 +353,163 @@ const TeamRoundRobinPage: React.FC = () => {
         <View style={styles.container}>
             <BLEStatusBar compact={true} />
             
-            <ScrollView contentContainerStyle={styles.scrollContent}>
+            <ScrollView 
+                contentContainerStyle={styles.scrollContent}
+                refreshControl={
+                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+                }
+            >
                 <Text style={styles.title}>
                     {event.age} {event.gender} {event.weapon} - {t('teamRoundRobinPage.title')}
                 </Text>
 
-                {groups.length === 0 ? (
-                    <Text style={styles.noGroupsText}>{t('teamRoundRobinPage.noTeams')}</Text>
-                ) : (
-                    groups.map((group, index) => (
-                        <View key={group.groupId} style={styles.groupContainer}>
-                            <TouchableOpacity onPress={() => toggleGroup(index)} style={styles.groupHeader}>
-                                <Text style={styles.groupTitle}>
-                                    {t('teamRoundRobinPage.groupPrefix')} {group.groupId + 1} - {group.teams.length} {t('teamRoundRobinPage.teams')}
-                                </Text>
-                                <Text style={styles.expandIcon}>{expandedGroups[index] ? '▼' : '▶'}</Text>
-                            </TouchableOpacity>
-                            {expandedGroups[index] && (
-                                <View style={styles.groupContent}>
-                                    {group.teams.map((team, teamIndex) => {
-                                        const starterCount = team.members?.filter(m => m.role === 'starter').length || 0;
-                                        return (
-                                            <View key={team.id} style={styles.teamItem}>
-                                                <Text style={styles.teamText}>
-                                                    {teamIndex + 1}. {team.name}
-                                                </Text>
-                                                <Text style={styles.teamRoster}>
-                                                    {starterCount} {t('teamRoundRobinPage.starters')}
-                                                </Text>
-                                            </View>
-                                        );
-                                    })}
-                                    <View style={styles.groupActions}>
-                                        {groupStrips[group.groupId] && (
-                                            <Text style={styles.stripInfo}>
-                                                {t('teamRoundRobinPage.onStrip', { strip: groupStrips[group.groupId] })}
-                                            </Text>
-                                        )}
-                                        <Can I="update" a="Pool">
-                                            <TouchableOpacity
-                                                style={styles.assignStripButton}
-                                                onPress={() => handleOpenStripModal(group.groupId)}
-                                            >
-                                                <Text style={styles.assignStripText}>📍</Text>
-                                            </TouchableOpacity>
-                                        </Can>
-                                        <TouchableOpacity
-                                            style={[
-                                                styles.openButton,
-                                                groupCompletionStatus[group.groupId] && styles.completedButton,
-                                            ]}
-                                            onPress={() => openGroupBouts(group.groupId)}
-                                        >
-                                            <Text style={styles.openButtonText}>
-                                                {groupCompletionStatus[group.groupId]
-                                                    ? t('teamRoundRobinPage.editCompletedGroup')
-                                                    : t('teamRoundRobinPage.open')}
-                                            </Text>
-                                        </TouchableOpacity>
-                                    </View>
+                <Text style={styles.formatInfo}>
+                    {t('teamBoutOrderPage.format')}: {event.team_format === 'NCAA' ? 'NCAA (9 bouts)' : '45-touch Relay'}
+                </Text>
+
+                {/* Team List Section */}
+                <TouchableOpacity 
+                    style={styles.teamListHeader}
+                    onPress={() => setShowTeamList(!showTeamList)}
+                >
+                    <Text style={styles.teamListTitle}>
+                        {t('teamRoundRobinPage.teams')} ({teams.length})
+                    </Text>
+                    <Text style={styles.expandIcon}>{showTeamList ? '▼' : '▶'}</Text>
+                </TouchableOpacity>
+
+                {showTeamList && (
+                    <View style={styles.teamListContainer}>
+                        {teams.map((team, index) => {
+                            const starterCount = team.members?.filter(m => m.role === 'starter').length || 0;
+                            return (
+                                <View key={team.id} style={styles.teamItem}>
+                                    <Text style={styles.teamText}>
+                                        {index + 1}. {team.name}
+                                    </Text>
+                                    <Text style={styles.teamRoster}>
+                                        {starterCount} {t('teamRoundRobinPage.starters')}
+                                    </Text>
                                 </View>
-                            )}
-                        </View>
-                    ))
+                            );
+                        })}
+                    </View>
                 )}
 
-                {groups.length > 0 && (
+                {/* Bout List */}
+                <View style={styles.boutsSectionHeader}>
+                    <Text style={styles.sectionTitle}>{t('teamRoundRobinPage.bouts')}</Text>
+                    <View style={styles.stripButtonsContainer}>
+                        <Can I="update" a="Pool">
+                            <TouchableOpacity
+                                style={styles.autoAssignButton}
+                                onPress={() => setAutoAssignModalVisible(true)}
+                            >
+                                <Text style={styles.autoAssignButtonText}>
+                                    🎯 {t('teamRoundRobinPage.autoAssignStrips')}
+                                </Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={styles.resetStripsButton}
+                                onPress={() => {
+                                    Alert.alert(
+                                        t('teamRoundRobinPage.resetStrips'),
+                                        t('teamRoundRobinPage.resetStripsConfirm'),
+                                        [
+                                            { text: t('common.cancel'), style: 'cancel' },
+                                            {
+                                                text: t('common.confirm'),
+                                                onPress: () => {
+                                                    setBoutStrips({});
+                                                    Alert.alert(
+                                                        t('common.success'),
+                                                        t('teamRoundRobinPage.stripsResetSuccess')
+                                                    );
+                                                },
+                                                style: 'destructive'
+                                            }
+                                        ]
+                                    );
+                                }}
+                            >
+                                <Ionicons name="refresh" size={20} color="#fff" />
+                            </TouchableOpacity>
+                        </Can>
+                    </View>
+                </View>
+                {teamBouts.length === 0 ? (
+                    <Text style={styles.noBoutsText}>{t('teamBoutOrderPage.noBouts')}</Text>
+                ) : (
+                    teamBouts.map((bout, index) => {
+                        const status = getBoutStatus(bout);
+                        return (
+                            <TouchableOpacity
+                                key={bout.id}
+                                style={[
+                                    styles.boutCard,
+                                    status.isComplete && styles.completedBoutCard
+                                ]}
+                                onPress={() => handleOpenBout(bout)}
+                            >
+                                <View style={styles.boutHeader}>
+                                    <View style={styles.boutNumberContainer}>
+                                        <Text style={styles.boutNumber}>
+                                            {t('teamBoutOrderPage.boutNumber', { number: index + 1 })}
+                                        </Text>
+                                        {boutStrips[bout.id] && (
+                                            <Text style={styles.boutStrip}>
+                                                {t('teamRoundRobinPage.onStrip', { strip: boutStrips[bout.id] })}
+                                            </Text>
+                                        )}
+                                    </View>
+                                    <Text style={[
+                                        styles.boutStatus,
+                                        status.isComplete && styles.completedStatus
+                                    ]}>
+                                        {status.text}
+                                    </Text>
+                                </View>
+                                <View style={styles.boutTeams}>
+                                    <Text style={styles.teamName}>{bout.teamA?.name || `Team ${bout.team_a_id}`}</Text>
+                                    <Text style={styles.vsText}>vs</Text>
+                                    <Text style={styles.teamName}>{bout.teamB?.name || `Team ${bout.team_b_id}`}</Text>
+                                </View>
+                                <Can I="update" a="Pool">
+                                    <TouchableOpacity
+                                        style={styles.boutStripButton}
+                                        onPress={(e) => {
+                                            e.stopPropagation();
+                                            handleOpenStripModal(bout.id);
+                                        }}
+                                    >
+                                        <Text style={styles.boutStripButtonText}>
+                                            📍 {boutStrips[bout.id] ? t('teamRoundRobinPage.changeStrip') : t('teamRoundRobinPage.assignStrip')}
+                                        </Text>
+                                    </TouchableOpacity>
+                                </Can>
+                            </TouchableOpacity>
+                        );
+                    })
+                )}
+
+                {teamBouts.length > 0 && (
                     <Can I="update" a="Round">
-                        <TouchableOpacity style={styles.endRoundButton} onPress={handleEndRound}>
-                            <Text style={styles.endRoundButtonText}>{t('teamRoundRobinPage.endRound')}</Text>
+                        <TouchableOpacity 
+                            style={[
+                                styles.endRoundButton,
+                                teamBouts.some(bout => !getBoutStatus(bout).isComplete) && styles.endRoundButtonDisabled
+                            ]} 
+                            onPress={handleEndRound}
+                            disabled={teamBouts.some(bout => !getBoutStatus(bout).isComplete)}
+                        >
+                            <Text style={[
+                                styles.endRoundButtonText,
+                                teamBouts.some(bout => !getBoutStatus(bout).isComplete) && styles.endRoundButtonTextDisabled
+                            ]}>
+                                {teamBouts.some(bout => !getBoutStatus(bout).isComplete) 
+                                    ? t('teamRoundRobinPage.completeBoutsFirst') 
+                                    : t('teamRoundRobinPage.endRound')}
+                            </Text>
                         </TouchableOpacity>
                     </Can>
                 )}
@@ -288,6 +547,42 @@ const TeamRoundRobinPage: React.FC = () => {
                     </View>
                 </View>
             </Modal>
+
+            {/* Auto-Assignment Modal */}
+            <Modal
+                animationType="slide"
+                transparent={true}
+                visible={autoAssignModalVisible}
+                onRequestClose={() => setAutoAssignModalVisible(false)}
+            >
+                <View style={styles.modalContainer}>
+                    <View style={styles.modalContent}>
+                        <Text style={styles.modalTitle}>{t('teamRoundRobinPage.autoAssignStrips')}</Text>
+                        <Text style={styles.modalDescription}>
+                            {t('teamRoundRobinPage.autoAssignDescription')}
+                        </Text>
+                        <TextInput
+                            style={styles.stripInput}
+                            value={numberOfStrips}
+                            onChangeText={setNumberOfStrips}
+                            keyboardType="numeric"
+                            placeholder={t('teamRoundRobinPage.numberOfStripsPlaceholder')}
+                            placeholderTextColor="#999"
+                        />
+                        <View style={styles.modalButtons}>
+                            <TouchableOpacity style={styles.modalButton} onPress={handleAutoAssignStrips}>
+                                <Text style={styles.modalButtonText}>{t('teamRoundRobinPage.assign')}</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={[styles.modalButton, styles.cancelButton]}
+                                onPress={() => setAutoAssignModalVisible(false)}
+                            >
+                                <Text style={styles.modalButtonText}>{t('common.cancel')}</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </View>
+            </Modal>
         </View>
     );
 };
@@ -313,35 +608,31 @@ const styles = StyleSheet.create({
     title: {
         fontSize: 24,
         fontWeight: 'bold',
-        marginBottom: 20,
+        marginBottom: 10,
         textAlign: 'center',
         color: '#001f3f',
     },
-    noGroupsText: {
+    formatInfo: {
         fontSize: 16,
         textAlign: 'center',
-        marginTop: 50,
+        marginBottom: 15,
         color: '#666',
     },
-    groupContainer: {
+    teamListHeader: {
         backgroundColor: '#fff',
         borderRadius: 8,
-        marginBottom: 15,
+        padding: 15,
+        marginBottom: 5,
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
         elevation: 2,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.1,
         shadowRadius: 4,
     },
-    groupHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        padding: 15,
-        borderBottomWidth: 1,
-        borderBottomColor: '#e0e0e0',
-    },
-    groupTitle: {
+    teamListTitle: {
         fontSize: 18,
         fontWeight: 'bold',
         color: '#001f3f',
@@ -350,8 +641,16 @@ const styles = StyleSheet.create({
         fontSize: 16,
         color: '#001f3f',
     },
-    groupContent: {
+    teamListContainer: {
+        backgroundColor: '#fff',
+        borderRadius: 8,
         padding: 15,
+        marginBottom: 15,
+        elevation: 2,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
     },
     teamItem: {
         paddingVertical: 8,
@@ -368,36 +667,119 @@ const styles = StyleSheet.create({
         color: '#666',
         marginTop: 2,
     },
-    groupActions: {
+    boutsSectionHeader: {
         flexDirection: 'row',
-        justifyContent: 'flex-end',
+        justifyContent: 'space-between',
         alignItems: 'center',
-        marginTop: 15,
-        gap: 10,
+        marginTop: 10,
+        marginBottom: 15,
     },
-    stripInfo: {
-        fontSize: 14,
-        color: '#666',
-        flex: 1,
-    },
-    assignStripButton: {
-        padding: 10,
-    },
-    assignStripText: {
+    sectionTitle: {
         fontSize: 20,
+        fontWeight: 'bold',
+        color: '#001f3f',
     },
-    openButton: {
-        backgroundColor: '#001f3f',
-        paddingHorizontal: 20,
-        paddingVertical: 10,
+    stripButtonsContainer: {
+        flexDirection: 'row',
+        gap: 8,
+    },
+    autoAssignButton: {
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        backgroundColor: '#007acc',
         borderRadius: 6,
     },
-    completedButton: {
-        backgroundColor: '#28a745',
-    },
-    openButtonText: {
+    autoAssignButtonText: {
         color: '#fff',
+        fontSize: 14,
+        fontWeight: '600',
+    },
+    resetStripsButton: {
+        padding: 8,
+        backgroundColor: '#dc3545',
+        borderRadius: 6,
+        width: 36,
+        height: 36,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    noBoutsText: {
         fontSize: 16,
+        textAlign: 'center',
+        marginTop: 50,
+        color: '#666',
+    },
+    boutCard: {
+        backgroundColor: '#fff',
+        borderRadius: 8,
+        padding: 15,
+        marginBottom: 10,
+        elevation: 2,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+    },
+    completedBoutCard: {
+        backgroundColor: '#f8f9fa',
+        borderWidth: 1,
+        borderColor: '#28a745',
+    },
+    boutHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 10,
+    },
+    boutNumberContainer: {
+        flex: 1,
+    },
+    boutNumber: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        color: '#001f3f',
+    },
+    boutStrip: {
+        fontSize: 14,
+        color: '#666',
+        fontStyle: 'italic',
+        marginTop: 2,
+    },
+    boutStatus: {
+        fontSize: 14,
+        color: '#666',
+    },
+    completedStatus: {
+        color: '#28a745',
+        fontWeight: '600',
+    },
+    boutTeams: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+    },
+    teamName: {
+        fontSize: 16,
+        color: '#333',
+        flex: 1,
+    },
+    vsText: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        color: '#666',
+        marginHorizontal: 10,
+    },
+    boutStripButton: {
+        marginTop: 10,
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        backgroundColor: '#f0f0f0',
+        borderRadius: 6,
+        alignSelf: 'flex-start',
+    },
+    boutStripButtonText: {
+        fontSize: 14,
+        color: '#001f3f',
         fontWeight: '600',
     },
     endRoundButton: {
@@ -407,10 +789,17 @@ const styles = StyleSheet.create({
         marginTop: 20,
         alignItems: 'center',
     },
+    endRoundButtonDisabled: {
+        backgroundColor: '#cccccc',
+        opacity: 0.6,
+    },
     endRoundButtonText: {
         color: '#fff',
         fontSize: 18,
         fontWeight: 'bold',
+    },
+    endRoundButtonTextDisabled: {
+        color: '#f0f0f0',
     },
     modalContainer: {
         flex: 1,
@@ -430,6 +819,12 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
         marginBottom: 20,
         color: '#001f3f',
+    },
+    modalDescription: {
+        fontSize: 14,
+        color: '#666',
+        textAlign: 'center',
+        marginBottom: 15,
     },
     stripInput: {
         borderWidth: 1,
