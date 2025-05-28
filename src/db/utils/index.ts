@@ -38,3 +38,4 @@ export * from './bracket';
 export * from './team';
 export * from './teamBoutNCAA';
 export * from './teamBoutRelay';
+export * from './teamBracket';

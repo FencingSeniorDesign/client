@@ -1,14 +1,6 @@
 // src/components/ui/ScoreInputModal.tsx
 import React, { useState } from 'react';
-import {
-    View,
-    Text,
-    StyleSheet,
-    TouchableOpacity,
-    TextInput,
-    Modal,
-    Alert,
-} from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, Modal, Alert } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 interface ScoreInputModalProps {
@@ -100,10 +92,8 @@ const ScoreInputModal: React.FC<ScoreInputModalProps> = ({
         <Modal visible={visible} transparent animationType="fade">
             <View style={styles.modalOverlay}>
                 <View style={styles.modalContent}>
-                    <Text style={styles.modalTitle}>
-                        {title || t('scoreInput.enterScores')}
-                    </Text>
-                    
+                    <Text style={styles.modalTitle}>{title || t('scoreInput.enterScores')}</Text>
+
                     <View style={styles.boutInfo}>
                         <Text style={styles.boutInfoText}>
                             {fencerAName} vs {fencerBName}
@@ -148,13 +138,11 @@ const ScoreInputModal: React.FC<ScoreInputModalProps> = ({
                         </>
                     ) : (
                         <>
-                            <Text style={styles.tieWarningText}>
-                                {t('scoreInput.boutsCannotEndInTie')}
-                            </Text>
+                            <Text style={styles.tieWarningText}>{t('scoreInput.boutsCannotEndInTie')}</Text>
                             <Text style={styles.tieScoreText}>
                                 {t('scoreInput.finalScore')}: {scoreA} - {scoreB}
                             </Text>
-                            
+
                             <TouchableOpacity
                                 style={[
                                     styles.winnerSelectButton,
@@ -179,10 +167,7 @@ const ScoreInputModal: React.FC<ScoreInputModalProps> = ({
                                 <TouchableOpacity style={styles.submitButton} onPress={handleTieWinnerSubmit}>
                                     <Text style={styles.submitButtonText}>{t('common.submit')}</Text>
                                 </TouchableOpacity>
-                                <TouchableOpacity 
-                                    style={styles.cancelButton} 
-                                    onPress={() => setShowTieSelector(false)}
-                                >
+                                <TouchableOpacity style={styles.cancelButton} onPress={() => setShowTieSelector(false)}>
                                     <Text style={styles.cancelButtonText}>{t('common.back')}</Text>
                                 </TouchableOpacity>
                             </View>

@@ -60,10 +60,7 @@ describe('Team Utilities', () => {
             const result = await getTeam(mockClient, teamId);
 
             expect(result).toEqual(mockTeam);
-            expect(mockClient.get).toHaveBeenCalledWith(
-                'SELECT * FROM Teams WHERE id = ?',
-                [teamId]
-            );
+            expect(mockClient.get).toHaveBeenCalledWith('SELECT * FROM Teams WHERE id = ?', [teamId]);
         });
 
         it('should return null if team not found', async () => {
@@ -114,14 +111,8 @@ describe('Team Utilities', () => {
 
             expect(result).toBe(true);
             expect(mockClient.run).toHaveBeenCalledTimes(2);
-            expect(mockClient.run).toHaveBeenNthCalledWith(1,
-                'DELETE FROM TeamMembers WHERE teamid = ?',
-                [teamId]
-            );
-            expect(mockClient.run).toHaveBeenNthCalledWith(2,
-                'DELETE FROM Teams WHERE id = ?',
-                [teamId]
-            );
+            expect(mockClient.run).toHaveBeenNthCalledWith(1, 'DELETE FROM TeamMembers WHERE teamid = ?', [teamId]);
+            expect(mockClient.run).toHaveBeenNthCalledWith(2, 'DELETE FROM Teams WHERE id = ?', [teamId]);
         });
     });
 
@@ -138,10 +129,9 @@ describe('Team Utilities', () => {
             const result = await getTeamsByEvent(mockClient, eventId);
 
             expect(result).toEqual(mockTeams);
-            expect(mockClient.all).toHaveBeenCalledWith(
-                'SELECT * FROM Teams WHERE eventid = ? ORDER BY seed, name',
-                [eventId]
-            );
+            expect(mockClient.all).toHaveBeenCalledWith('SELECT * FROM Teams WHERE eventid = ? ORDER BY seed, name', [
+                eventId,
+            ]);
         });
     });
 
@@ -191,10 +181,10 @@ describe('Team Utilities', () => {
             const result = await removeTeamMember(mockClient, teamId, fencerId);
 
             expect(result).toBe(true);
-            expect(mockClient.run).toHaveBeenCalledWith(
-                'DELETE FROM TeamMembers WHERE teamid = ? AND fencerid = ?',
-                [teamId, fencerId]
-            );
+            expect(mockClient.run).toHaveBeenCalledWith('DELETE FROM TeamMembers WHERE teamid = ? AND fencerid = ?', [
+                teamId,
+                fencerId,
+            ]);
         });
     });
 
@@ -227,10 +217,7 @@ describe('Team Utilities', () => {
             const result = await getTeamMembers(mockClient, teamId);
 
             expect(result).toEqual(mockMembers);
-            expect(mockClient.all).toHaveBeenCalledWith(
-                expect.stringContaining('JOIN Fencers'),
-                [teamId]
-            );
+            expect(mockClient.all).toHaveBeenCalledWith(expect.stringContaining('JOIN Fencers'), [teamId]);
         });
     });
 
@@ -267,9 +254,9 @@ describe('Team Utilities', () => {
         it('should throw error if out fencer not found', async () => {
             mockClient.get.mockResolvedValueOnce(null);
 
-            await expect(
-                substituteTeamMember(mockClient, 1, 999, 2)
-            ).rejects.toThrow('Outgoing fencer not found on team');
+            await expect(substituteTeamMember(mockClient, 1, 999, 2)).rejects.toThrow(
+                'Outgoing fencer not found on team'
+            );
         });
 
         it('should throw error if in fencer not a substitute', async () => {
@@ -284,20 +271,15 @@ describe('Team Utilities', () => {
             // Mock incoming member not on team
             mockClient.get.mockResolvedValueOnce(null);
 
-            await expect(
-                substituteTeamMember(mockClient, 1, 1, 2)
-            ).rejects.toThrow('Incoming fencer must be a substitute on the team');
+            await expect(substituteTeamMember(mockClient, 1, 1, 2)).rejects.toThrow(
+                'Incoming fencer must be a substitute on the team'
+            );
         });
     });
 
     describe('validateTeamComposition', () => {
         it('should validate NCAA team composition', async () => {
-            const members = [
-                { role: 'starter' },
-                { role: 'starter' },
-                { role: 'starter' },
-                { role: 'substitute' },
-            ];
+            const members = [{ role: 'starter' }, { role: 'starter' }, { role: 'starter' }, { role: 'substitute' }];
 
             mockClient.all.mockResolvedValue(members);
 
@@ -309,10 +291,7 @@ describe('Team Utilities', () => {
         });
 
         it('should fail validation for invalid NCAA team', async () => {
-            const members = [
-                { role: 'starter' },
-                { role: 'starter' },
-            ];
+            const members = [{ role: 'starter' }, { role: 'starter' }];
 
             mockClient.all.mockResolvedValue(members);
 
@@ -323,12 +302,7 @@ describe('Team Utilities', () => {
         });
 
         it('should validate 45-touch relay team composition', async () => {
-            const members = [
-                { role: 'starter' },
-                { role: 'starter' },
-                { role: 'starter' },
-                { role: 'substitute' },
-            ];
+            const members = [{ role: 'starter' }, { role: 'starter' }, { role: 'starter' }, { role: 'substitute' }];
 
             mockClient.all.mockResolvedValue(members);
 
@@ -360,16 +334,24 @@ describe('Team Utilities', () => {
             // Check snake seeding pattern
             // Pool 1: 1, 4, 5
             // Pool 2: 2, 3, 6
-            expect(mockClient.insert).toHaveBeenNthCalledWith(1, 'TeamPoolAssignment', 
+            expect(mockClient.insert).toHaveBeenNthCalledWith(
+                1,
+                'TeamPoolAssignment',
                 expect.objectContaining({ teamid: 1, poolnumber: 1 })
             );
-            expect(mockClient.insert).toHaveBeenNthCalledWith(2, 'TeamPoolAssignment',
+            expect(mockClient.insert).toHaveBeenNthCalledWith(
+                2,
+                'TeamPoolAssignment',
                 expect.objectContaining({ teamid: 2, poolnumber: 2 })
             );
-            expect(mockClient.insert).toHaveBeenNthCalledWith(3, 'TeamPoolAssignment',
+            expect(mockClient.insert).toHaveBeenNthCalledWith(
+                3,
+                'TeamPoolAssignment',
                 expect.objectContaining({ teamid: 3, poolnumber: 2 })
             );
-            expect(mockClient.insert).toHaveBeenNthCalledWith(4, 'TeamPoolAssignment',
+            expect(mockClient.insert).toHaveBeenNthCalledWith(
+                4,
+                'TeamPoolAssignment',
                 expect.objectContaining({ teamid: 4, poolnumber: 1 })
             );
         });

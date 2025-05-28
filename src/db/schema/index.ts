@@ -130,7 +130,9 @@ export const teamMembers = sqliteTable(
         fencerid: integer('fencerid')
             .notNull()
             .references(() => fencers.id),
-        role: text('role', { enum: ['starter', 'substitute'] }).notNull().default('starter'),
+        role: text('role', { enum: ['starter', 'substitute'] })
+            .notNull()
+            .default('starter'),
         position: integer('position'), // 1, 2, 3 for starters
     },
     table => {
@@ -193,28 +195,32 @@ export const relayBoutState = sqliteTable('RelayBoutState', {
 });
 
 // RelayLegHistory table - tracks individual leg scores and fencer assignments
-export const relayLegHistory = sqliteTable('RelayLegHistory', {
-    id: integer('id').primaryKey({ autoIncrement: true }),
-    team_bout_id: integer('team_bout_id')
-        .notNull()
-        .references(() => teamBouts.id),
-    leg_number: integer('leg_number').notNull(), // 1, 2, 3, etc.
-    fencer_a_id: integer('fencer_a_id')
-        .notNull()
-        .references(() => fencers.id),
-    fencer_b_id: integer('fencer_b_id')
-        .notNull()
-        .references(() => fencers.id),
-    score_a: integer('score_a').notNull(), // Individual fencer A score for this leg
-    score_b: integer('score_b').notNull(), // Individual fencer B score for this leg
-    created_at: text('created_at').default(sql`CURRENT_TIMESTAMP`),
-    updated_at: text('updated_at').default(sql`CURRENT_TIMESTAMP`),
-}, table => {
-    return {
-        // Ensure only one record per leg per bout
-        uniqueLegPerBout: unique().on(table.team_bout_id, table.leg_number),
-    };
-});
+export const relayLegHistory = sqliteTable(
+    'RelayLegHistory',
+    {
+        id: integer('id').primaryKey({ autoIncrement: true }),
+        team_bout_id: integer('team_bout_id')
+            .notNull()
+            .references(() => teamBouts.id),
+        leg_number: integer('leg_number').notNull(), // 1, 2, 3, etc.
+        fencer_a_id: integer('fencer_a_id')
+            .notNull()
+            .references(() => fencers.id),
+        fencer_b_id: integer('fencer_b_id')
+            .notNull()
+            .references(() => fencers.id),
+        score_a: integer('score_a').notNull(), // Individual fencer A score for this leg
+        score_b: integer('score_b').notNull(), // Individual fencer B score for this leg
+        created_at: text('created_at').default(sql`CURRENT_TIMESTAMP`),
+        updated_at: text('updated_at').default(sql`CURRENT_TIMESTAMP`),
+    },
+    table => {
+        return {
+            // Ensure only one record per leg per bout
+            uniqueLegPerBout: unique().on(table.team_bout_id, table.leg_number),
+        };
+    }
+);
 
 // TeamPoolAssignment table
 export const teamPoolAssignment = sqliteTable(
@@ -261,9 +267,11 @@ export const rounds = sqliteTable('Rounds', {
         .notNull()
         .references(() => events.id),
     type: text('type', { enum: ['pool', 'de'] }).notNull(),
-    round_format: text('round_format', { 
-        enum: ['individual_pools', 'team_round_robin', 'individual_de', 'team_de'] 
-    }).notNull().default('individual_pools'),
+    round_format: text('round_format', {
+        enum: ['individual_pools', 'team_round_robin', 'individual_de', 'team_de'],
+    })
+        .notNull()
+        .default('individual_pools'),
     rorder: integer('rorder').notNull(), // round 1 is fenced first, then round 2, etc
 
     // Pool Settings

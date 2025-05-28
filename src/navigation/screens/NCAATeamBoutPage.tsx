@@ -1,14 +1,6 @@
 // src/navigation/screens/NCAATeamBoutPage.tsx
 import React, { useState, useCallback, useEffect } from 'react';
-import {
-    View,
-    Text,
-    StyleSheet,
-    TouchableOpacity,
-    ScrollView,
-    Alert,
-    ActivityIndicator,
-} from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, ActivityIndicator } from 'react-native';
 import { useRoute, RouteProp, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList, Event } from '../navigation/types';
@@ -20,6 +12,8 @@ import * as teamUtils from '../../db/utils/team';
 import * as schema from '../../db/schema';
 import { eq } from 'drizzle-orm';
 import ScoreInputModal from '../../components/ui/ScoreInputModal';
+import { useQueryClient } from '@tanstack/react-query';
+import { queryKeys } from '../../data/TournamentDataHooks';
 
 type NCAATeamBoutPageRouteParams = {
     teamBoutId: number;
@@ -31,13 +25,15 @@ const NCAATeamBoutPage: React.FC = () => {
     const route = useRoute<RouteProp<{ params: NCAATeamBoutPageRouteParams }, 'params'>>();
     const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
     const { t } = useTranslation();
+    const queryClient = useQueryClient();
 
     const { teamBoutId, event, isRemote = false } = route.params;
     const [boutStatus, setBoutStatus] = useState<teamBoutUtils.NCAABoutStatus | null>(null);
     const [loading, setLoading] = useState(true);
     const [teamAName, setTeamAName] = useState('Team A');
     const [teamBName, setTeamBName] = useState('Team B');
-    
+    const [roundId, setRoundId] = useState<number | null>(null);
+
     // Score input modal state
     const [scoreModalVisible, setScoreModalVisible] = useState(false);
     const [selectedBout, setSelectedBout] = useState<teamBoutUtils.NCAAIndividualBout | null>(null);
@@ -47,17 +43,21 @@ const NCAATeamBoutPage: React.FC = () => {
             setLoading(true);
             const client = db;
             const status = await teamBoutUtils.getNCAABoutStatus(client, teamBoutId);
-            
+
             if (status) {
                 setBoutStatus(status);
-                
+
                 // Get team names
-                const teamBout = await client.select()
+                const teamBout = await client
+                    .select()
                     .from(schema.teamBouts)
                     .where(eq(schema.teamBouts.id, teamBoutId))
                     .limit(1);
-                
+
                 if (teamBout[0]) {
+                    // Store the round ID
+                    setRoundId(teamBout[0].roundid);
+
                     if (teamBout[0].team_a_id) {
                         const teamA = await teamUtils.getTeam(client, teamBout[0].team_a_id);
                         if (teamA) setTeamAName(teamA.name);
@@ -102,6 +102,13 @@ const NCAATeamBoutPage: React.FC = () => {
             await loadBoutStatus();
             setScoreModalVisible(false);
             setSelectedBout(null);
+
+            // Invalidate queries to update bracket display
+            if (roundId) {
+                await queryClient.invalidateQueries({ queryKey: queryKeys.teamBracket(roundId) });
+                await queryClient.invalidateQueries({ queryKey: queryKeys.roundCompleted(roundId) });
+            }
+            await queryClient.invalidateQueries({ queryKey: queryKeys.rounds(event.id) });
         } catch (error) {
             console.error('Error updating bout score:', error);
             Alert.alert(t('common.error'), t('ncaaTeamBout.errorUpdating'));
@@ -111,18 +118,18 @@ const NCAATeamBoutPage: React.FC = () => {
     const assignRandomScores = async () => {
         try {
             const client = db;
-            
+
             // Assign random scores to all 9 bouts
             for (let boutNumber = 1; boutNumber <= 9; boutNumber++) {
                 // Generate random scores between 0 and 5
                 const scoreA = Math.floor(Math.random() * 6);
                 const scoreB = Math.floor(Math.random() * 6);
-                
+
                 // If scores are tied, make one score 5 and the other random 0-4
                 let finalScoreA = scoreA;
                 let finalScoreB = scoreB;
                 let winnerId = undefined;
-                
+
                 if (scoreA === scoreB) {
                     if (Math.random() > 0.5) {
                         finalScoreA = 5;
@@ -138,7 +145,7 @@ const NCAATeamBoutPage: React.FC = () => {
                         winnerId = bout?.fencerBId;
                     }
                 }
-                
+
                 await teamBoutUtils.updateNCAABoutScore(
                     client,
                     teamBoutId,
@@ -148,9 +155,16 @@ const NCAATeamBoutPage: React.FC = () => {
                     winnerId
                 );
             }
-            
+
             await loadBoutStatus();
             Alert.alert('Success', 'Random scores assigned to all bouts');
+
+            // Invalidate queries to update bracket display
+            if (roundId) {
+                await queryClient.invalidateQueries({ queryKey: queryKeys.teamBracket(roundId) });
+                await queryClient.invalidateQueries({ queryKey: queryKeys.roundCompleted(roundId) });
+            }
+            await queryClient.invalidateQueries({ queryKey: queryKeys.rounds(event.id) });
         } catch (error) {
             console.error('Error assigning random scores:', error);
             Alert.alert(t('common.error'), 'Failed to assign random scores');
@@ -183,7 +197,7 @@ const NCAATeamBoutPage: React.FC = () => {
     return (
         <View style={styles.container}>
             <BLEStatusBar compact={true} />
-            
+
             <ScrollView contentContainerStyle={styles.scrollContent}>
                 {/* Team Score Header */}
                 <View style={styles.teamScoreHeader}>
@@ -201,11 +215,11 @@ const NCAATeamBoutPage: React.FC = () => {
                 {isComplete && (
                     <View style={styles.matchCompleteContainer}>
                         <Text style={styles.completeText}>
-                            {t('ncaaTeamBout.matchComplete', { winner: teamAScore > teamBScore ? teamAName : teamBName })}
+                            {t('ncaaTeamBout.matchComplete', {
+                                winner: teamAScore > teamBScore ? teamAName : teamBName,
+                            })}
                         </Text>
-                        <Text style={styles.exhibitionText}>
-                            {t('ncaaTeamBout.exhibitionNote')}
-                        </Text>
+                        <Text style={styles.exhibitionText}>{t('ncaaTeamBout.exhibitionNote')}</Text>
                     </View>
                 )}
 
@@ -215,14 +229,14 @@ const NCAATeamBoutPage: React.FC = () => {
 
                 {/* Individual Bouts */}
                 <View style={styles.boutsContainer}>
-                    {boutScores.map((bout) => (
+                    {boutScores.map(bout => (
                         <TouchableOpacity
                             key={bout.boutNumber}
                             style={[
                                 styles.boutCard,
                                 bout.isComplete && styles.completedBoutCard,
                                 bout.boutNumber === boutStatus.currentBoutNumber && styles.currentBoutCard,
-                                isComplete && bout.boutNumber > (teamAScore + teamBScore) && styles.exhibitionBoutCard,
+                                isComplete && bout.boutNumber > teamAScore + teamBScore && styles.exhibitionBoutCard,
                             ]}
                             onPress={() => handleOpenIndividualBout(bout)}
                         >
@@ -230,31 +244,49 @@ const NCAATeamBoutPage: React.FC = () => {
                                 <Text style={styles.boutNumber}>
                                     {t('ncaaTeamBout.bout')} {bout.boutNumber}
                                 </Text>
-                                <Text style={styles.boutPosition}>
-                                    {getBoutPositionDescription(bout.boutNumber)}
-                                </Text>
+                                <Text style={styles.boutPosition}>{getBoutPositionDescription(bout.boutNumber)}</Text>
                             </View>
-                            
+
                             <View style={styles.boutFencers}>
                                 <View style={[styles.fencerRow, styles.teamARow]}>
                                     <View style={styles.fencerInfo}>
-                                        <Text style={[styles.fencerName, bout.winnerId === bout.fencerAId && styles.winnerText]}>
+                                        <Text
+                                            style={[
+                                                styles.fencerName,
+                                                bout.winnerId === bout.fencerAId && styles.winnerText,
+                                            ]}
+                                        >
                                             {bout.fencerAName}
                                         </Text>
                                         <Text style={styles.teamBadge}>{teamAName}</Text>
                                     </View>
-                                    <Text style={[styles.fencerScore, bout.winnerId === bout.fencerAId && styles.winnerText]}>
+                                    <Text
+                                        style={[
+                                            styles.fencerScore,
+                                            bout.winnerId === bout.fencerAId && styles.winnerText,
+                                        ]}
+                                    >
                                         {bout.fencerAScore}
                                     </Text>
                                 </View>
                                 <View style={[styles.fencerRow, styles.teamBRow]}>
                                     <View style={styles.fencerInfo}>
-                                        <Text style={[styles.fencerName, bout.winnerId === bout.fencerBId && styles.winnerText]}>
+                                        <Text
+                                            style={[
+                                                styles.fencerName,
+                                                bout.winnerId === bout.fencerBId && styles.winnerText,
+                                            ]}
+                                        >
                                             {bout.fencerBName}
                                         </Text>
                                         <Text style={styles.teamBadge}>{teamBName}</Text>
                                     </View>
-                                    <Text style={[styles.fencerScore, bout.winnerId === bout.fencerBId && styles.winnerText]}>
+                                    <Text
+                                        style={[
+                                            styles.fencerScore,
+                                            bout.winnerId === bout.fencerBId && styles.winnerText,
+                                        ]}
+                                    >
                                         {bout.fencerBScore}
                                     </Text>
                                 </View>
@@ -262,8 +294,8 @@ const NCAATeamBoutPage: React.FC = () => {
 
                             {bout.isComplete && (
                                 <Text style={styles.boutCompleteText}>
-                                    {isComplete && bout.boutNumber > (teamAScore + teamBScore) 
-                                        ? t('ncaaTeamBout.exhibition') 
+                                    {isComplete && bout.boutNumber > teamAScore + teamBScore
+                                        ? t('ncaaTeamBout.exhibition')
                                         : t('ncaaTeamBout.complete')}
                                 </Text>
                             )}
@@ -271,7 +303,7 @@ const NCAATeamBoutPage: React.FC = () => {
                     ))}
                 </View>
             </ScrollView>
-            
+
             {/* Score Input Modal */}
             <ScoreInputModal
                 visible={scoreModalVisible}
@@ -306,7 +338,7 @@ const NCAATeamBoutPage: React.FC = () => {
                                 setSelectedBout({
                                     ...selectedBout,
                                     fencerAScore: score1,
-                                    fencerBScore: score2
+                                    fencerBScore: score2,
                                 });
                                 setScoreModalVisible(true);
                             } else {
@@ -317,12 +349,9 @@ const NCAATeamBoutPage: React.FC = () => {
                     });
                 }}
             />
-            
+
             {/* Assign Random Scores Button */}
-            <TouchableOpacity
-                style={styles.randomScoresButton}
-                onPress={assignRandomScores}
-            >
+            <TouchableOpacity style={styles.randomScoresButton} onPress={assignRandomScores}>
                 <Text style={styles.randomScoresButtonText}>Assign Random Scores to All Bouts</Text>
             </TouchableOpacity>
         </View>

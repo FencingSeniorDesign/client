@@ -4,7 +4,16 @@ import { useRoute, RouteProp, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useTranslation } from 'react-i18next';
 import { RootStackParamList, Fencer } from '../navigation/types';
-import { useInitializeRound, useRoundResultsData, useRounds, useRoundStarted } from '../../data/TournamentDataHooks';
+import {
+    useInitializeRound,
+    useRoundResultsData,
+    useRounds,
+    useRoundStarted,
+    useTeamPools,
+    useTeamBoutsForPool,
+} from '../../data/TournamentDataHooks';
+import { useQueries } from '@tanstack/react-query';
+import dataProvider from '../../data/DrizzleDataProvider';
 import { navigateToDEPage } from '../utils/DENavigationUtil';
 import { BLEStatusBar } from '../../networking/components/BLEStatusBar';
 import { useScoringBoxContext } from '../../networking/ble/ScoringBoxContext';
@@ -23,10 +32,38 @@ interface FencerStats {
     indicator: number;
 }
 
+interface TeamStats {
+    team: { id: number; name: string; clubid?: number }; // Team type
+    boutsPlayed: number;
+    boutsWon: number;
+    touchesScored: number;
+    touchesReceived: number;
+    winRate: number;
+    indicator: number;
+}
+
 interface PoolResult {
     poolid: number;
     stats: FencerStats[];
-    bouts?: any[]; // Adding bouts to pool results
+    bouts?: Array<{
+        id: number;
+        left_fencerid: number;
+        right_fencerid: number;
+        left_score: number;
+        right_score: number;
+    }>; // Adding bouts to pool results
+}
+
+interface TeamPoolResult {
+    poolid: number;
+    stats: TeamStats[];
+    bouts?: Array<{
+        id: number;
+        team_a_id: number;
+        team_b_id: number;
+        team_a_score: number;
+        team_b_score: number;
+    }>; // Team bouts
 }
 
 // View modes for the results display
@@ -53,16 +90,125 @@ const RoundResults: React.FC = () => {
     const {
         poolResults,
         event,
-        nextRoundInfo: { nextRound, hasNextRound, nextRoundStarted: initialNextRoundStarted },
+        nextRoundInfo: { nextRound, hasNextRound },
         isLoading,
         isError,
     } = useRoundResultsData(roundId, eventId, currentRoundIndex);
+
+    // Check if it's a team event
+    const isTeamEvent = event?.event_type === 'team';
 
     // Dedicated hook to track if the next round has started
     const { data: isNextRoundStarted } = useRoundStarted(nextRound?.id);
 
     // Get all rounds to determine if this is the final round
     const { data: rounds = [] } = useRounds(eventId);
+
+    // Fetch team pools data
+    const {
+        data: teamPoolsData,
+        isLoading: teamPoolsLoading,
+        isError: teamPoolsError,
+    } = useTeamPools(roundId, isTeamEvent);
+
+    // Create a map of pool IDs for team events
+    const teamPoolIds = useMemo(() => teamPoolsData?.map(pool => pool.poolid) || [], [teamPoolsData]);
+
+    // Use useQueries to fetch team bouts for all pools dynamically
+    const teamBoutQueries = useQueries({
+        queries: teamPoolIds.map(poolId => ({
+            queryKey: ['teamBouts', 'pool', roundId, poolId],
+            queryFn: () => dataProvider.getTeamBoutsForPool(roundId, poolId),
+            enabled: isTeamEvent && !!roundId && poolId !== undefined,
+            staleTime: 5000,
+        })),
+    });
+
+    // Aggregate loading and error states from team bout queries
+    const isTeamBoutsLoading = teamBoutQueries.some(query => query.isLoading);
+    const isTeamBoutsError = teamBoutQueries.some(query => query.isError);
+
+    // Process team pool data if this is a team event
+    const teamPoolResults = useMemo(() => {
+        if (!isTeamEvent || !teamPoolsData || isTeamBoutsLoading || teamPoolsError || isTeamBoutsError) {
+            return [];
+        }
+
+        // Build team bout data map
+        const teamBoutsData: Record<number, any[]> = {};
+        teamBoutQueries.forEach((query, index) => {
+            if (query.isSuccess) {
+                const poolId = teamPoolIds[index];
+                teamBoutsData[poolId] = query.data || [];
+            }
+        });
+
+        return teamPoolsData.map(pool => {
+            const bouts = teamBoutsData[pool.poolid] || [];
+
+            const teamStats: TeamStats[] = pool.teams.map(team => {
+                let boutsPlayed = 0;
+                let boutsWon = 0;
+                let touchesScored = 0;
+                let touchesReceived = 0;
+
+                // Calculate stats based on team bouts
+                bouts.forEach(bout => {
+                    if (bout.team_a_id === team.id || bout.team_b_id === team.id) {
+                        if (bout.status === 'complete') {
+                            boutsPlayed++;
+
+                            if (bout.team_a_id === team.id) {
+                                touchesScored += bout.team_a_score || 0;
+                                touchesReceived += bout.team_b_score || 0;
+                                if (bout.winner_id === team.id) {
+                                    boutsWon++;
+                                }
+                            } else {
+                                touchesScored += bout.team_b_score || 0;
+                                touchesReceived += bout.team_a_score || 0;
+                                if (bout.winner_id === team.id) {
+                                    boutsWon++;
+                                }
+                            }
+                        }
+                    }
+                });
+
+                return {
+                    team,
+                    boutsPlayed,
+                    boutsWon,
+                    touchesScored,
+                    touchesReceived,
+                    winRate: boutsPlayed > 0 ? (boutsWon / boutsPlayed) * 100 : 0,
+                    indicator: touchesScored - touchesReceived,
+                };
+            });
+
+            // Sort teams by win rate and indicator
+            teamStats.sort((a, b) => {
+                if (b.winRate !== a.winRate) {
+                    return b.winRate - a.winRate;
+                }
+                return b.indicator - a.indicator;
+            });
+
+            return {
+                poolid: pool.poolid,
+                stats: teamStats,
+                bouts: bouts,
+            };
+        });
+    }, [
+        isTeamEvent,
+        teamPoolsData,
+        teamBoutQueries,
+        teamPoolIds,
+        isTeamBoutsLoading,
+        teamPoolsError,
+        isTeamBoutsError,
+    ]);
 
     // Calculate combined stats for overall results
     const allFencersStats = useMemo(() => {
@@ -79,6 +225,22 @@ const RoundResults: React.FC = () => {
             return b.touchesScored - a.touchesScored;
         });
     }, [poolResults]);
+
+    // Calculate combined stats for team overall results
+    const allTeamsStats = useMemo(() => {
+        if (!teamPoolResults || teamPoolResults.length === 0) return [];
+
+        // Flatten and combine all team stats from all pools
+        const combinedStats = teamPoolResults.flatMap(pool => pool.stats);
+
+        // Sort by indicator (descending), then by touches scored (descending) as tiebreaker
+        return [...combinedStats].sort((a, b) => {
+            if (b.indicator !== a.indicator) {
+                return b.indicator - a.indicator;
+            }
+            return b.touchesScored - a.touchesScored;
+        });
+    }, [teamPoolResults]);
 
     const isFinalRound = useMemo(() => {
         return rounds.length > 0 && currentRoundIndex === rounds.length - 1;
@@ -159,15 +321,35 @@ const RoundResults: React.FC = () => {
     const navigateToNextRound = () => {
         if (!nextRound || !event) return;
 
-        if (nextRound.type === 'de') {
-            navigateToDEPage(navigation, event, nextRound, currentRoundIndex + 1, isRemote);
+        if (isTeamEvent) {
+            // Team event navigation
+            if (nextRound.round_format === 'team_de') {
+                navigation.navigate('TeamDEBracketPage', {
+                    event: event,
+                    currentRoundIndex: currentRoundIndex + 1,
+                    roundId: nextRound.id,
+                    isRemote,
+                });
+            } else {
+                navigation.navigate('TeamRoundRobinPage', {
+                    event: event,
+                    currentRoundIndex: currentRoundIndex + 1,
+                    roundId: nextRound.id,
+                    isRemote,
+                });
+            }
         } else {
-            navigation.navigate('PoolsPage', {
-                event: event,
-                currentRoundIndex: currentRoundIndex + 1,
-                roundId: nextRound.id,
-                isRemote,
-            });
+            // Individual event navigation
+            if (nextRound.type === 'de') {
+                navigateToDEPage(navigation, event, nextRound, currentRoundIndex + 1, isRemote);
+            } else {
+                navigation.navigate('PoolsPage', {
+                    event: event,
+                    currentRoundIndex: currentRoundIndex + 1,
+                    roundId: nextRound.id,
+                    isRemote,
+                });
+            }
         }
     };
 
@@ -179,8 +361,12 @@ const RoundResults: React.FC = () => {
         });
     };
 
+    // Determine final loading and error states
+    const finalIsLoading = isTeamEvent ? teamPoolsLoading || isTeamBoutsLoading : isLoading;
+    const finalIsError = isTeamEvent ? teamPoolsError || isTeamBoutsError : isError;
+
     // Show loading state
-    if (isLoading) {
+    if (finalIsLoading) {
         return (
             <View style={styles.loadingContainer}>
                 <ActivityIndicator size="large" color="#0000ff" />
@@ -190,7 +376,7 @@ const RoundResults: React.FC = () => {
     }
 
     // Show error state
-    if (isError) {
+    if (finalIsError) {
         return (
             <View style={styles.errorContainer}>
                 <Text style={styles.errorText}>{t('roundResults.errorLoadingResults')}</Text>
@@ -237,12 +423,25 @@ const RoundResults: React.FC = () => {
 
             {/* Render appropriate view based on selection */}
             {viewMode === 'list' &&
-                poolResults.map(poolResult => <PoolListView key={poolResult.poolid} poolResult={poolResult} />)}
+                (isTeamEvent
+                    ? teamPoolResults.map(poolResult => (
+                          <TeamPoolListView key={poolResult.poolid} poolResult={poolResult} />
+                      ))
+                    : poolResults.map(poolResult => <PoolListView key={poolResult.poolid} poolResult={poolResult} />))}
 
             {viewMode === 'poolSheet' &&
-                poolResults.map(poolResult => <PoolSheetView key={poolResult.poolid} poolResult={poolResult} />)}
+                (isTeamEvent
+                    ? teamPoolResults.map(poolResult => (
+                          <TeamPoolSheetView key={poolResult.poolid} poolResult={poolResult} />
+                      ))
+                    : poolResults.map(poolResult => <PoolSheetView key={poolResult.poolid} poolResult={poolResult} />))}
 
-            {viewMode === 'overall' && <OverallResultsView fencerStats={allFencersStats} />}
+            {viewMode === 'overall' &&
+                (isTeamEvent ? (
+                    <TeamOverallResultsView teamStats={allTeamsStats} />
+                ) : (
+                    <OverallResultsView fencerStats={allFencersStats} />
+                ))}
 
             {/* If this is the final round, show the "View Tournament Results" button */}
             {isFinalRound && (
@@ -787,5 +986,235 @@ const styles = StyleSheet.create({
         fontSize: 16,
     },
 });
+
+// Team Pool List View component
+const TeamPoolListView: React.FC<{ poolResult: TeamPoolResult }> = ({ poolResult }) => {
+    const { t } = useTranslation();
+
+    // Pre-calculate rankings to avoid mutating arrays during render
+    const teamRankings = useMemo(() => {
+        const sortedStats = [...poolResult.stats].sort(
+            (a, b) => b.indicator - a.indicator || b.touchesScored - a.touchesScored
+        );
+
+        const rankMap = new Map<number, number>();
+        sortedStats.forEach((stat, index) => {
+            if (stat.team?.id) {
+                rankMap.set(stat.team.id, index + 1);
+            }
+        });
+
+        return rankMap;
+    }, [poolResult.stats]);
+
+    return (
+        <View style={styles.poolContainer}>
+            <Text style={styles.poolTitle}>
+                {t('roundResults.pool')} {poolResult.poolid}
+            </Text>
+            <View style={styles.tableHeader}>
+                <Text style={[styles.tableHeaderCell, { flex: 2 }]}>{t('roundResults.team')}</Text>
+                <Text style={styles.tableHeaderCell}>{t('roundResults.winRate')}</Text>
+                <Text style={styles.tableHeaderCell}>{t('roundResults.boutsWon')}</Text>
+                <Text style={styles.tableHeaderCell}>{t('roundResults.touchesScoredShort')}</Text>
+                <Text style={styles.tableHeaderCell}>{t('roundResults.touchesReceivedShort')}</Text>
+                <Text style={styles.tableHeaderCell}>{t('roundResults.indicatorShort')}</Text>
+                <Text style={styles.tableHeaderCell}>{t('roundResults.place')}</Text>
+            </View>
+            {poolResult.stats.map(stat => (
+                <View key={stat.team?.id || 0} style={styles.tableRow}>
+                    <Text style={[styles.tableCell, { flex: 2 }]}>{stat.team?.name || ''}</Text>
+                    <Text style={styles.tableCell}>{stat.winRate.toFixed(1)}%</Text>
+                    <Text style={styles.tableCell}>
+                        {stat.boutsWon}/{stat.boutsPlayed}
+                    </Text>
+                    <Text style={styles.tableCell}>{stat.touchesScored}</Text>
+                    <Text style={styles.tableCell}>{stat.touchesReceived}</Text>
+                    <Text style={styles.tableCell}>{stat.indicator}</Text>
+                    <Text style={styles.tableCell}>{teamRankings.get(stat.team?.id) || '-'}</Text>
+                </View>
+            ))}
+        </View>
+    );
+};
+
+// Team Pool Sheet View component
+const TeamPoolSheetView: React.FC<{ poolResult: TeamPoolResult }> = ({ poolResult }) => {
+    const { t } = useTranslation();
+    const { stats } = poolResult;
+    const teamCount = stats.length;
+
+    // Create a lookup map for bouts to find results quickly
+    const boutMap = useMemo(() => {
+        const map = new Map();
+
+        if (poolResult.bouts) {
+            poolResult.bouts.forEach(bout => {
+                // Create keys for both directions to easily look up bouts
+                const aToB = `${bout.team_a_id}-${bout.team_b_id}`;
+                const bToA = `${bout.team_b_id}-${bout.team_a_id}`;
+
+                // Store the bout with the respective team perspective
+                map.set(aToB, {
+                    teamId: bout.team_a_id,
+                    opponentId: bout.team_b_id,
+                    myScore: bout.team_a_score,
+                    opponentScore: bout.team_b_score,
+                });
+
+                map.set(bToA, {
+                    teamId: bout.team_b_id,
+                    opponentId: bout.team_a_id,
+                    myScore: bout.team_b_score,
+                    opponentScore: bout.team_a_score,
+                });
+            });
+        }
+
+        return map;
+    }, [poolResult.bouts]);
+
+    // Function to get results between two teams from the perspective of teamA
+    const getBoutResult = (teamIdA: number, teamIdB: number) => {
+        const key = `${teamIdA}-${teamIdB}`;
+        return boutMap.get(key);
+    };
+
+    return (
+        <View style={styles.poolSheetContainer}>
+            <View style={styles.poolSheetHeader}>
+                <Text style={styles.poolSheetTitle}>
+                    {t('roundResults.pool')} {poolResult.poolid} {t('roundResults.sheet')}
+                </Text>
+            </View>
+            <View style={styles.poolSheetTableContainer}>
+                {/* Header row with column numbers */}
+                <View style={styles.poolSheetHeaderRow}>
+                    <View style={styles.poolSheetNameHeader}>
+                        <Text style={styles.poolSheetHeaderText}>{t('roundResults.team')}</Text>
+                    </View>
+                    {Array.from({ length: teamCount }).map((_, idx) => (
+                        <View key={`col-${idx}`} style={styles.poolSheetColHeader}>
+                            <Text style={styles.poolSheetHeaderText}>{idx + 1}</Text>
+                        </View>
+                    ))}
+                    <View style={styles.poolSheetStatsHeader}>
+                        <Text style={styles.poolSheetHeaderText}>{t('roundResults.boutsWonShort')}</Text>
+                    </View>
+                    <View style={styles.poolSheetStatsHeader}>
+                        <Text style={styles.poolSheetHeaderText}>{t('roundResults.touchesScoredShort')}</Text>
+                    </View>
+                    <View style={styles.poolSheetStatsHeader}>
+                        <Text style={styles.poolSheetHeaderText}>{t('roundResults.touchesReceivedShort')}</Text>
+                    </View>
+                    <View style={styles.poolSheetStatsHeader}>
+                        <Text style={styles.poolSheetHeaderText}>{t('roundResults.indicatorShort')}</Text>
+                    </View>
+                </View>
+
+                {/* Team rows */}
+                {stats.map((stat, rowIdx) => (
+                    <View key={`row-${stat.team?.id || rowIdx}`} style={styles.poolSheetRow}>
+                        {/* Team name cell with number */}
+                        <View style={styles.poolSheetNameCell}>
+                            <Text style={styles.poolSheetRowNumber}>{rowIdx + 1}</Text>
+                            <Text style={styles.poolSheetName} numberOfLines={1} ellipsizeMode="tail">
+                                {stat.team?.name || ''}
+                            </Text>
+                        </View>
+
+                        {/* Bout result cells */}
+                        {stats.map((opponentStat, colIdx) => {
+                            if (stat.team?.id === opponentStat.team?.id) {
+                                // Same team, gray cell
+                                return <View key={`bout-${rowIdx}-${colIdx}`} style={styles.poolSheetSameCell} />;
+                            }
+
+                            // Get the actual bout result between these two teams
+                            const boutResult =
+                                stat.team?.id && opponentStat.team?.id
+                                    ? getBoutResult(stat.team.id, opponentStat.team.id)
+                                    : null;
+
+                            // If no result found, show empty cell
+                            if (!boutResult) {
+                                return <View key={`bout-${rowIdx}-${colIdx}`} style={styles.poolSheetResultCell} />;
+                            }
+
+                            // Get the result from this team's perspective
+                            const myScore = boutResult.myScore || 0;
+                            const opponentScore = boutResult.opponentScore || 0;
+
+                            // Create result code (W5-4, L3-5, etc.)
+                            let resultCode;
+                            if (myScore > opponentScore) {
+                                resultCode = `W${myScore}-${opponentScore}`;
+                            } else {
+                                resultCode = `L${myScore}-${opponentScore}`;
+                            }
+
+                            return (
+                                <View key={`bout-${rowIdx}-${colIdx}`} style={styles.poolSheetResultCell}>
+                                    <Text style={styles.poolSheetResultText}>{resultCode}</Text>
+                                </View>
+                            );
+                        })}
+
+                        {/* Stats columns */}
+                        <View style={styles.poolSheetStatCell}>
+                            <Text style={styles.poolSheetStatText}>
+                                {stat.boutsWon}/{stat.boutsPlayed}
+                            </Text>
+                        </View>
+                        <View style={styles.poolSheetStatCell}>
+                            <Text style={styles.poolSheetStatText}>{stat.touchesScored}</Text>
+                        </View>
+                        <View style={styles.poolSheetStatCell}>
+                            <Text style={styles.poolSheetStatText}>{stat.touchesReceived}</Text>
+                        </View>
+                        <View style={styles.poolSheetStatCell}>
+                            <Text style={styles.poolSheetStatText}>{stat.indicator}</Text>
+                        </View>
+                    </View>
+                ))}
+            </View>
+        </View>
+    );
+};
+
+// Team Overall Results View component
+const TeamOverallResultsView: React.FC<{ teamStats: TeamStats[] }> = ({ teamStats }) => {
+    const { t } = useTranslation();
+
+    return (
+        <View style={styles.overallContainer}>
+            <Text style={styles.overallTitle}>{t('roundResults.overallResults')}</Text>
+            <View style={styles.tableHeader}>
+                <Text style={[styles.tableHeaderCell, { flex: 0.5 }]}>{t('roundResults.rank')}</Text>
+                <Text style={[styles.tableHeaderCell, { flex: 2 }]}>{t('roundResults.team')}</Text>
+                <Text style={styles.tableHeaderCell}>{t('roundResults.winRate')}</Text>
+                <Text style={styles.tableHeaderCell}>{t('roundResults.boutsWon')}</Text>
+                <Text style={styles.tableHeaderCell}>{t('roundResults.touchesScoredShort')}</Text>
+                <Text style={styles.tableHeaderCell}>{t('roundResults.touchesReceivedShort')}</Text>
+                <Text style={styles.tableHeaderCell}>{t('roundResults.indicatorShort')}</Text>
+            </View>
+            {teamStats.map((stat, index) => (
+                <View key={stat.team?.id || index} style={styles.tableRow}>
+                    <Text style={[styles.tableCell, { flex: 0.5 }]}>{index + 1}</Text>
+                    <Text style={[styles.tableCell, { flex: 2 }, index === 0 ? styles.goldText : {}]}>
+                        {stat.team?.name || ''}
+                    </Text>
+                    <Text style={styles.tableCell}>{stat.winRate.toFixed(1)}%</Text>
+                    <Text style={styles.tableCell}>
+                        {stat.boutsWon}/{stat.boutsPlayed}
+                    </Text>
+                    <Text style={styles.tableCell}>{stat.touchesScored}</Text>
+                    <Text style={styles.tableCell}>{stat.touchesReceived}</Text>
+                    <Text style={styles.tableCell}>{stat.indicator}</Text>
+                </View>
+            ))}
+        </View>
+    );
+};
 
 export default RoundResults;

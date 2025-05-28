@@ -30,6 +30,10 @@ export const queryKeys = {
     officials: (tournamentName: string) => ['officials', tournamentName] as const,
     referees: (tournamentName: string) => ['referees', tournamentName] as const,
     userRole: (deviceId: string, eventId: number) => ['userRole', deviceId, eventId] as const,
+    teamBracket: (roundId: number) => ['teamBracket', roundId] as const,
+    teamBout: (boutId: number) => ['teamBout', boutId] as const,
+    teamPools: (roundId: number) => ['teamPools', roundId] as const,
+    teamBoutsForPool: (roundId: number, poolId: number) => ['teamBouts', 'pool', roundId, poolId] as const,
 };
 
 // ===== READ HOOKS =====
@@ -78,6 +82,18 @@ export function useRounds(eventId: number) {
         queryKey: queryKeys.rounds(eventId),
         queryFn: () => dataProvider.getRounds(eventId),
         enabled: !!eventId,
+        staleTime: dataProvider.isRemoteConnection() ? 10000 : 60000,
+    });
+}
+
+/**
+ * Hook to get a single round by ID
+ */
+export function useRound(roundId: number) {
+    return useQuery({
+        queryKey: queryKeys.round(roundId),
+        queryFn: () => dataProvider.getRoundById(roundId),
+        enabled: !!roundId,
         staleTime: dataProvider.isRemoteConnection() ? 10000 : 60000,
     });
 }
@@ -210,6 +226,36 @@ export function useSearchClubs(query: string) {
         queryFn: () => dataProvider.searchClubs(query),
         enabled: query.trim().length > 0,
         staleTime: 30000,
+    });
+}
+
+/**
+ * Hook to get team bracket for a round
+ */
+export function useTeamBracket(roundId: number) {
+    return useQuery({
+        queryKey: queryKeys.teamBracket(roundId),
+        queryFn: async () => {
+            const { dbGetTeamBracketForRound } = await import('../db/DrizzleDatabaseUtils');
+            return dbGetTeamBracketForRound(roundId);
+        },
+        enabled: roundId > 0,
+        staleTime: 5000, // Refresh more frequently for live updates
+    });
+}
+
+/**
+ * Hook to check if a team DE round is complete
+ */
+export function useTeamDERoundComplete(roundId: number) {
+    return useQuery({
+        queryKey: queryKeys.roundCompleted(roundId),
+        queryFn: async () => {
+            const { dbIsTeamDERoundComplete } = await import('../db/DrizzleDatabaseUtils');
+            return dbIsTeamDERoundComplete(roundId);
+        },
+        enabled: roundId > 0,
+        staleTime: 5000,
     });
 }
 
@@ -1086,5 +1132,29 @@ export function useUpdateReferee() {
                 queryKey: queryKeys.referees(tournamentName),
             });
         },
+    });
+}
+
+/**
+ * Hook to fetch team pools for a round
+ */
+export function useTeamPools(roundId: number, enabled = true) {
+    return useQuery({
+        queryKey: queryKeys.teamPools(roundId),
+        queryFn: () => dataProvider.getTeamPools(roundId),
+        enabled: !!roundId && enabled,
+        staleTime: dataProvider.isRemoteConnection() ? 5000 : 30000,
+    });
+}
+
+/**
+ * Hook to fetch team bouts for a pool
+ */
+export function useTeamBoutsForPool(roundId: number, poolId: number, enabled = true) {
+    return useQuery({
+        queryKey: queryKeys.teamBoutsForPool(roundId, poolId),
+        queryFn: () => dataProvider.getTeamBoutsForPool(roundId, poolId),
+        enabled: !!roundId && poolId !== undefined && enabled,
+        staleTime: dataProvider.isRemoteConnection() ? 5000 : 30000,
     });
 }

@@ -428,7 +428,9 @@ export const EventManagement = ({ route }: Props) => {
                     return;
                 }
                 // Optionally check if teams have enough members
-                const invalidTeams = teams.filter(team => !team.members || team.members.filter(m => m.role === 'starter').length < 3);
+                const invalidTeams = teams.filter(
+                    team => !team.members || team.members.filter(m => m.role === 'starter').length < 3
+                );
                 if (invalidTeams.length > 0) {
                     Alert.alert(t('common.error'), t('eventManagement.teamsNeedMoreStarters'));
                     return;
@@ -797,21 +799,24 @@ export const EventManagement = ({ route }: Props) => {
                                             )}
                                         </Can>
                                         {/* Team Management button for team events */}
-                                        {event.event_type === 'team' && !(eventStatuses && eventStatuses[event.id] === true) && (
-                                            <Can I="update" a="Team">
-                                                <TouchableOpacity
-                                                    style={[styles.actionButton, styles.flexAction]}
-                                                    onPress={() =>
-                                                        navigation.navigate('TeamManagement' as any, {
-                                                            event: event,
-                                                            isRemote: isRemote,
-                                                        })
-                                                    }
-                                                >
-                                                    <Text style={styles.buttonText}>{t('eventManagement.teams')}</Text>
-                                                </TouchableOpacity>
-                                            </Can>
-                                        )}
+                                        {event.event_type === 'team' &&
+                                            !(eventStatuses && eventStatuses[event.id] === true) && (
+                                                <Can I="update" a="Team">
+                                                    <TouchableOpacity
+                                                        style={[styles.actionButton, styles.flexAction]}
+                                                        onPress={() =>
+                                                            navigation.navigate('TeamManagement' as any, {
+                                                                event: event,
+                                                                isRemote: isRemote,
+                                                            })
+                                                        }
+                                                    >
+                                                        <Text style={styles.buttonText}>
+                                                            {t('eventManagement.teams')}
+                                                        </Text>
+                                                    </TouchableOpacity>
+                                                </Can>
+                                            )}
                                         <TouchableOpacity
                                             style={[styles.actionButton, styles.flexAction]}
                                             onPress={() => {
@@ -906,10 +911,7 @@ export const EventManagement = ({ route }: Props) => {
                                     </Text>
                                 </TouchableOpacity>
                                 <TouchableOpacity
-                                    style={[
-                                        styles.optionButton,
-                                        selectedEventType === 'team' && styles.selectedButton,
-                                    ]}
+                                    style={[styles.optionButton, selectedEventType === 'team' && styles.selectedButton]}
                                     onPress={() => setSelectedEventType('team')}
                                 >
                                     <Text

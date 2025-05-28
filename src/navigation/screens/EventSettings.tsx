@@ -87,12 +87,12 @@ function calculateTeamPoolConfigurations(totalTeams: number): PoolConfiguration[
 
 function formatPoolLabel(config: PoolConfiguration, t: any, isTeamEvent: boolean = false): string {
     const { pools, baseSize, extraPools } = config;
-    
+
     // Use appropriate terminology based on event type
     const unitName = isTeamEvent ? t('eventSettings.teams') : t('eventSettings.fencers');
     const groupName = isTeamEvent ? t('eventSettings.group') : t('eventSettings.pool');
     const groupsName = isTeamEvent ? t('eventSettings.groups') : t('eventSettings.pools');
-    
+
     if (extraPools === 0) {
         // Return directly formatted text without using translation keys for plurals
         const poolText = pools === 1 ? groupName : groupsName;
@@ -152,7 +152,7 @@ export const EventSettings = ({ route }: Props) => {
     const { data: teams = [], isLoading: teamsLoading } = useTeams(event.id);
 
     const { data: rounds = [], isLoading: roundsLoading } = useRounds(event.id);
-    
+
     // Check if this is a team event
     const isTeamEvent = event.event_type === 'team';
 
@@ -234,9 +234,10 @@ export const EventSettings = ({ route }: Props) => {
 
     // Pool configurations - using React.useMemo to avoid unnecessary recalculations
     const poolConfigurations = React.useMemo(
-        () => isTeamEvent 
-            ? calculateTeamPoolConfigurations(teams?.length || 0)
-            : calculatePoolConfigurations(fencers?.length || 0),
+        () =>
+            isTeamEvent
+                ? calculateTeamPoolConfigurations(teams?.length || 0)
+                : calculatePoolConfigurations(fencers?.length || 0),
         [isTeamEvent, teams?.length, fencers?.length]
     );
 
@@ -695,10 +696,10 @@ export const EventSettings = ({ route }: Props) => {
             </TouchableOpacity>
             {/* Always show fencer list */}
             <View style={styles.fencerListContainer}>
-                    <Text style={styles.fencerListHeader}>
-                        {t('eventSettings.currentFencers', { count: fencers.length })}
-                    </Text>
-                    {fencersLoading ? (
+                <Text style={styles.fencerListHeader}>
+                    {t('eventSettings.currentFencers', { count: fencers.length })}
+                </Text>
+                {fencersLoading ? (
                     <View style={styles.loadingContainer}>
                         <ActivityIndicator size="small" color="#001f3f" />
                         <Text style={styles.loadingText}>{t('eventSettings.loadingFencers')}</Text>
@@ -714,7 +715,7 @@ export const EventSettings = ({ route }: Props) => {
                         <Text style={styles.pendingActionText}>{t('eventSettings.addingFencer')}</Text>
                     </View>
                 )}
-                </View>
+            </View>
             {fencingDropdownOpen && (
                 <View style={styles.dropdownContent}>
                     <View style={styles.section}>
@@ -908,8 +909,8 @@ export const EventSettings = ({ route }: Props) => {
                                         {round.round_format === 'team_round_robin'
                                             ? t('eventSettings.roundRobinRound')
                                             : round.round_format === 'individual_pools'
-                                                ? t('eventSettings.poolsRound')
-                                                : t('eventSettings.deRound')}
+                                              ? t('eventSettings.poolsRound')
+                                              : t('eventSettings.deRound')}
                                     </Text>
                                     <View style={styles.roundItemActions}>
                                         <TouchableOpacity
@@ -1026,7 +1027,10 @@ export const EventSettings = ({ route }: Props) => {
                                                 {round.round_format === 'team_round_robin' ? (
                                                     <View style={styles.roundRobinNote}>
                                                         <Text style={styles.roundRobinNoteText}>
-                                                            {t('eventSettings.teamRoundRobinNote', 'In team Round Robin, all teams fence all other teams in the event.')}
+                                                            {t(
+                                                                'eventSettings.teamRoundRobinNote',
+                                                                'In team Round Robin, all teams fence all other teams in the event.'
+                                                            )}
                                                         </Text>
                                                     </View>
                                                 ) : (

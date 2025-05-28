@@ -1,7 +1,18 @@
 import { createMongoAbility, AbilityBuilder, MongoAbility } from '@casl/ability';
 
 // Define our subjects (entities we want to control access to)
-export type AppSubjects = 'Tournament' | 'Event' | 'Round' | 'Official' | 'Referee' | 'Bout' | 'Fencer' | 'Team' | 'TeamMember' | 'TeamBout' | 'all';
+export type AppSubjects =
+    | 'Tournament'
+    | 'Event'
+    | 'Round'
+    | 'Official'
+    | 'Referee'
+    | 'Bout'
+    | 'Fencer'
+    | 'Team'
+    | 'TeamMember'
+    | 'TeamBout'
+    | 'all';
 
 // Define possible actions
 export type Actions = 'manage' | 'create' | 'read' | 'update' | 'delete' | 'score' | 'substitute';

@@ -27,8 +27,7 @@ export async function dbCreateTeamPoolAssignmentsAndBouts(
         console.log(`Total teams: ${teams.length}`);
 
         // Clear any existing pool assignments for this round first
-        await client.delete(schema.teamPoolAssignment)
-            .where(eq(schema.teamPoolAssignment.roundid, round.id));
+        await client.delete(schema.teamPoolAssignment).where(eq(schema.teamPoolAssignment.roundid, round.id));
 
         // Build pools using similar algorithm as individual pools
         const pools = buildTeamPools(teams, poolCount, teamsPerPool);
@@ -55,26 +54,14 @@ export async function dbCreateTeamPoolAssignmentsAndBouts(
                 for (let j = i + 1; j < pool.length; j++) {
                     const teamA = pool[i];
                     const teamB = pool[j];
-                    
+
                     if (!teamA.id || !teamB.id) continue;
 
                     // Create team bout based on format
                     if (event.team_format === 'NCAA') {
-                        await teamBoutUtils.createNCAATeamBout(
-                            client,
-                            round.id,
-                            teamA.id,
-                            teamB.id,
-                            event.id
-                        );
+                        await teamBoutUtils.createNCAATeamBout(client, round.id, teamA.id, teamB.id, event.id);
                     } else if (event.team_format === '45-touch') {
-                        await relayBoutUtils.createRelayTeamBout(
-                            client,
-                            round.id,
-                            teamA.id,
-                            teamB.id,
-                            event.id
-                        );
+                        await relayBoutUtils.createRelayTeamBout(client, round.id, teamA.id, teamB.id, event.id);
                     }
                 }
             }
@@ -99,7 +86,9 @@ function buildTeamPools(teams: Team[], poolCount: number, teamsPerPool: number):
 
     // Adjust pool count if we have fewer teams than pools
     const actualPoolCount = Math.min(poolCount, sortedTeams.length);
-    const pools: Team[][] = Array(actualPoolCount).fill(null).map(() => []);
+    const pools: Team[][] = Array(actualPoolCount)
+        .fill(null)
+        .map(() => []);
 
     // Simple round-robin assignment when we have very few teams
     if (sortedTeams.length <= actualPoolCount) {
@@ -111,10 +100,8 @@ function buildTeamPools(teams: Team[], poolCount: number, teamsPerPool: number):
         // Snake seeding for multiple teams
         for (let i = 0; i < sortedTeams.length; i++) {
             const round = Math.floor(i / actualPoolCount);
-            const poolIndex = round % 2 === 0 
-                ? i % actualPoolCount 
-                : actualPoolCount - 1 - (i % actualPoolCount);
-            
+            const poolIndex = round % 2 === 0 ? i % actualPoolCount : actualPoolCount - 1 - (i % actualPoolCount);
+
             pools[poolIndex].push(sortedTeams[i]);
         }
     }
@@ -125,22 +112,16 @@ function buildTeamPools(teams: Team[], poolCount: number, teamsPerPool: number):
 /**
  * Gets teams in a specific pool
  */
-export async function dbGetTeamsInPool(
-    client: DrizzleClient,
-    roundId: number,
-    poolId: number
-): Promise<Team[]> {
-    const assignments = await client.select({
-        team: schema.teams,
-        teamidinpool: schema.teamPoolAssignment.teamidinpool
-    })
-    .from(schema.teamPoolAssignment)
-    .innerJoin(schema.teams, eq(schema.teamPoolAssignment.teamid, schema.teams.id))
-    .where(and(
-        eq(schema.teamPoolAssignment.roundid, roundId),
-        eq(schema.teamPoolAssignment.poolid, poolId)
-    ))
-    .orderBy(schema.teamPoolAssignment.teamidinpool);
+export async function dbGetTeamsInPool(client: DrizzleClient, roundId: number, poolId: number): Promise<Team[]> {
+    const assignments = await client
+        .select({
+            team: schema.teams,
+            teamidinpool: schema.teamPoolAssignment.teamidinpool,
+        })
+        .from(schema.teamPoolAssignment)
+        .innerJoin(schema.teams, eq(schema.teamPoolAssignment.teamid, schema.teams.id))
+        .where(and(eq(schema.teamPoolAssignment.roundid, roundId), eq(schema.teamPoolAssignment.poolid, poolId)))
+        .orderBy(schema.teamPoolAssignment.teamidinpool);
 
     // Get full team data with members
     const teams: Team[] = [];
@@ -168,39 +149,59 @@ export async function dbGetTeamBoutsForPool(
     const teamIds = teams.map(t => t.id).filter(id => id !== undefined);
 
     // Get all team bouts involving these teams
-    const bouts = await client.select()
+    const bouts = await client
+        .select()
         .from(schema.teamBouts)
-        .where(and(
-            eq(schema.teamBouts.roundid, roundId),
-            eq(schema.teamBouts.format, format)
-        ));
+        .where(and(eq(schema.teamBouts.roundid, roundId), eq(schema.teamBouts.format, format)));
 
     // Filter to only bouts between teams in this pool
-    return bouts.filter(bout => 
-        teamIds.includes(bout.team_a_id!) && teamIds.includes(bout.team_b_id!)
-    );
+    return bouts.filter(bout => teamIds.includes(bout.team_a_id!) && teamIds.includes(bout.team_b_id!));
 }
 
 /**
  * Completes a team pool and calculates results
  */
-export async function dbCompleteTeamPool(
-    client: DrizzleClient,
-    roundId: number,
-    poolId: number
-): Promise<void> {
+export async function dbCompleteTeamPool(client: DrizzleClient, roundId: number, poolId: number): Promise<void> {
     // Mark all team bouts in the pool as complete
     const teams = await dbGetTeamsInPool(client, roundId, poolId);
     const teamIds = teams.map(t => t.id).filter(id => id !== undefined);
 
-    await client.update(schema.teamBouts)
+    await client
+        .update(schema.teamBouts)
         .set({ status: 'complete' })
-        .where(and(
-            eq(schema.teamBouts.roundid, roundId),
-            // Can't use IN clause easily with drizzle, so we'll just mark all bouts complete
-        ));
+        .where(
+            and(
+                eq(schema.teamBouts.roundid, roundId)
+                // Can't use IN clause easily with drizzle, so we'll just mark all bouts complete
+            )
+        );
 
     console.log(`Team pool ${poolId} marked as complete`);
+}
+
+/**
+ * Gets all team pools for a round
+ */
+export async function dbGetTeamPoolsForRound(
+    client: DrizzleClient,
+    roundId: number
+): Promise<{ poolid: number; teams: Team[] }[]> {
+    // Get all unique pool IDs for this round
+    const poolAssignments = await client
+        .select({ poolid: schema.teamPoolAssignment.poolid })
+        .from(schema.teamPoolAssignment)
+        .where(eq(schema.teamPoolAssignment.roundid, roundId))
+        .groupBy(schema.teamPoolAssignment.poolid);
+
+    const pools: { poolid: number; teams: Team[] }[] = [];
+
+    // For each pool, get the teams
+    for (const { poolid } of poolAssignments) {
+        const teams = await dbGetTeamsInPool(client, roundId, poolid);
+        pools.push({ poolid, teams });
+    }
+
+    return pools;
 }
 
 /**
@@ -226,10 +227,7 @@ export async function calculateTeamPoolStandings(
                 wins++;
                 boutsWon += bout.team_a_id === team.id ? bout.team_a_score : bout.team_b_score;
                 boutsLost += bout.team_a_id === team.id ? bout.team_b_score : bout.team_a_score;
-            } else if (
-                (bout.team_a_id === team.id || bout.team_b_id === team.id) && 
-                bout.status === 'complete'
-            ) {
+            } else if ((bout.team_a_id === team.id || bout.team_b_id === team.id) && bout.status === 'complete') {
                 losses++;
                 boutsWon += bout.team_a_id === team.id ? bout.team_a_score : bout.team_b_score;
                 boutsLost += bout.team_a_id === team.id ? bout.team_b_score : bout.team_a_score;
@@ -243,7 +241,7 @@ export async function calculateTeamPoolStandings(
             winRate: wins / (wins + losses) || 0,
             boutsWon,
             boutsLost,
-            boutIndicator: boutsWon - boutsLost
+            boutIndicator: boutsWon - boutsLost,
         };
     });
 

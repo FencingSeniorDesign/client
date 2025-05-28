@@ -268,7 +268,7 @@ export async function initializeDatabase() {
         } catch (e) {
             // Column might already exist, ignore error
         }
-        
+
         try {
             await db.run(sql`ALTER TABLE Events ADD COLUMN team_format text`);
         } catch (e) {
@@ -285,7 +285,7 @@ export async function initializeDatabase() {
         // Add round_format column to Rounds table if it doesn't exist
         try {
             await db.run(sql`ALTER TABLE Rounds ADD COLUMN round_format text DEFAULT 'individual_pools' NOT NULL`);
-            
+
             // Update existing rounds to have correct round_format based on event type
             // First, update individual pool rounds
             await db.run(sql`
@@ -294,7 +294,7 @@ export async function initializeDatabase() {
                 WHERE type = 'pool' 
                 AND eventid IN (SELECT id FROM Events WHERE event_type = 'individual' OR event_type IS NULL)
             `);
-            
+
             // Update team round robin rounds
             await db.run(sql`
                 UPDATE Rounds 
@@ -302,7 +302,7 @@ export async function initializeDatabase() {
                 WHERE type = 'pool' 
                 AND eventid IN (SELECT id FROM Events WHERE event_type = 'team')
             `);
-            
+
             // Update individual DE rounds
             await db.run(sql`
                 UPDATE Rounds 
@@ -310,7 +310,7 @@ export async function initializeDatabase() {
                 WHERE type = 'de' 
                 AND eventid IN (SELECT id FROM Events WHERE event_type = 'individual' OR event_type IS NULL)
             `);
-            
+
             // Update team DE rounds
             await db.run(sql`
                 UPDATE Rounds 
@@ -318,7 +318,7 @@ export async function initializeDatabase() {
                 WHERE type = 'de' 
                 AND eventid IN (SELECT id FROM Events WHERE event_type = 'team')
             `);
-            
+
             console.log('Updated existing rounds with round_format');
         } catch (e) {
             // Column might already exist, ignore error
@@ -327,7 +327,9 @@ export async function initializeDatabase() {
 
         // Add missing columns to TeamBouts table if they don't exist
         try {
-            await db.run(sql`ALTER TABLE TeamBouts ADD COLUMN eventid integer NOT NULL DEFAULT 0 REFERENCES Events(id)`);
+            await db.run(
+                sql`ALTER TABLE TeamBouts ADD COLUMN eventid integer NOT NULL DEFAULT 0 REFERENCES Events(id)`
+            );
         } catch (e) {
             // Column might already exist, ignore error
         }
@@ -377,7 +379,9 @@ export async function initializeDatabase() {
 
         // Create unique constraint on TeamMembers
         try {
-            await db.run(sql`CREATE UNIQUE INDEX TeamMembers_teamid_fencerid_unique ON TeamMembers (teamid, fencerid);`);
+            await db.run(
+                sql`CREATE UNIQUE INDEX TeamMembers_teamid_fencerid_unique ON TeamMembers (teamid, fencerid);`
+            );
         } catch (e) {
             // Index might already exist, ignore error
         }
@@ -459,7 +463,9 @@ export async function initializeDatabase() {
 
         // Create unique constraint for RelayLegHistory
         try {
-            await db.run(sql`CREATE UNIQUE INDEX IF NOT EXISTS RelayLegHistory_team_bout_id_leg_number_unique ON RelayLegHistory (team_bout_id, leg_number);`);
+            await db.run(
+                sql`CREATE UNIQUE INDEX IF NOT EXISTS RelayLegHistory_team_bout_id_leg_number_unique ON RelayLegHistory (team_bout_id, leg_number);`
+            );
         } catch (e) {
             // Index might already exist, ignore error
         }
@@ -473,6 +479,23 @@ export async function initializeDatabase() {
         PRIMARY KEY(roundid, poolid, teamid),
         FOREIGN KEY (roundid) REFERENCES Rounds(id) ON UPDATE no action ON DELETE no action,
         FOREIGN KEY (teamid) REFERENCES Teams(id) ON UPDATE no action ON DELETE no action
+      );
+    `);
+
+        await db.run(sql`
+      CREATE TABLE IF NOT EXISTS TeamDEBracketBouts (
+        id integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+        roundid integer,
+        team_bout_id integer,
+        bracket_type text,
+        bracket_round integer,
+        bout_order integer,
+        next_bout_id integer,
+        loser_next_bout_id integer,
+        FOREIGN KEY (roundid) REFERENCES Rounds(id) ON UPDATE no action ON DELETE no action,
+        FOREIGN KEY (team_bout_id) REFERENCES TeamBouts(id) ON UPDATE no action ON DELETE no action,
+        FOREIGN KEY (next_bout_id) REFERENCES TeamBouts(id) ON UPDATE no action ON DELETE no action,
+        FOREIGN KEY (loser_next_bout_id) REFERENCES TeamBouts(id) ON UPDATE no action ON DELETE no action
       );
     `);
 

@@ -67,7 +67,7 @@ const TeamRoundRobinPage: React.FC = () => {
     const [stripModalVisible, setStripModalVisible] = useState<boolean>(false);
     const [stripInput, setStripInput] = useState<string>('');
     const [currentBoutForStrip, setCurrentBoutForStrip] = useState<number | null>(null);
-    
+
     // For auto-assignment modal
     const [autoAssignModalVisible, setAutoAssignModalVisible] = useState<boolean>(false);
     const [numberOfStrips, setNumberOfStrips] = useState<string>('');
@@ -76,14 +76,14 @@ const TeamRoundRobinPage: React.FC = () => {
     const loadData = useCallback(async () => {
         try {
             const client = db;
-            
+
             // Get all teams for the event
             const eventTeams = await teamUtils.getEventTeams(client, event.id);
             setTeams(eventTeams);
-            
+
             // For round robin, there's only one pool (poolId = 1)
             const poolId = 1;
-            
+
             // Get team bouts for this round
             const bouts = await teamPoolUtils.dbGetTeamBoutsForPool(
                 client,
@@ -94,15 +94,15 @@ const TeamRoundRobinPage: React.FC = () => {
 
             // Get full bout details including status and team information
             const boutsWithDetails = await Promise.all(
-                bouts.map(async (bout) => {
+                bouts.map(async bout => {
                     // Get team details
                     const [teamA, teamB] = await Promise.all([
                         teamUtils.getTeam(client, bout.team_a_id),
                         teamUtils.getTeam(client, bout.team_b_id),
                     ]);
-                    
+
                     let boutWithTeams = { ...bout, teamA, teamB };
-                    
+
                     if (event.team_format === 'NCAA') {
                         const status = await teamBoutUtils.getNCAABoutStatus(client, bout.id);
                         return { ...boutWithTeams, ncaaStatus: status };
@@ -156,26 +156,26 @@ const TeamRoundRobinPage: React.FC = () => {
         if (event.team_format === 'NCAA' && bout.ncaaStatus) {
             const { teamAScore, teamBScore, isComplete } = bout.ncaaStatus;
             if (isComplete) {
-                return { 
+                return {
                     text: `${t('teamBoutOrderPage.complete')}: ${teamAScore}-${teamBScore}`,
-                    isComplete: true
+                    isComplete: true,
                 };
             }
-            return { 
+            return {
                 text: `${t('teamBoutOrderPage.inProgress')}: ${teamAScore}-${teamBScore}`,
-                isComplete: false
+                isComplete: false,
             };
         } else if (event.team_format === '45-touch' && bout.relayStatus) {
             const { teamAScore, teamBScore, isComplete } = bout.relayStatus;
             if (isComplete) {
-                return { 
+                return {
                     text: `${t('teamBoutOrderPage.complete')}: ${teamAScore}-${teamBScore}`,
-                    isComplete: true
+                    isComplete: true,
                 };
             }
-            return { 
+            return {
                 text: `${t('teamBoutOrderPage.inProgress')}: ${teamAScore}-${teamBScore}`,
-                isComplete: false
+                isComplete: false,
             };
         }
         return { text: t('teamBoutOrderPage.notStarted'), isComplete: false };
@@ -187,37 +187,31 @@ const TeamRoundRobinPage: React.FC = () => {
     };
 
     const confirmEndRound = () => {
-        Alert.alert(
-            t('poolsPage.confirmEndRound'),
-            t('poolsPage.confirmEndRound'),
-            [
-                { text: t('common.cancel'), style: 'cancel' },
-                {
-                    text: t('common.confirm'),
-                    onPress: async () => {
-                        try {
-                            // Complete the pool
-                            await teamPoolUtils.dbCompleteTeamPool(db, roundId, 1);
-                            
-                            // Complete the round
-                            await db.update(schema.rounds)
-                                .set({ iscomplete: 1 })
-                                .where(eq(schema.rounds.id, roundId));
-                                
-                            navigation.navigate('RoundResults', {
-                                roundId,
-                                eventId: event.id,
-                                currentRoundIndex,
-                                isRemote,
-                            });
-                        } catch (error) {
-                            console.error('Error completing round:', error);
-                            Alert.alert(t('common.error'), t('poolsPage.failedToCompleteRound'));
-                        }
-                    },
+        Alert.alert(t('poolsPage.confirmEndRound'), t('poolsPage.confirmEndRound'), [
+            { text: t('common.cancel'), style: 'cancel' },
+            {
+                text: t('common.confirm'),
+                onPress: async () => {
+                    try {
+                        // Complete the pool
+                        await teamPoolUtils.dbCompleteTeamPool(db, roundId, 1);
+
+                        // Complete the round
+                        await db.update(schema.rounds).set({ iscomplete: 1 }).where(eq(schema.rounds.id, roundId));
+
+                        navigation.navigate('RoundResults', {
+                            roundId,
+                            eventId: event.id,
+                            currentRoundIndex,
+                            isRemote,
+                        });
+                    } catch (error) {
+                        console.error('Error completing round:', error);
+                        Alert.alert(t('common.error'), t('poolsPage.failedToCompleteRound'));
+                    }
                 },
-            ]
-        );
+            },
+        ]);
     };
 
     const handleOpenStripModal = (boutId: number) => {
@@ -246,7 +240,7 @@ const TeamRoundRobinPage: React.FC = () => {
     const assignRandomScores = async () => {
         try {
             const client = db;
-            
+
             // Process each team bout
             for (const bout of teamBouts) {
                 if (event.team_format === 'NCAA') {
@@ -255,17 +249,17 @@ const TeamRoundRobinPage: React.FC = () => {
                         // Generate random scores between 0 and 5
                         const scoreA = Math.floor(Math.random() * 6);
                         const scoreB = Math.floor(Math.random() * 6);
-                        
+
                         // If scores are tied, make one score 5 and the other random 0-4
                         let finalScoreA = scoreA;
                         let finalScoreB = scoreB;
                         let winnerId = undefined;
-                        
+
                         if (scoreA === scoreB) {
                             // Get the fencers for this bout
                             const ncaaStatus = await teamBoutUtils.getNCAABoutStatus(client, bout.id);
                             const individualBout = ncaaStatus?.boutScores.find(b => b.boutNumber === boutNumber);
-                            
+
                             if (Math.random() > 0.5) {
                                 finalScoreA = 5;
                                 finalScoreB = Math.floor(Math.random() * 5);
@@ -276,7 +270,7 @@ const TeamRoundRobinPage: React.FC = () => {
                                 winnerId = individualBout?.fencerBId;
                             }
                         }
-                        
+
                         await teamBoutUtils.updateNCAABoutScore(
                             client,
                             bout.id,
@@ -291,14 +285,14 @@ const TeamRoundRobinPage: React.FC = () => {
                     for (let legNumber = 1; legNumber <= 9; legNumber++) {
                         // Generate random scores that would sum to 45 total
                         // Each leg typically goes to 5 points, but we'll vary it
-                        const maxScore = legNumber === 9 ? 45 : (legNumber * 5);
+                        const maxScore = legNumber === 9 ? 45 : legNumber * 5;
                         const currentTotalA = Math.floor(Math.random() * maxScore);
                         const currentTotalB = Math.floor(Math.random() * maxScore);
-                        
+
                         // Make sure the final leg reaches 45 for one team
                         let finalScoreA = currentTotalA;
                         let finalScoreB = currentTotalB;
-                        
+
                         if (legNumber === 9) {
                             if (Math.random() > 0.5) {
                                 finalScoreA = 45;
@@ -308,18 +302,12 @@ const TeamRoundRobinPage: React.FC = () => {
                                 finalScoreB = 45;
                             }
                         }
-                        
-                        await relayBoutUtils.updateRelayLegScore(
-                            client,
-                            bout.id,
-                            legNumber,
-                            finalScoreA,
-                            finalScoreB
-                        );
+
+                        await relayBoutUtils.updateRelayLegScore(client, bout.id, legNumber, finalScoreA, finalScoreB);
                     }
                 }
             }
-            
+
             await loadData();
             Alert.alert('Success', 'Random scores assigned to all bouts');
         } catch (error) {
@@ -337,15 +325,15 @@ const TeamRoundRobinPage: React.FC = () => {
         }
 
         const newBoutStrips: { [boutId: number]: number } = {};
-        
+
         // Group bouts into waves where no team appears twice in the same wave
         const waves: TeamBout[][] = [];
         const unassignedBouts = [...teamBouts];
-        
+
         while (unassignedBouts.length > 0) {
             const wave: TeamBout[] = [];
             const teamsInWave = new Set<number>();
-            
+
             // Build a wave by selecting bouts where neither team is already in the wave
             for (let i = 0; i < unassignedBouts.length && wave.length < numStrips; i++) {
                 const bout = unassignedBouts[i];
@@ -355,7 +343,7 @@ const TeamRoundRobinPage: React.FC = () => {
                     teamsInWave.add(bout.team_b_id);
                 }
             }
-            
+
             // Remove assigned bouts from unassigned list
             wave.forEach(bout => {
                 const index = unassignedBouts.findIndex(b => b.id === bout.id);
@@ -363,26 +351,30 @@ const TeamRoundRobinPage: React.FC = () => {
                     unassignedBouts.splice(index, 1);
                 }
             });
-            
+
             waves.push(wave);
         }
-        
+
         // Track which strip each team prefers (based on previous assignments)
         const teamPreferredStrip: { [teamId: number]: number } = {};
-        
+
         // Assign strips to each wave
         waves.forEach((wave, waveIndex) => {
             const usedStrips = new Set<number>();
-            
+
             wave.forEach(bout => {
                 let assignedStrip: number | null = null;
-                
+
                 // Try to keep teams on their preferred strips
                 const teamAPreferred = teamPreferredStrip[bout.team_a_id];
                 const teamBPreferred = teamPreferredStrip[bout.team_b_id];
-                
+
                 // If both teams prefer the same strip and it's available, use it
-                if (teamAPreferred !== undefined && teamAPreferred === teamBPreferred && !usedStrips.has(teamAPreferred)) {
+                if (
+                    teamAPreferred !== undefined &&
+                    teamAPreferred === teamBPreferred &&
+                    !usedStrips.has(teamAPreferred)
+                ) {
                     assignedStrip = teamAPreferred;
                 }
                 // If only team A has a preference and it's available, use it
@@ -402,12 +394,12 @@ const TeamRoundRobinPage: React.FC = () => {
                         }
                     }
                 }
-                
+
                 if (assignedStrip !== null) {
                     // Assign the bout to the strip (1-indexed for display)
                     newBoutStrips[bout.id] = assignedStrip + 1;
                     usedStrips.add(assignedStrip);
-                    
+
                     // Update team preferences for next wave
                     teamPreferredStrip[bout.team_a_id] = assignedStrip;
                     teamPreferredStrip[bout.team_b_id] = assignedStrip;
@@ -418,9 +410,9 @@ const TeamRoundRobinPage: React.FC = () => {
         setBoutStrips(newBoutStrips);
         setAutoAssignModalVisible(false);
         setNumberOfStrips('');
-        
+
         Alert.alert(
-            t('common.success'), 
+            t('common.success'),
             t('teamRoundRobinPage.stripsAssignedSuccess', { count: Object.keys(newBoutStrips).length })
         );
     };
@@ -437,26 +429,22 @@ const TeamRoundRobinPage: React.FC = () => {
     return (
         <View style={styles.container}>
             <BLEStatusBar compact={true} />
-            
-            <ScrollView 
+
+            <ScrollView
                 contentContainerStyle={styles.scrollContent}
-                refreshControl={
-                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-                }
+                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
             >
                 <Text style={styles.title}>
                     {event.age} {event.gender} {event.weapon} - {t('teamRoundRobinPage.title')}
                 </Text>
 
                 <Text style={styles.formatInfo}>
-                    {t('teamBoutOrderPage.format')}: {event.team_format === 'NCAA' ? 'NCAA (9 bouts)' : '45-touch Relay'}
+                    {t('teamBoutOrderPage.format')}:{' '}
+                    {event.team_format === 'NCAA' ? 'NCAA (9 bouts)' : '45-touch Relay'}
                 </Text>
 
                 {/* Team List Section */}
-                <TouchableOpacity 
-                    style={styles.teamListHeader}
-                    onPress={() => setShowTeamList(!showTeamList)}
-                >
+                <TouchableOpacity style={styles.teamListHeader} onPress={() => setShowTeamList(!showTeamList)}>
                     <Text style={styles.teamListTitle}>
                         {t('teamRoundRobinPage.teams')} ({teams.length})
                     </Text>
@@ -511,8 +499,8 @@ const TeamRoundRobinPage: React.FC = () => {
                                                         t('teamRoundRobinPage.stripsResetSuccess')
                                                     );
                                                 },
-                                                style: 'destructive'
-                                            }
+                                                style: 'destructive',
+                                            },
                                         ]
                                     );
                                 }}
@@ -530,10 +518,7 @@ const TeamRoundRobinPage: React.FC = () => {
                         return (
                             <TouchableOpacity
                                 key={bout.id}
-                                style={[
-                                    styles.boutCard,
-                                    status.isComplete && styles.completedBoutCard
-                                ]}
+                                style={[styles.boutCard, status.isComplete && styles.completedBoutCard]}
                                 onPress={() => handleOpenBout(bout)}
                             >
                                 <View style={styles.boutHeader}>
@@ -547,10 +532,7 @@ const TeamRoundRobinPage: React.FC = () => {
                                             </Text>
                                         )}
                                     </View>
-                                    <Text style={[
-                                        styles.boutStatus,
-                                        status.isComplete && styles.completedStatus
-                                    ]}>
+                                    <Text style={[styles.boutStatus, status.isComplete && styles.completedStatus]}>
                                         {status.text}
                                     </Text>
                                 </View>
@@ -562,13 +544,16 @@ const TeamRoundRobinPage: React.FC = () => {
                                 <Can I="update" a="Pool">
                                     <TouchableOpacity
                                         style={styles.boutStripButton}
-                                        onPress={(e) => {
+                                        onPress={e => {
                                             e.stopPropagation();
                                             handleOpenStripModal(bout.id);
                                         }}
                                     >
                                         <Text style={styles.boutStripButtonText}>
-                                            📍 {boutStrips[bout.id] ? t('teamRoundRobinPage.changeStrip') : t('teamRoundRobinPage.assignStrip')}
+                                            📍{' '}
+                                            {boutStrips[bout.id]
+                                                ? t('teamRoundRobinPage.changeStrip')
+                                                : t('teamRoundRobinPage.assignStrip')}
                                         </Text>
                                     </TouchableOpacity>
                                 </Can>
@@ -580,28 +565,29 @@ const TeamRoundRobinPage: React.FC = () => {
                 {teamBouts.length > 0 && (
                     <>
                         {/* Assign Random Scores Button */}
-                        <TouchableOpacity
-                            style={styles.randomScoresButton}
-                            onPress={assignRandomScores}
-                        >
+                        <TouchableOpacity style={styles.randomScoresButton} onPress={assignRandomScores}>
                             <Text style={styles.randomScoresButtonText}>Assign Random Scores to All Bouts</Text>
                         </TouchableOpacity>
-                        
+
                         <Can I="update" a="Round">
-                            <TouchableOpacity 
+                            <TouchableOpacity
                                 style={[
                                     styles.endRoundButton,
-                                    teamBouts.some(bout => !getBoutStatus(bout).isComplete) && styles.endRoundButtonDisabled
-                                ]} 
+                                    teamBouts.some(bout => !getBoutStatus(bout).isComplete) &&
+                                        styles.endRoundButtonDisabled,
+                                ]}
                                 onPress={handleEndRound}
                                 disabled={teamBouts.some(bout => !getBoutStatus(bout).isComplete)}
                             >
-                                <Text style={[
-                                    styles.endRoundButtonText,
-                                    teamBouts.some(bout => !getBoutStatus(bout).isComplete) && styles.endRoundButtonTextDisabled
-                                ]}>
-                                    {teamBouts.some(bout => !getBoutStatus(bout).isComplete) 
-                                        ? t('teamRoundRobinPage.completeBoutsFirst') 
+                                <Text
+                                    style={[
+                                        styles.endRoundButtonText,
+                                        teamBouts.some(bout => !getBoutStatus(bout).isComplete) &&
+                                            styles.endRoundButtonTextDisabled,
+                                    ]}
+                                >
+                                    {teamBouts.some(bout => !getBoutStatus(bout).isComplete)
+                                        ? t('teamRoundRobinPage.completeBoutsFirst')
                                         : t('teamRoundRobinPage.endRound')}
                                 </Text>
                             </TouchableOpacity>
@@ -653,9 +639,7 @@ const TeamRoundRobinPage: React.FC = () => {
                 <View style={styles.modalContainer}>
                     <View style={styles.modalContent}>
                         <Text style={styles.modalTitle}>{t('teamRoundRobinPage.autoAssignStrips')}</Text>
-                        <Text style={styles.modalDescription}>
-                            {t('teamRoundRobinPage.autoAssignDescription')}
-                        </Text>
+                        <Text style={styles.modalDescription}>{t('teamRoundRobinPage.autoAssignDescription')}</Text>
                         <TextInput
                             style={styles.stripInput}
                             value={numberOfStrips}

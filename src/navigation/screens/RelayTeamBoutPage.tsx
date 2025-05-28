@@ -61,7 +61,7 @@ const LegScoreInput: React.FC<LegScoreInputProps> = ({
 
         // Calculate target score for this leg (5 touches per leg: 5, 10, 15, 20, 25, 30, 35, 40, 45)
         const legTargetScore = legNumber * 5;
-        
+
         // Calculate what the new total scores would be
         const newTeamAScore = currentTeamAScore + numericScoreA;
         const newTeamBScore = currentTeamBScore + numericScoreB;
@@ -69,13 +69,19 @@ const LegScoreInput: React.FC<LegScoreInputProps> = ({
         // Validate that neither team would exceed the leg target
         if (newTeamAScore > legTargetScore) {
             const maxScoreA = legTargetScore - currentTeamAScore;
-            Alert.alert(t('common.error'), `Team A score cannot exceed ${legTargetScore} for leg ${legNumber}. Maximum additional score: ${maxScoreA}`);
+            Alert.alert(
+                t('common.error'),
+                `Team A score cannot exceed ${legTargetScore} for leg ${legNumber}. Maximum additional score: ${maxScoreA}`
+            );
             return;
         }
 
         if (newTeamBScore > legTargetScore) {
             const maxScoreB = legTargetScore - currentTeamBScore;
-            Alert.alert(t('common.error'), `Team B score cannot exceed ${legTargetScore} for leg ${legNumber}. Maximum additional score: ${maxScoreB}`);
+            Alert.alert(
+                t('common.error'),
+                `Team B score cannot exceed ${legTargetScore} for leg ${legNumber}. Maximum additional score: ${maxScoreB}`
+            );
             return;
         }
 
@@ -115,7 +121,6 @@ const LegScoreInput: React.FC<LegScoreInputProps> = ({
                     />
                 </View>
             </View>
-
 
             <View style={styles.legScoreButtonsRow}>
                 <TouchableOpacity style={styles.legScoreCancelButton} onPress={onCancel}>
@@ -296,7 +301,7 @@ const RelayTeamBoutPage: React.FC = () => {
                 // Check if this is editing an existing completed leg or adding a new leg
                 const legs = getLegHistory();
                 const selectedLeg = legs[selectedLegIndex];
-                
+
                 if (!selectedLeg) {
                     Alert.alert(t('common.error'), 'Selected leg not found');
                     return;
@@ -305,7 +310,7 @@ const RelayTeamBoutPage: React.FC = () => {
                 if (selectedLeg.isComplete && selectedLeg.id !== -1) {
                     // Update the historical leg
                     await relayBoutUtils.updateRelayLegHistory(db, selectedLeg.id, scoreA, scoreB);
-                    
+
                     // Recalculate all scores from history
                     await relayBoutUtils.recalculateRelayBoutFromHistory(db, teamBoutId);
                 } else {
@@ -368,7 +373,7 @@ const RelayTeamBoutPage: React.FC = () => {
 
         const legs = getLegHistory();
         const selectedLeg = legs[legIndex];
-        
+
         if (!selectedLeg) {
             Alert.alert(t('common.error'), 'Selected leg not found');
             return;
@@ -399,7 +404,7 @@ const RelayTeamBoutPage: React.FC = () => {
                         // Add new leg
                         await relayBoutUtils.addRelayLegScore(db, teamBoutId, score1, score2);
                     }
-                    
+
                     await loadBoutStatus();
                 } catch (error) {
                     console.error('Error saving leg score from referee module:', error);
@@ -500,14 +505,12 @@ const RelayTeamBoutPage: React.FC = () => {
                             </TouchableOpacity>
                         </View>
                     </View>
-
                 </View>
 
                 {/* Score Control Panel */}
                 {!boutStatus.isComplete && (
                     <View style={styles.scoreControlSection}>
                         <Text style={styles.sectionTitle}>Leg Control</Text>
-
 
                         <View style={styles.controlActionsRow}>
                             <TouchableOpacity
@@ -608,7 +611,7 @@ const RelayTeamBoutPage: React.FC = () => {
                             legNumber={
                                 selectedLegIndex !== null && getLegHistory()[selectedLegIndex]
                                     ? getLegHistory()[selectedLegIndex].legNumber
-                                    : (legHistory.length + 1)
+                                    : legHistory.length + 1
                             }
                         />
                     </View>
@@ -754,10 +757,9 @@ const RelayTeamBoutPage: React.FC = () => {
                                     <View style={styles.legHistoryInfo}>
                                         <Text style={styles.legHistoryNumber}>Leg {leg.legNumber}</Text>
                                         <Text style={styles.legHistoryScore}>
-                                            {leg.isComplete 
+                                            {leg.isComplete
                                                 ? `${leg.scoreA}-${leg.scoreB} (${leg.combinedScore} total)`
-                                                : 'Current leg'
-                                            }
+                                                : 'Current leg'}
                                         </Text>
                                         {leg.isComplete && (
                                             <Text style={styles.legHistoryFencers}>

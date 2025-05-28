@@ -80,26 +80,22 @@ export const TeamManagement = ({ route }: Props) => {
     };
 
     const handleDeleteTeam = async (teamId: number) => {
-        Alert.alert(
-            t('teamManagement.confirmDelete'),
-            t('teamManagement.confirmDeleteMessage'),
-            [
-                { text: t('common.cancel'), style: 'cancel' },
-                {
-                    text: t('common.delete'),
-                    style: 'destructive',
-                    onPress: async () => {
-                        try {
-                            await teamUtils.deleteTeam(db, teamId);
-                            await loadTeams();
-                        } catch (error) {
-                            console.error('Error deleting team:', error);
-                            Alert.alert(t('common.error'), t('teamManagement.deleteError'));
-                        }
-                    },
+        Alert.alert(t('teamManagement.confirmDelete'), t('teamManagement.confirmDeleteMessage'), [
+            { text: t('common.cancel'), style: 'cancel' },
+            {
+                text: t('common.delete'),
+                style: 'destructive',
+                onPress: async () => {
+                    try {
+                        await teamUtils.deleteTeam(db, teamId);
+                        await loadTeams();
+                    } catch (error) {
+                        console.error('Error deleting team:', error);
+                        Alert.alert(t('common.error'), t('teamManagement.deleteError'));
+                    }
                 },
-            ]
-        );
+            },
+        ]);
     };
 
     const handleOpenRoster = (team: Team) => {
@@ -120,10 +116,7 @@ export const TeamManagement = ({ route }: Props) => {
                     </Text>
                 </View>
                 <View style={styles.teamActions}>
-                    <TouchableOpacity
-                        style={styles.actionButton}
-                        onPress={() => handleOpenRoster(team)}
-                    >
+                    <TouchableOpacity style={styles.actionButton} onPress={() => handleOpenRoster(team)}>
                         <Text style={styles.actionButtonText}>{t('teamManagement.roster')}</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
@@ -143,10 +136,7 @@ export const TeamManagement = ({ route }: Props) => {
                 {event.age} {event.gender} {event.weapon} - {t('teamManagement.teams')}
             </Text>
 
-            <TouchableOpacity
-                style={styles.createButton}
-                onPress={() => setShowCreateModal(true)}
-            >
+            <TouchableOpacity style={styles.createButton} onPress={() => setShowCreateModal(true)}>
                 <Text style={styles.createButtonText}>{t('teamManagement.createTeam')}</Text>
             </TouchableOpacity>
 
@@ -163,7 +153,7 @@ export const TeamManagement = ({ route }: Props) => {
                 <FlatList
                     data={teams}
                     renderItem={renderTeamItem}
-                    keyExtractor={(team) => team.id?.toString() || ''}
+                    keyExtractor={team => team.id?.toString() || ''}
                     contentContainerStyle={styles.teamsList}
                 />
             )}
@@ -178,7 +168,7 @@ export const TeamManagement = ({ route }: Props) => {
                 <View style={styles.modalOverlay}>
                     <View style={styles.modalContent}>
                         <Text style={styles.modalTitle}>{t('teamManagement.createTeam')}</Text>
-                        
+
                         <TextInput
                             style={styles.input}
                             placeholder={t('teamManagement.teamNamePlaceholder')}
@@ -189,10 +179,7 @@ export const TeamManagement = ({ route }: Props) => {
                         />
 
                         <View style={styles.modalActions}>
-                            <TouchableOpacity
-                                style={styles.modalButton}
-                                onPress={handleCreateTeam}
-                            >
+                            <TouchableOpacity style={styles.modalButton} onPress={handleCreateTeam}>
                                 <Text style={styles.modalButtonText}>{t('common.create')}</Text>
                             </TouchableOpacity>
                             <TouchableOpacity
@@ -254,7 +241,7 @@ const TeamRosterModal = ({
     const loadRoster = async () => {
         try {
             setLoading(true);
-            
+
             // Get team members
             const teamMembers = await teamUtils.getTeamMembers(db, team.id!);
             setMembers(teamMembers);
@@ -262,7 +249,7 @@ const TeamRosterModal = ({
             // Get fencers not on any team in this event
             const allTeams = await teamUtils.getEventTeams(db, event.id);
             const assignedFencerIds = new Set<number>();
-            
+
             allTeams.forEach(t => {
                 t.members?.forEach(m => {
                     if (m.fencerid) assignedFencerIds.add(m.fencerid);
@@ -330,7 +317,7 @@ const TeamRosterModal = ({
         if (!team.id || !member.fencerid) return;
 
         const newRole = member.role === 'starter' ? 'substitute' : 'starter';
-        
+
         try {
             if (newRole === 'starter') {
                 const starters = members.filter(m => m.role === 'starter');
@@ -338,7 +325,7 @@ const TeamRosterModal = ({
                     Alert.alert(t('common.error'), t('teamManagement.maxStartersReached'));
                     return;
                 }
-                
+
                 // Find available position
                 let position: number | undefined;
                 for (let i = 1; i <= 3; i++) {
@@ -347,7 +334,7 @@ const TeamRosterModal = ({
                         break;
                     }
                 }
-                
+
                 await teamUtils.updateTeamMember(db, team.id, member.fencerid, {
                     role: newRole,
                     position,
@@ -370,23 +357,22 @@ const TeamRosterModal = ({
     const substitutes = members.filter(m => m.role === 'substitute');
 
     return (
-        <Modal
-            visible={visible}
-            animationType="slide"
-            transparent={true}
-            onRequestClose={onClose}
-        >
+        <Modal visible={visible} animationType="slide" transparent={true} onRequestClose={onClose}>
             <View style={styles.modalOverlay}>
                 <View style={[styles.modalContent, styles.largeModal]}>
-                    <Text style={styles.modalTitle}>{team.name} - {t('teamManagement.roster')}</Text>
+                    <Text style={styles.modalTitle}>
+                        {team.name} - {t('teamManagement.roster')}
+                    </Text>
 
                     {loading ? (
                         <ActivityIndicator size="large" color="#001f3f" />
                     ) : (
                         <ScrollView style={styles.rosterContainer}>
                             {/* Starters Section */}
-                            <Text style={styles.sectionTitle}>{t('teamManagement.starters')} ({starters.length}/3)</Text>
-                            {starters.map((member) => (
+                            <Text style={styles.sectionTitle}>
+                                {t('teamManagement.starters')} ({starters.length}/3)
+                            </Text>
+                            {starters.map(member => (
                                 <View key={member.id} style={styles.memberItem}>
                                     <Text style={styles.memberPosition}>#{member.position}</Text>
                                     <Text style={styles.memberName}>
@@ -411,7 +397,7 @@ const TeamRosterModal = ({
                             <Text style={[styles.sectionTitle, styles.sectionSpacing]}>
                                 {t('teamManagement.substitutes')} ({substitutes.length})
                             </Text>
-                            {substitutes.map((member) => (
+                            {substitutes.map(member => (
                                 <View key={member.id} style={styles.memberItem}>
                                     <Text style={styles.memberName}>
                                         {member.fencer?.lname}, {member.fencer?.fname}
@@ -421,10 +407,9 @@ const TeamRosterModal = ({
                                         onPress={() => handleChangeRole(member)}
                                         disabled={starters.length >= 3}
                                     >
-                                        <Text style={[
-                                            styles.roleButtonText,
-                                            starters.length >= 3 && styles.disabledText
-                                        ]}>
+                                        <Text
+                                            style={[styles.roleButtonText, starters.length >= 3 && styles.disabledText]}
+                                        >
                                             {t('teamManagement.makeStarter')}
                                         </Text>
                                     </TouchableOpacity>
@@ -441,7 +426,7 @@ const TeamRosterModal = ({
                             <Text style={[styles.sectionTitle, styles.sectionSpacing]}>
                                 {t('teamManagement.availableFencers')} ({availableFencers.length})
                             </Text>
-                            {availableFencers.map((fencer) => (
+                            {availableFencers.map(fencer => (
                                 <View key={fencer.id} style={styles.memberItem}>
                                     <Text style={styles.memberName}>
                                         {fencer.lname}, {fencer.fname}
@@ -449,10 +434,14 @@ const TeamRosterModal = ({
                                     </Text>
                                     <TouchableOpacity
                                         style={[styles.addButton, starters.length < 3 && styles.primaryButton]}
-                                        onPress={() => handleAddMember(fencer, starters.length < 3 ? 'starter' : 'substitute')}
+                                        onPress={() =>
+                                            handleAddMember(fencer, starters.length < 3 ? 'starter' : 'substitute')
+                                        }
                                     >
                                         <Text style={styles.addButtonText}>
-                                            {starters.length < 3 ? t('teamManagement.addStarter') : t('teamManagement.addSub')}
+                                            {starters.length < 3
+                                                ? t('teamManagement.addStarter')
+                                                : t('teamManagement.addSub')}
                                         </Text>
                                     </TouchableOpacity>
                                 </View>
@@ -460,10 +449,7 @@ const TeamRosterModal = ({
                         </ScrollView>
                     )}
 
-                    <TouchableOpacity
-                        style={[styles.modalButton, styles.closeButton]}
-                        onPress={onClose}
-                    >
+                    <TouchableOpacity style={[styles.modalButton, styles.closeButton]} onPress={onClose}>
                         <Text style={styles.modalButtonText}>{t('common.close')}</Text>
                     </TouchableOpacity>
                 </View>

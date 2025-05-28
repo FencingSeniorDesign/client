@@ -5,6 +5,20 @@ import { db } from '../DrizzleClient';
 import * as schema from '../schema';
 import type { Event, Round, Team } from '../../navigation/navigation/types';
 import { generateBracketPositions } from './bracket';
+import { getTeamStarters } from './team';
+
+// NCAA bout order (1-indexed positions)
+const NCAA_BOUT_ORDER: [number, number][] = [
+    [3, 2], // Bout 1: A3 vs B2
+    [1, 3], // Bout 2: A1 vs B3
+    [2, 1], // Bout 3: A2 vs B1
+    [3, 1], // Bout 4: A3 vs B1
+    [1, 2], // Bout 5: A1 vs B2
+    [2, 3], // Bout 6: A2 vs B3
+    [3, 3], // Bout 7: A3 vs B3
+    [1, 1], // Bout 8: A1 vs B1
+    [2, 2], // Bout 9: A2 vs B2
+];
 
 /**
  * Creates the DE bouts for a team round and sets up the bracket structure
@@ -110,7 +124,7 @@ export async function createTeamDEBoutsForRound(
                                 roundid: round.id,
                                 bout_type: 'de',
                                 table_of: currentTableSize,
-                                // Set team format from event settings
+                                format: event.team_format || 'NCAA',
                                 team_format: event.team_format || 'NCAA',
                             })
                             .returning({ id: schema.teamBouts.id });
@@ -118,6 +132,54 @@ export async function createTeamDEBoutsForRound(
                         const boutId = boutResult[0].id;
                         boutIds.push(boutId);
                         console.log(`Created team bout with ID ${boutId} for table of ${currentTableSize}`);
+
+                        // If this is an NCAA format bout and both teams are present, create individual bout scores
+                        if (event.team_format === 'NCAA' && teamAId && teamBId && !victor) {
+                            try {
+                                // Get starters for both teams
+                                const teamAStarters = await getTeamStarters(tx, teamAId);
+                                const teamBStarters = await getTeamStarters(tx, teamBId);
+
+                                if (teamAStarters.length === 3 && teamBStarters.length === 3) {
+                                    // Sort by position to ensure correct order
+                                    teamAStarters.sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
+                                    teamBStarters.sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
+
+                                    // Create all 9 individual bout records
+                                    const boutScoreInserts = NCAA_BOUT_ORDER.map((order, index) => {
+                                        const [aPos, bPos] = order;
+                                        const fencerA = teamAStarters[aPos - 1]; // Convert to 0-indexed
+                                        const fencerB = teamBStarters[bPos - 1];
+
+                                        return {
+                                            team_bout_id: boutId,
+                                            bout_number: index + 1,
+                                            fencer_a_id: fencerA.fencerid,
+                                            fencer_b_id: fencerB.fencerid,
+                                            fencer_a_score: 0,
+                                            fencer_b_score: 0,
+                                            is_complete: false,
+                                        };
+                                    });
+
+                                    await tx.insert(schema.teamBoutScores).values(boutScoreInserts);
+                                    console.log(`Created NCAA individual bout scores for team bout ${boutId}`);
+                                } else {
+                                    console.warn(
+                                        `Cannot create NCAA bout scores for team bout ${boutId} - teams need exactly 3 starters each.`
+                                    );
+                                    console.warn(
+                                        `Team A (${teamAId}): ${teamAStarters.length} starters, Team B (${teamBId}): ${teamBStarters.length} starters`
+                                    );
+                                }
+                            } catch (error) {
+                                console.warn(`Failed to create NCAA bout scores for team bout ${boutId}:`, error);
+                                console.warn(
+                                    `Make sure both teams have exactly 3 starters assigned with positions 1, 2, and 3`
+                                );
+                                // Don't fail the entire transaction if bout scores creation fails
+                            }
+                        }
                     }
 
                     // Store the bout IDs for this round
@@ -231,6 +293,62 @@ export async function createTeamDEBoutsForRound(
                                     .set({ team_b_id: bout.winner_id })
                                     .where(eq(schema.teamBouts.id, nextBoutId));
                             }
+
+                            // After bye advancement, check if both teams are now present and create NCAA bout scores
+                            const [updatedNextBout] = await tx
+                                .select()
+                                .from(schema.teamBouts)
+                                .where(eq(schema.teamBouts.id, nextBoutId));
+
+                            if (
+                                updatedNextBout &&
+                                updatedNextBout.team_a_id &&
+                                updatedNextBout.team_b_id &&
+                                event.team_format === 'NCAA'
+                            ) {
+                                try {
+                                    // Get starters for both teams
+                                    const teamAStarters = await getTeamStarters(tx, updatedNextBout.team_a_id);
+                                    const teamBStarters = await getTeamStarters(tx, updatedNextBout.team_b_id);
+
+                                    if (teamAStarters.length === 3 && teamBStarters.length === 3) {
+                                        // Sort by position to ensure correct order
+                                        teamAStarters.sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
+                                        teamBStarters.sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
+
+                                        // Create all 9 individual bout records
+                                        const boutScoreInserts = NCAA_BOUT_ORDER.map((order, index) => {
+                                            const [aPos, bPos] = order;
+                                            const fencerA = teamAStarters[aPos - 1]; // Convert to 0-indexed
+                                            const fencerB = teamBStarters[bPos - 1];
+
+                                            return {
+                                                team_bout_id: nextBoutId,
+                                                bout_number: index + 1,
+                                                fencer_a_id: fencerA.fencerid,
+                                                fencer_b_id: fencerB.fencerid,
+                                                fencer_a_score: 0,
+                                                fencer_b_score: 0,
+                                                is_complete: false,
+                                            };
+                                        });
+
+                                        await tx.insert(schema.teamBoutScores).values(boutScoreInserts);
+                                        console.log(
+                                            `Created NCAA individual bout scores for bye-advanced team bout ${nextBoutId}`
+                                        );
+                                    } else {
+                                        console.warn(
+                                            `Teams don't have exactly 3 starters for bye advance. Team A: ${teamAStarters.length}, Team B: ${teamBStarters.length}`
+                                        );
+                                    }
+                                } catch (error) {
+                                    console.warn(
+                                        `Failed to create NCAA bout scores for bye-advanced team bout ${nextBoutId}:`,
+                                        error
+                                    );
+                                }
+                            }
                         }
                     }
                 }
@@ -273,8 +391,8 @@ export async function dbIsTeamDERoundComplete(roundId: number): Promise<boolean>
             .from(schema.teamBouts)
             .where(
                 and(
-                    eq(schema.teamBouts.roundid, roundId), 
-                    eq(schema.teamBouts.table_of, 2), 
+                    eq(schema.teamBouts.roundid, roundId),
+                    eq(schema.teamBouts.table_of, 2),
                     isNotNull(schema.teamBouts.winner_id)
                 )
             );
@@ -322,10 +440,7 @@ export async function dbGetTeamBracketForRound(roundId: number): Promise<any> {
             .select()
             .from(schema.teamDeBracketBouts)
             .where(eq(schema.teamDeBracketBouts.roundid, roundId))
-            .orderBy(
-                asc(schema.teamDeBracketBouts.bracket_round), 
-                asc(schema.teamDeBracketBouts.bout_order)
-            );
+            .orderBy(asc(schema.teamDeBracketBouts.bracket_round), asc(schema.teamDeBracketBouts.bout_order));
 
         // Structure the data for a single elimination bracket
         const bracket = {
@@ -336,6 +451,9 @@ export async function dbGetTeamBracketForRound(roundId: number): Promise<any> {
             structure: bracketStructure,
         };
 
+        console.log(
+            `Retrieved team bracket for round ${roundId}: ${bouts.length} bouts across ${new Set(bouts.map(b => b.table_of)).size} different table sizes`
+        );
         return bracket;
     } catch (error) {
         console.error('Error getting team bracket for round:', error);
@@ -346,17 +464,11 @@ export async function dbGetTeamBracketForRound(roundId: number): Promise<any> {
 /**
  * Advances the winner of a team bout to the next round
  */
-export async function advanceTeamToNextBout(
-    teamBoutId: number,
-    winnerId: number
-): Promise<void> {
+export async function advanceTeamToNextBout(teamBoutId: number, winnerId: number): Promise<void> {
     try {
         await db.transaction(async tx => {
             // Update the bout with the winner
-            await tx
-                .update(schema.teamBouts)
-                .set({ winner_id: winnerId })
-                .where(eq(schema.teamBouts.id, teamBoutId));
+            await tx.update(schema.teamBouts).set({ winner_id: winnerId }).where(eq(schema.teamBouts.id, teamBoutId));
 
             // Find the next bout from the bracket structure
             const bracketBout = await tx
@@ -374,21 +486,71 @@ export async function advanceTeamToNextBout(
 
                 // Even bout_order goes to team A side, odd to team B side
                 if (boutOrder % 2 === 0) {
-                    console.log(
-                        `Advancing winner team ${winnerId} to team A position of bout ${nextBoutId}`
-                    );
+                    console.log(`Advancing winner team ${winnerId} to team A position of bout ${nextBoutId}`);
                     await tx
                         .update(schema.teamBouts)
                         .set({ team_a_id: winnerId })
                         .where(eq(schema.teamBouts.id, nextBoutId));
                 } else {
-                    console.log(
-                        `Advancing winner team ${winnerId} to team B position of bout ${nextBoutId}`
-                    );
+                    console.log(`Advancing winner team ${winnerId} to team B position of bout ${nextBoutId}`);
                     await tx
                         .update(schema.teamBouts)
                         .set({ team_b_id: winnerId })
                         .where(eq(schema.teamBouts.id, nextBoutId));
+                }
+
+                // After advancing, check if both teams are now present and create NCAA bout scores if needed
+                const [nextBout] = await tx.select().from(schema.teamBouts).where(eq(schema.teamBouts.id, nextBoutId));
+
+                if (nextBout && nextBout.team_a_id && nextBout.team_b_id && nextBout.team_format === 'NCAA') {
+                    // Check if bout scores already exist
+                    const existingScores = await tx
+                        .select({ count: count() })
+                        .from(schema.teamBoutScores)
+                        .where(eq(schema.teamBoutScores.team_bout_id, nextBoutId));
+
+                    if (existingScores[0].count === 0) {
+                        try {
+                            // Get starters for both teams
+                            const teamAStarters = await getTeamStarters(tx, nextBout.team_a_id);
+                            const teamBStarters = await getTeamStarters(tx, nextBout.team_b_id);
+
+                            if (teamAStarters.length === 3 && teamBStarters.length === 3) {
+                                // Sort by position to ensure correct order
+                                teamAStarters.sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
+                                teamBStarters.sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
+
+                                // Create all 9 individual bout records
+                                const boutScoreInserts = NCAA_BOUT_ORDER.map((order, index) => {
+                                    const [aPos, bPos] = order;
+                                    const fencerA = teamAStarters[aPos - 1]; // Convert to 0-indexed
+                                    const fencerB = teamBStarters[bPos - 1];
+
+                                    return {
+                                        team_bout_id: nextBoutId,
+                                        bout_number: index + 1,
+                                        fencer_a_id: fencerA.fencerid,
+                                        fencer_b_id: fencerB.fencerid,
+                                        fencer_a_score: 0,
+                                        fencer_b_score: 0,
+                                        is_complete: false,
+                                    };
+                                });
+
+                                await tx.insert(schema.teamBoutScores).values(boutScoreInserts);
+                                console.log(`Created NCAA individual bout scores for advanced team bout ${nextBoutId}`);
+                            } else {
+                                console.warn(
+                                    `Teams don't have exactly 3 starters. Team A: ${teamAStarters.length}, Team B: ${teamBStarters.length}`
+                                );
+                            }
+                        } catch (error) {
+                            console.warn(
+                                `Failed to create NCAA bout scores for advanced team bout ${nextBoutId}:`,
+                                error
+                            );
+                        }
+                    }
                 }
             }
 

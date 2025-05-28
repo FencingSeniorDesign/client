@@ -939,6 +939,91 @@ export class TournamentDataProvider {
     }
 
     /**
+     * Get team pools for a round
+     */
+    async getTeamPools(roundId: number): Promise<{ poolid: number; teams: any[] }[]> {
+        console.log(`[DataProvider] Getting team pools for round ${roundId}, remote: ${this.isRemoteConnection()}`);
+
+        if (this.isRemoteConnection()) {
+            try {
+                // Request team pools from server
+                tournamentClient.sendMessage({
+                    type: 'get_team_pools',
+                    roundId,
+                });
+
+                // Wait for the response
+                const response = await tournamentClient.waitForResponse('team_pools_list', 8000);
+
+                if (response && Array.isArray(response.pools)) {
+                    console.log(`[DataProvider] Received ${response.pools.length} team pools from server`);
+                    return response.pools;
+                }
+
+                throw new Error('Invalid team pools response from server');
+            } catch (error) {
+                console.error('[DataProvider] Error fetching remote team pools:', error);
+                throw error;
+            }
+        }
+
+        // For local tournaments, fetch from database
+        try {
+            const { dbGetTeamPoolsForRound } = await import('../db/utils/teamPool');
+            const teamPools = await dbGetTeamPoolsForRound(db, roundId);
+            console.log(`[DataProvider] Retrieved ${teamPools.length} team pools from local database`);
+            return teamPools;
+        } catch (error) {
+            console.error('[DataProvider] Error reading local team pools:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Get team bouts for a pool
+     */
+    async getTeamBoutsForPool(roundId: number, poolId: number): Promise<any[]> {
+        console.log(
+            `[DataProvider] Getting team bouts for pool ${poolId} in round ${roundId}, remote: ${this.isRemoteConnection()}`
+        );
+
+        if (this.isRemoteConnection()) {
+            try {
+                // Request team bouts from server
+                tournamentClient.sendMessage({
+                    type: 'get_team_bouts_for_pool',
+                    roundId,
+                    poolId,
+                });
+
+                // Wait for the response
+                const response = await tournamentClient.waitForResponse('team_bouts_list', 5000);
+
+                if (response && Array.isArray(response.bouts)) {
+                    console.log(`[DataProvider] Received ${response.bouts.length} team bouts from server`);
+                    return response.bouts;
+                }
+
+                throw new Error('Failed to fetch team bouts from server');
+            } catch (error) {
+                console.error('[DataProvider] Error fetching remote team bouts:', error);
+                throw error;
+            }
+        }
+
+        // For local tournaments, fetch from database
+        try {
+            const { dbGetTeamBoutsForPool } = await import('../db/utils/teamPool');
+            const teamBouts = await dbGetTeamBoutsForPool(db, roundId, poolId, 'NCAA'); // Default to NCAA format
+            console.log(`[DataProvider] Retrieved ${teamBouts.length} team bouts from local database`);
+            return teamBouts;
+        } catch (error) {
+            console.error('[DataProvider] Error reading local team bouts:', error);
+            throw error;
+        }
+    }
+
+    /**
      * Get bracket data for a DE round
      */
     async getBracketData(roundId: number): Promise<any> {

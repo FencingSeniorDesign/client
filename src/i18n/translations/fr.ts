@@ -536,9 +536,10 @@ export default {
     scoreInput: {
         enterScores: 'Entrer les scores',
         selectWinnerForTie: 'Veuillez sélectionner un gagnant pour le combat à égalité',
-        boutsCannotEndInTie: 'Les combats ne peuvent pas se terminer par une égalité - veuillez sélectionner le gagnant',
+        boutsCannotEndInTie:
+            'Les combats ne peuvent pas se terminer par une égalité - veuillez sélectionner le gagnant',
         finalScore: 'Score final',
-        refereeModule: 'Module d\'arbitre',
+        refereeModule: "Module d'arbitre",
     },
     ble: {
         connectToScoringBox: 'Connecter à la boîte de pointage',

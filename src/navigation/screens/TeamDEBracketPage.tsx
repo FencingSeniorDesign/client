@@ -1,18 +1,14 @@
 // src/navigation/screens/TeamDEBracketPage.tsx
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
-import { useRoute, RouteProp, useNavigation, useFocusEffect } from '@react-navigation/native';
+import { useRoute, RouteProp, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList, Event, Team, Round } from '../navigation/types';
 import { useTranslation } from 'react-i18next';
 import { BLEStatusBar } from '../../networking/components/BLEStatusBar';
 import { useScoringBoxContext } from '../../networking/ble/ScoringBoxContext';
 import { ConnectionState } from '../../networking/ble/types';
-import { db } from '../../db/DrizzleClient';
-import * as schema from '../../db/schema';
-import { eq, and, isNotNull } from 'drizzle-orm';
-import { dbGetTeamBracketForRound, dbIsTeamDERoundComplete } from '../../db/utils/teamBracket';
-import * as teamUtils from '../../db/utils/team';
+import { useTeamBracket, useTeamDERoundComplete, useRound, useTeams } from '../../data/TournamentDataHooks';
 
 type TeamDEBracketPageParams = {
     event: Event;
@@ -55,117 +51,79 @@ const TeamDEBracketPage: React.FC = () => {
     const { t } = useTranslation();
     const { connectionState, disconnect } = useScoringBoxContext();
 
-    const [round, setRound] = useState<Round | null>(null);
-    const [bracketData, setBracketData] = useState<TeamDEBracketData | null>(null);
-    const [loading, setLoading] = useState<boolean>(true);
-    const [refreshKey, setRefreshKey] = useState<number>(0);
-    const [isRoundComplete, setIsRoundComplete] = useState<boolean>(false);
-    const [isFinalRound, setIsFinalRound] = useState<boolean>(false);
+    // Use React Query hooks
+    const { data: round } = useRound(roundId);
+    const { data: bracket, isLoading: bracketLoading, refetch: refetchBracket } = useTeamBracket(roundId);
+    const { data: isRoundComplete = false } = useTeamDERoundComplete(roundId);
+    const { data: teams = [] } = useTeams(event.id);
 
-    // Fetch round data
-    const fetchRoundData = useCallback(async () => {
-        try {
-            const roundData = await db
-                .select()
-                .from(schema.rounds)
-                .where(eq(schema.rounds.id, roundId))
-                .limit(1);
-            
-            if (roundData.length > 0) {
-                setRound(roundData[0] as Round);
+    // Create a team lookup map
+    const teamLookup = useMemo(() => {
+        const map = new Map<number, Team>();
+        teams.forEach(team => {
+            if (team.id) map.set(team.id, team);
+        });
+        return map;
+    }, [teams]);
+
+    // Process bracket data into display format
+    const bracketData = useMemo<TeamDEBracketData | null>(() => {
+        if (!bracket || !bracket.bouts) return null;
+
+        // Organize bouts by table size
+        const boutsByTable = new Map<number, any[]>();
+
+        for (const bout of bracket.bouts) {
+            const tableOf = bout.table_of || 0;
+            if (!boutsByTable.has(tableOf)) {
+                boutsByTable.set(tableOf, []);
             }
-        } catch (error) {
-            console.error('Error fetching round data:', error);
+            boutsByTable.get(tableOf)!.push(bout);
         }
-    }, [roundId]);
 
-    // Fetch bracket data
-    const fetchBracketData = useCallback(async () => {
-        try {
-            setLoading(true);
-            
-            // Get bracket structure
-            const bracket = await dbGetTeamBracketForRound(roundId);
-            if (!bracket) {
-                throw new Error('Failed to load bracket data');
-            }
+        // Build rounds
+        const rounds: TeamDEBracketRound[] = [];
+        const tableSizes = Array.from(boutsByTable.keys()).sort((a, b) => b - a);
 
-            // Organize bouts by table size
-            const boutsByTable = new Map<number, any[]>();
-            
-            for (const bout of bracket.bouts) {
-                const tableOf = bout.table_of || 0;
-                if (!boutsByTable.has(tableOf)) {
-                    boutsByTable.set(tableOf, []);
-                }
-                boutsByTable.get(tableOf)!.push(bout);
-            }
+        for (const tableSize of tableSizes) {
+            const matches = boutsByTable.get(tableSize) || [];
+            const processedMatches: TeamDEBout[] = [];
 
-            // Build rounds
-            const rounds: TeamDEBracketRound[] = [];
-            const tableSizes = Array.from(boutsByTable.keys()).sort((a, b) => b - a);
+            for (const match of matches) {
+                const teamA = match.team_a_id ? teamLookup.get(match.team_a_id) : undefined;
+                const teamB = match.team_b_id ? teamLookup.get(match.team_b_id) : undefined;
+                const isBye = !match.team_a_id || !match.team_b_id;
 
-            for (const tableSize of tableSizes) {
-                const matches = boutsByTable.get(tableSize) || [];
-                const processedMatches: TeamDEBout[] = [];
-
-                for (const match of matches) {
-                    // Get team details
-                    let teamA = null;
-                    let teamB = null;
-                    
-                    if (match.team_a_id) {
-                        teamA = await teamUtils.getTeam(db, match.team_a_id);
-                    }
-                    if (match.team_b_id) {
-                        teamB = await teamUtils.getTeam(db, match.team_b_id);
-                    }
-
-                    const isBye = !teamA || !teamB;
-
-                    processedMatches.push({
-                        id: match.id,
-                        tableOf: tableSize,
-                        boutIndex: processedMatches.length,
-                        teamA: teamA || undefined,
-                        teamB: teamB || undefined,
-                        winnerId: match.winner_id,
-                        isBye,
-                    });
-                }
-
-                rounds.push({
-                    roundIndex: rounds.length,
+                processedMatches.push({
+                    id: match.id,
                     tableOf: tableSize,
-                    matches: processedMatches,
+                    boutIndex: processedMatches.length,
+                    teamA,
+                    teamB,
+                    scoreA: match.team_a_score,
+                    scoreB: match.team_b_score,
+                    winnerId: match.winner_id,
+                    isBye,
+                    seedA: teamA?.seed,
+                    seedB: teamB?.seed,
                 });
             }
 
-            setBracketData({ rounds });
-
-            // Check if round is complete
-            const isComplete = await dbIsTeamDERoundComplete(roundId);
-            setIsRoundComplete(isComplete);
-
-            // Check if this is the final round (table of 2)
-            const hasFinal = rounds.some(r => r.tableOf === 2);
-            setIsFinalRound(hasFinal && rounds.length === 1);
-
-        } catch (error) {
-            console.error('Error fetching bracket data:', error);
-            Alert.alert(t('common.error'), t('teamDEBracketPage.errorLoadingBracket'));
-        } finally {
-            setLoading(false);
+            rounds.push({
+                roundIndex: rounds.length,
+                tableOf: tableSize,
+                matches: processedMatches,
+            });
         }
-    }, [roundId, t]);
 
-    useEffect(() => {
-        fetchRoundData();
-    }, [fetchRoundData]);
+        return { rounds };
+    }, [bracket, teamLookup]);
 
-    useEffect(() => {
-        fetchBracketData();
-    }, [fetchBracketData, refreshKey]);
+    const isFinalRound = useMemo(() => {
+        if (!bracketData) return false;
+        const hasFinal = bracketData.rounds.some(r => r.tableOf === 2);
+        return hasFinal && bracketData.rounds.length === 1;
+    }, [bracketData]);
 
     // Handle match press
     const handleMatchPress = (match: TeamDEBout) => {
@@ -192,107 +150,35 @@ const TeamDEBracketPage: React.FC = () => {
     // Handle navigation to round results
     const handleViewResults = () => {
         if (connectionState === ConnectionState.CONNECTED) {
-            Alert.alert(
-                t('common.disconnectBoxPromptTitle'),
-                t('common.disconnectBoxPromptMessage'),
-                [
-                    { text: t('common.cancel'), style: 'cancel' },
-                    {
-                        text: t('common.exitWithoutDisconnecting'),
-                        onPress: () => navigateToResults(),
+            Alert.alert(t('common.disconnectBoxPromptTitle'), t('common.disconnectBoxPromptMessage'), [
+                { text: t('common.cancel'), style: 'cancel' },
+                {
+                    text: t('common.disconnectAndExit'),
+                    onPress: () => {
+                        disconnect();
+                        navigateToResults();
                     },
-                    {
-                        text: t('common.disconnectAndExit'),
-                        onPress: async () => {
-                            try {
-                                await disconnect();
-                                navigateToResults();
-                            } catch (error) {
-                                console.error('Failed to disconnect:', error);
-                                navigateToResults();
-                            }
-                        },
-                        style: 'destructive',
-                    },
-                ]
-            );
+                },
+                {
+                    text: t('common.exitWithoutDisconnecting'),
+                    onPress: navigateToResults,
+                },
+            ]);
         } else {
             navigateToResults();
         }
     };
 
     const navigateToResults = () => {
-        navigation.navigate('RoundResults', {
-            roundId,
-            eventId: event.id,
-            currentRoundIndex,
-            isRemote,
-        });
-    };
-
-    // Render team name or placeholder
-    const renderTeamName = (team?: Team, seed?: number, placeholder: string = 'TBD') => {
-        if (team) {
-            return `${seed ? `(${seed}) ` : ''}${team.name}`;
+        if (isFinalRound) {
+            navigation.navigate('TournamentResultsPage', { event });
+        } else {
+            navigation.navigate('RoundResults', { event, roundIndex: currentRoundIndex, isRemote });
         }
-        return placeholder;
     };
 
-    // Render a single match
-    const renderMatch = (match: TeamDEBout) => {
-        const isComplete = match.winnerId !== null && match.winnerId !== undefined;
-        const teamAWon = match.winnerId === match.teamA?.id;
-        const teamBWon = match.winnerId === match.teamB?.id;
-
-        return (
-            <TouchableOpacity
-                key={match.id}
-                style={styles.matchContainer}
-                onPress={() => handleMatchPress(match)}
-                disabled={match.isBye || isComplete}
-            >
-                <View style={[styles.teamContainer, teamAWon && styles.winnerContainer]}>
-                    <Text style={[styles.teamText, teamAWon && styles.winnerText]}>
-                        {renderTeamName(match.teamA, match.seedA)}
-                    </Text>
-                </View>
-                <View style={styles.scoreContainer}>
-                    {isComplete && (
-                        <Text style={styles.scoreText}>
-                            {match.isBye ? 'BYE' : 'Complete'}
-                        </Text>
-                    )}
-                </View>
-                <View style={[styles.teamContainer, teamBWon && styles.winnerContainer]}>
-                    <Text style={[styles.teamText, teamBWon && styles.winnerText]}>
-                        {renderTeamName(match.teamB, match.seedB, match.isBye ? 'BYE' : 'TBD')}
-                    </Text>
-                </View>
-            </TouchableOpacity>
-        );
-    };
-
-    // Render a round
-    const renderRound = (round: TeamDEBracketRound) => {
-        const roundTitle = round.tableOf === 2 
-            ? t('teamDEBracketPage.finals')
-            : round.tableOf === 4
-            ? t('teamDEBracketPage.semifinals')
-            : round.tableOf === 8
-            ? t('teamDEBracketPage.quarterfinals')
-            : t('teamDEBracketPage.roundOf', { count: round.tableOf });
-
-        return (
-            <View key={round.roundIndex} style={styles.roundContainer}>
-                <Text style={styles.roundTitle}>{roundTitle}</Text>
-                <View style={styles.matchesContainer}>
-                    {round.matches.map(match => renderMatch(match))}
-                </View>
-            </View>
-        );
-    };
-
-    if (loading) {
+    // Loading state
+    if (bracketLoading) {
         return (
             <View style={styles.loadingContainer}>
                 <ActivityIndicator size="large" color="#001f3f" />
@@ -301,117 +187,284 @@ const TeamDEBracketPage: React.FC = () => {
         );
     }
 
-    return (
-        <View style={styles.container}>
-            <BLEStatusBar compact={true} />
-            
-            <ScrollView 
-                horizontal={true} 
-                contentContainerStyle={styles.scrollContent}
-                showsHorizontalScrollIndicator={true}
+    if (!bracketData || bracketData.rounds.length === 0) {
+        return (
+            <View style={styles.container}>
+                <Text style={styles.errorText}>{t('teamDEBracketPage.noBoutsFound')}</Text>
+            </View>
+        );
+    }
+
+    // Render a match
+    const renderMatch = (match: TeamDEBout) => {
+        let teamAName = 'TBD';
+        if (match.teamA) {
+            teamAName = `${match.teamA.name}`;
+        }
+
+        let teamBName = 'TBD';
+        if (match.teamB) {
+            teamBName = `${match.teamB.name}`;
+        }
+
+        // Determine styles based on match status
+        const matchCompleted = match.winnerId !== undefined && match.winnerId !== null;
+        const isTBD = !match.teamA && !match.teamB;
+        // A match is a true BYE if it's marked as such or has exactly one team
+        const isActualBye = match.isBye || (!match.teamA && match.teamB) || (match.teamA && !match.teamB);
+
+        // Determine winner (if completed)
+        const teamAWon = match.winnerId === match.teamA?.id;
+        const teamBWon = match.winnerId === match.teamB?.id;
+
+        return (
+            <TouchableOpacity
+                style={[
+                    styles.matchContainer,
+                    isActualBye && styles.byeMatch,
+                    isTBD && styles.tbdMatch,
+                    matchCompleted && styles.completedMatch,
+                ]}
+                onPress={() => handleMatchPress(match)}
+                disabled={isActualBye || isTBD}
             >
-                {bracketData && bracketData.rounds.map(round => renderRound(round))}
-            </ScrollView>
+                <View style={styles.teamRow}>
+                    <View style={styles.teamInfo}>
+                        <Text
+                            style={[
+                                styles.seedText,
+                                match.seedA !== undefined && match.teamA !== undefined && styles.seedVisible,
+                            ]}
+                        >
+                            {match.seedA !== undefined && match.teamA !== undefined ? `(${match.seedA})` : ''}
+                        </Text>
+                        <Text
+                            style={[
+                                styles.teamName,
+                                teamAWon && styles.winnerText,
+                                !match.teamA && (isTBD ? styles.tbdText : styles.byeText),
+                            ]}
+                        >
+                            {match.teamA ? teamAName : isTBD ? t('teamDEBracketPage.tbd') : t('teamDEBracketPage.bye')}
+                        </Text>
+                    </View>
+                    <Text style={styles.teamScore}>{match.scoreA !== undefined ? match.scoreA : '-'}</Text>
+                </View>
+                <View style={styles.teamRow}>
+                    <View style={styles.teamInfo}>
+                        <Text
+                            style={[
+                                styles.seedText,
+                                match.seedB !== undefined && match.teamB !== undefined && styles.seedVisible,
+                            ]}
+                        >
+                            {match.seedB !== undefined && match.teamB !== undefined ? `(${match.seedB})` : ''}
+                        </Text>
+                        <Text
+                            style={[
+                                styles.teamName,
+                                teamBWon && styles.winnerText,
+                                !match.teamB && (isTBD ? styles.tbdText : styles.byeText),
+                            ]}
+                        >
+                            {match.teamB ? teamBName : isTBD ? t('teamDEBracketPage.tbd') : t('teamDEBracketPage.bye')}
+                        </Text>
+                    </View>
+                    <Text style={styles.teamScore}>{match.scoreB !== undefined ? match.scoreB : '-'}</Text>
+                </View>
+            </TouchableOpacity>
+        );
+    };
+
+    // Render a round
+    const renderRound = (round: TeamDEBracketRound) => {
+        const roundTitle = getRoundName(round.tableOf, t);
+
+        return (
+            <View key={round.roundIndex} style={styles.roundContainer}>
+                <Text style={styles.roundTitle}>{roundTitle}</Text>
+                <View style={styles.matchesContainer}>
+                    {round.matches.map((match, matchIndex) => (
+                        <View key={matchIndex} style={styles.matchWrapper}>
+                            {renderMatch(match)}
+                        </View>
+                    ))}
+                </View>
+            </View>
+        );
+    };
+
+    // Helper function to get round name based on tableOf value
+    function getRoundName(tableOf: number, t: (key: string, options?: any) => string): string {
+        switch (tableOf) {
+            case 2:
+                return t('teamDEBracketPage.finals');
+            case 4:
+                return t('teamDEBracketPage.semifinals');
+            case 8:
+                return t('teamDEBracketPage.quarterfinals');
+            case 16:
+                return t('teamDEBracketPage.roundOf16');
+            case 32:
+                return t('teamDEBracketPage.roundOf32');
+            case 64:
+                return t('teamDEBracketPage.roundOf64');
+            case 128:
+                return t('teamDEBracketPage.roundOf128');
+            default:
+                return t('teamDEBracketPage.roundOfX', { x: tableOf });
+        }
+    }
+
+    return (
+        <ScrollView style={styles.container}>
+            <BLEStatusBar compact={true} />
+            <Text style={styles.title}>
+                {event.weapon} {event.gender} {event.age} Team DE
+            </Text>
+
+            {bracketData && bracketData.rounds.map(round => renderRound(round))}
 
             {isRoundComplete && (
                 <TouchableOpacity style={styles.viewResultsButton} onPress={handleViewResults}>
                     <Text style={styles.viewResultsButtonText}>
-                        {isFinalRound 
+                        {isFinalRound
                             ? t('teamDEBracketPage.viewFinalResults')
                             : t('teamDEBracketPage.viewRoundResults')}
                     </Text>
                 </TouchableOpacity>
             )}
-        </View>
+        </ScrollView>
     );
 };
 
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#f7f7f7',
-    },
-    scrollContent: {
-        flexDirection: 'row',
-        padding: 20,
-        minWidth: '100%',
+        padding: 10,
+        backgroundColor: '#fff',
     },
     loadingContainer: {
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
+        padding: 20,
     },
     loadingText: {
         marginTop: 10,
         fontSize: 16,
         color: '#666',
     },
-    roundContainer: {
-        marginHorizontal: 10,
-        minWidth: 250,
-    },
-    roundTitle: {
-        fontSize: 18,
+    title: {
+        fontSize: 22,
         fontWeight: 'bold',
         textAlign: 'center',
-        marginBottom: 15,
+        marginVertical: 15,
         color: '#001f3f',
     },
+    roundContainer: {
+        marginBottom: 25,
+    },
+    roundTitle: {
+        fontSize: 20,
+        fontWeight: '600',
+        marginBottom: 12,
+        color: '#333',
+        textAlign: 'center',
+    },
     matchesContainer: {
-        alignItems: 'center',
+        gap: 12,
+    },
+    matchWrapper: {
+        marginHorizontal: 5,
     },
     matchContainer: {
-        backgroundColor: '#fff',
-        borderRadius: 8,
-        padding: 10,
-        marginVertical: 8,
-        width: 230,
-        elevation: 2,
+        backgroundColor: '#f5f5f5',
+        borderRadius: 12,
+        padding: 12,
+        borderWidth: 1,
+        borderColor: '#e0e0e0',
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.1,
-        shadowRadius: 4,
+        shadowRadius: 3,
+        elevation: 3,
     },
-    teamContainer: {
+    byeMatch: {
+        opacity: 0.7,
+        backgroundColor: '#f9f9f9',
+    },
+    tbdMatch: {
+        opacity: 0.6,
+        borderStyle: 'dashed',
+    },
+    completedMatch: {
+        backgroundColor: '#e8f5e9',
+        borderColor: '#4caf50',
+    },
+    teamRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
         paddingVertical: 8,
-        paddingHorizontal: 12,
-        borderRadius: 4,
-        marginVertical: 2,
-        backgroundColor: '#f0f0f0',
+        paddingHorizontal: 4,
     },
-    winnerContainer: {
-        backgroundColor: '#d4edda',
-        borderColor: '#c3e6cb',
-        borderWidth: 1,
+    teamInfo: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        flex: 1,
     },
-    teamText: {
+    seedText: {
+        fontSize: 12,
+        color: '#666',
+        marginRight: 6,
+        opacity: 0,
+    },
+    seedVisible: {
+        opacity: 1,
+    },
+    teamName: {
         fontSize: 16,
         color: '#333',
+        flex: 1,
+    },
+    teamScore: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: '#001f3f',
+        minWidth: 30,
+        textAlign: 'center',
     },
     winnerText: {
         fontWeight: 'bold',
-        color: '#155724',
+        color: '#2e7d32',
     },
-    scoreContainer: {
-        alignItems: 'center',
-        paddingVertical: 4,
-    },
-    scoreText: {
-        fontSize: 14,
-        color: '#666',
+    byeText: {
         fontStyle: 'italic',
+        color: '#666',
+    },
+    tbdText: {
+        fontStyle: 'italic',
+        color: '#999',
     },
     viewResultsButton: {
-        backgroundColor: '#28a745',
-        padding: 15,
-        alignItems: 'center',
-        borderTopWidth: 1,
-        borderTopColor: '#e0e0e0',
+        backgroundColor: '#001f3f',
+        paddingVertical: 15,
+        paddingHorizontal: 30,
+        borderRadius: 8,
+        marginVertical: 20,
+        alignSelf: 'center',
     },
     viewResultsButtonText: {
         color: '#fff',
         fontSize: 18,
-        fontWeight: 'bold',
+        fontWeight: '600',
+    },
+    errorText: {
+        fontSize: 16,
+        color: '#666',
+        textAlign: 'center',
+        marginTop: 50,
     },
 });
 
