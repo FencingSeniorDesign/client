@@ -8,7 +8,6 @@ import { useNavigation, useRoute, RouteProp, usePreventRemove } from '@react-nav
 import { RootStackParamList } from '../../navigation/types';
 import tournamentClient from '../../../networking/TournamentClient';
 import tournamentServer from '../../../networking/TournamentServer';
-import ConnectionStatusBar from '../../../networking/components/ConnectionStatusBar';
 import { useTranslation } from 'react-i18next';
 import { ConnectionModal } from './components/ConnectionModal';
 import { DataSourceDialog } from './components/DataSourceDialog';
@@ -510,9 +509,6 @@ export function RefereeModule() {
 
     return (
         <View style={[styles.container, kawaiiMode && kawaiiModeStyles.container]}>
-            {/* Connection status bar at the top */}
-            <ConnectionStatusBar compact={true} />
-
             {/* BLE Connection Button */}
             <TouchableOpacity style={styles.bleButton} onPress={() => setShowBLEModal(true)}>
                 <FontAwesome5
