@@ -243,6 +243,91 @@ const TeamRoundRobinPage: React.FC = () => {
         loadData();
     };
 
+    const assignRandomScores = async () => {
+        try {
+            const client = db;
+            
+            // Process each team bout
+            for (const bout of teamBouts) {
+                if (event.team_format === 'NCAA') {
+                    // For NCAA format: assign scores to all 9 individual bouts
+                    for (let boutNumber = 1; boutNumber <= 9; boutNumber++) {
+                        // Generate random scores between 0 and 5
+                        const scoreA = Math.floor(Math.random() * 6);
+                        const scoreB = Math.floor(Math.random() * 6);
+                        
+                        // If scores are tied, make one score 5 and the other random 0-4
+                        let finalScoreA = scoreA;
+                        let finalScoreB = scoreB;
+                        let winnerId = undefined;
+                        
+                        if (scoreA === scoreB) {
+                            // Get the fencers for this bout
+                            const ncaaStatus = await teamBoutUtils.getNCAABoutStatus(client, bout.id);
+                            const individualBout = ncaaStatus?.boutScores.find(b => b.boutNumber === boutNumber);
+                            
+                            if (Math.random() > 0.5) {
+                                finalScoreA = 5;
+                                finalScoreB = Math.floor(Math.random() * 5);
+                                winnerId = individualBout?.fencerAId;
+                            } else {
+                                finalScoreA = Math.floor(Math.random() * 5);
+                                finalScoreB = 5;
+                                winnerId = individualBout?.fencerBId;
+                            }
+                        }
+                        
+                        await teamBoutUtils.updateNCAABoutScore(
+                            client,
+                            bout.id,
+                            boutNumber,
+                            finalScoreA,
+                            finalScoreB,
+                            winnerId
+                        );
+                    }
+                } else {
+                    // For Relay format: assign scores to all 9 legs
+                    for (let legNumber = 1; legNumber <= 9; legNumber++) {
+                        // Generate random scores that would sum to 45 total
+                        // Each leg typically goes to 5 points, but we'll vary it
+                        const maxScore = legNumber === 9 ? 45 : (legNumber * 5);
+                        const currentTotalA = Math.floor(Math.random() * maxScore);
+                        const currentTotalB = Math.floor(Math.random() * maxScore);
+                        
+                        // Make sure the final leg reaches 45 for one team
+                        let finalScoreA = currentTotalA;
+                        let finalScoreB = currentTotalB;
+                        
+                        if (legNumber === 9) {
+                            if (Math.random() > 0.5) {
+                                finalScoreA = 45;
+                                finalScoreB = Math.floor(Math.random() * 40) + 5; // 5-44
+                            } else {
+                                finalScoreA = Math.floor(Math.random() * 40) + 5; // 5-44
+                                finalScoreB = 45;
+                            }
+                        }
+                        
+                        await relayBoutUtils.updateRelayLegScore(
+                            client,
+                            bout.id,
+                            legNumber,
+                            finalScoreA,
+                            finalScoreB
+                        );
+                    }
+                }
+            }
+            
+            await loadData();
+            Alert.alert('Success', 'Random scores assigned to all bouts');
+        } catch (error) {
+            console.error('Error assigning random scores:', error);
+            Alert.alert(t('common.error'), 'Failed to assign random scores');
+        }
+    };
+
     // Auto-assign strips to bouts
     const handleAutoAssignStrips = () => {
         const numStrips = parseInt(numberOfStrips, 10);
@@ -493,25 +578,35 @@ const TeamRoundRobinPage: React.FC = () => {
                 )}
 
                 {teamBouts.length > 0 && (
-                    <Can I="update" a="Round">
-                        <TouchableOpacity 
-                            style={[
-                                styles.endRoundButton,
-                                teamBouts.some(bout => !getBoutStatus(bout).isComplete) && styles.endRoundButtonDisabled
-                            ]} 
-                            onPress={handleEndRound}
-                            disabled={teamBouts.some(bout => !getBoutStatus(bout).isComplete)}
+                    <>
+                        {/* Assign Random Scores Button */}
+                        <TouchableOpacity
+                            style={styles.randomScoresButton}
+                            onPress={assignRandomScores}
                         >
-                            <Text style={[
-                                styles.endRoundButtonText,
-                                teamBouts.some(bout => !getBoutStatus(bout).isComplete) && styles.endRoundButtonTextDisabled
-                            ]}>
-                                {teamBouts.some(bout => !getBoutStatus(bout).isComplete) 
-                                    ? t('teamRoundRobinPage.completeBoutsFirst') 
-                                    : t('teamRoundRobinPage.endRound')}
-                            </Text>
+                            <Text style={styles.randomScoresButtonText}>Assign Random Scores to All Bouts</Text>
                         </TouchableOpacity>
-                    </Can>
+                        
+                        <Can I="update" a="Round">
+                            <TouchableOpacity 
+                                style={[
+                                    styles.endRoundButton,
+                                    teamBouts.some(bout => !getBoutStatus(bout).isComplete) && styles.endRoundButtonDisabled
+                                ]} 
+                                onPress={handleEndRound}
+                                disabled={teamBouts.some(bout => !getBoutStatus(bout).isComplete)}
+                            >
+                                <Text style={[
+                                    styles.endRoundButtonText,
+                                    teamBouts.some(bout => !getBoutStatus(bout).isComplete) && styles.endRoundButtonTextDisabled
+                                ]}>
+                                    {teamBouts.some(bout => !getBoutStatus(bout).isComplete) 
+                                        ? t('teamRoundRobinPage.completeBoutsFirst') 
+                                        : t('teamRoundRobinPage.endRound')}
+                                </Text>
+                            </TouchableOpacity>
+                        </Can>
+                    </>
                 )}
             </ScrollView>
 
@@ -853,6 +948,25 @@ const styles = StyleSheet.create({
         color: '#fff',
         fontSize: 16,
         fontWeight: '600',
+    },
+    randomScoresButton: {
+        backgroundColor: '#007bff',
+        paddingHorizontal: 20,
+        paddingVertical: 12,
+        marginTop: 20,
+        marginBottom: 10,
+        borderRadius: 8,
+        alignItems: 'center',
+        elevation: 3,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 4,
+    },
+    randomScoresButtonText: {
+        color: '#fff',
+        fontSize: 16,
+        fontWeight: 'bold',
     },
 });
 

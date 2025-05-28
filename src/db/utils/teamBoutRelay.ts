@@ -154,63 +154,82 @@ export async function updateRelayBoutScore(
             throw new Error('Relay state not found');
         }
         
-        // Check for rotations
+        // Check for rotations - handle multiple missed rotations
         const rotations: RelayRotation[] = [];
         
-        // Check team A rotation
-        const teamANextRotation = Math.floor(teamAScore / RELAY_ROTATION_INTERVAL);
-        if (teamANextRotation > relayState.rotation_count_a) {
+        // Calculate expected rotations based on scores
+        const expectedRotationsA = Math.floor(teamAScore / RELAY_ROTATION_INTERVAL);
+        const expectedRotationsB = Math.floor(teamBScore / RELAY_ROTATION_INTERVAL);
+        
+        // Handle Team A rotations
+        if (expectedRotationsA !== relayState.rotation_count_a) {
             const teamAStarters = await getTeamStarters(tx, teamBout.team_a_id!);
             teamAStarters.sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
             
-            const currentIndex = teamAStarters.findIndex(f => f.fencerid === relayState.current_fencer_a_id);
-            const nextIndex = (currentIndex + 1) % teamAStarters.length;
+            // Calculate how many rotations we need to perform
+            const rotationDiff = expectedRotationsA - relayState.rotation_count_a;
+            
+            // Find current fencer index
+            let currentIndex = teamAStarters.findIndex(f => f.fencerid === relayState.current_fencer_a_id);
+            if (currentIndex === -1) currentIndex = 0; // Fallback to first fencer
+            
+            // Calculate the new fencer index after all rotations
+            const newIndex = (currentIndex + rotationDiff) % teamAStarters.length;
+            // Handle negative rotations (score corrections)
+            const finalIndex = newIndex < 0 ? teamAStarters.length + newIndex : newIndex;
             
             rotations.push({
                 teamId: teamBout.team_a_id!,
                 fromFencerId: relayState.current_fencer_a_id!,
-                toFencerId: teamAStarters[nextIndex].fencerid,
+                toFencerId: teamAStarters[finalIndex].fencerid,
                 atScore: teamAScore
             });
             
             await tx.update(relayBoutState)
                 .set({
-                    current_fencer_a_id: teamAStarters[nextIndex].fencerid,
-                    rotation_count_a: teamANextRotation,
-                    last_rotation_score_a: teamAScore
+                    current_fencer_a_id: teamAStarters[finalIndex].fencerid,
+                    rotation_count_a: expectedRotationsA,
+                    last_rotation_score_a: expectedRotationsA * RELAY_ROTATION_INTERVAL
                 })
                 .where(eq(relayBoutState.team_bout_id, teamBoutId));
         }
         
-        // Check team B rotation
-        const teamBNextRotation = Math.floor(teamBScore / RELAY_ROTATION_INTERVAL);
-        if (teamBNextRotation > relayState.rotation_count_b) {
+        // Handle Team B rotations
+        if (expectedRotationsB !== relayState.rotation_count_b) {
             const teamBStarters = await getTeamStarters(tx, teamBout.team_b_id!);
             teamBStarters.sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
             
-            const currentIndex = teamBStarters.findIndex(f => f.fencerid === relayState.current_fencer_b_id);
-            const nextIndex = (currentIndex + 1) % teamBStarters.length;
+            // Calculate how many rotations we need to perform
+            const rotationDiff = expectedRotationsB - relayState.rotation_count_b;
+            
+            // Find current fencer index
+            let currentIndex = teamBStarters.findIndex(f => f.fencerid === relayState.current_fencer_b_id);
+            if (currentIndex === -1) currentIndex = 0; // Fallback to first fencer
+            
+            // Calculate the new fencer index after all rotations
+            const newIndex = (currentIndex + rotationDiff) % teamBStarters.length;
+            // Handle negative rotations (score corrections)
+            const finalIndex = newIndex < 0 ? teamBStarters.length + newIndex : newIndex;
             
             rotations.push({
                 teamId: teamBout.team_b_id!,
                 fromFencerId: relayState.current_fencer_b_id!,
-                toFencerId: teamBStarters[nextIndex].fencerid,
+                toFencerId: teamBStarters[finalIndex].fencerid,
                 atScore: teamBScore
             });
             
             await tx.update(relayBoutState)
                 .set({
-                    current_fencer_b_id: teamBStarters[nextIndex].fencerid,
-                    rotation_count_b: teamBNextRotation,
-                    last_rotation_score_b: teamBScore
+                    current_fencer_b_id: teamBStarters[finalIndex].fencerid,
+                    rotation_count_b: expectedRotationsB,
+                    last_rotation_score_b: expectedRotationsB * RELAY_ROTATION_INTERVAL
                 })
                 .where(eq(relayBoutState.team_bout_id, teamBoutId));
         }
         
         // Check if bout is complete
-        // A relay bout is complete if either team reaches 45 touches OR if scores are different (indicating time/decision)
-        const isComplete = (teamAScore >= RELAY_TOTAL_TOUCHES || teamBScore >= RELAY_TOTAL_TOUCHES) ||
-                          (teamAScore !== teamBScore && (teamAScore > 0 || teamBScore > 0));
+        // A relay bout is complete only when either team reaches 45 touches
+        const isComplete = teamAScore >= RELAY_TOTAL_TOUCHES || teamBScore >= RELAY_TOTAL_TOUCHES;
         const winnerId = isComplete 
             ? (teamAScore > teamBScore ? teamBout.team_a_id : 
                teamBScore > teamAScore ? teamBout.team_b_id : null)

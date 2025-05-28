@@ -108,6 +108,55 @@ const NCAATeamBoutPage: React.FC = () => {
         }
     };
 
+    const assignRandomScores = async () => {
+        try {
+            const client = db;
+            
+            // Assign random scores to all 9 bouts
+            for (let boutNumber = 1; boutNumber <= 9; boutNumber++) {
+                // Generate random scores between 0 and 5
+                const scoreA = Math.floor(Math.random() * 6);
+                const scoreB = Math.floor(Math.random() * 6);
+                
+                // If scores are tied, make one score 5 and the other random 0-4
+                let finalScoreA = scoreA;
+                let finalScoreB = scoreB;
+                let winnerId = undefined;
+                
+                if (scoreA === scoreB) {
+                    if (Math.random() > 0.5) {
+                        finalScoreA = 5;
+                        finalScoreB = Math.floor(Math.random() * 5);
+                        // Get the fencer ID for the winner
+                        const bout = boutStatus?.boutScores.find(b => b.boutNumber === boutNumber);
+                        winnerId = bout?.fencerAId;
+                    } else {
+                        finalScoreA = Math.floor(Math.random() * 5);
+                        finalScoreB = 5;
+                        // Get the fencer ID for the winner
+                        const bout = boutStatus?.boutScores.find(b => b.boutNumber === boutNumber);
+                        winnerId = bout?.fencerBId;
+                    }
+                }
+                
+                await teamBoutUtils.updateNCAABoutScore(
+                    client,
+                    teamBoutId,
+                    boutNumber,
+                    finalScoreA,
+                    finalScoreB,
+                    winnerId
+                );
+            }
+            
+            await loadBoutStatus();
+            Alert.alert('Success', 'Random scores assigned to all bouts');
+        } catch (error) {
+            console.error('Error assigning random scores:', error);
+            Alert.alert(t('common.error'), 'Failed to assign random scores');
+        }
+    };
+
     const getBoutPositionDescription = (boutNumber: number): string => {
         return teamBoutUtils.getNCAABoutOrderDescription(boutNumber);
     };
@@ -268,6 +317,14 @@ const NCAATeamBoutPage: React.FC = () => {
                     });
                 }}
             />
+            
+            {/* Assign Random Scores Button */}
+            <TouchableOpacity
+                style={styles.randomScoresButton}
+                onPress={assignRandomScores}
+            >
+                <Text style={styles.randomScoresButtonText}>Assign Random Scores to All Bouts</Text>
+            </TouchableOpacity>
         </View>
     );
 };
@@ -451,6 +508,25 @@ const styles = StyleSheet.create({
         borderColor: '#ffc107',
         borderStyle: 'dashed',
         opacity: 0.9,
+    },
+    randomScoresButton: {
+        backgroundColor: '#007bff',
+        paddingHorizontal: 20,
+        paddingVertical: 12,
+        margin: 20,
+        marginTop: 10,
+        borderRadius: 8,
+        alignItems: 'center',
+        elevation: 3,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 4,
+    },
+    randomScoresButtonText: {
+        color: '#fff',
+        fontSize: 16,
+        fontWeight: 'bold',
     },
 });
 

@@ -462,6 +462,13 @@ export default {
         forceRotation: 'Force Rotation',
         forceRotationConfirm: 'Are you sure you want to force a rotation?',
         errorRotation: 'Failed to perform rotation',
+        relayLineup: 'Relay Lineup',
+        leg: 'Leg',
+        current: 'CURRENT',
+        manualRotation: 'Manual Rotation',
+        rotateTeamA: 'Rotate {{team}}',
+        rotateTeamB: 'Rotate {{team}}',
+        rotationPending: 'ROTATION NOW!',
     },
     teamDEBracketPage: {
         title: 'Team Bracket',
