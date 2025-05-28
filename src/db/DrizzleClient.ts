@@ -441,6 +441,30 @@ export async function initializeDatabase() {
     `);
 
         await db.run(sql`
+      CREATE TABLE IF NOT EXISTS RelayLegHistory (
+        id integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+        team_bout_id integer NOT NULL,
+        leg_number integer NOT NULL,
+        fencer_a_id integer NOT NULL,
+        fencer_b_id integer NOT NULL,
+        score_a integer NOT NULL,
+        score_b integer NOT NULL,
+        created_at text DEFAULT CURRENT_TIMESTAMP,
+        updated_at text DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (team_bout_id) REFERENCES TeamBouts(id) ON UPDATE no action ON DELETE no action,
+        FOREIGN KEY (fencer_a_id) REFERENCES Fencers(id) ON UPDATE no action ON DELETE no action,
+        FOREIGN KEY (fencer_b_id) REFERENCES Fencers(id) ON UPDATE no action ON DELETE no action
+      );
+    `);
+
+        // Create unique constraint for RelayLegHistory
+        try {
+            await db.run(sql`CREATE UNIQUE INDEX IF NOT EXISTS RelayLegHistory_team_bout_id_leg_number_unique ON RelayLegHistory (team_bout_id, leg_number);`);
+        } catch (e) {
+            // Index might already exist, ignore error
+        }
+
+        await db.run(sql`
       CREATE TABLE IF NOT EXISTS TeamPoolAssignment (
         roundid integer NOT NULL,
         poolid integer NOT NULL,

@@ -36,6 +36,13 @@
       "when": 1748380330478,
       "tag": "0004_elite_paper_doll",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1748402596527,
+      "tag": "0005_careful_amazoness",
+      "breakpoints": true
     }
   ]
 }

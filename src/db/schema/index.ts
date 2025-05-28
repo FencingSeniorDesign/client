@@ -192,6 +192,30 @@ export const relayBoutState = sqliteTable('RelayBoutState', {
     last_rotation_score_b: integer('last_rotation_score_b').default(0),
 });
 
+// RelayLegHistory table - tracks individual leg scores and fencer assignments
+export const relayLegHistory = sqliteTable('RelayLegHistory', {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    team_bout_id: integer('team_bout_id')
+        .notNull()
+        .references(() => teamBouts.id),
+    leg_number: integer('leg_number').notNull(), // 1, 2, 3, etc.
+    fencer_a_id: integer('fencer_a_id')
+        .notNull()
+        .references(() => fencers.id),
+    fencer_b_id: integer('fencer_b_id')
+        .notNull()
+        .references(() => fencers.id),
+    score_a: integer('score_a').notNull(), // Individual fencer A score for this leg
+    score_b: integer('score_b').notNull(), // Individual fencer B score for this leg
+    created_at: text('created_at').default(sql`CURRENT_TIMESTAMP`),
+    updated_at: text('updated_at').default(sql`CURRENT_TIMESTAMP`),
+}, table => {
+    return {
+        // Ensure only one record per leg per bout
+        uniqueLegPerBout: unique().on(table.team_bout_id, table.leg_number),
+    };
+});
+
 // TeamPoolAssignment table
 export const teamPoolAssignment = sqliteTable(
     'TeamPoolAssignment',
@@ -634,6 +658,11 @@ export const relations = {
             from: teamBouts.id,
             to: relayBoutState.team_bout_id,
         },
+        relayLegHistory: {
+            relationship: 'has-many',
+            from: teamBouts.id,
+            to: relayLegHistory.team_bout_id,
+        },
     },
     teamBoutScores: {
         teamBout: {
@@ -671,6 +700,23 @@ export const relations = {
         currentFencerB: {
             relationship: 'belongs-to',
             from: relayBoutState.current_fencer_b_id,
+            to: fencers.id,
+        },
+    },
+    relayLegHistory: {
+        teamBout: {
+            relationship: 'belongs-to',
+            from: relayLegHistory.team_bout_id,
+            to: teamBouts.id,
+        },
+        fencerA: {
+            relationship: 'belongs-to',
+            from: relayLegHistory.fencer_a_id,
+            to: fencers.id,
+        },
+        fencerB: {
+            relationship: 'belongs-to',
+            from: relayLegHistory.fencer_b_id,
             to: fencers.id,
         },
     },
